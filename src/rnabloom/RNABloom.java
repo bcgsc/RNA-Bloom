@@ -6,6 +6,7 @@
 package rnabloom;
 
 import rnabloom.bloom.CountingBloomFilter;
+import static rnabloom.util.SequenceOperations.*;
 import static java.lang.Math.pow;
 
 /**
@@ -24,21 +25,8 @@ public class RNABloom {
     public static void main(String[] args) {
         // TODO code application logic here
         
-        int size = (int) (NUM_BYTES_1GB * 1);
-        int num_hash = 4;
-        int seed = 689;
-        int key_length = 16;
-        
-        CountingBloomFilter b = new CountingBloomFilter(size, num_hash, seed, key_length);
-        
-        String key = "1234567890123456";
-        
-        for (int i=0; i<998; ++i) {
-            b.increment(key);
-        }
-        
-        System.out.println(b.lookup(key));
-        //System.out.println(b.lookup("0000000000123456"));        
+        String kmer = "AAAAATTTTTCCCCCGGGGG";
+        System.out.println(smallestStrand(kmer));
     }
     
 }
