@@ -14,7 +14,7 @@ import static util.hash.MurmurHash3.LongPair;
  *
  * @author kmnip
  */
-public class BloomFilter extends BloomFilterObject {
+public class BloomFilter extends AbstractBloomFilter {
     protected final long[] long_array;
     protected final int num_hash;
     protected final int seed;

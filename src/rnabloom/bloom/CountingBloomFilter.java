@@ -10,12 +10,14 @@ import static java.lang.Math.pow;
 import static util.hash.MurmurHash3.murmurhash3_x86_32;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
+import static util.hash.MurmurHash3.murmurhash3_x86_32;
+import static java.lang.Math.scalb;
 
 /**
  *
  * @author kmnip
  */
-public class CountingBloomFilter extends CountingBloomFilterObject {
+public class CountingBloomFilter extends AbstractCountingBloomFilter {
     protected final byte[] counts;
     protected final int num_hash;
     protected final int seed;
