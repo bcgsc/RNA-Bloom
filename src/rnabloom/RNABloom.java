@@ -5,7 +5,7 @@
  */
 package rnabloom;
 
-import rnabloom.bloom.BloomFilter;
+import rnabloom.bloom.CountingBloomFilter;
 import static java.lang.Math.pow;
 
 /**
@@ -16,6 +16,7 @@ public class RNABloom {
     
     
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
+    public final static long NUM_BYTES_1GB = (long) pow(1024, 3);
     
     /**
      * @param args the command line arguments
@@ -23,19 +24,21 @@ public class RNABloom {
     public static void main(String[] args) {
         // TODO code application logic here
         
-        long size = NUM_BITS_1GB * 4;
+        int size = (int) (NUM_BYTES_1GB * 1);
         int num_hash = 4;
         int seed = 689;
         int key_length = 16;
         
-        BloomFilter b = new BloomFilter(size, num_hash, seed, key_length);
+        CountingBloomFilter b = new CountingBloomFilter(size, num_hash, seed, key_length);
         
         String key = "1234567890123456";
         
-        b.add(key);
+        for (int i=0; i<998; ++i) {
+            b.increment(key);
+        }
         
         System.out.println(b.lookup(key));
-        System.out.println(b.lookup("0000000000123456"));
+        //System.out.println(b.lookup("0000000000123456"));        
     }
     
 }
