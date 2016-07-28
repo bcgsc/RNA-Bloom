@@ -5,7 +5,6 @@
  */
 package rnabloom.bloom;
 
-import static java.lang.Math.ceil;
 import static java.lang.Math.pow;
 import static java.lang.Math.exp;
 import static util.hash.MurmurHash3.murmurhash3_x64_128;
@@ -16,17 +15,13 @@ import static util.hash.MurmurHash3.LongPair;
  * @author kmnip
  */
 public class BloomFilter extends BloomFilterObject {
-    protected long[] long_array;
-    protected int num_hash;
-    protected int seed;
-    protected long size;
-    protected int key_length;
+    protected final long[] long_array;
+    protected final int num_hash;
+    protected final int seed;
+    protected final long size;
+    protected final int key_length;
     
-    protected static long max_size = (long) Integer.MAX_VALUE * (long) Long.SIZE;
-    
-    public BloomFilter(){
-        // dummy constructor
-    }
+    protected static final long max_size = (long) Integer.MAX_VALUE * (long) Long.SIZE;
     
     public BloomFilter(long size, int num_hash, int seed, int key_length) {
         if (size > max_size) {
@@ -34,50 +29,50 @@ public class BloomFilter extends BloomFilterObject {
         }
         
         this.size = size;
-        this.long_array = new long[(int) ceil((double) size/Long.SIZE)];
+        this.long_array = new long[(int) size/Long.SIZE + 1];
         this.num_hash = num_hash;
         this.seed = seed;
         this.key_length = key_length;
     }
         
     @Override
-    public void add(String key) {
-        byte[] b = key.getBytes();
+    public void add(final String key) {
+        final byte[] b = key.getBytes();
         
         long bit_index;
-        LongPair p = new LongPair();
+        final LongPair p = new LongPair();
         
-        for (int i=0; i<num_hash; ++i){
+        for (int i=0; i<num_hash; ++i) {
             murmurhash3_x64_128(b, 0, key_length, seed+i, p);
             
             bit_index = (p.val1 >>> 1) % size;
-            long_array[(int) ceil((double) bit_index/Long.SIZE)] |= (1 << (int) bit_index % Long.SIZE);
+            long_array[(int) bit_index/Long.SIZE] |= (1 << (int) bit_index % Long.SIZE);
             
-            if (++i<num_hash){
+            if (++i<num_hash) {
                 bit_index = (p.val2 >>> 1) % size;
-                long_array[(int) ceil((double) bit_index/Long.SIZE)] |= (1 << (int) bit_index % Long.SIZE);
+                long_array[(int) bit_index/Long.SIZE] |= (1 << (int) bit_index % Long.SIZE);
             }
         }
     }
 
     @Override
-    public boolean lookup(String key) {
-        byte[] b = key.getBytes();
+    public boolean lookup(final String key) {
+        final byte[] b = key.getBytes();
         
         long bit_index;
-        LongPair p = new LongPair();
+        final LongPair p = new LongPair();
         
-        for (int i=0; i<num_hash; ++i){
+        for (int i=0; i<num_hash; ++i) {
             murmurhash3_x64_128(b, 0, key_length, seed+i, p);
             
             bit_index = (p.val1 >>> 1) % size;
-            if ((long_array[(int) ceil((double) bit_index/Long.SIZE)] & (1 << (int) bit_index % Long.SIZE)) == 0) {
+            if ((long_array[(int) bit_index/Long.SIZE] & (1 << (int) bit_index % Long.SIZE)) == 0) {
                 return false;
             }
             
-            if (++i<num_hash){
+            if (++i<num_hash) {
                 bit_index = (p.val2 >>> 1) % size;
-                if ((long_array[(int) ceil((double) bit_index/Long.SIZE)] & (1 << (int) bit_index % Long.SIZE)) == 0) {
+                if ((long_array[(int) bit_index/Long.SIZE] & (1 << (int) bit_index % Long.SIZE)) == 0) {
                     return false;
                 }
             }
