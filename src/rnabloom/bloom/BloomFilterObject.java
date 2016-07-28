@@ -10,8 +10,8 @@ package rnabloom.bloom;
  * @author kmnip
  */
 abstract class BloomFilterObject{
-    abstract void add(String item);
-    abstract boolean lookup(String item);
+    abstract void add(String key);
+    abstract boolean lookup(String key);
     abstract void save(String path);
     abstract void restore(String path);
     abstract float getFPR();
