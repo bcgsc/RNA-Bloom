@@ -24,6 +24,11 @@ public final class SequenceOperations {
         return kmers;
     }
     
+    private final static int CHAR_A_INT = (int) 'A';
+    private final static int CHAR_C_INT = (int) 'C';
+    private final static int CHAR_G_INT = (int) 'G';
+    private final static int CHAR_T_INT = (int) 'T';
+    
     public static final String reverseComplement(String seq) {
         int seqLen = seq.length();
         char[] rc = new char[seqLen];
@@ -32,22 +37,22 @@ public final class SequenceOperations {
         int i = seqLen;
         
         while (itr.hasNext()) {
-            char c = (char) itr.nextInt();
+            int c = itr.nextInt();
             switch(c) {
-                case 'A':
+                case CHAR_A_INT:
                     rc[--i] = 'T';
                     break;
-                case 'C':
+                case CHAR_C_INT:
                     rc[--i] = 'G';
                     break;
-                case 'G':
+                case CHAR_G_INT:
                     rc[--i] = 'C';
                     break;
-                case 'T':
+                case CHAR_T_INT:
                     rc[--i] = 'A';
                     break;
                 default:
-                    rc[--i] = c;
+                    rc[--i] = (char) c;
             }
         }
         
