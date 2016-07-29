@@ -84,7 +84,7 @@ public class CountingBloomFilter extends AbstractCountingBloomFilter {
     }
 
     @Override
-    public float lookup(String key) {
+    public float getCount(String key) {
         final byte min = min_val(key);
         
         if (min <= MANTI_MASK) {
