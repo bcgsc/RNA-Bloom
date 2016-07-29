@@ -11,6 +11,6 @@ package rnabloom.bloom;
  */
 abstract class AbstractCountingBloomFilter {
     abstract void increment(String key);
-    abstract float lookup(String key);
+    abstract float getCount(String key);
     abstract float getFPR();
 }
