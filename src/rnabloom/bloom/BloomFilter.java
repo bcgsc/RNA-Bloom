@@ -82,16 +82,6 @@ public class BloomFilter extends AbstractBloomFilter {
     }
 
     @Override
-    public void save(String path) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-    @Override
-    public void restore(String path) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-    @Override
     public float getFPR() {
         /* (1 - e(-kn/m))^k
         k = num hash

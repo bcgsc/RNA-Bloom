@@ -12,7 +12,5 @@ package rnabloom.bloom;
 abstract class AbstractBloomFilter{
     abstract void add(String key);
     abstract boolean lookup(String key);
-    abstract void save(String path);
-    abstract void restore(String path);
     abstract float getFPR();
 }
