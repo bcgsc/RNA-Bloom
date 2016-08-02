@@ -54,7 +54,8 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         // find the smallest count at all hash positions
         byte min = counts[(int) (hashVals[0] % size)];
         byte c;
-        for (int h=1; h<numHash; ++h) {
+        int h;
+        for (h=1; h<numHash; ++h) {
             c = counts[(int) (hashVals[h] % size)];
             if (c < min) {
                 min = c;
@@ -78,7 +79,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         
         // update the smallest count only
         int index;
-        for (int h=1; h<numHash; ++h) {
+        for (h=1; h<numHash; ++h) {
             index = (int) (hashVals[h] % size);
 
             if (counts[index] == min) {
