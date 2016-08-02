@@ -44,14 +44,18 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     public void increment(String key) {
         // generate hash values
         final byte[] b = key.getBytes();
-        final long[] hVals = new long[numHash];
-        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hVals);
+        final long[] hashVals = new long[numHash];
+        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hashVals);
         
+        increment(hashVals);
+    }
+    
+    public void increment(long[] hashVals) {
         // find the smallest count at all hash positions
-        byte min = counts[(int) (hVals[0] % size)];
+        byte min = counts[(int) (hashVals[0] % size)];
         byte c;
         for (int h=1; h<numHash; ++h) {
-            c = counts[(int) (hVals[h] % size)];
+            c = counts[(int) (hashVals[h] % size)];
             if (c < min) {
                 min = c;
             }
@@ -74,8 +78,8 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         
         // update the smallest count only
         int index;
-        for (long v : hVals) {
-            index = (int) (v % size);
+        for (int h=1; h<numHash; ++h) {
+            index = (int) (hashVals[h] % size);
 
             if (counts[index] == min) {
                 counts[index] = updated;
@@ -87,14 +91,18 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     public float getCount(String key) {
         // generate hash values
         final byte[] b = key.getBytes();
-        final long[] hVals = new long[numHash];
-        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hVals);
+        final long[] hashVals = new long[numHash];
+        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hashVals);
         
+        return getCount(hashVals);
+    }
+    
+    public float getCount(long[] hashVals) {
         // find the smallest count
-        byte min = counts[(int) (hVals[0] % size)];
+        byte min = counts[(int) (hashVals[0] % size)];
         byte c;
         for (int h=1; h<numHash; ++h) {
-            c = counts[(int) (hVals[h] % size)];
+            c = counts[(int) (hashVals[h] % size)];
             if (c < min) {
                 min = c;
             }

@@ -44,12 +44,16 @@ public class BloomFilter implements BloomFilterInterface {
     @Override
     public void add(final String key) {
         final byte[] b = key.getBytes();
-        final long[] hVals = new long[numHash];
-        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hVals);
+        final long[] hashVals = new long[numHash];
+        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hashVals);
         
+        add(hashVals);
+    }
+    
+    public void add(final long[] hashVals){
         long i;
-        for (long v : hVals) {
-            i = v % size;
+        for (int h=0; h<numHash; ++h) {
+            i = hashVals[h] % size;
             longArray[(int) (i/Long.SIZE)] |= (1 << (int) (i % Long.SIZE));
         }
     }
@@ -57,12 +61,16 @@ public class BloomFilter implements BloomFilterInterface {
     @Override
     public boolean lookup(final String key) {
         final byte[] b = key.getBytes();
-        final long[] hVals = new long[numHash];
-        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hVals);
+        final long[] hashVals = new long[numHash];
+        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hashVals);
         
+        return lookup(hashVals);
+    }
+
+    public boolean lookup(final long[] hashVals) {
         long i;
-        for (long v : hVals) {
-            i = v % size;
+        for (int h=0; h<numHash; ++h) {
+            i = hashVals[h] % size;
             if ((longArray[(int) (i/Long.SIZE)] & (1 << (int) (i % Long.SIZE))) == 0) {
                 return false;
             }
@@ -70,7 +78,7 @@ public class BloomFilter implements BloomFilterInterface {
         
         return true;
     }
-
+    
     @Override
     public float getFPR() {
         /* (1 - e(-kn/m))^k
