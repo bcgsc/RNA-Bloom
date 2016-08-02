@@ -15,6 +15,30 @@ import static util.hash.MurmurHash3.murmurhash3_x64_128;
 import static util.hash.MurmurHash3.murmurhash3_x64_128;
 import static util.hash.MurmurHash3.murmurhash3_x64_128;
 import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
  *
@@ -29,16 +53,16 @@ public class BloomFilter implements BloomFilterInterface {
     
     protected static final long MAX_SIZE = (long) Integer.MAX_VALUE * (long) Long.SIZE;
     
-    public BloomFilter(long size, int num_hash, int seed, int key_length) {
+    public BloomFilter(long size, int numHash, int seed, int keyLength) {
         if (size > MAX_SIZE) {
             throw new UnsupportedOperationException("Size is too large.");
         }
         
         this.size = size;
         this.longArray = new long[(int) (size/Long.SIZE) + 1];
-        this.numHash = num_hash;
+        this.numHash = numHash;
         this.seed = seed;
-        this.keyLength = key_length;
+        this.keyLength = keyLength;
     }
         
     @Override

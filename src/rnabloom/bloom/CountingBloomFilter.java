@@ -10,6 +10,12 @@ import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
 import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static java.lang.Math.scalb;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static java.lang.Math.scalb;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static java.lang.Math.scalb;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
  *
@@ -28,16 +34,16 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     private static final byte MANTI_MASK = 0xFF >> (8 - MANTISSA);
     private static final byte ADD_MASK = 0x80 >> (7 - MANTISSA);
     
-    public CountingBloomFilter(int size, int num_hash, int seed, int key_length) {
+    public CountingBloomFilter(int size, int numHash, int seed, int keyLength) {
         if (size > MAX_SIZE) {
             throw new UnsupportedOperationException("Size is too large.");
         }
         
         this.size = size;
         this.counts = new byte[size];
-        this.numHash = num_hash;
+        this.numHash = numHash;
         this.seed = seed;
-        this.keyLength = key_length;
+        this.keyLength = keyLength;
     }
         
     @Override
