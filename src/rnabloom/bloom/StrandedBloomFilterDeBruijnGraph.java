@@ -14,34 +14,53 @@ import static util.hash.MurmurHash3.murmurhash3_x64_128;
  */
 public class StrandedBloomFilterDeBruijnGraph implements DeBruijnGraphBloomFilterInterface {
     
+    private BloomFilter dbgbf;
+    private CountingBloomFilter cbf;
     private int seed;
     private int maxHash;
     private int k;
     
+    public StrandedBloomFilterDeBruijnGraph(long dbgbfSize,
+                                            int cbfSize,
+                                            int dbgbfNumHash,
+                                            int cbfNumHash,
+                                            int seed,
+                                            int k) {
+        this.seed = seed;
+        this.maxHash = Math.max(dbgbfNumHash, cbfNumHash);
+        this.k = k;
+        this.dbgbf = new BloomFilter(dbgbfSize, dbgbfNumHash, seed, k);
+        this.cbf = new CountingBloomFilter(cbfSize, cbfNumHash, seed, k);
+    }
+    
     public long[] getHashValues(final String kmer) {
-        long[] hashVals = new long[maxHash];
+        final byte[] b = kmer.getBytes();
+        final long[] hashVals = new long[maxHash];
+        murmurhash3_x64_128(b, 0, k, seed, maxHash, hashVals);
                 
         return hashVals;
     }
     
     @Override
     public void add(String kmer) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        final long[] hashVals = getHashValues(kmer);
+        dbgbf.add(hashVals);
+        cbf.increment(hashVals);
     }
 
     @Override
     public boolean lookup(String kmer) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return dbgbf.lookup(kmer);
     }
 
     @Override
     public void increment(String kmer) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        cbf.increment(kmer);
     }
 
     @Override
     public float getCount(String kmer) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return cbf.getCount(kmer);
     }
 
     @Override
