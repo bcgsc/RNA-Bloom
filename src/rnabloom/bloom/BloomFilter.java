@@ -8,73 +8,63 @@ package rnabloom.bloom;
 import static java.lang.Math.pow;
 import static java.lang.Math.exp;
 import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.LongPair;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
  *
  * @author kmnip
  */
-public class BloomFilter extends AbstractBloomFilter {
-    protected final long[] long_array;
-    protected final int num_hash;
+public class BloomFilter implements BloomFilterInterface {
+    protected final long[] longArray;
+    protected final int numHash;
     protected final int seed;
     protected final long size;
-    protected final int key_length;
+    protected final int keyLength;
     
-    protected static final long max_size = (long) Integer.MAX_VALUE * (long) Long.SIZE;
+    protected static final long MAX_SIZE = (long) Integer.MAX_VALUE * (long) Long.SIZE;
     
     public BloomFilter(long size, int num_hash, int seed, int key_length) {
-        if (size > max_size) {
+        if (size > MAX_SIZE) {
             throw new UnsupportedOperationException("Size is too large.");
         }
         
         this.size = size;
-        this.long_array = new long[(int) size/Long.SIZE + 1];
-        this.num_hash = num_hash;
+        this.longArray = new long[(int) (size/Long.SIZE) + 1];
+        this.numHash = num_hash;
         this.seed = seed;
-        this.key_length = key_length;
+        this.keyLength = key_length;
     }
         
     @Override
     public void add(final String key) {
         final byte[] b = key.getBytes();
+        final long[] hVals = new long[numHash];
+        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hVals);
         
-        long bit_index;
-        final LongPair p = new LongPair();
-        
-        for (int i=0; i<num_hash; ++i) {
-            murmurhash3_x64_128(b, 0, key_length, seed+i, p);
-            
-            bit_index = (p.val1 >>> 1) % size;
-            long_array[(int) bit_index/Long.SIZE] |= (1 << (int) bit_index % Long.SIZE);
-            
-            if (++i<num_hash) {
-                bit_index = (p.val2 >>> 1) % size;
-                long_array[(int) bit_index/Long.SIZE] |= (1 << (int) bit_index % Long.SIZE);
-            }
+        long i;
+        for (long v : hVals) {
+            i = v % size;
+            longArray[(int) (i/Long.SIZE)] |= (1 << (int) (i % Long.SIZE));
         }
     }
 
     @Override
     public boolean lookup(final String key) {
         final byte[] b = key.getBytes();
+        final long[] hVals = new long[numHash];
+        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hVals);
         
-        long bit_index;
-        final LongPair p = new LongPair();
-        
-        for (int i=0; i<num_hash; ++i) {
-            murmurhash3_x64_128(b, 0, key_length, seed+i, p);
-            
-            bit_index = (p.val1 >>> 1) % size;
-            if ((long_array[(int) bit_index/Long.SIZE] & (1 << (int) bit_index % Long.SIZE)) == 0) {
+        long i;
+        for (long v : hVals) {
+            i = v % size;
+            if ((longArray[(int) (i/Long.SIZE)] & (1 << (int) (i % Long.SIZE))) == 0) {
                 return false;
-            }
-            
-            if (++i<num_hash) {
-                bit_index = (p.val2 >>> 1) % size;
-                if ((long_array[(int) bit_index/Long.SIZE] & (1 << (int) bit_index % Long.SIZE)) == 0) {
-                    return false;
-                }
             }
         }
         
@@ -90,11 +80,11 @@ public class BloomFilter extends AbstractBloomFilter {
         */
         
         long n = 0;
-        for (long l : long_array) {
+        for (long l : longArray) {
             n += Long.bitCount(l);
         }
         
-        return (float) pow(1 - exp(-num_hash * n / size), num_hash);
+        return (float) pow(1 - exp(-numHash * n / size), numHash);
     }
     
 }

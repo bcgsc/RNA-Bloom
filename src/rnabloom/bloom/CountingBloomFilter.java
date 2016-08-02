@@ -7,46 +7,51 @@ package rnabloom.bloom;
 
 import static java.lang.Math.exp;
 import static java.lang.Math.pow;
-import static util.hash.MurmurHash3.murmurhash3_x86_32;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
-import static util.hash.MurmurHash3.murmurhash3_x86_32;
-import static java.lang.Math.scalb;
+import static util.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
  *
  * @author kmnip
  */
-public class CountingBloomFilter extends AbstractCountingBloomFilter {
+public class CountingBloomFilter implements CountingBloomFilterInterface {
     protected final byte[] counts;
-    protected final int num_hash;
+    protected final int numHash;
     protected final int seed;
-    protected final int[] seeds;
     protected final int size;
-    protected final int key_length;
+    protected final int keyLength;
+    
+    protected static final long MAX_SIZE = (long) Integer.MAX_VALUE;
     
     private static final byte MANTISSA = 3;
     private static final byte MANTI_MASK = 0xFF >> (8 - MANTISSA);
     private static final byte ADD_MASK = 0x80 >> (7 - MANTISSA);
     
-    public CountingBloomFilter(int size, int num_hash, int seed, int key_length) {        
+    public CountingBloomFilter(int size, int num_hash, int seed, int key_length) {
+        if (size > MAX_SIZE) {
+            throw new UnsupportedOperationException("Size is too large.");
+        }
+        
         this.size = size;
         this.counts = new byte[size];
-        this.num_hash = num_hash;
+        this.numHash = num_hash;
         this.seed = seed;
-        this.seeds = new int[num_hash];
-        for (int i=0; i<num_hash; ++i) {
-            this.seeds[i] = seed + i;
-        }
-        this.key_length = key_length;
+        this.keyLength = key_length;
     }
-    
-    private byte min_val(String key) {
-        byte min = counts[(murmurhash3_x86_32(key, 0, key_length, seeds[0]) >>> 1) % size];
         
+    @Override
+    public void increment(String key) {
+        // generate hash values
+        final byte[] b = key.getBytes();
+        final long[] hVals = new long[numHash];
+        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hVals);
+        
+        // find the smallest count at all hash positions
+        byte min = counts[(int) (hVals[0] % size)];
         byte c;
-        for (int i=1; i<num_hash; ++i) {
-            c = counts[(murmurhash3_x86_32(key, 0, key_length, seeds[i]) >>> 1) % size];
+        for (int h=1; h<numHash; ++h) {
+            c = counts[(int) (hVals[h] % size)];
             if (c < min) {
                 min = c;
             }
@@ -54,14 +59,8 @@ public class CountingBloomFilter extends AbstractCountingBloomFilter {
                 break;
             }
         }
-
-        return min;        
-    }
-    
-    @Override
-    public void increment(String key) {
-        final byte min = min_val(key);
         
+        // increment the smallest count
         byte updated = min;
         if (min <= MANTI_MASK) {
             ++updated;
@@ -73,9 +72,10 @@ public class CountingBloomFilter extends AbstractCountingBloomFilter {
             }
         }
         
+        // update the smallest count only
         int index;
-        for (int s : seeds) {
-            index = (murmurhash3_x86_32(key, 0, key_length, s) >>> 1) % size;
+        for (long v : hVals) {
+            index = (int) (v % size);
 
             if (counts[index] == min) {
                 counts[index] = updated;
@@ -84,9 +84,26 @@ public class CountingBloomFilter extends AbstractCountingBloomFilter {
     }
 
     @Override
-    public float lookup(String key) {
-        final byte min = min_val(key);
+    public float getCount(String key) {
+        // generate hash values
+        final byte[] b = key.getBytes();
+        final long[] hVals = new long[numHash];
+        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hVals);
         
+        // find the smallest count
+        byte min = counts[(int) (hVals[0] % size)];
+        byte c;
+        for (int h=1; h<numHash; ++h) {
+            c = counts[(int) (hVals[h] % size)];
+            if (c < min) {
+                min = c;
+            }
+            if (min == 0) {
+                break;
+            }
+        }
+        
+        // return the float value
         if (min <= MANTI_MASK) {
             return (float) min;
         }
@@ -109,7 +126,7 @@ public class CountingBloomFilter extends AbstractCountingBloomFilter {
             }
         }
         
-        return (float) pow(1 - exp(-num_hash * n / size), num_hash);
+        return (float) pow(1 - exp(-numHash * n / size), numHash);
     }
     
 }
