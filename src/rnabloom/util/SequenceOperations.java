@@ -5,7 +5,11 @@
  */
 package rnabloom.util;
 
+import java.util.ArrayList;
 import java.util.PrimitiveIterator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import rnabloom.io.FastqRecord;
 
 /**
  *
@@ -69,6 +73,29 @@ public final class SequenceOperations {
         else {
             return seq;
         }
+    }
+    
+    private static final String PHRED33 = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJ";
+    
+    public static Pattern getPhred33Pattern(int minQual, int minLength) {
+        return Pattern.compile("[" + PHRED33.substring(minQual) + "]{" + Integer.toString(minLength) + ",}");
+    }
+    
+    public static Pattern getACTGPattern(int minLength) {
+        return Pattern.compile("[ACTG]{" + Integer.toString(minLength) + ",}");
+    }
+        
+    public static ArrayList<String> filterFastq(FastqRecord fq, Pattern qualPattern) {
+        Matcher m = qualPattern.matcher(fq.qual);
+        String seq = fq.seq;
+        
+        ArrayList<String> result = new ArrayList<>();
+        
+        while (m.find()) {
+            result.add(seq.substring(m.start(), m.end()));
+        }
+        
+        return result;
     }
     
 }
