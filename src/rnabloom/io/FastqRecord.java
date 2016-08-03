@@ -13,6 +13,10 @@ public class FastqRecord {
     public String seq;
     public String qual;    
     
+    public FastqRecord() {
+        
+    }
+    
     public FastqRecord(String seq, String qual) {
         /**@TODO add name and pair info*/
         this.seq = seq;

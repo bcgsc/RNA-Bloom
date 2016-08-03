@@ -5,14 +5,35 @@
  */
 package rnabloom.io;
 
-import java.util.stream.Stream;
+import java.io.BufferedReader;
+import java.util.Iterator;
+import java.util.function.Supplier;
 
 /**
  *
  * @author kmnip
  */
-public final class FastqReader {
-    
+public final class FastqReader implements Supplier<FastqRecord> {
+    private final Iterator<String> itr;
 
+    public FastqReader(BufferedReader br) {
+        itr = br.lines().iterator();
+    }
     
+    public FastqRecord get() {
+        if (itr.hasNext()){
+            FastqRecord fr = new FastqRecord();
+            
+            String name = itr.next();
+            fr.seq = itr.next();
+            String comment = itr.next();
+            fr.qual = itr.next();
+            
+            return fr;
+        }
+        else {
+            // error
+        }
+        return null;
+    }
 }
