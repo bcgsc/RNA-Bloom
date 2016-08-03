@@ -79,7 +79,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         
         // update the smallest count only
         int index;
-        for (h=1; h<numHash; ++h) {
+        for (h=0; h<numHash; ++h) {
             index = (int) (hashVals[h] % size);
 
             if (counts[index] == min) {
