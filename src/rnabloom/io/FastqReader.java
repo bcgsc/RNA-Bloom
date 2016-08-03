@@ -20,13 +20,23 @@ public final class FastqReader implements Supplier<FastqRecord> {
         itr = br.lines().iterator();
     }
     
+    @Override
     public FastqRecord get() {
         if (itr.hasNext()){
             FastqRecord fr = new FastqRecord();
             
             String name = itr.next();
+            if (! name.startsWith("@")) {
+                // error
+            }
+            
             fr.seq = itr.next();
+            
             String comment = itr.next();
+            if (! comment.startsWith("+")) {
+                // error
+            }
+            
             fr.qual = itr.next();
             
             return fr;
