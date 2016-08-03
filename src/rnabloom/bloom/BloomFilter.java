@@ -8,37 +8,6 @@ package rnabloom.bloom;
 import static java.lang.Math.pow;
 import static java.lang.Math.exp;
 import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
  *
@@ -66,7 +35,7 @@ public class BloomFilter implements BloomFilterInterface {
     }
         
     @Override
-    public void add(final String key) {
+    public synchronized void add(final String key) {
         final byte[] b = key.getBytes();
         final long[] hashVals = new long[numHash];
         murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hashVals);
@@ -74,7 +43,7 @@ public class BloomFilter implements BloomFilterInterface {
         add(hashVals);
     }
     
-    public void add(final long[] hashVals){
+    public synchronized void add(final long[] hashVals){
         long i;
         for (int h=0; h<numHash; ++h) {
             i = hashVals[h] % size;

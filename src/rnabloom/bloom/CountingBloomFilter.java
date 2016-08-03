@@ -10,12 +10,6 @@ import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
 import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static java.lang.Math.scalb;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static java.lang.Math.scalb;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
-import static java.lang.Math.scalb;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
  *
@@ -47,7 +41,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     }
         
     @Override
-    public void increment(String key) {
+    public synchronized void increment(String key) {
         // generate hash values
         final byte[] b = key.getBytes();
         final long[] hashVals = new long[numHash];
@@ -56,7 +50,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         increment(hashVals);
     }
     
-    public void increment(long[] hashVals) {
+    public synchronized void increment(long[] hashVals) {
         // find the smallest count at all hash positions
         byte min = counts[(int) (hashVals[0] % size)];
         byte c;
