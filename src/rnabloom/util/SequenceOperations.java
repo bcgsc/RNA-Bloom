@@ -28,16 +28,17 @@ public final class SequenceOperations {
     private final static int CHAR_C_INT = (int) 'C';
     private final static int CHAR_G_INT = (int) 'G';
     private final static int CHAR_T_INT = (int) 'T';
-    
+        
     public static final String reverseComplement(String seq) {
         int seqLen = seq.length();
         char[] rc = new char[seqLen];
         
         PrimitiveIterator.OfInt itr = seq.chars().iterator();
         int i = seqLen;
+        int c;
         
         while (itr.hasNext()) {
-            int c = itr.nextInt();
+            c = itr.nextInt();
             switch(c) {
                 case CHAR_A_INT:
                     rc[--i] = 'T';
