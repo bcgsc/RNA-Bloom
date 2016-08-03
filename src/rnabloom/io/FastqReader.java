@@ -7,6 +7,7 @@ package rnabloom.io;
 
 import java.io.BufferedReader;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 
 /**
@@ -42,8 +43,7 @@ public final class FastqReader implements Supplier<FastqRecord> {
             return fr;
         }
         else {
-            // error
+            throw new NoSuchElementException();
         }
-        return null;
     }
 }
