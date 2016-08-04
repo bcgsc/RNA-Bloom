@@ -16,11 +16,10 @@ import static util.hash.MurmurHash3.murmurhash3_x64_128;
 public class BloomFilter implements BloomFilterInterface {    
     protected AbstractLargeBitBuffer bitArray;
     protected final int numHash;
-    protected final int seed;
     protected final long size;
-    protected final int keyLength;
+    protected final HashFunction hashFunction;
         
-    public BloomFilter(long size, int numHash, int seed, int keyLength) {
+    public BloomFilter(long size, int numHash, HashFunction hashFunction) {
         
         this.size = size;
         try {
@@ -30,17 +29,12 @@ public class BloomFilter implements BloomFilterInterface {
             this.bitArray = new LargeBitBuffer(size);
         }
         this.numHash = numHash;
-        this.seed = seed;
-        this.keyLength = keyLength;
+        this.hashFunction = hashFunction;
     }
         
     @Override
-    public synchronized void add(final String key) {
-        final byte[] b = key.getBytes();
-        final long[] hashVals = new long[numHash];
-        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hashVals);
-        
-        add(hashVals);
+    public void add(final String key) {
+        add(hashFunction.getHashValues(key));
     }
     
     public synchronized void add(final long[] hashVals){
@@ -50,12 +44,8 @@ public class BloomFilter implements BloomFilterInterface {
     }
 
     @Override
-    public boolean lookup(final String key) {
-        final byte[] b = key.getBytes();
-        final long[] hashVals = new long[numHash];
-        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hashVals);
-        
-        return lookup(hashVals);
+    public boolean lookup(final String key) {        
+        return lookup(hashFunction.getHashValues(key));
     }
 
     public boolean lookup(final long[] hashVals) {

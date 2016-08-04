@@ -9,7 +9,6 @@ import static java.lang.Math.exp;
 import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
  *
@@ -18,15 +17,14 @@ import static util.hash.MurmurHash3.murmurhash3_x64_128;
 public class CountingBloomFilter implements CountingBloomFilterInterface {
     protected AbstractLargeByteBuffer counts;
     protected final int numHash;
-    protected final int seed;
     protected final long size;
-    protected final int keyLength;
+    protected final HashFunction hashFunction;
         
     private static final byte MANTISSA = 3;
     private static final byte MANTI_MASK = 0xFF >> (8 - MANTISSA);
     private static final byte ADD_MASK = 0x80 >> (7 - MANTISSA);
     
-    public CountingBloomFilter(long size, int numHash, int seed, int keyLength) {
+    public CountingBloomFilter(long size, int numHash, HashFunction hashFunction) {
         this.size = size;
         try {
             this.counts = new UnsafeByteArray(size);
@@ -35,18 +33,12 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
             this.counts = new LargeByteBuffer(size);
         }
         this.numHash = numHash;
-        this.seed = seed;
-        this.keyLength = keyLength;
+        this.hashFunction = hashFunction;
     }
         
     @Override
-    public synchronized void increment(String key) {
-        // generate hash values
-        final byte[] b = key.getBytes();
-        final long[] hashVals = new long[numHash];
-        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hashVals);
-        
-        increment(hashVals);
+    public void increment(String key) {
+        increment(hashFunction.getHashValues(key));
     }
     
     public synchronized void increment(long[] hashVals) {
@@ -89,12 +81,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
 
     @Override
     public float getCount(String key) {
-        // generate hash values
-        final byte[] b = key.getBytes();
-        final long[] hashVals = new long[numHash];
-        murmurhash3_x64_128(b, 0, keyLength, seed, numHash, hashVals);
-        
-        return getCount(hashVals);
+        return getCount(hashFunction.getHashValues(key));
     }
     
     public float getCount(long[] hashVals) {
