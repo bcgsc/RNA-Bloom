@@ -13,7 +13,7 @@ import java.nio.LongBuffer;
  *
  * @author kmnip
  */
-public class LargeByteBuffer {
+public class LargeByteBuffer extends AbstractLargeByteBuffer {
     private final static int MAX_PARTITION_SIZE = Integer.MAX_VALUE;
     
     private final long size;
@@ -47,14 +47,17 @@ public class LargeByteBuffer {
         }
     }
     
+    @Override
     public void set(long index, byte value) {
         buffers[(int) (index / MAX_PARTITION_SIZE)].put((int) (index % MAX_PARTITION_SIZE), value);
     }
 
+    @Override
     public byte get(long index) {
         return buffers[(int) (index / MAX_PARTITION_SIZE)].get((int) (index % MAX_PARTITION_SIZE));
     }
     
+    @Override
     public long size() {
         return size;
     }
@@ -65,6 +68,7 @@ public class LargeByteBuffer {
         }
     }
     
+    @Override
     public long popCount() {
         long count = 0;
         int cap;

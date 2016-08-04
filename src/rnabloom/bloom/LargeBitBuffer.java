@@ -9,7 +9,7 @@ package rnabloom.bloom;
  *
  * @author kmnip
  */
-public class LargeBitBuffer {
+public class LargeBitBuffer extends AbstractLargeBitBuffer {
     private final long size;
     private final LargeByteBuffer backingByteBuffer;
     
@@ -23,6 +23,7 @@ public class LargeBitBuffer {
         backingByteBuffer = new LargeByteBuffer(numBytes);
     }
     
+    @Override
     public void set(long index) {
         long byteIndex = index / Byte.SIZE;
         byte b = backingByteBuffer.get(byteIndex);
@@ -30,11 +31,13 @@ public class LargeBitBuffer {
         backingByteBuffer.set(byteIndex, b);
     }
 
+    @Override
     public boolean get(long index) {
         long byteIndex = index / Byte.SIZE;
         return (backingByteBuffer.get(byteIndex) & (1 << (byte) (byteIndex % Byte.SIZE))) != 0;
     }
     
+    @Override
     public long size() {
         return size;
     }
@@ -43,6 +46,7 @@ public class LargeBitBuffer {
         backingByteBuffer.empty();
     }
     
+    @Override
     public long popCount() {
         return backingByteBuffer.bitPopCount();
     }
