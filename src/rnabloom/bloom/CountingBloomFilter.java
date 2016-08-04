@@ -9,8 +9,6 @@ import static java.lang.Math.exp;
 import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import static util.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
@@ -18,25 +16,19 @@ import static util.hash.MurmurHash3.murmurhash3_x64_128;
  * @author kmnip
  */
 public class CountingBloomFilter implements CountingBloomFilterInterface {
-    protected ByteBuffer counts;
+    protected final LargeByteBuffer counts;
     protected final int numHash;
     protected final int seed;
-    protected final int size;
+    protected final long size;
     protected final int keyLength;
-    
-    protected static final long MAX_SIZE = (long) Integer.MAX_VALUE;
-    
+        
     private static final byte MANTISSA = 3;
     private static final byte MANTI_MASK = 0xFF >> (8 - MANTISSA);
     private static final byte ADD_MASK = 0x80 >> (7 - MANTISSA);
     
-    public CountingBloomFilter(int size, int numHash, int seed, int keyLength) {
-        if (size > MAX_SIZE) {
-            throw new UnsupportedOperationException("Size is too large.");
-        }
-        
+    public CountingBloomFilter(long size, int numHash, int seed, int keyLength) {
         this.size = size;
-        this.counts = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder());
+        this.counts = new LargeByteBuffer(size);
         this.numHash = numHash;
         this.seed = seed;
         this.keyLength = keyLength;
@@ -85,7 +77,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
             index = (int) (hashVals[h] % size);
 
             if (counts.get(index) == min) {
-                counts.put(index, updated);
+                counts.set(index, updated);
             }
         }
     }
@@ -129,15 +121,8 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         m = size
         n = pop count
         */
-        
-        int n = 0;
-        while (counts.hasRemaining()) {
-            if (counts.get() > 0) {
-                ++n;
-            }
-        }
-        
-        return (float) pow(1 - exp(-numHash * n / size), numHash);
+                
+        return (float) pow(1 - exp(-numHash * counts.popCount() / size), numHash);
     }
-    
+        
 }
