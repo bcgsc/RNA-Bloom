@@ -16,7 +16,7 @@ import static util.hash.MurmurHash3.murmurhash3_x64_128;
  * @author kmnip
  */
 public class CountingBloomFilter implements CountingBloomFilterInterface {
-    protected final LargeByteBuffer counts;
+    protected AbstractLargeByteBuffer counts;
     protected final int numHash;
     protected final int seed;
     protected final long size;
@@ -28,7 +28,12 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     
     public CountingBloomFilter(long size, int numHash, int seed, int keyLength) {
         this.size = size;
-        this.counts = new LargeByteBuffer(size);
+        try {
+            this.counts = new UnsafeByteArray(size);
+        }
+        catch (NoSuchFieldException | IllegalArgumentException | IllegalAccessException e) {
+            this.counts = new LargeByteBuffer(size);
+        }
         this.numHash = numHash;
         this.seed = seed;
         this.keyLength = keyLength;

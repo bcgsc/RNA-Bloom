@@ -14,7 +14,7 @@ import static util.hash.MurmurHash3.murmurhash3_x64_128;
  * @author kmnip
  */
 public class BloomFilter implements BloomFilterInterface {    
-    protected final LargeBitBuffer bitArray;
+    protected AbstractLargeBitBuffer bitArray;
     protected final int numHash;
     protected final int seed;
     protected final long size;
@@ -23,7 +23,12 @@ public class BloomFilter implements BloomFilterInterface {
     public BloomFilter(long size, int numHash, int seed, int keyLength) {
         
         this.size = size;
-        this.bitArray = new LargeBitBuffer(size);
+        try {
+            this.bitArray = new UnsafeBitArray(size);
+        }
+        catch(NoSuchFieldException | IllegalArgumentException | IllegalAccessException e) {
+            this.bitArray = new LargeBitBuffer(size);
+        }
         this.numHash = numHash;
         this.seed = seed;
         this.keyLength = keyLength;
