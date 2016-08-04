@@ -95,7 +95,7 @@ public class RNABloom {
             Stream<FastqRecord> s = Stream.generate(fr);
             Iterator<FastqRecord> itr = s.iterator();
             try {
-                while (itr.hasNext()) {
+                while (true) {
                     if (++lineNum % 100000 == 0) {
                         System.out.println("Parsed " + lineNum + " reads...");
                     }
@@ -116,7 +116,7 @@ public class RNABloom {
             s = Stream.generate(fr);
             itr = s.iterator();
             try {
-                while (itr.hasNext()) {
+                while (true) {
                     if (++lineNum % 100000 == 0) {
                         System.out.println("Parsed " + lineNum + " reads...");
                     }
