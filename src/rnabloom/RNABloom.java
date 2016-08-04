@@ -85,7 +85,7 @@ public class RNABloom {
         Pattern qualPattern = getPhred33Pattern(q, k);
         
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz";
-        String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz";
+        String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz";
 
         int lineNum = 0;
         
@@ -94,47 +94,43 @@ public class RNABloom {
             FastqReader fr = new FastqReader(br);
             Stream<FastqRecord> s = Stream.generate(fr);
             Iterator<FastqRecord> itr = s.iterator();
-            while (itr.hasNext()) {
-                if (++lineNum % 100000 == 0) {
-                    System.out.println("Parsed " + lineNum + " reads...");
-                }
-                
-                for (String seq : filterFastq(itr.next(), qualPattern)) {
-                    for (String kmer : kmerize(reverseComplement(seq), k)) {
-                        graph.add(kmer);
+            try {
+                while (itr.hasNext()) {
+                    if (++lineNum % 100000 == 0) {
+                        System.out.println("Parsed " + lineNum + " reads...");
+                    }
+
+                    for (String seq : filterFastq(itr.next(), qualPattern)) {
+                        for (String kmer : kmerize(reverseComplement(seq), k)) {
+                            graph.add(kmer);
+                        }
                     }
                 }
             }
-        }
-        catch (NoSuchElementException e) {
+            catch (NoSuchElementException e) {
+                //do nothing
+            }
             
-        }
-        catch (IOException e) {
-            
-        }
-        finally {
-            System.out.println("Parsed " + lineNum + " reads...");
-        }
-        
-        try {
-            BufferedReader br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fastq2))));
-            FastqReader fr = new FastqReader(br);
-            Stream<FastqRecord> s = Stream.generate(fr);
-            Iterator<FastqRecord> itr = s.iterator();
-            while (itr.hasNext()) {
-                if (++lineNum % 100000 == 0) {
-                    System.out.println("Parsed " + lineNum + " reads...");
-                }
-                
-                for (String seq : filterFastq(itr.next(), qualPattern)) {
-                    for (String kmer : kmerize(seq, k)) {
-                        graph.add(kmer);
+            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fastq2))));
+            fr = new FastqReader(br);
+            s = Stream.generate(fr);
+            itr = s.iterator();
+            try {
+                while (itr.hasNext()) {
+                    if (++lineNum % 100000 == 0) {
+                        System.out.println("Parsed " + lineNum + " reads...");
+                    }
+
+                    for (String seq : filterFastq(itr.next(), qualPattern)) {
+                        for (String kmer : kmerize(seq, k)) {
+                            graph.add(kmer);
+                        }
                     }
                 }
             }
-        }
-        catch (NoSuchElementException e) {
-            
+            catch (NoSuchElementException e) {
+                //do nothing
+            }
         }
         catch (IOException e) {
             
