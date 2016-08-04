@@ -141,9 +141,14 @@ public class RNABloom {
         
         String test = "TCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCATCCCTGCCTCTACTGGCGCTGC";
         String testKmer = test.substring(0, k);
+        String falseKmer = "";
+        for(int i=0; i<k; ++i) {
+            falseKmer += 'N';
+        }
         
         System.out.println(graph.lookup(testKmer));
         System.out.println(graph.getCount(testKmer));
+        System.out.println(graph.lookup(falseKmer));
         
     }
     
