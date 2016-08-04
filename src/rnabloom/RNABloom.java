@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import rnabloom.bloom.BloomFilter;
-import rnabloom.bloom.StrandedBloomFilterDeBruijnGraph;
+import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.io.FastqReader;
 import rnabloom.io.FastqRecord;
 import static rnabloom.util.SequenceOperations.*;
@@ -75,12 +75,13 @@ public class RNABloom {
         int k = 25;
         int q = 3;
         
-        StrandedBloomFilterDeBruijnGraph graph = new StrandedBloomFilterDeBruijnGraph(dbgbfSize,
-                                            cbfSize,
-                                            dbgbfNumHash,
-                                            cbfNumHash,
-                                            seed,
-                                            k);
+        BloomFilterDeBruijnGraph graph = new BloomFilterDeBruijnGraph(dbgbfSize,
+                                                                    cbfSize,
+                                                                    dbgbfNumHash,
+                                                                    cbfNumHash,
+                                                                    seed,
+                                                                    k,
+                                                                    true);
         
         Pattern qualPattern = getPhred33Pattern(q, k);
         
