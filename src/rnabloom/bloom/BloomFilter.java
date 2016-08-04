@@ -7,20 +7,23 @@ package rnabloom.bloom;
 
 import static java.lang.Math.pow;
 import static java.lang.Math.exp;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.LongBuffer;
 import static util.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
  *
  * @author kmnip
  */
-public class BloomFilter implements BloomFilterInterface {
-    protected final long[] longArray;
+public class BloomFilter implements BloomFilterInterface {    
+    protected final LongBuffer longBuffer;
     protected final int numHash;
     protected final int seed;
     protected final long size;
     protected final int keyLength;
     
-    protected static final long MAX_SIZE = (long) Integer.MAX_VALUE * (long) Long.SIZE;
+    protected static final long MAX_SIZE = (long) Integer.MAX_VALUE * Byte.SIZE;
     
     public BloomFilter(long size, int numHash, int seed, int keyLength) {
         if (size > MAX_SIZE) {
@@ -28,7 +31,7 @@ public class BloomFilter implements BloomFilterInterface {
         }
         
         this.size = size;
-        this.longArray = new long[(int) (size/Long.SIZE) + 1];
+        this.longBuffer = ByteBuffer.allocateDirect(((int) (size/Long.SIZE) + 1) * Long.BYTES).order(ByteOrder.nativeOrder()).asLongBuffer();
         this.numHash = numHash;
         this.seed = seed;
         this.keyLength = keyLength;
@@ -45,9 +48,14 @@ public class BloomFilter implements BloomFilterInterface {
     
     public synchronized void add(final long[] hashVals){
         long i;
+        int bufferIndex;
+        long bucket;
         for (int h=0; h<numHash; ++h) {
             i = hashVals[h] % size;
-            longArray[(int) (i/Long.SIZE)] |= (1 << (int) (i % Long.SIZE));
+            bufferIndex = (int) (i/Long.SIZE);
+            bucket = longBuffer.get(bufferIndex);
+            bucket |= (1 << (int) (i % Long.SIZE));
+            longBuffer.put(bufferIndex, bucket);
         }
     }
 
@@ -64,7 +72,7 @@ public class BloomFilter implements BloomFilterInterface {
         long i;
         for (int h=0; h<numHash; ++h) {
             i = hashVals[h] % size;
-            if ((longArray[(int) (i/Long.SIZE)] & (1 << (int) (i % Long.SIZE))) == 0) {
+            if ((longBuffer.get((int) (i/Long.SIZE)) & (1 << (int) (i % Long.SIZE))) == 0) {
                 return false;
             }
         }
@@ -81,8 +89,8 @@ public class BloomFilter implements BloomFilterInterface {
         */
         
         long n = 0;
-        for (long l : longArray) {
-            n += Long.bitCount(l);
+        while (longBuffer.hasRemaining()) {
+            n += Long.bitCount(longBuffer.get());
         }
         
         return (float) pow(1 - exp(-numHash * n / size), numHash);

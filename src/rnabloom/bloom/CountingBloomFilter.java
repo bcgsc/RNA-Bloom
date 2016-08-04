@@ -9,6 +9,8 @@ import static java.lang.Math.exp;
 import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import static util.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
@@ -16,7 +18,7 @@ import static util.hash.MurmurHash3.murmurhash3_x64_128;
  * @author kmnip
  */
 public class CountingBloomFilter implements CountingBloomFilterInterface {
-    protected final byte[] counts;
+    protected ByteBuffer counts;
     protected final int numHash;
     protected final int seed;
     protected final int size;
@@ -34,7 +36,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         }
         
         this.size = size;
-        this.counts = new byte[size];
+        this.counts = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder());
         this.numHash = numHash;
         this.seed = seed;
         this.keyLength = keyLength;
@@ -52,11 +54,11 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     
     public synchronized void increment(long[] hashVals) {
         // find the smallest count at all hash positions
-        byte min = counts[(int) (hashVals[0] % size)];
+        byte min = counts.get((int) (hashVals[0] % size));
         byte c;
         int h;
         for (h=1; h<numHash; ++h) {
-            c = counts[(int) (hashVals[h] % size)];
+            c = counts.get((int) (hashVals[h] % size));
             if (c < min) {
                 min = c;
             }
@@ -82,8 +84,8 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         for (h=0; h<numHash; ++h) {
             index = (int) (hashVals[h] % size);
 
-            if (counts[index] == min) {
-                counts[index] = updated;
+            if (counts.get(index) == min) {
+                counts.put(index, updated);
             }
         }
     }
@@ -100,10 +102,10 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     
     public float getCount(long[] hashVals) {
         // find the smallest count
-        byte min = counts[(int) (hashVals[0] % size)];
+        byte min = counts.get((int) (hashVals[0] % size));
         byte c;
         for (int h=1; h<numHash; ++h) {
-            c = counts[(int) (hashVals[h] % size)];
+            c = counts.get((int) (hashVals[h] % size));
             if (c < min) {
                 min = c;
             }
@@ -129,8 +131,8 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         */
         
         int n = 0;
-        for (byte b : counts) {
-            if (b > 0) {
+        while (counts.hasRemaining()) {
+            if (counts.get() > 0) {
                 ++n;
             }
         }

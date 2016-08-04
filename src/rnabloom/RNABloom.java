@@ -86,7 +86,7 @@ public class RNABloom {
         
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz";
         String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz";
-        
+
         int lineNum = 0;
         
         try {
