@@ -29,6 +29,7 @@ public final class FastqReader implements Supplier<FastqRecord> {
             String name = itr.next();
             if (! name.startsWith("@")) {
                 // error
+                return fr;
             }
             
             fr.seq = itr.next();
@@ -36,6 +37,7 @@ public final class FastqReader implements Supplier<FastqRecord> {
             String comment = itr.next();
             if (! comment.startsWith("+")) {
                 // error
+                return fr;
             }
             
             fr.qual = itr.next();
