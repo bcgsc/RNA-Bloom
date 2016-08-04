@@ -3,9 +3,9 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package rnabloom.bloom;
+package rnabloom.bloom.hash;
 
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
+import static rnabloom.bloom.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
  *

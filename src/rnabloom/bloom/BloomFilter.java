@@ -5,9 +5,12 @@
  */
 package rnabloom.bloom;
 
+import rnabloom.bloom.hash.HashFunction;
+import rnabloom.bloom.buffer.LargeBitBuffer;
+import rnabloom.bloom.buffer.UnsafeBitBuffer;
+import rnabloom.bloom.buffer.AbstractLargeBitBuffer;
 import static java.lang.Math.pow;
 import static java.lang.Math.exp;
-import static util.hash.MurmurHash3.murmurhash3_x64_128;
 
 /**
  *
@@ -23,7 +26,7 @@ public class BloomFilter implements BloomFilterInterface {
         
         this.size = size;
         try {
-            this.bitArray = new UnsafeBitArray(size);
+            this.bitArray = new UnsafeBitBuffer(size);
         }
         catch(NoSuchFieldException | IllegalArgumentException | IllegalAccessException e) {
             this.bitArray = new LargeBitBuffer(size);

@@ -5,6 +5,10 @@
  */
 package rnabloom.bloom;
 
+import rnabloom.bloom.hash.HashFunction;
+import rnabloom.bloom.buffer.UnsafeByteBuffer;
+import rnabloom.bloom.buffer.AbstractLargeByteBuffer;
+import rnabloom.bloom.buffer.LargeByteBuffer;
 import static java.lang.Math.exp;
 import static java.lang.Math.pow;
 import static java.lang.Math.random;
@@ -27,7 +31,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     public CountingBloomFilter(long size, int numHash, HashFunction hashFunction) {
         this.size = size;
         try {
-            this.counts = new UnsafeByteArray(size);
+            this.counts = new UnsafeByteBuffer(size);
         }
         catch (NoSuchFieldException | IllegalArgumentException | IllegalAccessException e) {
             this.counts = new LargeByteBuffer(size);

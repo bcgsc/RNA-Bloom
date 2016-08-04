@@ -9,8 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
-import rnabloom.bloom.HashFunction;
-import rnabloom.bloom.SmallestStrandHashFunction;
+import rnabloom.bloom.hash.HashFunction;
+import rnabloom.bloom.hash.SmallestStrandHashFunction;
 
 /**
  *

@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package rnabloom.bloom;
+package rnabloom.bloom.buffer;
 
 import java.lang.reflect.Field;
 import sun.misc.Unsafe;
@@ -12,7 +12,7 @@ import sun.misc.Unsafe;
  *
  * @author kmnip
  */
-public class UnsafeByteArray extends AbstractLargeByteBuffer {
+public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     private final long start;
     private final long size;
     private final Unsafe unsafe;
@@ -23,7 +23,7 @@ public class UnsafeByteArray extends AbstractLargeByteBuffer {
         return (Unsafe) theUnsafe.get(null);
     }
     
-    public UnsafeByteArray(long size) throws NoSuchFieldException, IllegalArgumentException, IllegalAccessException {
+    public UnsafeByteBuffer(long size) throws NoSuchFieldException, IllegalArgumentException, IllegalAccessException {
         unsafe = getMyUnsafe();
         this.start = unsafe.allocateMemory(size);
         this.size = size;

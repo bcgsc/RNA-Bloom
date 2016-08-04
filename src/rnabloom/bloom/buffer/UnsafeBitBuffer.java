@@ -3,25 +3,25 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package rnabloom.bloom;
+package rnabloom.bloom.buffer;
 
 /**
  *
  * @author kmnip
  */
-public class UnsafeBitArray extends AbstractLargeBitBuffer {
+public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
     
     private final long size;
-    private final UnsafeByteArray backingByteArray;
+    private final UnsafeByteBuffer backingByteArray;
     
-    public UnsafeBitArray(long size) throws NoSuchFieldException, IllegalArgumentException, IllegalAccessException {
+    public UnsafeBitBuffer(long size) throws NoSuchFieldException, IllegalArgumentException, IllegalAccessException {
         this.size = size;
         long numBytes = size / Byte.SIZE;
         if (size % Byte.SIZE > 0) {
             ++numBytes;
         }
         
-        backingByteArray = new UnsafeByteArray(numBytes);
+        backingByteArray = new UnsafeByteBuffer(numBytes);
     }
     
     @Override
