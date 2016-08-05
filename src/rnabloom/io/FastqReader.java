@@ -28,16 +28,13 @@ public final class FastqReader implements Supplier<FastqRecord> {
             
             String name = itr.next();
             if (! name.startsWith("@")) {
-                // error
-                return fr;
+                throw new NoSuchElementException("Line 1 of FASTQ record is expected to start with '@'");
             }
             
             fr.seq = itr.next();
             
-            String comment = itr.next();
-            if (! comment.startsWith("+")) {
-                // error
-                return fr;
+            if (! itr.next().startsWith("+")) {
+                throw new NoSuchElementException("Line 3 of FASTQ record is expected to start with '+'");
             }
             
             fr.qual = itr.next();
