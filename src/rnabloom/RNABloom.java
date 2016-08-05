@@ -147,9 +147,9 @@ public class RNABloom {
             falseKmer += 'N';
         }
         
-        System.out.println(graph.lookup(testKmer));
+        System.out.println(graph.contains(testKmer));
         System.out.println(graph.getCount(testKmer));
-        System.out.println(graph.lookup(falseKmer));
+        System.out.println(graph.contains(falseKmer));
         
     }
     

@@ -11,6 +11,7 @@ import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.SmallestStrandHashFunction;
+import static rnabloom.util.SequenceOperations.kmerize;
 
 /**
  *
@@ -52,12 +53,12 @@ public class BloomFilterDeBruijnGraph {
         cbf.increment(hashVals);
     }
 
-    public boolean lookup(String kmer) {
+    public boolean contains(String kmer) {
         return dbgbf.lookup(kmer);
     }
 
-    public void increment(String key) {
-        cbf.increment(key);
+    public void increment(String kmer) {
+        cbf.increment(kmer);
     }
     
     public float getCount(String kmer) {
@@ -74,7 +75,7 @@ public class BloomFilterDeBruijnGraph {
         String v;
         for (char c : NUCLEOTIDES) {
             v = c + prefix;
-            if (lookup(v)) {
+            if (contains(v)) {
                 result.add(v);
             }
         }
@@ -87,7 +88,7 @@ public class BloomFilterDeBruijnGraph {
         String v;
         for (char c : NUCLEOTIDES) {
             v = suffix + c;
-            if (lookup(v)) {
+            if (contains(v)) {
                 result.add(v);
             }
         }
@@ -100,7 +101,7 @@ public class BloomFilterDeBruijnGraph {
         String v;
         for (char c : NUCLEOTIDES) {
             v = c + suffix;
-            if (lookup(v)) {
+            if (contains(v)) {
                 result.add(v);
             }
         }
@@ -114,12 +115,35 @@ public class BloomFilterDeBruijnGraph {
         String v;
         for (char c : NUCLEOTIDES) {
             v = prefix + c;
-            if (lookup(v)) {
+            if (contains(v)) {
                 result.add(v);
             }
         }
         return result;
     }
     
+    public float getMeanKmerCoverage(String seq) {
+        return getMeanKmerCoverage(kmerize(seq, k));
+    }
     
+    public float getMeanKmerCoverage(String[] kmers) {
+        float count = 0;
+        for (String kmer : kmers) {
+            count += cbf.getCount(kmer);
+        }
+        return count/kmers.length;
+    }
+    
+    public boolean isValidSeq(String seq) {
+        return containsAll(kmerize(seq, k));
+    }
+    
+    public boolean containsAll(String[] kmers) {
+        for (String kmer : kmers) {
+            if (!contains(kmer)) {
+                return false;
+            }
+        }
+        return true;
+    }
 }
