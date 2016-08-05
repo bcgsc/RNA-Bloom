@@ -122,6 +122,15 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
     
+    public float[] getCounts(String[] kmers){
+        int numKmers = kmers.length;
+        float[] counts = new float[numKmers];
+        for (int i=0; i<numKmers; ++i) {
+            counts[i] = getCount(kmers[i]);
+        }
+        return counts;
+    }
+    
     public float getMeanKmerCoverage(String seq) {
         return getMeanKmerCoverage(kmerize(seq, k));
     }
