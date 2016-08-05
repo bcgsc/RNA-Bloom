@@ -25,7 +25,7 @@ public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
     }
     
     @Override
-    public void set(long index) {
+    public synchronized void set(long index) {
         long byteIndex = index / Byte.SIZE;
         byte b = backingByteArray.get(byteIndex);
         b |= (1 << (int) (byteIndex % Byte.SIZE));

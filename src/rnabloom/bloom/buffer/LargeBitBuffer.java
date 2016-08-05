@@ -24,7 +24,7 @@ public class LargeBitBuffer extends AbstractLargeBitBuffer {
     }
     
     @Override
-    public void set(long index) {
+    public synchronized void set(long index) {
         long byteIndex = index / Byte.SIZE;
         byte b = backingByteBuffer.get(byteIndex);
         b |= (1 << (byte) (byteIndex % Byte.SIZE));
