@@ -75,6 +75,15 @@ public final class SequenceOperations {
         }
     }
     
+    public static String overlap(String left, String right, int minOverlap) {
+        int li = left.length()-minOverlap;
+        int ri = right.indexOf(left.substring(li));
+        if (ri == 0 || (ri > 0 && right.substring(0, ri).equals(left.substring(li-ri, li)))) {
+            return left + right.substring(ri+minOverlap);
+        }
+        return null;
+    }
+    
     private static final String PHRED33 = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJ";
     
     public static Pattern getPhred33Pattern(int minQual, int minLength) {
