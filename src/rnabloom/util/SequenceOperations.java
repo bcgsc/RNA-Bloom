@@ -87,7 +87,7 @@ public final class SequenceOperations {
     private static final String PHRED33 = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
     
     public static Pattern getPhred33Pattern(int minQual, int minLength) {
-        return Pattern.compile("[" + PHRED33.substring(minQual) + "]{" + Integer.toString(minLength) + ",}");
+        return Pattern.compile("[\\Q" + PHRED33.substring(minQual) + "\\E]{" + Integer.toString(minLength) + ",}");
     }
     
     public static Pattern getACTGPattern(int minLength) {
