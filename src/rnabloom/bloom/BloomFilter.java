@@ -40,7 +40,7 @@ public class BloomFilter implements BloomFilterInterface {
         add(hashFunction.getHashValues(key));
     }
     
-    public synchronized void add(final long[] hashVals){
+    public void add(final long[] hashVals){
         for (int h=0; h<numHash; ++h) {
             bitArray.set(hashVals[h] % size);
         }
