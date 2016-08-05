@@ -17,7 +17,8 @@ public class SmallestStrandHashFunction extends HashFunction {
         super(numHash, seed, k);
     }
 
+    @Override
     public long[] getHashValues(final String kmer) {
         return super.getHashValues(smallestStrand(kmer));
-    }    
+    }
 }

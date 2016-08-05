@@ -57,7 +57,7 @@ public final class SequenceOperations {
                     rc[--i] = 'A';
                     break;
                 default:
-                    rc[--i] = (char) c;
+                    rc[--i] = 'N';
             }
         }
         

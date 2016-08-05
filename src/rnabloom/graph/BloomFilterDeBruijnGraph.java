@@ -52,7 +52,7 @@ public class BloomFilterDeBruijnGraph {
         dbgbf.add(hashVals);
         cbf.increment(hashVals);
     }
-
+    
     public boolean contains(String kmer) {
         return dbgbf.lookup(kmer);
     }
