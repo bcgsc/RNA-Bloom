@@ -11,7 +11,7 @@ import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.SmallestStrandHashFunction;
-import static rnabloom.util.SequenceOperations.kmerize;
+import static rnabloom.util.SeqUtils.kmerize;
 
 /**
  *

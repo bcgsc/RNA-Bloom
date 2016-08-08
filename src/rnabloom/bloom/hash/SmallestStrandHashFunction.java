@@ -5,7 +5,7 @@
  */
 package rnabloom.bloom.hash;
 
-import static rnabloom.util.SequenceOperations.smallestStrand;
+import static rnabloom.util.SeqUtils.smallestStrand;
 
 /**
  *

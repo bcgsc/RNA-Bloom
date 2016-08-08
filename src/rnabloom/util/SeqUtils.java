@@ -15,7 +15,7 @@ import rnabloom.io.FastqRecord;
  *
  * @author kmnip
  */
-public final class SequenceOperations {
+public final class SeqUtils {
     
     public static final String[] kmerize(String seq, int k) {
         final int numKmers = seq.length() - k +1;

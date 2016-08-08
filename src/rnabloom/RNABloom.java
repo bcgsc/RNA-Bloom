@@ -20,8 +20,8 @@ import rnabloom.bloom.BloomFilter;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.io.FastqReader;
 import rnabloom.io.FastqRecord;
-import rnabloom.util.SequenceOperations;
-import static rnabloom.util.SequenceOperations.*;
+import rnabloom.util.SeqUtils;
+import static rnabloom.util.SeqUtils.*;
 
 /**
  *
