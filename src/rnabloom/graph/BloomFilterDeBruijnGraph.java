@@ -69,34 +69,64 @@ public class BloomFilterDeBruijnGraph {
         return dbgbf.getFPR() * cbf.getFPR();
     }
     
-    public List<String> getPredecessors(String kmer) {
-        List<String> result = new ArrayList<>(4);
+    public static class Kmer {
+        public String seq;
+        public float count;
+        
+        public Kmer(String seq, float count) {
+            this.seq = seq;
+            this.count = count;
+        }
+    }
+    
+    public ArrayList<Kmer> getPredecessors(Kmer kmer) {
+        return getPredecessors(kmer.seq);
+    }
+    
+    public ArrayList<Kmer> getPredecessors(String kmer) {
+        ArrayList<Kmer> result = new ArrayList<>(4);
         String prefix = kmer.substring(0, overlap);
         String v;
+        long[] hashVals;
+        float count;
         for (char c : NUCLEOTIDES) {
             v = c + prefix;
-            if (contains(v)) {
-                result.add(v);
+            hashVals = this.hashFunction.getHashValues(v);
+            if (dbgbf.lookup(hashVals)) {
+                count = cbf.getCount(hashVals);
+                if (count > 0) {
+                    result.add(new Kmer(v, count));
+                }
             }
         }
         return result;
     }
 
-    public List<String> getSuccessors(String kmer) {
-        List<String> result = new ArrayList<>(4);
+    public ArrayList<Kmer> getSuccessors(Kmer kmer) {
+        return getSuccessors(kmer.seq);
+    }
+    
+    public ArrayList<Kmer> getSuccessors(String kmer) {
+        ArrayList<Kmer> result = new ArrayList<>(4);
         String suffix = kmer.substring(1, k);
         String v;
+        long[] hashVals;
+        float count;
         for (char c : NUCLEOTIDES) {
             v = suffix + c;
-            if (contains(v)) {
-                result.add(v);
+            hashVals = this.hashFunction.getHashValues(v);
+            if (dbgbf.lookup(hashVals)) {
+                count = cbf.getCount(hashVals);
+                if (count > 0) {
+                    result.add(new Kmer(v, count));
+                }
             }
         }
         return result;
     }
     
-    public List<String> getLeftVariants(String kmer) {
-        List<String> result = new ArrayList<>(4);
+    public ArrayList<String> getLeftVariants(String kmer) {
+        ArrayList<String> result = new ArrayList<>(4);
         String suffix = kmer.substring(1, k);
         String v;
         for (char c : NUCLEOTIDES) {
@@ -108,8 +138,8 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
 
-    public List<String> getRightVariants(String kmer) {
-        List<String> result = new ArrayList<>(4);
+    public ArrayList<String> getRightVariants(String kmer) {
+        ArrayList<String> result = new ArrayList<>(4);
         
         String prefix = kmer.substring(0, overlap);
         String v;
@@ -141,6 +171,14 @@ public class BloomFilterDeBruijnGraph {
             count += cbf.getCount(kmer);
         }
         return count/kmers.length;
+    }
+    
+    public float getMeanKmerCoverage(ArrayList<Kmer> kmers) {
+        float count = 0;
+        for (Kmer kmer : kmers) {
+            count += cbf.getCount(kmer.seq);
+        }
+        return count/kmers.size();
     }
     
     public boolean isValidSeq(String seq) {
