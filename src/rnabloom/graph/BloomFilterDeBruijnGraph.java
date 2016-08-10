@@ -77,6 +77,10 @@ public class BloomFilterDeBruijnGraph {
             this.seq = seq;
             this.count = count;
         }
+        
+        public boolean equals(Kmer other) {
+            return this.seq.equals(other.seq);
+        }
     }
     
     public ArrayList<Kmer> getPredecessors(Kmer kmer) {
