@@ -6,7 +6,9 @@
 package rnabloom.util;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 
@@ -154,28 +156,84 @@ public final class GraphUtils {
      * @return 
      */
     public static ArrayList<Kmer> getMaxCoveragePath(BloomFilterDeBruijnGraph graph, Kmer left, Kmer right, int bound, int lookahead) {
-        ArrayList<Kmer> path = new ArrayList<>(bound);
+        
+        HashSet<String> leftPathKmers = new HashSet<>(bound);
         
         /* extend right */
+        ArrayList<Kmer> leftPath = new ArrayList<>(bound);
         Kmer best = left;
-        ArrayList<Kmer> successors;
+        ArrayList<Kmer> neighbors;
         for (int depth=0; depth < bound; ++depth) {
-            successors = graph.getSuccessors(best);
+            neighbors = graph.getSuccessors(best);
             
-            if (successors.isEmpty()) {
+            if (neighbors.isEmpty()) {
                 break;
             }
             else {
-                if (successors.size() == 1) {
-                    best = successors.get(0);
+                if (neighbors.size() == 1) {
+                    best = neighbors.get(0);
                 }
                 else {
-                    /**@TODO */
+                    best = greedyExtendRightOnce(graph, best, lookahead);
+                }
+                
+                if (best.equals(right)) {
+                    return leftPath;
+                }
+                else {
+                    leftPath.add(best);
                 }
             }
         }
         
-        return path;
+        for (Kmer kmer : leftPath) {
+            leftPathKmers.add(kmer.seq);
+        }
+        
+        /* not connected, search from right */
+        ArrayList<Kmer> rightPath = new ArrayList<>(bound);
+        best = right;
+        for (int depth=0; depth < bound; ++depth) {
+            neighbors = graph.getPredecessors(best);
+            
+            if (neighbors.isEmpty()) {
+                break;
+            }
+            else {
+                if (neighbors.size() == 1) {
+                    best = neighbors.get(0);
+                }
+                else {
+                    best = greedyExtendLeftOnce(graph, best, lookahead);
+                }
+                
+                if (best.equals(left)) {
+                    Collections.reverse(rightPath);
+                    return rightPath;
+                }
+                else if (leftPathKmers.contains(best.seq)) {
+                    /*right path intersects the left path */
+                    String convergingKmer = best.seq;
+                    ArrayList<Kmer> path = new ArrayList<>(bound);
+                    for (Kmer kmer : leftPath) {
+                        if (convergingKmer.equals(kmer.seq)) {
+                            break;
+                        }
+                        else {
+                            path.add(kmer);
+                        }
+                    }
+                    Collections.reverse(rightPath);
+                    path.addAll(rightPath);
+                    return path;
+                }
+                else {
+                    rightPath.add(best);
+                }
+            }
+        }
+        
+        return null;
     }
     
 }
