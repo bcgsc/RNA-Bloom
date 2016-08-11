@@ -236,4 +236,11 @@ public final class GraphUtils {
         return null;
     }
     
+    public ArrayList<Kmer> correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
+        ArrayList<Kmer> kmers = graph.getKmers(seq);
+        
+        /**@TODO */
+        
+        return kmers;
+    }
 }
