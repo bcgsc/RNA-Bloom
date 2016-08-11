@@ -197,4 +197,20 @@ public class BloomFilterDeBruijnGraph {
         }
         return true;
     }
+    
+    public ArrayList<Kmer> getKmers(String seq) {
+        String[] kmers = kmerize(seq, this.k);
+        ArrayList<Kmer> result = new ArrayList<>(kmers.length);
+        
+        for (String kmer : kmers) {
+            if (this.contains(kmer)) {
+                result.add(new Kmer(kmer, this.getCount(kmer)));
+            }
+            else {
+                result.add(new Kmer(kmer, 0));
+            }
+        }
+        
+        return result;
+    }
 }
