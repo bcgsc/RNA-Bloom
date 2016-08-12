@@ -6,6 +6,8 @@
 package rnabloom.graph;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
@@ -47,6 +49,10 @@ public class BloomFilterDeBruijnGraph {
         this.cbf = new CountingBloomFilter(cbfSize, cbfNumHash, this.hashFunction);
     }
     
+    public int getK() {
+        return k;
+    }
+    
     public void add(String kmer) {
         final long[] hashVals = hashFunction.getHashValues(kmer);
         dbgbf.add(hashVals);
@@ -62,7 +68,13 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public float getCount(String kmer) {
-        return cbf.getCount(kmer);
+        final long[] hashVals = hashFunction.getHashValues(kmer);
+        if (dbgbf.lookup(hashVals)) {
+            return cbf.getCount(hashVals);
+        }
+        else {
+            return 0;
+        }
     }
 
     public float getFPR() {
@@ -180,13 +192,62 @@ public class BloomFilterDeBruijnGraph {
     public float getMeanKmerCoverage(ArrayList<Kmer> kmers) {
         float count = 0;
         for (Kmer kmer : kmers) {
-            count += cbf.getCount(kmer.seq);
+            count += kmer.count;
         }
         return count/kmers.size();
     }
     
+    public float getMedianKmerCoverage(String seq){
+        return getMedianKmerCoverage(kmerize(seq, k));
+    }
+    
+    public float getMedianKmerCoverage(String[] kmers) {
+        int numKmers = kmers.length;
+        int halfNumKmers = numKmers/2;
+        
+        ArrayList<Float> counts = new ArrayList<>(numKmers);
+        for (String kmer : kmers) {
+            counts.add(cbf.getCount(kmer));
+        }
+        
+        Collections.sort(counts);
+        
+        if (numKmers % 2 == 0) {
+            return (counts.get(halfNumKmers) + counts.get(halfNumKmers -1))/2.0f;
+        }
+        
+        return counts.get(halfNumKmers);
+    }
+    
+    public float getMedianKmerCoverage(ArrayList<Kmer> kmers) {
+        int numKmers = kmers.size();
+        int halfNumKmers = numKmers/2;
+        
+        ArrayList<Float> counts = new ArrayList<>(numKmers);
+        for (Kmer kmer : kmers) {
+            counts.add(kmer.count);
+        }
+        
+        Collections.sort(counts);
+        
+        if (numKmers % 2 == 0) {
+            return (counts.get(halfNumKmers) + counts.get(halfNumKmers -1))/2.0f;
+        }
+        
+        return counts.get(halfNumKmers);
+    }
+    
     public boolean isValidSeq(String seq) {
         return containsAll(kmerize(seq, k));
+    }
+    
+    public boolean isValidSeq(Collection<Kmer> kmers) {
+        for (Kmer kmer : kmers) {
+            if (kmer.count == 0) {
+                return false;
+            }
+        }
+        return true;
     }
     
     public boolean containsAll(String[] kmers) {
