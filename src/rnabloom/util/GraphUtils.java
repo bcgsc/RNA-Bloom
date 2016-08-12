@@ -236,7 +236,7 @@ public final class GraphUtils {
         return null;
     }
     
-    private static float getMedianCoverageHelper(BloomFilterDeBruijnGraph graph, Kmer left, String guide) {
+    private static float rightGuidedMedianCoverageHelper(BloomFilterDeBruijnGraph graph, Kmer left, String guide) {
         ArrayList<Kmer> kmers = new ArrayList<>(guide.length()+1);
         kmers.add(left);
         
@@ -259,58 +259,123 @@ public final class GraphUtils {
         
         return graph.getMedianKmerCoverage(kmers);
     }
+
+    private static float leftGuidedMedianCoverageHelper(BloomFilterDeBruijnGraph graph, Kmer right, String guide) {
+        ArrayList<Kmer> kmers = new ArrayList<>(guide.length()+1);
+        kmers.add(right);
+        int k = graph.getK();
+        
+        String prevPrefix = right.seq.substring(0,k-1);
+        int guideLen = guide.length();
+        String kmer;
+        float count;
+        for (int i=guideLen-1; i>0; --i) {
+            kmer = guide.charAt(i) + prevPrefix;
+            count = graph.getCount(kmer);
+            if (count > 0) {
+                kmers.add(new Kmer(kmer, count));
+                prevPrefix = kmer.substring(0,k-1);
+            }
+            else {
+                // not a valid sequence
+                return 0;
+            }
+        }
+        
+        return graph.getMedianKmerCoverage(kmers);
+    }
     
     public static ArrayList<Kmer> correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
         int seqLen = seq.length();
         int k = graph.getK();
         
-        int numKmers = seqLen - k + 1;        
-        ArrayList<Kmer> correctedKmers = new ArrayList<>(numKmers);
+        int numKmers = seqLen - k + 1;
         
-        int mismatchesCorrected = 0;
-        
-        String currKmerSeq;
-        String prevKmerSeq = seq.substring(0,k);
-        Kmer prevKmer = new Kmer(prevKmerSeq, graph.getCount(prevKmerSeq));
-        String guide;
-        Kmer bestKmer;
-        float bestCov;
-        float count;
-                
-        for (int i=0; i<numKmers-1; ++i) {
-            currKmerSeq = prevKmer.seq.substring(1) + seq.charAt(i+k);
-            guide = seq.substring(i+k+1, Math.min(i+k+1+lookahead, seqLen));
+        if (numKmers > 1) {
+            char[] correctedSeq = new char[seq.length()];
             
-            bestKmer = null;
-            bestCov = 0;
-            
-            for (Kmer s : graph.getSuccessors(prevKmer)) {
-                count = getMedianCoverageHelper(graph, s, guide);
-                if (count > bestCov) {
-                    bestKmer = s;
-                    bestCov = count;
-                }
-            }
-            
-            if (bestKmer == null) {
-                // undo all corrections
-                return graph.getKmers(seq);
-            }
-            else {
-                if (! currKmerSeq.equals(bestKmer.seq)) {
-                    ++mismatchesCorrected;
-                    if (mismatchesCorrected > mismatchesAllowed) {
-                        return graph.getKmers(seq);
+            int mismatchesCorrected = 0;
+
+            String currKmerSeq;
+            String prevKmerSeq = seq.substring(0,k);
+            Kmer prevKmer = new Kmer(prevKmerSeq, graph.getCount(prevKmerSeq));
+            String guide;
+            Kmer bestKmer;
+            float bestCov;
+            float count;
+
+            for (int i=0; i<numKmers-1; ++i) {
+                currKmerSeq = prevKmer.seq.substring(1) + seq.charAt(i+k);
+                guide = seq.substring(i+k+1, Math.min(i+k+1+lookahead, seqLen));
+
+                bestKmer = null;
+                bestCov = 0;
+
+                for (Kmer s : graph.getSuccessors(prevKmer)) {
+                    count = rightGuidedMedianCoverageHelper(graph, s, guide);
+                    if (count > bestCov) {
+                        bestKmer = s;
+                        bestCov = count;
                     }
                 }
-                
-                correctedKmers.add(bestKmer);
-                prevKmer = bestKmer;
+
+                if (bestKmer == null) {
+                    // undo all corrections
+                    return graph.getKmers(seq);
+                }
+                else {
+                    if (! currKmerSeq.equals(bestKmer.seq)) {
+                        ++mismatchesCorrected;
+                        if (mismatchesCorrected > mismatchesAllowed) {
+                            return graph.getKmers(seq);
+                        }
+                    }
+
+                    correctedSeq[i+k] = bestKmer.seq.charAt(k-1);
+                    prevKmer = bestKmer;
+                }
             }
+            
+            /** correct mismatches in first kmer of the sequence*/
+            int i = Math.min(seqLen-1-k, k);
+            prevKmerSeq = seq.substring(i,i+k);
+            
+            for (i=i-1; i>0; --i) {
+                currKmerSeq = seq.charAt(i+k) + prevKmerSeq.substring(0,k-1);
+                guide = seq.substring(Math.max(0, i-lookahead), i);
+                
+                bestKmer = null;
+                bestCov = 0;
+
+                for (Kmer s : graph.getPredecessors(prevKmer)) {
+                    count = leftGuidedMedianCoverageHelper(graph, s, guide);
+                    if (count > bestCov) {
+                        bestKmer = s;
+                        bestCov = count;
+                    }
+                }
+
+                if (bestKmer == null) {
+                    // undo all corrections
+                    return graph.getKmers(seq);
+                }
+                else {
+                    if (! currKmerSeq.equals(bestKmer.seq)) {
+                        ++mismatchesCorrected;
+                        if (mismatchesCorrected > mismatchesAllowed) {
+                            return graph.getKmers(seq);
+                        }
+                    }
+
+                    correctedSeq[i-1] = bestKmer.seq.charAt(0);
+                    prevKmer = bestKmer;
+                }
+            }
+            
+            return graph.getKmers(new String(correctedSeq));
         }
-        
-        /**@TODO correct mismatches in first kmer*/
-        
-        return correctedKmers;
+        else {
+            return graph.getKmers(seq);
+        }
     }
 }
