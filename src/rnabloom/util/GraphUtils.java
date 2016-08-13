@@ -6,8 +6,8 @@
 package rnabloom.util;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
@@ -236,20 +236,30 @@ public final class GraphUtils {
         return null;
     }
     
-    private static float rightGuidedMedianCoverageHelper(BloomFilterDeBruijnGraph graph, Kmer left, String guide) {
-        ArrayList<Kmer> kmers = new ArrayList<>(guide.length()+1);
-        kmers.add(left);
+    private static float getMedian(float[] a) {
+        Arrays.sort(a);
+        int halfLen = a.length / 2;
+        if (halfLen % 2 == 0) {
+            return (a[halfLen-1] + a[halfLen])/2.0f;
+        }
         
-        String prevPostfix = left.seq.substring(1);
+        return a[halfLen];
+    }
+    
+    private static float rightGuidedMedianCoverageHelper(BloomFilterDeBruijnGraph graph, Kmer left, String guide) {
         int guideLen = guide.length();
+        float[] covs = new float[guideLen+1];
+        covs[guideLen] = left.count;
+        
+        String postfix = left.seq.substring(1);
         String kmer;
         float count;
         for (int i=0; i<guideLen; ++i) {
-            kmer = prevPostfix + guide.charAt(i);
+            kmer = postfix + guide.charAt(i);
             count = graph.getCount(kmer);
             if (count > 0) {
-                kmers.add(new Kmer(kmer, count));
-                prevPostfix = kmer.substring(1);
+                covs[i] = count;
+                postfix = kmer.substring(1);
             }
             else {
                 // not a valid sequence
@@ -257,24 +267,24 @@ public final class GraphUtils {
             }
         }
         
-        return graph.getMedianKmerCoverage(kmers);
+        return getMedian(covs);
     }
 
     private static float leftGuidedMedianCoverageHelper(BloomFilterDeBruijnGraph graph, Kmer right, String guide) {
-        ArrayList<Kmer> kmers = new ArrayList<>(guide.length()+1);
-        kmers.add(right);
-        int k = graph.getK();
-        
-        String prevPrefix = right.seq.substring(0,k-1);
         int guideLen = guide.length();
+        float[] covs = new float[guideLen+1];
+        covs[0] = right.count;
+        
+        int kMinus1 = graph.getK()-1;
+        String prefix = right.seq.substring(0,kMinus1);
         String kmer;
         float count;
         for (int i=guideLen-1; i>0; --i) {
-            kmer = guide.charAt(i) + prevPrefix;
+            kmer = guide.charAt(i) + prefix;
             count = graph.getCount(kmer);
             if (count > 0) {
-                kmers.add(new Kmer(kmer, count));
-                prevPrefix = kmer.substring(0,k-1);
+                covs[i] = count;
+                prefix = kmer.substring(0,kMinus1);
             }
             else {
                 // not a valid sequence
@@ -282,12 +292,13 @@ public final class GraphUtils {
             }
         }
         
-        return graph.getMedianKmerCoverage(kmers);
+        return getMedian(covs);
     }
     
     public static ArrayList<Kmer> correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
         int seqLen = seq.length();
         int k = graph.getK();
+        int kMinus1 = k - 1;
         
         int numKmers = seqLen - k + 1;
         
@@ -331,7 +342,7 @@ public final class GraphUtils {
                         }
                     }
 
-                    correctedSeq[i+k] = bestKmer.seq.charAt(k-1);
+                    correctedSeq[i+k] = bestKmer.seq.charAt(kMinus1);
                     prevKmer = bestKmer;
                 }
             }
@@ -339,9 +350,10 @@ public final class GraphUtils {
             /** correct mismatches in first kmer of the sequence*/
             int i = Math.min(seqLen-1-k, k);
             prevKmerSeq = seq.substring(i,i+k);
+            prevKmer = new Kmer(prevKmerSeq, graph.getCount(prevKmerSeq));
             
             for (i=i-1; i>0; --i) {
-                currKmerSeq = seq.charAt(i+k) + prevKmerSeq.substring(0,k-1);
+                currKmerSeq = seq.charAt(i) + prevKmer.seq.substring(0,kMinus1);
                 guide = seq.substring(Math.max(0, i-lookahead), i);
                 
                 bestKmer = null;
