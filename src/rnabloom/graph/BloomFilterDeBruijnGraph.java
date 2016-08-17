@@ -81,6 +81,10 @@ public class BloomFilterDeBruijnGraph {
         return dbgbf.getFPR() * cbf.getFPR();
     }
     
+    public Kmer getKmer(String kmer) {
+        return new Kmer(kmer, this.getCount(kmer));
+    }
+    
     public static class Kmer {
         public String seq;
         public float count;
@@ -95,13 +99,29 @@ public class BloomFilterDeBruijnGraph {
         }
     }
     
+    public String getPrefix(String kmer) {
+        return kmer.substring(0, overlap);
+    }
+    
+    public String getSuffix(String kmer) {
+        return kmer.substring(1, k);
+    }
+
+    public char getFirstBase(String kmer) {
+        return kmer.charAt(0);
+    }
+    
+    public char getLastBase(String kmer) {
+        return kmer.charAt(overlap);
+    }
+    
     public ArrayList<Kmer> getPredecessors(Kmer kmer) {
         return getPredecessors(kmer.seq);
     }
     
     public ArrayList<Kmer> getPredecessors(String kmer) {
         ArrayList<Kmer> result = new ArrayList<>(4);
-        String prefix = kmer.substring(0, overlap);
+        String prefix = getPrefix(kmer);
         String v;
         long[] hashVals;
         float count;
@@ -124,7 +144,7 @@ public class BloomFilterDeBruijnGraph {
     
     public ArrayList<Kmer> getSuccessors(String kmer) {
         ArrayList<Kmer> result = new ArrayList<>(4);
-        String suffix = kmer.substring(1, k);
+        String suffix = getSuffix(kmer);
         String v;
         long[] hashVals;
         float count;
@@ -143,7 +163,7 @@ public class BloomFilterDeBruijnGraph {
     
     public ArrayList<String> getLeftVariants(String kmer) {
         ArrayList<String> result = new ArrayList<>(4);
-        String suffix = kmer.substring(1, k);
+        String suffix = getSuffix(kmer);
         String v;
         for (char c : NUCLEOTIDES) {
             v = c + suffix;
@@ -157,7 +177,7 @@ public class BloomFilterDeBruijnGraph {
     public ArrayList<String> getRightVariants(String kmer) {
         ArrayList<String> result = new ArrayList<>(4);
         
-        String prefix = kmer.substring(0, overlap);
+        String prefix = getPrefix(kmer);
         String v;
         for (char c : NUCLEOTIDES) {
             v = prefix + c;
@@ -264,12 +284,7 @@ public class BloomFilterDeBruijnGraph {
         ArrayList<Kmer> result = new ArrayList<>(kmers.length);
         
         for (String kmer : kmers) {
-            if (this.contains(kmer)) {
-                result.add(new Kmer(kmer, this.getCount(kmer)));
-            }
-            else {
-                result.add(new Kmer(kmer, 0));
-            }
+            result.add(getKmer(kmer));
         }
         
         return result;

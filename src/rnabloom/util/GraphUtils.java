@@ -298,7 +298,6 @@ public final class GraphUtils {
     public static ArrayList<Kmer> correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
         int seqLen = seq.length();
         int k = graph.getK();
-        int kMinus1 = k - 1;
         
         int numKmers = seqLen - k + 1;
         
@@ -308,16 +307,15 @@ public final class GraphUtils {
             int mismatchesCorrected = 0;
 
             String currKmerSeq;
-            String prevKmerSeq = seq.substring(0,k);
-            Kmer prevKmer = new Kmer(prevKmerSeq, graph.getCount(prevKmerSeq));
+            Kmer prevKmer = graph.getKmer(seq.substring(0,k));
             String guide;
             Kmer bestKmer;
             float bestCov;
             float count;
 
-            for (int i=0; i<numKmers-1; ++i) {
-                currKmerSeq = prevKmer.seq.substring(1) + seq.charAt(i+k);
-                guide = seq.substring(i+k+1, Math.min(i+k+1+lookahead, seqLen));
+            for (int i=k; i<seqLen-2; ++i) {
+                currKmerSeq = graph.getSuffix(prevKmer.seq) + seq.charAt(i);
+                guide = seq.substring(i+1, Math.min(i+1+lookahead, seqLen));
 
                 bestKmer = null;
                 bestCov = 0;
@@ -335,25 +333,24 @@ public final class GraphUtils {
                     return graph.getKmers(seq);
                 }
                 else {
-                    if (! currKmerSeq.equals(bestKmer.seq)) {
-                        ++mismatchesCorrected;
-                        if (mismatchesCorrected > mismatchesAllowed) {
-                            return graph.getKmers(seq);
-                        }
+                    if (!currKmerSeq.equals(bestKmer.seq) && ++mismatchesCorrected > mismatchesAllowed) {
+                        // too many mismatches, undo all corrections
+                        return graph.getKmers(seq);
                     }
 
-                    correctedSeq[i+k] = bestKmer.seq.charAt(kMinus1);
+                    correctedSeq[i] = graph.getLastBase(bestKmer.seq);
                     prevKmer = bestKmer;
                 }
             }
             
             /** correct mismatches in first kmer of the sequence*/
-            int i = Math.min(seqLen-1-k, k);
-            prevKmerSeq = seq.substring(i,i+k);
-            prevKmer = new Kmer(prevKmerSeq, graph.getCount(prevKmerSeq));
             
-            for (i=i-1; i>0; --i) {
-                currKmerSeq = seq.charAt(i) + prevKmer.seq.substring(0,kMinus1);
+            /** Get the k-th kmer or the last kmer, whichever is more to the left*/
+            int i = Math.min(2*k, seqLen);
+            prevKmer = graph.getKmer(seq.substring(i-k,i));
+            
+            for (i=i-k-1; i>0; --i) {
+                currKmerSeq = seq.charAt(i) + graph.getPrefix(prevKmer.seq);
                 guide = seq.substring(Math.max(0, i-lookahead), i);
                 
                 bestKmer = null;
@@ -372,14 +369,12 @@ public final class GraphUtils {
                     return graph.getKmers(seq);
                 }
                 else {
-                    if (! currKmerSeq.equals(bestKmer.seq)) {
-                        ++mismatchesCorrected;
-                        if (mismatchesCorrected > mismatchesAllowed) {
-                            return graph.getKmers(seq);
-                        }
+                    if (!currKmerSeq.equals(bestKmer.seq) && ++mismatchesCorrected > mismatchesAllowed) {
+                        // too many mismatches, undo all corrections
+                        return graph.getKmers(seq);
                     }
 
-                    correctedSeq[i-1] = bestKmer.seq.charAt(0);
+                    correctedSeq[i] = graph.getFirstBase(bestKmer.seq);
                     prevKmer = bestKmer;
                 }
             }
