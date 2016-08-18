@@ -5,10 +5,13 @@
  */
 package rnabloom.util;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.PriorityQueue;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 
@@ -238,12 +241,22 @@ public final class GraphUtils {
     
     private static float getMedian(float[] a) {
         Arrays.sort(a);
-        int halfLen = a.length / 2;
+        int halfLen = a.length/2;
         if (halfLen % 2 == 0) {
             return (a[halfLen-1] + a[halfLen])/2.0f;
         }
         
         return a[halfLen];
+    }
+    
+    private static float getMedian(ArrayList<Float> a) {
+        Collections.sort(a);
+        int halfLen = a.size()/2;
+        if (halfLen % 2 == 0) {
+            return (a.get(halfLen-1) + a.get(halfLen))/2.0f;
+        }
+        
+        return a.get(halfLen);
     }
     
     private static float rightGuidedMedianCoverageHelper(BloomFilterDeBruijnGraph graph, Kmer left, String guide) {
@@ -384,5 +397,93 @@ public final class GraphUtils {
         else {
             return graph.getKmers(seq);
         }
+    }
+
+    public static String assemble(ArrayList<Kmer> kmers) {
+        
+        String first = kmers.get(0).seq;
+        int k = first.length();
+        int lastIndex = k - 1;
+        
+        StringBuilder sb = new StringBuilder(k + kmers.size() - 1);
+        sb.append(first.substring(0, lastIndex));
+        
+        for (Kmer kmer : kmers) {
+            sb.append(kmer.seq.charAt(lastIndex));
+        }
+        
+        return sb.toString();
+    }    
+    
+    public static ArrayList<Kmer> greedyExtend(Kmer seed, BloomFilterDeBruijnGraph graph, int lookahead) {
+        ArrayList<Kmer> rightPath = new ArrayList<>(100);
+        
+        /* extend on right side */
+        Kmer best = seed;
+        while (best != null) {
+            best = greedyExtendRightOnce(graph, best, lookahead);
+            rightPath.add(best);
+        }
+        
+        ArrayList<Kmer> leftPath = new ArrayList<>(100);
+        
+        /* extend on left side */
+        best = seed;
+        while (best != null) {
+            best = greedyExtendLeftOnce(graph, best, lookahead);
+            leftPath.add(best);
+        }
+        
+        Collections.reverse(leftPath);
+        leftPath.add(seed);
+        leftPath.addAll(rightPath);
+        
+        return leftPath;
+    }
+    
+    public static ArrayList<Kmer> findBackbonePath(Kmer seed, BloomFilterDeBruijnGraph graph, int lookahead, int windowSize, int maxIteration) {
+        ArrayList<Kmer> path = null;
+        
+        Kmer best = seed;
+        
+        for (int i=0; i<maxIteration; ++i) {
+            path = greedyExtend(best, graph, lookahead);
+            float maxCov = 0;
+            float cov;
+            
+            int start = 0;
+            int end = windowSize;
+            
+            int maxIndex = path.size() - windowSize;
+            ArrayList<Float> counts = new ArrayList<>(windowSize);
+            
+            for (int j=0; j<maxIndex; ++j) {
+                counts.add(path.get(j).count);
+                
+                if (counts.size() >= windowSize) {
+                    cov = getMedian(counts);
+                    if (cov > maxCov) {
+                        maxCov = cov;
+                        start = j-windowSize;
+                        end = j;
+                    }
+                    
+                    counts.remove(0);
+                    counts.add(path.get(j).count);
+                }
+            }
+            
+            best = path.get((end-start)/2);
+        }
+        
+        return path;
+    }
+    
+    public static String assembleFragment(String left, String right, BloomFilterDeBruijnGraph graph, int defaultBound, int maxTipLength, int sampleSize) {
+        String fragment = null;
+        
+        /**@TODO*/
+        
+        return fragment;
     }
 }
