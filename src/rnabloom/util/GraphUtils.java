@@ -5,13 +5,10 @@
  */
 package rnabloom.util;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.PriorityQueue;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 
@@ -326,7 +323,7 @@ public final class GraphUtils {
             float bestCov;
             float count;
 
-            for (int i=k; i<seqLen-2; ++i) {
+            for (int i=k; i<seqLen-1; ++i) {
                 currKmerSeq = graph.getSuffix(prevKmer.seq) + seq.charAt(i);
                 guide = seq.substring(i+1, Math.min(i+1+lookahead, seqLen));
 
@@ -355,6 +352,9 @@ public final class GraphUtils {
                     prevKmer = bestKmer;
                 }
             }
+            
+            bestKmer = greedyExtendRightOnce(graph, prevKmer, lookahead);
+            correctedSeq[seqLen-1] = graph.getLastBase(bestKmer.seq);
             
             /** correct mismatches in first kmer of the sequence*/
             
@@ -391,6 +391,9 @@ public final class GraphUtils {
                     prevKmer = bestKmer;
                 }
             }
+            
+            bestKmer = greedyExtendLeftOnce(graph, prevKmer, lookahead);
+            correctedSeq[0] = graph.getFirstBase(bestKmer.seq);
             
             return graph.getKmers(new String(correctedSeq));
         }
@@ -483,6 +486,7 @@ public final class GraphUtils {
         String fragment = null;
         
         /**@TODO*/
+        
         
         return fragment;
     }
