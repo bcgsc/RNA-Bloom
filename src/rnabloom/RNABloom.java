@@ -9,18 +9,20 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import rnabloom.bloom.CountingBloomFilter;
 import static java.lang.Math.pow;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
-import rnabloom.bloom.BloomFilter;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
+import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import rnabloom.io.FastqReader;
 import rnabloom.io.FastqRecord;
-import rnabloom.util.SeqUtils;
+import static rnabloom.util.GraphUtils.assemble;
+import static rnabloom.util.GraphUtils.correctMismatches;
+import static rnabloom.util.GraphUtils.getMaxCoveragePath;
 import static rnabloom.util.SeqUtils.*;
 
 /**
@@ -141,17 +143,25 @@ public class RNABloom {
             System.out.println("Parsed " + lineNum + " reads...");
         }
         
-        String test = "TCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCATCCCTGCCTCTACTGGCGCTGC";
-        String testKmer = test.substring(0, k);
-        String falseKmer = "";
-        for(int i=0; i<k; ++i) {
-            falseKmer += 'N';
-        }
+
+        String read1 = "TCGCTGTTGAAGTCAGAGGAGACCACCTGGTGCTCAGTGTAGCCCAGGATGCCCTTGAGGGGGCCCTCCGACGCCTGCTTCACCACCTTCTTGATGTCAT";
+        String read2 = "ACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTAAGTGGTGGACCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACAT";
+        read1 = reverseComplement(read1);
         
-        System.out.println(graph.contains(testKmer));
-        System.out.println(graph.getCount(testKmer));
-        System.out.println(graph.contains(falseKmer));
         
+        //System.out.println(read1);
+        //String read1Corrected = assemble(correctMismatches(read1, graph, 5, 5));
+        //System.out.println(read1Corrected);
+        
+        //System.out.println(read2);
+        //String read2Corrected = assemble(correctMismatches(read2, graph, 5, 5));
+        //System.out.println(read2Corrected);
+        
+        ArrayList<Kmer> rightKmers = correctMismatches(read1, graph, 5, 5);
+        ArrayList<Kmer> leftKmers = correctMismatches(read2, graph, 5, 5);
+        
+        String path = assemble(getMaxCoveragePath(graph, leftKmers.get(leftKmers.size()-1), rightKmers.get(0), 500, 5));
+        System.out.println(path);
     }
     
 }
