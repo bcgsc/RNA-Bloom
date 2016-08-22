@@ -416,7 +416,27 @@ public final class GraphUtils {
         }
         
         return sb.toString();
-    }    
+    }
+
+    public static String assembleFirstBase(ArrayList<Kmer> kmers) {
+        StringBuilder sb = new StringBuilder(kmers.size());
+        for (Kmer kmer : kmers) {
+            sb.append(kmer.seq.charAt(0));
+        }
+        
+        return sb.toString();
+    }
+
+    public static String assembleLastBase(ArrayList<Kmer> kmers) {
+        int lastIndex = kmers.get(0).seq.length() - 1;
+        
+        StringBuilder sb = new StringBuilder(kmers.size());
+        for (Kmer kmer : kmers) {
+            sb.append(kmer.seq.charAt(lastIndex));
+        }
+        
+        return sb.toString();
+    }
     
     public static ArrayList<Kmer> greedyExtend(Kmer seed, BloomFilterDeBruijnGraph graph, int lookahead) {
         ArrayList<Kmer> rightPath = new ArrayList<>(100);
@@ -482,12 +502,20 @@ public final class GraphUtils {
         return path;
     }
     
-    public static String assembleFragment(String left, String right, BloomFilterDeBruijnGraph graph, int defaultBound, int maxTipLength, int sampleSize) {
-        String fragment = null;
+    public static String assembleFragment(String left, String right, BloomFilterDeBruijnGraph graph, int mismatchesAllowed, int bound, int lookahead) {
+        ArrayList<Kmer> rightKmers = correctMismatches(right, graph, lookahead, mismatchesAllowed);
+        ArrayList<Kmer> leftKmers = correctMismatches(left, graph, lookahead, mismatchesAllowed);
+    
+        /**@TODO Overlap read pair first?*/
         
-        /**@TODO*/
+        ArrayList<Kmer> pathKmers = getMaxCoveragePath(graph, leftKmers.get(leftKmers.size()-1), rightKmers.get(0), bound, lookahead);
         
+        if (pathKmers.isEmpty()) {
+            return null;
+        }
         
-        return fragment;
+        return assembleFirstBase(leftKmers) + assemble(pathKmers) + assembleLastBase(rightKmers);
     }
+    
+    
 }
