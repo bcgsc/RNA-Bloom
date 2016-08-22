@@ -517,5 +517,22 @@ public final class GraphUtils {
         return assembleFirstBase(leftKmers) + assemble(pathKmers) + assembleLastBase(rightKmers);
     }
     
-    
+    public static String naiveExtendRight(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength) {
+        /**@TODO */
+        
+        StringBuilder sb = new StringBuilder(50);
+        int i = graph.getK() - 1;
+        
+        ArrayList<Kmer> neighbors = graph.getPredecessors(source);
+        while (!neighbors.isEmpty()) {
+            if (neighbors.size() == 1) {
+                sb.append(neighbors.get(0).seq.charAt(i));
+            }
+            else {
+                /**@TODO */
+            }
+        }
+        
+        return null;
+    }
 }
