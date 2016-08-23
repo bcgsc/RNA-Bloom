@@ -570,22 +570,73 @@ public final class GraphUtils {
         return false;
     }
     
-    public static String naiveExtendRight(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength) {
-        /**@TODO */
+    public static String naiveExtendRight(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength) {        
+        StringBuilder sb = new StringBuilder(50);
+        int i = graph.getK() - 1;
         
+        LinkedList<Kmer> neighbors = graph.getSuccessors(source);
+        while (!neighbors.isEmpty()) {
+            if (neighbors.size() == 1) {
+                sb.append(neighbors.peek().seq.charAt(i));
+            }
+            else {
+                Kmer best = null;
+                for (Kmer n : neighbors) {
+                    if (hasDepthRight(n, graph, maxTipLength)) {
+                        if (best == null) {
+                            best = n;
+                        }
+                        else {
+                            // too many good branches
+                            best = null;
+                            break;
+                        }
+                    }
+                }
+                
+                if (best == null) {
+                    break;
+                }
+                
+                sb.append(best.seq.charAt(i));
+            }
+        }
+        
+        return sb.toString();
+    }
+    
+    public static String naiveExtendLeft(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength) {        
         StringBuilder sb = new StringBuilder(50);
         int i = graph.getK() - 1;
         
         LinkedList<Kmer> neighbors = graph.getPredecessors(source);
         while (!neighbors.isEmpty()) {
             if (neighbors.size() == 1) {
-                sb.append(neighbors.get(0).seq.charAt(i));
+                sb.append(neighbors.peek().seq.charAt(i));
             }
             else {
-                /**@TODO */
+                Kmer best = null;
+                for (Kmer n : neighbors) {
+                    if (hasDepthLeft(n, graph, maxTipLength)) {
+                        if (best == null) {
+                            best = n;
+                        }
+                        else {
+                            // too many good branches
+                            best = null;
+                            break;
+                        }
+                    }
+                }
+                
+                if (best == null) {
+                    break;
+                }
+                
+                sb.append(best.seq.charAt(i));
             }
         }
         
-        return null;
+        return sb.toString();
     }
 }
