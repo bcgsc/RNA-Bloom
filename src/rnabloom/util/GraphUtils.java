@@ -444,18 +444,28 @@ public final class GraphUtils {
         
         /* extend on right side */
         Kmer best = seed;
-        while (best != null) {
+        while (true) {
             best = greedyExtendRightOnce(graph, best, lookahead);
-            rightPath.add(best);
+            if (best != null) {
+                rightPath.add(best);
+            }
+            else {
+                break;
+            }
         }
         
         ArrayList<Kmer> leftPath = new ArrayList<>(100);
         
         /* extend on left side */
         best = seed;
-        while (best != null) {
+        while (true) {
             best = greedyExtendLeftOnce(graph, best, lookahead);
-            leftPath.add(best);
+            if (best != null) {
+                leftPath.add(best);
+            }
+            else {
+                break;
+            }
         }
         
         Collections.reverse(leftPath);
