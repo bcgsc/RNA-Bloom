@@ -8,6 +8,7 @@ package rnabloom.graph;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
@@ -115,12 +116,12 @@ public class BloomFilterDeBruijnGraph {
         return kmer.charAt(overlap);
     }
     
-    public ArrayList<Kmer> getPredecessors(Kmer kmer) {
+    public LinkedList<Kmer> getPredecessors(Kmer kmer) {
         return getPredecessors(kmer.seq);
     }
     
-    public ArrayList<Kmer> getPredecessors(String kmer) {
-        ArrayList<Kmer> result = new ArrayList<>(4);
+    public LinkedList<Kmer> getPredecessors(String kmer) {
+        LinkedList<Kmer> result = new LinkedList<>();
         String prefix = getPrefix(kmer);
         String v;
         long[] hashVals;
@@ -138,12 +139,12 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
 
-    public ArrayList<Kmer> getSuccessors(Kmer kmer) {
+    public LinkedList<Kmer> getSuccessors(Kmer kmer) {
         return getSuccessors(kmer.seq);
     }
     
-    public ArrayList<Kmer> getSuccessors(String kmer) {
-        ArrayList<Kmer> result = new ArrayList<>(4);
+    public LinkedList<Kmer> getSuccessors(String kmer) {
+        LinkedList<Kmer> result = new LinkedList<>();
         String suffix = getSuffix(kmer);
         String v;
         long[] hashVals;
@@ -161,8 +162,8 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
     
-    public ArrayList<String> getLeftVariants(String kmer) {
-        ArrayList<String> result = new ArrayList<>(4);
+    public LinkedList<String> getLeftVariants(String kmer) {
+        LinkedList<String> result = new LinkedList<>();
         String suffix = getSuffix(kmer);
         String v;
         for (char c : NUCLEOTIDES) {
@@ -174,8 +175,8 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
 
-    public ArrayList<String> getRightVariants(String kmer) {
-        ArrayList<String> result = new ArrayList<>(4);
+    public LinkedList<String> getRightVariants(String kmer) {
+        LinkedList<String> result = new LinkedList<>();
         
         String prefix = getPrefix(kmer);
         String v;
@@ -209,7 +210,7 @@ public class BloomFilterDeBruijnGraph {
         return count/kmers.length;
     }
     
-    public float getMeanKmerCoverage(ArrayList<Kmer> kmers) {
+    public float getMeanKmerCoverage(List<Kmer> kmers) {
         float count = 0;
         for (Kmer kmer : kmers) {
             count += kmer.count;

@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedList;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 
@@ -19,23 +20,23 @@ import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 public final class GraphUtils {
     
     public static Kmer greedyExtendRightOnce(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead) {
-        ArrayList<Kmer> candidates = graph.getSuccessors(source);
+        LinkedList<Kmer> candidates = graph.getSuccessors(source);
         
         if (candidates.isEmpty()) {
             return null;
         }
         else {
             if (candidates.size() == 1) {
-                return candidates.get(0);
+                return candidates.peek();
             }
             else {
-                ArrayList<Kmer> alts = graph.getSuccessors(source);
-                Kmer cursor = alts.remove(alts.size()-1);
+                LinkedList<Kmer> alts = graph.getSuccessors(source);
+                Kmer cursor = alts.pop();
                 
                 ArrayList<Kmer> path = new ArrayList<>(lookahead); 
                 path.add(cursor);
                 
-                ArrayList<ArrayList<Kmer>> frontier = new ArrayList<>(lookahead);
+                ArrayList<LinkedList<Kmer>> frontier = new ArrayList<>(lookahead);
                 frontier.add(alts);
                 
                 float bestCov = 0;
@@ -46,7 +47,7 @@ public final class GraphUtils {
                     if (path.size() < lookahead) {
                         alts = graph.getSuccessors(cursor);
                         if (!alts.isEmpty()) {
-                            cursor = alts.remove(alts.size()-1);
+                            cursor = alts.pop();
                             path.add(cursor);
                             frontier.add(alts);
                             continue;
@@ -70,7 +71,7 @@ public final class GraphUtils {
                             --i;
                         }
                         else {
-                            cursor = alts.remove(alts.size()-1);
+                            cursor = alts.pop();
                             path.add(cursor);
                             break;
                         }
@@ -83,23 +84,23 @@ public final class GraphUtils {
     }
     
     public static Kmer greedyExtendLeftOnce(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead) {
-        ArrayList<Kmer> candidates = graph.getPredecessors(source);
+        LinkedList<Kmer> candidates = graph.getPredecessors(source);
         
         if (candidates.isEmpty()) {
             return null;
         }
         else {
             if (candidates.size() == 1) {
-                return candidates.get(0);
+                return candidates.peek();
             }
             else {
-                ArrayList<Kmer> alts = graph.getPredecessors(source);
-                Kmer cursor = alts.remove(alts.size()-1);
+                LinkedList<Kmer> alts = graph.getPredecessors(source);
+                Kmer cursor = alts.pop();
                 
                 ArrayList<Kmer> path = new ArrayList<>(lookahead); 
                 path.add(cursor);
                 
-                ArrayList<ArrayList<Kmer>> frontier = new ArrayList<>(lookahead);
+                ArrayList<LinkedList<Kmer>> frontier = new ArrayList<>(lookahead);
                 frontier.add(alts);
                 
                 float bestCov = 0;
@@ -110,7 +111,7 @@ public final class GraphUtils {
                     if (path.size() < lookahead) {
                         alts = graph.getPredecessors(cursor);
                         if (!alts.isEmpty()) {
-                            cursor = alts.remove(alts.size()-1);
+                            cursor = alts.pop();
                             path.add(cursor);
                             frontier.add(alts);
                             continue;
@@ -134,7 +135,7 @@ public final class GraphUtils {
                             --i;
                         }
                         else {
-                            cursor = alts.remove(alts.size()-1);
+                            cursor = alts.pop();
                             path.add(cursor);
                             break;
                         }
@@ -162,7 +163,7 @@ public final class GraphUtils {
         /* extend right */
         ArrayList<Kmer> leftPath = new ArrayList<>(bound);
         Kmer best = left;
-        ArrayList<Kmer> neighbors;
+        LinkedList<Kmer> neighbors;
         for (int depth=0; depth < bound; ++depth) {
             neighbors = graph.getSuccessors(best);
             
@@ -171,7 +172,7 @@ public final class GraphUtils {
             }
             else {
                 if (neighbors.size() == 1) {
-                    best = neighbors.get(0);
+                    best = neighbors.peek();
                 }
                 else {
                     best = greedyExtendRightOnce(graph, best, lookahead);
@@ -201,7 +202,7 @@ public final class GraphUtils {
             }
             else {
                 if (neighbors.size() == 1) {
-                    best = neighbors.get(0);
+                    best = neighbors.peek();
                 }
                 else {
                     best = greedyExtendLeftOnce(graph, best, lookahead);
@@ -523,7 +524,7 @@ public final class GraphUtils {
         StringBuilder sb = new StringBuilder(50);
         int i = graph.getK() - 1;
         
-        ArrayList<Kmer> neighbors = graph.getPredecessors(source);
+        LinkedList<Kmer> neighbors = graph.getPredecessors(source);
         while (!neighbors.isEmpty()) {
             if (neighbors.size() == 1) {
                 sb.append(neighbors.get(0).seq.charAt(i));
