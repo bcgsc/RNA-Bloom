@@ -30,14 +30,13 @@ public final class GraphUtils {
                 return candidates.peek();
             }
             else {
-                LinkedList<Kmer> alts = graph.getSuccessors(source);
-                Kmer cursor = alts.pop();
+                Kmer cursor = candidates.pop();
                 
                 ArrayList<Kmer> path = new ArrayList<>(lookahead); 
                 path.add(cursor);
                 
                 ArrayList<LinkedList<Kmer>> frontier = new ArrayList<>(lookahead);
-                frontier.add(alts);
+                frontier.add(candidates);
                 
                 float bestCov = 0;
                 int bestLen = 1;
@@ -45,11 +44,11 @@ public final class GraphUtils {
                 
                 while (!frontier.isEmpty()) {
                     if (path.size() < lookahead) {
-                        alts = graph.getSuccessors(cursor);
-                        if (!alts.isEmpty()) {
-                            cursor = alts.pop();
+                        candidates = graph.getSuccessors(cursor);
+                        if (!candidates.isEmpty()) {
+                            cursor = candidates.pop();
                             path.add(cursor);
-                            frontier.add(alts);
+                            frontier.add(candidates);
                             continue;
                         }
                     }
@@ -64,14 +63,14 @@ public final class GraphUtils {
 
                     int i = path.size()-1;
                     while (i >= 0) {
-                        alts = frontier.get(i);
+                        candidates = frontier.get(i);
                         path.remove(i);
-                        if (alts.isEmpty()) {
+                        if (candidates.isEmpty()) {
                             frontier.remove(i);
                             --i;
                         }
                         else {
-                            cursor = alts.pop();
+                            cursor = candidates.pop();
                             path.add(cursor);
                             break;
                         }
@@ -94,14 +93,13 @@ public final class GraphUtils {
                 return candidates.peek();
             }
             else {
-                LinkedList<Kmer> alts = graph.getPredecessors(source);
-                Kmer cursor = alts.pop();
+                Kmer cursor = candidates.pop();
                 
                 ArrayList<Kmer> path = new ArrayList<>(lookahead); 
                 path.add(cursor);
                 
                 ArrayList<LinkedList<Kmer>> frontier = new ArrayList<>(lookahead);
-                frontier.add(alts);
+                frontier.add(candidates);
                 
                 float bestCov = 0;
                 int bestLen = 1;
@@ -109,11 +107,11 @@ public final class GraphUtils {
                 
                 while (!frontier.isEmpty()) {
                     if (path.size() < lookahead) {
-                        alts = graph.getPredecessors(cursor);
-                        if (!alts.isEmpty()) {
-                            cursor = alts.pop();
+                        candidates = graph.getPredecessors(cursor);
+                        if (!candidates.isEmpty()) {
+                            cursor = candidates.pop();
                             path.add(cursor);
-                            frontier.add(alts);
+                            frontier.add(candidates);
                             continue;
                         }
                     }
@@ -128,14 +126,14 @@ public final class GraphUtils {
 
                     int i = path.size()-1;
                     while (i >= 0) {
-                        alts = frontier.get(i);
+                        candidates = frontier.get(i);
                         path.remove(i);
-                        if (alts.isEmpty()) {
+                        if (candidates.isEmpty()) {
                             frontier.remove(i);
                             --i;
                         }
                         else {
-                            cursor = alts.pop();
+                            cursor = candidates.pop();
                             path.add(cursor);
                             break;
                         }
@@ -526,6 +524,50 @@ public final class GraphUtils {
         }
         
         return assembleFirstBase(leftKmers) + assemble(pathKmers) + assembleLastBase(rightKmers);
+    }
+    
+    public static boolean hasDepthRight(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
+        LinkedList<LinkedList> frontier = new LinkedList<>();
+        LinkedList<Kmer> alts = graph.getSuccessors(source);
+        frontier.add(alts);
+        
+        while (!frontier.isEmpty()) {
+            alts = frontier.peekLast();
+            if (alts.isEmpty()) {
+                frontier.removeLast();
+            }
+            else {
+                frontier.add(graph.getSuccessors(alts.pop()));
+            }
+
+            if (frontier.size() >= depth) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    public static boolean hasDepthLeft(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
+        LinkedList<LinkedList> frontier = new LinkedList<>();
+        LinkedList<Kmer> alts = graph.getPredecessors(source);
+        frontier.add(alts);
+        
+        while (!frontier.isEmpty()) {
+            alts = frontier.peekLast();
+            if (alts.isEmpty()) {
+                frontier.removeLast();
+            }
+            else {
+                frontier.add(graph.getPredecessors(alts.pop()));
+            }
+
+            if (frontier.size() >= depth) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     public static String naiveExtendRight(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength) {
