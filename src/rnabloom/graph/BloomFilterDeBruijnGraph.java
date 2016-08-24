@@ -198,26 +198,6 @@ public class BloomFilterDeBruijnGraph {
         return counts;
     }
     
-    public float getMeanKmerCoverage(String seq) {
-        return getMeanKmerCoverage(kmerize(seq, k));
-    }
-    
-    public float getMeanKmerCoverage(String[] kmers) {
-        float count = 0;
-        for (String kmer : kmers) {
-            count += cbf.getCount(kmer);
-        }
-        return count/kmers.length;
-    }
-    
-    public float getMeanKmerCoverage(List<Kmer> kmers) {
-        float count = 0;
-        for (Kmer kmer : kmers) {
-            count += kmer.count;
-        }
-        return count/kmers.size();
-    }
-    
     public float getMedianKmerCoverage(String seq){
         return getMedianKmerCoverage(kmerize(seq, k));
     }
@@ -239,25 +219,7 @@ public class BloomFilterDeBruijnGraph {
         
         return counts.get(halfNumKmers);
     }
-    
-    public float getMedianKmerCoverage(ArrayList<Kmer> kmers) {
-        int numKmers = kmers.size();
-        int halfNumKmers = numKmers/2;
         
-        ArrayList<Float> counts = new ArrayList<>(numKmers);
-        for (Kmer kmer : kmers) {
-            counts.add(kmer.count);
-        }
-        
-        Collections.sort(counts);
-        
-        if (numKmers % 2 == 0) {
-            return (counts.get(halfNumKmers) + counts.get(halfNumKmers -1))/2.0f;
-        }
-        
-        return counts.get(halfNumKmers);
-    }
-    
     public boolean isValidSeq(String seq) {
         return containsAll(kmerize(seq, k));
     }
@@ -281,11 +243,11 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public ArrayList<Kmer> getKmers(String seq) {
-        String[] kmers = kmerize(seq, this.k);
-        ArrayList<Kmer> result = new ArrayList<>(kmers.length);
+        final int numKmers = seq.length() - k + 1;
+        ArrayList<Kmer> result = new ArrayList<>(numKmers);
         
-        for (String kmer : kmers) {
-            result.add(getKmer(kmer));
+        for (int i=0; i<numKmers; ++i) {
+            result.add(getKmer(seq.substring(i, i+k)));
         }
         
         return result;

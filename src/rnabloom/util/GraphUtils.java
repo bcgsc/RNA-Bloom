@@ -19,6 +19,24 @@ import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
  */
 public final class GraphUtils {
     
+    public static float getMedianKmerCoverage(final ArrayList<Kmer> kmers) {
+        int numKmers = kmers.size();
+        int halfNumKmers = numKmers/2;
+        
+        ArrayList<Float> counts = new ArrayList<>(numKmers);
+        for (Kmer kmer : kmers) {
+            counts.add(kmer.count);
+        }
+        
+        Collections.sort(counts);
+        
+        if (numKmers % 2 == 0) {
+            return (counts.get(halfNumKmers) + counts.get(halfNumKmers -1))/2.0f;
+        }
+        
+        return counts.get(halfNumKmers);
+    }
+    
     public static Kmer greedyExtendRightOnce(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead) {
         LinkedList<Kmer> candidates = graph.getSuccessors(source);
         
@@ -53,7 +71,7 @@ public final class GraphUtils {
                         }
                     }
                     
-                    float pathCov = graph.getMedianKmerCoverage(path);
+                    float pathCov = getMedianKmerCoverage(path);
                     int pathLen = path.size();
                     if (bestLen < pathLen || bestCov < pathCov) {
                         bestPath = new ArrayList<>(path);
@@ -116,7 +134,7 @@ public final class GraphUtils {
                         }
                     }
                     
-                    float pathCov = graph.getMedianKmerCoverage(path);
+                    float pathCov = getMedianKmerCoverage(path);
                     int pathLen = path.size();
                     if (bestLen < pathLen || bestCov < pathCov) {
                         bestPath = new ArrayList<>(path);
