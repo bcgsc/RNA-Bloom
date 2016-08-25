@@ -21,6 +21,7 @@ import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import rnabloom.io.FastqReader;
 import rnabloom.io.FastqRecord;
 import static rnabloom.util.GraphUtils.assemble;
+import static rnabloom.util.GraphUtils.assembleFragment;
 import static rnabloom.util.GraphUtils.correctMismatches;
 import static rnabloom.util.GraphUtils.getMaxCoveragePath;
 import static rnabloom.util.SeqUtils.*;
@@ -69,7 +70,7 @@ public class RNABloom {
         System.out.println( SequenceOperations.filterFastq(fq, p).toString() );
         */
         
-        
+                
         long dbgbfSize = NUM_BITS_1GB;
         int cbfSize = (int) NUM_BYTES_1GB;
         int dbgbfNumHash = 3;
@@ -148,20 +149,14 @@ public class RNABloom {
         String read2 = "ACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTAAGTGGTGGACCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACAT";
         read1 = reverseComplement(read1);
         
+        int mismatchesAllowed = 5;
+        int bound = 500;
+        int lookahead = 5;
+        int minOverlap = 10;
         
-        //System.out.println(read1);
-        //String read1Corrected = assemble(correctMismatches(read1, graph, 5, 5));
-        //System.out.println(read1Corrected);
+        String fragment = assembleFragment(read2, read1, graph, mismatchesAllowed, bound, lookahead, minOverlap);
+        System.out.println(fragment);
         
-        //System.out.println(read2);
-        //String read2Corrected = assemble(correctMismatches(read2, graph, 5, 5));
-        //System.out.println(read2Corrected);
-        
-        ArrayList<Kmer> rightKmers = correctMismatches(read1, graph, 5, 5);
-        ArrayList<Kmer> leftKmers = correctMismatches(read2, graph, 5, 5);
-        
-        String path = assemble(getMaxCoveragePath(graph, leftKmers.get(leftKmers.size()-1), rightKmers.get(0), 500, 5));
-        System.out.println(path);
     }
     
 }
