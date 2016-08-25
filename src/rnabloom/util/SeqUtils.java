@@ -75,12 +75,64 @@ public final class SeqUtils {
         }
     }
     
-    public static String overlap(String left, String right, int minOverlap) {
-        int li = left.length()-minOverlap;
-        int ri = right.indexOf(left.substring(li));
-        if (ri == 0 || (ri > 0 && right.substring(0, ri).equals(left.substring(li-ri, li)))) {
-            return left + right.substring(ri+minOverlap);
+    public static String overlapMaximally(String left, String right, int minOverlap) {
+        String prefix = right.substring(0, minOverlap);
+        int leftLength = left.length();
+        int rightLength = right.length();
+        
+        int lowerL = 0;
+        int maxLi = leftLength - minOverlap;
+        
+        while (lowerL >= 0 && lowerL <= maxLi) {
+            lowerL = left.indexOf(prefix, lowerL);
+            
+            if (lowerL >= 0) {
+                int upperL = lowerL+rightLength;
+                if (upperL < leftLength) {
+                    // could `right` be contained in `left`?
+                    String leftTail = left.substring(lowerL+minOverlap, upperL);
+                    String rightTail = right.substring(minOverlap);
+                    if (leftTail.equals(rightTail)) {
+                        return left;
+                    }
+                    else {
+                        ++lowerL;
+                    }
+                }
+                else {
+                    upperL = leftLength;
+                    String leftTail = left.substring(lowerL+minOverlap, upperL);
+                    String rightTail = right.substring(minOverlap);
+                    if (leftTail.equals(rightTail)) {
+                        return left + rightTail;
+                    }
+                    else {
+                        ++lowerL;
+                    }
+                }
+            }
         }
+        
+        return null;
+    }
+    
+    public static String overlapMinimally(String left, String right, int minOverlap) {
+        int li = left.length() - minOverlap;
+        String suffix = left.substring(li);
+        int ri = 0;
+        int maxRi = right.length() - minOverlap;
+        
+        while (ri >= 0 && ri <= maxRi) {
+            ri = right.indexOf(suffix, ri);
+            
+            if (ri == 0 || (ri > 0 && right.substring(0, ri).equals(left.substring(li-ri, li)))) {
+                return left + right.substring(ri+minOverlap);
+            }
+            else if (ri >= 0) {
+                ++ri;
+            }
+        }
+        
         return null;
     }
     

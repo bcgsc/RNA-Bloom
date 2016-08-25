@@ -529,10 +529,10 @@ public final class GraphUtils {
         return path;
     }
     
-    public static String assembleFragment(String left, String right, BloomFilterDeBruijnGraph graph, int mismatchesAllowed, int bound, int lookahead) {
-        ArrayList<Kmer> rightKmers = correctMismatches(right, graph, lookahead, mismatchesAllowed);
-        ArrayList<Kmer> leftKmers = correctMismatches(left, graph, lookahead, mismatchesAllowed);
-    
+    public static String assembleFragment(String leftRead, String rightRead, BloomFilterDeBruijnGraph graph, int mismatchesAllowed, int bound, int lookahead) {
+        ArrayList<Kmer> leftKmers = correctMismatches(leftRead, graph, lookahead, mismatchesAllowed);
+        ArrayList<Kmer> rightKmers = correctMismatches(rightRead, graph, lookahead, mismatchesAllowed);
+        
         /**@TODO Overlap read pair first?*/
         
         ArrayList<Kmer> pathKmers = getMaxCoveragePath(graph, leftKmers.get(leftKmers.size()-1), rightKmers.get(0), bound, lookahead);
