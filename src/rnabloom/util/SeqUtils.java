@@ -93,24 +93,26 @@ public final class SeqUtils {
                     String leftTail = left.substring(lowerL+minOverlap, upperL);
                     String rightTail = right.substring(minOverlap);
                     if (leftTail.equals(rightTail)) {
+                        // overlap: rightLength
                         return left;
-                    }
-                    else {
-                        ++lowerL;
                     }
                 }
                 else {
                     upperL = leftLength;
                     String leftTail = left.substring(lowerL+minOverlap, upperL);
-                    String rightTail = right.substring(minOverlap);
+                    String rightTail = right.substring(minOverlap, upperL-lowerL);
                     if (leftTail.equals(rightTail)) {
-                        return left + rightTail;
-                    }
-                    else {
-                        ++lowerL;
+                        // overlap: leftLength - lowerL
+                        return left + right.substring(upperL-lowerL);
                     }
                 }
+                ++lowerL;
             }
+        }
+        
+        if (leftLength < rightLength && right.contains(left)) {
+            // overlap: leftLength
+            return right;
         }
         
         return null;

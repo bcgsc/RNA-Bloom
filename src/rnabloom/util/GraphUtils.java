@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
+import static rnabloom.util.SeqUtils.overlapMaximally;
 
 /**
  *
@@ -529,11 +530,17 @@ public final class GraphUtils {
         return path;
     }
     
-    public static String assembleFragment(String leftRead, String rightRead, BloomFilterDeBruijnGraph graph, int mismatchesAllowed, int bound, int lookahead) {
+    public static String assembleFragment(String leftRead, String rightRead, BloomFilterDeBruijnGraph graph, int mismatchesAllowed, int bound, int lookahead, int minOverlap) {
+        
+        // overlap before finding path
+        String overlapped = overlapMaximally(leftRead, rightRead, minOverlap);
+        if (overlapped != null) {
+            /**@TODO Check whether overlap is a valid path in DBG*/
+            return assemble(correctMismatches(overlapped, graph, lookahead, mismatchesAllowed));
+        }
+        
         ArrayList<Kmer> leftKmers = correctMismatches(leftRead, graph, lookahead, mismatchesAllowed);
         ArrayList<Kmer> rightKmers = correctMismatches(rightRead, graph, lookahead, mismatchesAllowed);
-        
-        /**@TODO Overlap read pair first?*/
         
         ArrayList<Kmer> pathKmers = getMaxCoveragePath(graph, leftKmers.get(leftKmers.size()-1), rightKmers.get(0), bound, lookahead);
         
