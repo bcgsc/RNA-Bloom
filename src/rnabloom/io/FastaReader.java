@@ -8,29 +8,32 @@ package rnabloom.io;
 import java.io.BufferedReader;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import java.util.function.Supplier;
 
 /**
  *
  * @author kmnip
  */
-public class FastaReader implements Supplier<String> {
+public class FastaReader implements Iterator<String> {
     private final Iterator<String> itr;
 
     public FastaReader(BufferedReader br) {
         itr = br.lines().iterator();
     }
-    
+
     @Override
-    public String get() {
+    public boolean hasNext() {
+        return itr.hasNext();
+    }
+
+    @Override
+    public String next() {
         if (itr.hasNext()){
             if (! itr.next().startsWith(">")) {
                 throw new NoSuchElementException("Line 1 of FASTA record is expected to start with '>'");
             }
             return itr.next();
         }
-        else {
-            throw new NoSuchElementException();
-        }
+        
+        throw new NoSuchElementException("End of file");
     }
 }
