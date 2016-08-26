@@ -109,7 +109,11 @@ public class RNABloom {
             System.out.println("Parsed " + lineNum + " reads...");
         }
     }
-        
+
+    public BloomFilterDeBruijnGraph getGraph() {
+        return graph;
+    }
+    
     public void assembleFragments(String leftFastq, String rightFastq, boolean revCompLeft, boolean revCompRight, int mismatchesAllowed, int bound, int lookahead, int minOverlap) {
         BufferedReader lbr, rbr;
         FastqReader leftReader, rightReader;
@@ -213,9 +217,9 @@ public class RNABloom {
         RNABloom assembler = new RNABloom(strandSpecific, dbgbfSize, cbfSize, dbgbfNumHash, cbfNumHash, seed, k, q);
         assembler.createDBG(forwardFastqs, backwardFastqs);
         
-        //String left = "AAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCA";
-        //String right = "GGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACCCCCCCTCCTCCACCTTTGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTT";
-        
+        String left = "AAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCA";
+        String right = "GGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACCCCCCCTCCTCCACCTTTGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTT";
+        String fragment = assembleFragment(left, right, assembler.getGraph(), mismatchesAllowed, bound, lookahead, minOverlap);
         
         
         //assembler.assembleFragments(fastq2, fastq1, revCompLeft, revCompRight, mismatchesAllowed, bound, lookahead, minOverlap);

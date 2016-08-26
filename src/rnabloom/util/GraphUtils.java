@@ -208,6 +208,9 @@ public final class GraphUtils {
             leftPathKmers.add(kmer.seq);
         }
         
+        System.out.println(leftPath.size());
+        System.out.println(leftPath.get(leftPath.size()-1));
+        
         /* not connected, search from right */
         ArrayList<Kmer> rightPath = new ArrayList<>(bound);
         best = right;
