@@ -220,7 +220,7 @@ public class RNABloom {
         String left = "AAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCA";
         String right = "GGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACCCCCCCTCCTCCACCTTTGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTT";
         String fragment = assembleFragment(left, right, assembler.getGraph(), mismatchesAllowed, bound, lookahead, minOverlap);
-        
+        System.out.println(fragment);
         
         //assembler.assembleFragments(fastq2, fastq1, revCompLeft, revCompRight, mismatchesAllowed, bound, lookahead, minOverlap);
     }
