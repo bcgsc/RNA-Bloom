@@ -10,14 +10,18 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import static java.lang.Math.pow;
+import java.util.ArrayList;
 import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
+import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import rnabloom.io.FastqPairReader;
 import rnabloom.io.FastqPairReader.ReadPair;
 import rnabloom.io.FastqReader;
+import static rnabloom.util.GraphUtils.assemble;
 import static rnabloom.util.GraphUtils.assembleFragment;
+import static rnabloom.util.GraphUtils.findBackbonePath;
 import static rnabloom.util.SeqUtils.*;
 
 /**
@@ -141,12 +145,11 @@ public class RNABloom {
                 p = fqpr.next();
                 
                 if (p.left.length() >= k && p.right.length() >= k) {
-                    String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
-
-                    if (fragment.length() == 0) {
+                    if (p.right.endsWith("AAA")) {
+                        String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
                         System.out.println("LEFT:  " + p.left);
                         System.out.println("RIGHT: " + p.right);
-                        //System.out.println(fragment.length() + ": " + fragment);
+                        System.out.println(fragment.length() + ": " + fragment);
                     }
                     
                     /**@TODO*/
@@ -195,13 +198,12 @@ public class RNABloom {
         */
         
         
-        /*
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
         String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left
-        */
         
-        String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
-        String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
+        
+        //String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
+        //String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
         
         boolean revCompLeft = false;
         boolean revCompRight = true;
@@ -231,8 +233,8 @@ public class RNABloom {
         String right = "GGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACCCCCCCTCCTCCACCTTTGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTT";
         String fragment = assembleFragment(left, right, assembler.getGraph(), mismatchesAllowed, bound, lookahead, minOverlap);
         System.out.println(fragment);
-        */        
-
+        */
+        
         assembler.assembleFragments(fastq2, fastq1, revCompLeft, revCompRight, mismatchesAllowed, bound, lookahead, minOverlap);
     }
     
