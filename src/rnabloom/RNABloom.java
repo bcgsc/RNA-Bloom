@@ -140,13 +140,17 @@ public class RNABloom {
             while (fqpr.hasNext()) {
                 p = fqpr.next();
                 
-                System.out.println("LEFT:  " + p.left);
-                System.out.println("RIGHT: " + p.right);
-                
-                String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
-                
-                System.out.println(fragment);
-                /**@TODO*/
+                if (p.left.length() >= k && p.right.length() >= k) {
+                    String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
+
+                    if (fragment.length() == 0) {
+                        System.out.println("LEFT:  " + p.left);
+                        System.out.println("RIGHT: " + p.right);
+                        //System.out.println(fragment.length() + ": " + fragment);
+                    }
+                    
+                    /**@TODO*/
+                }
             }
             
             lbr.close();
@@ -191,8 +195,13 @@ public class RNABloom {
         */
         
         
+        /*
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
         String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left
+        */
+        
+        String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
+        String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
         
         boolean revCompLeft = false;
         boolean revCompRight = true;
@@ -217,12 +226,14 @@ public class RNABloom {
         RNABloom assembler = new RNABloom(strandSpecific, dbgbfSize, cbfSize, dbgbfNumHash, cbfNumHash, seed, k, q);
         assembler.createDBG(forwardFastqs, backwardFastqs);
         
+        /*
         String left = "AAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCA";
         String right = "GGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACCCCCCCTCCTCCACCTTTGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTT";
         String fragment = assembleFragment(left, right, assembler.getGraph(), mismatchesAllowed, bound, lookahead, minOverlap);
         System.out.println(fragment);
-        
-        //assembler.assembleFragments(fastq2, fastq1, revCompLeft, revCompRight, mismatchesAllowed, bound, lookahead, minOverlap);
+        */        
+
+        assembler.assembleFragments(fastq2, fastq1, revCompLeft, revCompRight, mismatchesAllowed, bound, lookahead, minOverlap);
     }
     
 }
