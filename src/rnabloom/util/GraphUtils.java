@@ -208,9 +208,6 @@ public final class GraphUtils {
             leftPathKmers.add(kmer.seq);
         }
         
-        System.out.println(leftPath.size());
-        System.out.println(leftPath.get(leftPath.size()-1));
-        
         /* not connected, search from right */
         ArrayList<Kmer> rightPath = new ArrayList<>(bound);
         best = right;
@@ -375,7 +372,9 @@ public final class GraphUtils {
             }
             
             bestKmer = greedyExtendRightOnce(graph, prevKmer, lookahead);
-            correctedSeq[seqLen-1] = graph.getLastBase(bestKmer.seq);
+            if (bestKmer != null) {
+                correctedSeq[seqLen-1] = graph.getLastBase(bestKmer.seq);
+            }
             
             /** correct mismatches in first kmer of the sequence*/
             
@@ -414,7 +413,9 @@ public final class GraphUtils {
             }
             
             bestKmer = greedyExtendLeftOnce(graph, prevKmer, lookahead);
-            correctedSeq[0] = graph.getFirstBase(bestKmer.seq);
+            if (bestKmer != null) {
+                correctedSeq[0] = graph.getFirstBase(bestKmer.seq);
+            }
             
             return graph.getKmers(new String(correctedSeq));
         }
@@ -547,8 +548,8 @@ public final class GraphUtils {
         
         ArrayList<Kmer> pathKmers = getMaxCoveragePath(graph, leftKmers.get(leftKmers.size()-1), rightKmers.get(0), bound, lookahead);
         
-        if (pathKmers.isEmpty()) {
-            return null;
+        if (pathKmers == null || pathKmers.isEmpty()) {
+            return "";
         }
         
         return assembleFirstBase(leftKmers) + assemble(pathKmers) + assembleLastBase(rightKmers);
