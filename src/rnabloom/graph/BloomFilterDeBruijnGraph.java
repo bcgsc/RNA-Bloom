@@ -31,7 +31,7 @@ public class BloomFilterDeBruijnGraph {
     private final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
         
     public BloomFilterDeBruijnGraph(long dbgbfSize,
-                                    int cbfSize,
+                                    long cbfSize,
                                     int dbgbfNumHash,
                                     int cbfNumHash,
                                     int seed,
@@ -58,6 +58,16 @@ public class BloomFilterDeBruijnGraph {
         final long[] hashVals = hashFunction.getHashValues(kmer);
         dbgbf.add(hashVals);
         cbf.increment(hashVals);
+    }
+    
+    public void addKmersFromSeq(String seq) {
+        final int numKmers = seq.length() - k + 1;
+        
+        for (int i=0; i<numKmers; ++i) {
+            long[] hashVals = hashFunction.getHashValues(seq.substring(i, i+k));
+            dbgbf.add(hashVals);
+            cbf.increment(hashVals);
+        }
     }
     
     public boolean contains(String kmer) {
