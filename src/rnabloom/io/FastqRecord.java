@@ -10,6 +10,7 @@ package rnabloom.io;
  * @author kmnip
  */
 public class FastqRecord {
+    public String name;
     public String seq;
     public String qual;    
     
@@ -17,8 +18,8 @@ public class FastqRecord {
         
     }
     
-    public FastqRecord(String seq, String qual) {
-        /**@TODO add name and pair info*/
+    public FastqRecord(String name, String seq, String qual) {
+        this.name = name;
         this.seq = seq;
         this.qual = qual;
     }
