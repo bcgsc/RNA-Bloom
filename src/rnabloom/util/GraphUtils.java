@@ -333,7 +333,7 @@ public final class GraphUtils {
         int numKmers = seqLen - k + 1;
         
         if (numKmers > 1) {
-            char[] correctedSeq = new char[seq.length()];
+            char[] correctedSeq = seq.toCharArray();
             
             int mismatchesCorrected = 0;
 
