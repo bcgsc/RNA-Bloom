@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import static rnabloom.util.SeqUtils.overlapMaximally;
@@ -58,7 +59,6 @@ public final class GraphUtils {
                 frontier.add(candidates);
                 
                 float bestCov = 0;
-                int bestLen = 1;
                 ArrayList<Kmer> bestPath = path;
                 
                 while (!frontier.isEmpty()) {
@@ -73,11 +73,9 @@ public final class GraphUtils {
                     }
                     
                     float pathCov = getMedianKmerCoverage(path);
-                    int pathLen = path.size();
-                    if (bestLen < pathLen || bestCov < pathCov) {
+                    if (bestCov < pathCov) {
                         bestPath = new ArrayList<>(path);
                         bestCov = pathCov;
-                        bestLen = pathLen;
                     }
 
                     int i = path.size()-1;
@@ -121,7 +119,6 @@ public final class GraphUtils {
                 frontier.add(candidates);
                 
                 float bestCov = 0;
-                int bestLen = 1;
                 ArrayList<Kmer> bestPath = path;
                 
                 while (!frontier.isEmpty()) {
@@ -136,11 +133,9 @@ public final class GraphUtils {
                     }
                     
                     float pathCov = getMedianKmerCoverage(path);
-                    int pathLen = path.size();
-                    if (bestLen < pathLen || bestCov < pathCov) {
+                    if (bestCov < pathCov) {
                         bestPath = new ArrayList<>(path);
                         bestCov = pathCov;
-                        bestLen = pathLen;
                     }
 
                     int i = path.size()-1;
@@ -254,7 +249,8 @@ public final class GraphUtils {
         return null;
     }
     
-    private static float getMedian(float[] a) {
+    private static float getMedian(float[] arr) {
+        float[] a = Arrays.copyOf(arr, arr.length);
         Arrays.sort(a);
         int halfLen = a.length/2;
         if (halfLen % 2 == 0) {
@@ -264,7 +260,8 @@ public final class GraphUtils {
         return a[halfLen];
     }
     
-    private static float getMedian(ArrayList<Float> a) {
+    private static float getMedian(List<Float> arr) {
+        ArrayList<Float> a = new ArrayList<>(arr);
         Collections.sort(a);
         int halfLen = a.size()/2;
         if (halfLen % 2 == 0) {
@@ -461,13 +458,21 @@ public final class GraphUtils {
     }
     
     public static ArrayList<Kmer> greedyExtend(Kmer seed, BloomFilterDeBruijnGraph graph, int lookahead) {
-        ArrayList<Kmer> rightPath = new ArrayList<>(100);
+        HashSet<String> pathKmerStr = new HashSet<>(1000);
+        pathKmerStr.add(seed.seq);
+        
+        ArrayList<Kmer> rightPath = new ArrayList<>(1000);
         
         /* extend on right side */
         Kmer best = seed;
         while (true) {
             best = greedyExtendRightOnce(graph, best, lookahead);
             if (best != null) {
+                String seq = best.seq;
+                if (pathKmerStr.contains(seq)) {
+                    break;
+                }
+                pathKmerStr.add(seq);
                 rightPath.add(best);
             }
             else {
@@ -482,6 +487,11 @@ public final class GraphUtils {
         while (true) {
             best = greedyExtendLeftOnce(graph, best, lookahead);
             if (best != null) {
+                String seq = best.seq;
+                if (pathKmerStr.contains(seq)) {
+                    break;
+                }
+                pathKmerStr.add(seq);
                 leftPath.add(best);
             }
             else {
@@ -496,39 +506,53 @@ public final class GraphUtils {
         return leftPath;
     }
     
+    public static Kmer findMaxCoverageWindowKmer(ArrayList<Kmer> path, BloomFilterDeBruijnGraph graph, int windowSize) {
+        int pathLen = path.size();
+        if (pathLen <= windowSize) {
+            return path.get(pathLen/2);
+        }
+                
+        LinkedList<Float> window = new LinkedList<>();
+        for (int i=0; i<windowSize; ++i) {
+            window.addFirst(path.get(i).count);
+        }
+        
+        int start = 0;
+        int end = windowSize;
+        float maxCov = getMedian(window);
+        
+        float cov;
+        for (int i=windowSize; i<pathLen; ++i) {
+            window.removeLast();
+            window.addFirst(path.get(i).count);
+            cov = getMedian(window);
+            if (cov > maxCov) {
+                maxCov = cov;
+                end = i+1;
+                start = end-windowSize;
+            }
+        }
+        
+        return path.get((end+start)/2);
+    }
+    
     public static ArrayList<Kmer> findBackbonePath(Kmer seed, BloomFilterDeBruijnGraph graph, int lookahead, int windowSize, int maxIteration) {
         ArrayList<Kmer> path = null;
         
         Kmer best = seed;
+        path = greedyExtend(best, graph, lookahead);
+        boolean randomSeed = false;
         
-        for (int i=0; i<maxIteration; ++i) {
-            path = greedyExtend(best, graph, lookahead);
-            float maxCov = 0;
-            float cov;
-            
-            int start = 0;
-            int end = windowSize;
-            
-            int maxIndex = path.size() - windowSize;
-            ArrayList<Float> counts = new ArrayList<>(windowSize);
-            
-            for (int j=0; j<maxIndex; ++j) {
-                counts.add(path.get(j).count);
-                
-                if (counts.size() >= windowSize) {
-                    cov = getMedian(counts);
-                    if (cov > maxCov) {
-                        maxCov = cov;
-                        start = j-windowSize;
-                        end = j;
-                    }
-                    
-                    counts.remove(0);
-                    counts.add(path.get(j).count);
-                }
+        for (int i=1; i<maxIteration; ++i) {
+            if (randomSeed) {
+                best = path.get((int) (Math.random() * (path.size()-1)));
+                randomSeed = false;
             }
-            
-            best = path.get((end-start)/2);
+            else {
+                best = findMaxCoverageWindowKmer(path, graph, windowSize);
+                randomSeed = true;
+            }
+            path = greedyExtend(best, graph, lookahead);
         }
         
         return path;
