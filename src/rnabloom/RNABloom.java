@@ -6,7 +6,9 @@
 package rnabloom;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import static java.lang.Math.pow;
@@ -119,27 +121,28 @@ public class RNABloom {
         return graph;
     }
         
-    public void assembleFragments(FastqPair[] fastqs, int mismatchesAllowed, int bound, int lookahead, int minOverlap) {
+    public void assembleFragments(FastqPair[] fastqs, String outFasta, int mismatchesAllowed, int bound, int lookahead, int minOverlap) {
         try {
-            BufferedReader lbr, rbr;
+            BufferedReader lin, rin;
             FastqReader leftReader, rightReader;
-                        
+            BufferedWriter out = new BufferedWriter(new FileWriter(outFasta));
+            
             for (FastqPair fqPair: fastqs) {
                 if (fqPair.leftFastq.endsWith(GZIP_EXTENSION)) {
-                    lbr = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fqPair.leftFastq))));
+                    lin = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fqPair.leftFastq))));
                 }
                 else {
-                    lbr = new BufferedReader(new InputStreamReader(new FileInputStream(fqPair.leftFastq)));
+                    lin = new BufferedReader(new InputStreamReader(new FileInputStream(fqPair.leftFastq)));
                 }
-                leftReader = new FastqReader(lbr, true);
+                leftReader = new FastqReader(lin, true);
 
                 if (fqPair.rightFastq.endsWith(GZIP_EXTENSION)) {
-                    rbr = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fqPair.rightFastq))));
+                    rin = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fqPair.rightFastq))));
                 }
                 else {
-                    rbr = new BufferedReader(new InputStreamReader(new FileInputStream(fqPair.rightFastq)));
+                    rin = new BufferedReader(new InputStreamReader(new FileInputStream(fqPair.rightFastq)));
                 }
-                rightReader = new FastqReader(rbr, true);
+                rightReader = new FastqReader(rin, true);
 
                 FastqPairReader fqpr = new FastqPairReader(leftReader, rightReader, qualPattern, fqPair.leftRevComp, fqPair.rightRevComp);
                 ReadPair p;
@@ -147,20 +150,33 @@ public class RNABloom {
                     p = fqpr.next();
 
                     if (p.left.length() >= k && p.right.length() >= k) {
+                        String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
+                        
+                        if (fragment.length() > 0) {
+                            out.write(">" + p.left + " " + p.right);
+                            out.newLine();
+                            out.write(fragment);
+                            out.newLine();
+                        }
+                        
+                        /*
                         if (p.right.endsWith("AAA")) {
                             String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
                             System.out.println("LEFT:  " + p.left);
                             System.out.println("RIGHT: " + p.right);
                             System.out.println(fragment.length() + ": " + fragment);
                         }
+                        */
 
                         /**@TODO*/
                     }
                 }
 
-                lbr.close();
-                rbr.close();
+                lin.close();
+                rin.close();
             }
+            
+            out.close();
         } catch (IOException ex) {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -203,6 +219,7 @@ public class RNABloom {
         
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
         String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left
+        String fragsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments.fa";
         
         //String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
         //String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
@@ -241,7 +258,7 @@ public class RNABloom {
         FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
         FastqPair[] fqPairs = new FastqPair[]{fqPair};
         
-        assembler.assembleFragments(fqPairs, mismatchesAllowed, bound, lookahead, minOverlap);
+        assembler.assembleFragments(fqPairs, fragsFasta, mismatchesAllowed, bound, lookahead, minOverlap);
     }
     
 }

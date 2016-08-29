@@ -537,10 +537,8 @@ public final class GraphUtils {
     }
     
     public static ArrayList<Kmer> findBackbonePath(Kmer seed, BloomFilterDeBruijnGraph graph, int lookahead, int windowSize, int maxIteration) {
-        ArrayList<Kmer> path = null;
-        
         Kmer best = seed;
-        path = greedyExtend(best, graph, lookahead);
+        ArrayList<Kmer> path = greedyExtend(best, graph, lookahead);
         boolean randomSeed = false;
         
         for (int i=1; i<maxIteration; ++i) {
