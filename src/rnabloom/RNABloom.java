@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
+import rnabloom.io.FastqPair;
 import rnabloom.io.FastqPairReader;
 import rnabloom.io.FastqPairReader.ReadPair;
 import rnabloom.io.FastqReader;
@@ -117,47 +118,49 @@ public class RNABloom {
     public BloomFilterDeBruijnGraph getGraph() {
         return graph;
     }
-    
-    public void assembleFragments(String leftFastq, String rightFastq, boolean revCompLeft, boolean revCompRight, int mismatchesAllowed, int bound, int lookahead, int minOverlap) {
-        BufferedReader lbr, rbr;
-        FastqReader leftReader, rightReader;
-
+        
+    public void assembleFragments(FastqPair[] fastqs, int mismatchesAllowed, int bound, int lookahead, int minOverlap) {
         try {
-            if (leftFastq.endsWith(GZIP_EXTENSION)) {
-                lbr = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(leftFastq))));
-            }
-            else {
-                lbr = new BufferedReader(new InputStreamReader(new FileInputStream(leftFastq)));
-            }
-            leftReader = new FastqReader(lbr, true);
-
-            if (rightFastq.endsWith(GZIP_EXTENSION)) {
-                rbr = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(rightFastq))));
-            }
-            else {
-                rbr = new BufferedReader(new InputStreamReader(new FileInputStream(rightFastq)));
-            }
-            rightReader = new FastqReader(rbr, true);
-            
-            FastqPairReader fqpr = new FastqPairReader(leftReader, rightReader, qualPattern, revCompLeft, revCompRight);
-            ReadPair p;
-            while (fqpr.hasNext()) {
-                p = fqpr.next();
-                
-                if (p.left.length() >= k && p.right.length() >= k) {
-                    if (p.right.endsWith("AAA")) {
-                        String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
-                        System.out.println("LEFT:  " + p.left);
-                        System.out.println("RIGHT: " + p.right);
-                        System.out.println(fragment.length() + ": " + fragment);
-                    }
-                    
-                    /**@TODO*/
+            BufferedReader lbr, rbr;
+            FastqReader leftReader, rightReader;
+                        
+            for (FastqPair fqPair: fastqs) {
+                if (fqPair.leftFastq.endsWith(GZIP_EXTENSION)) {
+                    lbr = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fqPair.leftFastq))));
                 }
+                else {
+                    lbr = new BufferedReader(new InputStreamReader(new FileInputStream(fqPair.leftFastq)));
+                }
+                leftReader = new FastqReader(lbr, true);
+
+                if (fqPair.rightFastq.endsWith(GZIP_EXTENSION)) {
+                    rbr = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fqPair.rightFastq))));
+                }
+                else {
+                    rbr = new BufferedReader(new InputStreamReader(new FileInputStream(fqPair.rightFastq)));
+                }
+                rightReader = new FastqReader(rbr, true);
+
+                FastqPairReader fqpr = new FastqPairReader(leftReader, rightReader, qualPattern, fqPair.leftRevComp, fqPair.rightRevComp);
+                ReadPair p;
+                while (fqpr.hasNext()) {
+                    p = fqpr.next();
+
+                    if (p.left.length() >= k && p.right.length() >= k) {
+                        if (p.right.endsWith("AAA")) {
+                            String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
+                            System.out.println("LEFT:  " + p.left);
+                            System.out.println("RIGHT: " + p.right);
+                            System.out.println(fragment.length() + ": " + fragment);
+                        }
+
+                        /**@TODO*/
+                    }
+                }
+
+                lbr.close();
+                rbr.close();
             }
-            
-            lbr.close();
-            rbr.close();
         } catch (IOException ex) {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -201,12 +204,12 @@ public class RNABloom {
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
         String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left
         
-        
         //String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
         //String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
         
-        boolean revCompLeft = false;
-        boolean revCompRight = true;
+        boolean revComp1 = true;
+        boolean revComp2 = false;
+        
         int mismatchesAllowed = 5;
         int bound = 500;
         int lookahead = 5;
@@ -235,7 +238,10 @@ public class RNABloom {
         System.out.println(fragment);
         */
         
-        assembler.assembleFragments(fastq2, fastq1, revCompLeft, revCompRight, mismatchesAllowed, bound, lookahead, minOverlap);
+        FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
+        FastqPair[] fqPairs = new FastqPair[]{fqPair};
+        
+        assembler.assembleFragments(fqPairs, mismatchesAllowed, bound, lookahead, minOverlap);
     }
     
 }
