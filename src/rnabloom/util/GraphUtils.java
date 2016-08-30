@@ -13,6 +13,7 @@ import java.util.LinkedList;
 import java.util.List;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
+import static rnabloom.util.SeqUtils.kmerize;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 
 /**
@@ -621,17 +622,39 @@ public final class GraphUtils {
         return false;
     }
     
-    public static String naiveExtendRight(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength) {        
-        StringBuilder sb = new StringBuilder(50);
-        int i = graph.getK() - 1;
+    public static String naiveExtend(String fragment, BloomFilterDeBruijnGraph graph, int maxTipLength) {
+        String[] kmers = kmerize(fragment, graph.getK());
+        int numKmers = kmers.length;
+        HashSet<String> fragmentKmers = new HashSet<>(2*numKmers);
+        String extended = "";
+        
+        ArrayList<Kmer> extension = naiveExtendLeft(graph.getKmer(kmers[0]), graph, maxTipLength, fragmentKmers);
+        if (!extension.isEmpty()) {
+            extended = assembleFirstBase(extension);
+        }
+        
+        extended += fragment;
+        
+        extension = naiveExtendRight(graph.getKmer(kmers[numKmers-1]), graph, maxTipLength, fragmentKmers);
+        if (!extension.isEmpty()) {
+            extended = assembleLastBase(extension);
+        }
+        
+        return extended;
+    }
+    
+    
+    public static ArrayList<Kmer> naiveExtendRight(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
+        ArrayList<Kmer> extension = new ArrayList<>(100);
         
         LinkedList<Kmer> neighbors = graph.getSuccessors(source);
+        Kmer best;
         while (!neighbors.isEmpty()) {
             if (neighbors.size() == 1) {
-                sb.append(neighbors.peek().seq.charAt(i));
+                best = neighbors.peek();
             }
             else {
-                Kmer best = null;
+                best = null;
                 for (Kmer n : neighbors) {
                     if (hasDepthRight(n, graph, maxTipLength)) {
                         if (best == null) {
@@ -645,28 +668,32 @@ public final class GraphUtils {
                     }
                 }
                 
-                if (best == null) {
-                    break;
-                }
+                /**@TODO look for back branches*/
                 
-                sb.append(best.seq.charAt(i));
             }
+            
+            if (best == null || terminators.contains(best.seq)) {
+                break;
+            }
+
+            extension.add(best);
+            terminators.add(best.seq);
         }
         
-        return sb.toString();
+        return extension;
     }
     
-    public static String naiveExtendLeft(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength) {        
-        StringBuilder sb = new StringBuilder(50);
-        int i = graph.getK() - 1;
+    public static ArrayList<Kmer> naiveExtendLeft(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
+        ArrayList<Kmer> extension = new ArrayList<>(100);
         
         LinkedList<Kmer> neighbors = graph.getPredecessors(source);
+        Kmer best;
         while (!neighbors.isEmpty()) {
             if (neighbors.size() == 1) {
-                sb.append(neighbors.peek().seq.charAt(i));
+                best = neighbors.peek();
             }
             else {
-                Kmer best = null;
+                best = null;
                 for (Kmer n : neighbors) {
                     if (hasDepthLeft(n, graph, maxTipLength)) {
                         if (best == null) {
@@ -680,14 +707,20 @@ public final class GraphUtils {
                     }
                 }
                 
-                if (best == null) {
-                    break;
-                }
+                /**@TODO look for back branches*/
                 
-                sb.append(best.seq.charAt(i));
             }
+            
+            if (best == null || terminators.contains(best.seq)) {
+                break;
+            }
+
+            extension.add(best);
+            terminators.add(best.seq);
         }
         
-        return sb.toString();
+        Collections.reverse(extension);
+        
+        return extension;
     }
 }
