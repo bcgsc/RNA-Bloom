@@ -19,7 +19,6 @@ public class PairedKeysBloomFilter extends BloomFilter {
     protected final HashFunction hashFunction2;
         
     public PairedKeysBloomFilter(long size, int singleKeyNumHash, HashFunction singleKeyHashFunction, int pairedKeysNumHash, HashFunction pairedKeysHashFunction) {
-        
         super(size, singleKeyNumHash, singleKeyHashFunction);
         this.numHash2 = pairedKeysNumHash;
         this.hashFunction2 = pairedKeysHashFunction;
