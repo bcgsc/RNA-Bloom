@@ -9,9 +9,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
-import java.util.List;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
+import rnabloom.bloom.PairedKeysBloomFilter;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.SmallestStrandHashFunction;
 import static rnabloom.util.SeqUtils.kmerize;
@@ -22,32 +22,45 @@ import static rnabloom.util.SeqUtils.kmerize;
  */
 public class BloomFilterDeBruijnGraph {
     
+    private final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
     private final BloomFilter dbgbf;
     private final CountingBloomFilter cbf;
+    private final PairedKeysBloomFilter pkbf;
     private final int maxHash;
     private final HashFunction hashFunction;
+    private final HashFunction hashFunction2;
     private final int k;
     private final int overlap;
-    private final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
-        
-    public BloomFilterDeBruijnGraph(long dbgbfSize,
-                                    long cbfSize,
+    private int pairedKmersDistance;
+    
+    public BloomFilterDeBruijnGraph(long dbgbfNumBits,
+                                    long cbfNumBytes,
+                                    long pkbfNumBits,
                                     int dbgbfNumHash,
                                     int cbfNumHash,
+                                    int pkbfSingleKeyNumHash,
+                                    int pkbfPairedKeysNumHash,
                                     int seed,
                                     int k,
                                     boolean stranded) {
-        this.maxHash = Math.max(dbgbfNumHash, cbfNumHash);
+        this.maxHash = Math.max(Math.max(dbgbfNumHash, cbfNumHash), pkbfSingleKeyNumHash);
         this.k = k;
         this.overlap = k-1;
         if (stranded) {
             this.hashFunction = new HashFunction(maxHash, seed, k);
+            this.hashFunction2 = new HashFunction(pkbfPairedKeysNumHash, seed, 2*k);
         }
         else {
             this.hashFunction = new SmallestStrandHashFunction(maxHash, seed, k);
+            this.hashFunction2 = new SmallestStrandHashFunction(pkbfPairedKeysNumHash, seed, 2*k);
         }
-        this.dbgbf = new BloomFilter(dbgbfSize, dbgbfNumHash, this.hashFunction);
-        this.cbf = new CountingBloomFilter(cbfSize, cbfNumHash, this.hashFunction);
+        this.dbgbf = new BloomFilter(dbgbfNumBits, dbgbfNumHash, this.hashFunction);
+        this.cbf = new CountingBloomFilter(cbfNumBytes, cbfNumHash, this.hashFunction);
+        this.pkbf = new PairedKeysBloomFilter(pkbfNumBits, pkbfSingleKeyNumHash, this.hashFunction, pkbfPairedKeysNumHash, this.hashFunction2);
+    }
+    
+    public void setPairedKmerDistance(int d) {
+        this.pairedKmersDistance = d;
     }
     
     public int getK() {
@@ -68,6 +81,22 @@ public class BloomFilterDeBruijnGraph {
             dbgbf.add(hashVals);
             cbf.increment(hashVals);
         }
+    }
+    
+    public void addPairedKmersFromSeq(String seq) {
+        final int upperBound = seq.length() - k + 1 - this.pairedKmersDistance;
+        
+        for (int i=0; i<upperBound; ++i) {
+            this.pkbf.addSingleAndPair(seq.substring(i, i+k), seq.substring(i+this.pairedKmersDistance, i+k+this.pairedKmersDistance));
+        }
+    }
+    
+    public boolean lookupFragmentKmer(String kmer) {
+        return pkbf.lookup(kmer);
+    }
+
+    public boolean lookupPairedKmers(String kmer1, String kmer2) {
+        return pkbf.lookupSingleAndPair(kmer1, kmer2);
     }
     
     public boolean contains(String kmer) {
