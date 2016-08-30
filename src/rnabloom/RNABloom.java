@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import static java.lang.Math.pow;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
@@ -25,6 +26,7 @@ import rnabloom.io.FastqReader;
 import static rnabloom.util.GraphUtils.assemble;
 import static rnabloom.util.GraphUtils.assembleFragment;
 import static rnabloom.util.GraphUtils.findBackbonePath;
+import static rnabloom.util.GraphUtils.naiveExtend;
 import static rnabloom.util.SeqUtils.*;
 
 /**
@@ -42,14 +44,17 @@ public class RNABloom {
     private final Pattern qualPattern;
     private final BloomFilterDeBruijnGraph graph;
     
-    public RNABloom(boolean strandSpecific, long dbgbfSize, long cbfSize, int dbgbfNumHash, int cbfNumHash, int seed, int k, int q) {
+    public RNABloom(boolean strandSpecific, long dbgbfNumBits, long cbfNumBytes, long pkbfNumBits, int dbgbfNumHash, int cbfNumHash, int pkbfSingleKeyNumHash, int pkbfPairedKeysNumHash, int seed, int k, int q) {
         this.k = k;
         this.qualPattern = getPhred33Pattern(q, k);
         
-        graph = new BloomFilterDeBruijnGraph(dbgbfSize,
-                                            cbfSize,
+        graph = new BloomFilterDeBruijnGraph(dbgbfNumBits,
+                                            cbfNumBytes,
+                                            pkbfNumBits,
                                             dbgbfNumHash,
                                             cbfNumHash,
+                                            pkbfSingleKeyNumHash,
+                                            pkbfPairedKeysNumHash,
                                             seed,
                                             k,
                                             strandSpecific);
@@ -121,11 +126,14 @@ public class RNABloom {
         return graph;
     }
         
-    public void assembleFragments(FastqPair[] fastqs, String outFasta, int mismatchesAllowed, int bound, int lookahead, int minOverlap) {
+    public void assembleFragments(FastqPair[] fastqs, String outFasta, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
         try {
             BufferedReader lin, rin;
             FastqReader leftReader, rightReader;
             BufferedWriter out = new BufferedWriter(new FileWriter(outFasta));
+            ArrayList<String> sampleFragments = new ArrayList<>(sampleSize);
+            int[] fragmentLengths = new int[sampleSize];
+            int fid = 0;
             
             for (FastqPair fqPair: fastqs) {
                 if (fqPair.leftFastq.endsWith(GZIP_EXTENSION)) {
@@ -150,13 +158,69 @@ public class RNABloom {
                     p = fqpr.next();
 
                     if (p.left.length() >= k && p.right.length() >= k) {
-                        String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
+                        /**@TODO check whether kmers in reads had been assembled */
                         
-                        if (fragment.length() > 0) {
-                            out.write(">" + p.left + " " + p.right);
-                            out.newLine();
-                            out.write(fragment);
-                            out.newLine();
+                        String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
+                        int fragLen = fragment.length();
+                        
+                        if (fragLen > 0) {                            
+                            /** extend on both ends unambiguously*/
+                            fragment = naiveExtend(fragment, graph, maxTipLen);
+                            
+                            ++fid;
+                            
+                            if (fid > sampleSize) {
+                                /** store paired kmers */
+                                graph.addPairedKmersFromSeq(fragment);
+                                
+                                /** write fragment */
+                                out.write(">" + fid + " " + p.left + " " + p.right);
+                                out.newLine();
+                                out.write(fragment);
+                                out.newLine();
+                            }
+                            else if (fid == sampleSize) {
+                                /** Calculate median fragment length */
+                                Arrays.sort(fragmentLengths);
+                                int half = sampleSize/2;
+                                int medianFragLen = (fragmentLengths[half] + fragmentLengths[half - 1])/2;
+
+                                System.out.println("Median fragment length: " + fragLen);
+                                
+                                /** set kmer pair distance */
+                                graph.setPairedKmerDistance(medianFragLen - k);
+
+                                /** readjust bound to be based on 1.5*IQR */
+                                int whisker = (fragmentLengths[sampleSize*3/4] - fragmentLengths[sampleSize/4]) * 3/2;
+                                bound = medianFragLen + whisker;
+                                
+                                System.out.println("longest fragment allowed: " + bound);
+
+                                /** clear sample fragment lengths */
+                                fragmentLengths = null;
+
+                                /** store paired kmers of all sample fragments */
+                                fid = 1;
+                                for (String frag : sampleFragments) {
+                                    graph.addPairedKmersFromSeq(frag);
+
+                                    /** write fragment */
+                                    out.write(">" + fid++ + " " + p.left + " " + p.right);
+                                    out.newLine();
+                                    out.write(fragment);
+                                    out.newLine();
+                                }
+
+                                /** clear sample fragments */
+                                sampleFragments = null;
+                            }
+                            else {
+                                /** store fragment length*/
+                                fragmentLengths[fid] = fragLen;
+                                sampleFragments.add(fragment);
+                                
+                                //System.out.println(fragLen);
+                            }
                         }
                         
                         /*
@@ -168,7 +232,7 @@ public class RNABloom {
                         }
                         */
 
-                        /**@TODO*/
+                        /**@TODO assemble with paired k-mers bloom filter*/
                     }
                 }
 
@@ -181,7 +245,7 @@ public class RNABloom {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+        
     /**
      * @param args the command line arguments
      */
@@ -231,6 +295,7 @@ public class RNABloom {
         int bound = 500;
         int lookahead = 5;
         int minOverlap = 10;
+        int maxTipLen = 5;
         
         String[] forwardFastqs = new String[]{fastq2};
         String[] backwardFastqs = new String[]{fastq1};
@@ -238,14 +303,18 @@ public class RNABloom {
         boolean strandSpecific = true;
         long dbgbfSize = NUM_BITS_1GB;
         long cbfSize = NUM_BYTES_1GB;
+        long pkbfSize = NUM_BITS_1GB;
         int dbgbfNumHash = 3;
         int cbfNumHash = 4;
+        int pkbfSingleKeyNumHash = 1;
+        int pkbfPairedKeysNumHash = 1;
         int seed = 689;
         int k = 25;
         int q = 3;
+        int sampleSize = 1000;
                 
                 
-        RNABloom assembler = new RNABloom(strandSpecific, dbgbfSize, cbfSize, dbgbfNumHash, cbfNumHash, seed, k, q);
+        RNABloom assembler = new RNABloom(strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfSingleKeyNumHash, pkbfPairedKeysNumHash, seed, k, q);
         assembler.createDBG(forwardFastqs, backwardFastqs);
         
         /*
@@ -258,7 +327,7 @@ public class RNABloom {
         FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
         FastqPair[] fqPairs = new FastqPair[]{fqPair};
         
-        assembler.assembleFragments(fqPairs, fragsFasta, mismatchesAllowed, bound, lookahead, minOverlap);
+        assembler.assembleFragments(fqPairs, fragsFasta, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
     }
     
 }
