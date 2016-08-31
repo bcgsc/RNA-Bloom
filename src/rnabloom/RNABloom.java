@@ -234,6 +234,10 @@ public class RNABloom {
             FastaWriter fout = new FastaWriter(outFasta);
             
             /**@TODO*/
+            while (fin.hasNext()) {
+                String fragment = fin.next();
+                
+            }
             
             fin.close();
             fout.close();

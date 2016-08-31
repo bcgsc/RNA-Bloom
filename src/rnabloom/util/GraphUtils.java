@@ -14,6 +14,7 @@ import java.util.List;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import static rnabloom.util.SeqUtils.kmerize;
+import static rnabloom.util.SeqUtils.kmerizeArrayList;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 
 /**
@@ -438,6 +439,22 @@ public final class GraphUtils {
         return sb.toString();
     }
 
+    public static String assembleString(ArrayList<String> kmers) {
+        
+        String first = kmers.get(0);
+        int k = first.length();
+        int lastIndex = k - 1;
+        
+        StringBuilder sb = new StringBuilder(k + kmers.size() - 1);
+        sb.append(first.substring(0, lastIndex));
+        
+        for (String kmer : kmers) {
+            sb.append(kmer.charAt(lastIndex));
+        }
+        
+        return sb.toString();
+    }
+    
     public static String assembleFirstBase(ArrayList<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size());
         for (Kmer kmer : kmers) {
@@ -576,6 +593,62 @@ public final class GraphUtils {
         }
         
         return assembleFirstBase(leftKmers) + assemble(pathKmers) + assembleLastBase(rightKmers);
+    }
+    
+    public static String extendWithPairedKmers(String fragment, BloomFilterDeBruijnGraph graph) {
+        int distance = graph.getPairedKmerDistance();
+        ArrayList<String> kmers = kmerizeArrayList(fragment, graph.getK());
+        
+        /**@TODO detect cycle*/
+        
+        /** extend right*/
+        String best = kmers.get(kmers.size()-1);
+        LinkedList<String> neighbors = graph.getSuccessors(best);
+        while (!neighbors.isEmpty()) {
+            if (neighbors.size() == 1) {
+                /**@TODO Check whether kmer is already in fragment*/
+                kmers.add(neighbors.peek());
+            }
+            else {
+                LinkedList<String> fragmentNeighbors = new LinkedList<>();
+                for (String n : neighbors) {
+                    if (graph.lookupFragmentKmer(n)) {
+                        fragmentNeighbors.add(n);
+                    }
+                }
+                
+                if (fragmentNeighbors.isEmpty()) {
+                    break;
+                }
+                else if (fragmentNeighbors.size() == 1) {
+                    kmers.add(fragmentNeighbors.peek());
+                }
+                else {
+                    String partner = kmers.get(kmers.size()-distance);
+                    LinkedList<String> pairedNeighbors = new LinkedList<>();
+                    for (String n : fragmentNeighbors) {
+                        if (graph.lookupPairedKmers(partner, n)) {
+                            pairedNeighbors.add(n);
+                        }
+                    }
+                    
+                    if (pairedNeighbors.isEmpty()) {
+                        break;
+                    }
+                    else if (pairedNeighbors.size() == 1) {
+                        kmers.add(pairedNeighbors.peek());
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+        }
+        
+        /**@TODO extend left*/
+        
+        
+        return assembleString(kmers);
     }
     
     public static boolean hasDepthRight(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
