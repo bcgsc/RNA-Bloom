@@ -63,6 +63,10 @@ public class BloomFilterDeBruijnGraph {
         this.pairedKmersDistance = d;
     }
     
+    public int getPairedKmerDistance() {
+        return this.pairedKmersDistance;
+    }
+    
     public int getK() {
         return k;
     }
@@ -156,12 +160,8 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public LinkedList<Kmer> getPredecessors(Kmer kmer) {
-        return getPredecessors(kmer.seq);
-    }
-    
-    public LinkedList<Kmer> getPredecessors(String kmer) {
         LinkedList<Kmer> result = new LinkedList<>();
-        String prefix = getPrefix(kmer);
+        String prefix = getPrefix(kmer.seq);
         String v;
         long[] hashVals;
         float count;
@@ -177,14 +177,29 @@ public class BloomFilterDeBruijnGraph {
         }
         return result;
     }
+    
+    public LinkedList<String> getPredecessors(String kmer) {
+        LinkedList<String> result = new LinkedList<>();
+        String prefix = getPrefix(kmer);
+        String v;
+        long[] hashVals;
+        float count;
+        for (char c : NUCLEOTIDES) {
+            v = c + prefix;
+            hashVals = this.hashFunction.getHashValues(v);
+            if (dbgbf.lookup(hashVals)) {
+                count = cbf.getCount(hashVals);
+                if (count > 0) {
+                    result.add(v);
+                }
+            }
+        }
+        return result;
+    }
 
     public LinkedList<Kmer> getSuccessors(Kmer kmer) {
-        return getSuccessors(kmer.seq);
-    }
-    
-    public LinkedList<Kmer> getSuccessors(String kmer) {
         LinkedList<Kmer> result = new LinkedList<>();
-        String suffix = getSuffix(kmer);
+        String suffix = getSuffix(kmer.seq);
         String v;
         long[] hashVals;
         float count;
@@ -195,6 +210,25 @@ public class BloomFilterDeBruijnGraph {
                 count = cbf.getCount(hashVals);
                 if (count > 0) {
                     result.add(new Kmer(v, count));
+                }
+            }
+        }
+        return result;
+    }
+    
+    public LinkedList<String> getSuccessors(String kmer) {
+        LinkedList<String> result = new LinkedList<>();
+        String suffix = getSuffix(kmer);
+        String v;
+        long[] hashVals;
+        float count;
+        for (char c : NUCLEOTIDES) {
+            v = suffix + c;
+            hashVals = this.hashFunction.getHashValues(v);
+            if (dbgbf.lookup(hashVals)) {
+                count = cbf.getCount(hashVals);
+                if (count > 0) {
+                    result.add(v);
                 }
             }
         }
