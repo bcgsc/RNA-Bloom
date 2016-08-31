@@ -187,6 +187,9 @@ public class RNABloom {
                                 out.newLine();
                             }
                             else if (fid == sampleSize) {
+                                fragmentLengths[0] = fragLen;
+                                sampleFragments.add(fragment);
+                                
                                 /** Calculate median fragment length */
                                 Arrays.sort(fragmentLengths);
                                 int half = sampleSize/2;
@@ -207,12 +210,12 @@ public class RNABloom {
                                 fragmentLengths = null;
 
                                 /** store paired kmers of all sample fragments */
-                                fid = 1;
+                                fid = 0;
                                 for (String frag : sampleFragments) {
                                     graph.addPairedKmersFromSeq(frag);
 
                                     /** write fragment */
-                                    out.write(">" + fid++);
+                                    out.write(">" + ++fid);
                                     out.newLine();
                                     out.write(frag);
                                     out.newLine();
