@@ -158,8 +158,7 @@ public class RNABloom {
                 
                 while (fqpr.hasNext()) {
                     p = fqpr.next();
-                                        
-                    ++readPairsParsed;
+                    
                     if (++readPairsParsed % 100000 == 0) {
                         System.out.println("Parsed " + readPairsParsed + " read pairs...");
                     }                    
@@ -248,6 +247,7 @@ public class RNABloom {
 
                 lin.close();
                 rin.close();
+                System.out.println("Parsed " + readPairsParsed + " read pairs...");
             }
             
             out.close();
@@ -293,7 +293,7 @@ public class RNABloom {
         
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
         String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left        
-        String fragsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments.fa";
+        String fragsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments.fa";  
         
         //String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
         //String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
