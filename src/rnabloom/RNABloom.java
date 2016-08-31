@@ -154,9 +154,16 @@ public class RNABloom {
 
                 FastqPairReader fqpr = new FastqPairReader(leftReader, rightReader, qualPattern, fqPair.leftRevComp, fqPair.rightRevComp);
                 ReadPair p;
+                long readPairsParsed = 0;
+                
                 while (fqpr.hasNext()) {
                     p = fqpr.next();
-
+                                        
+                    ++readPairsParsed;
+                    if (++readPairsParsed % 100000 == 0) {
+                        System.out.println("Parsed " + readPairsParsed + " read pairs...");
+                    }                    
+                    
                     if (p.left.length() >= k && p.right.length() >= k) {
                         /**@TODO check whether kmers in reads had been assembled */
                         
@@ -174,7 +181,7 @@ public class RNABloom {
                                 graph.addPairedKmersFromSeq(fragment);
                                 
                                 /** write fragment */
-                                out.write(">" + fid + " " + p.left + " " + p.right);
+                                out.write(">" + fid);
                                 out.newLine();
                                 out.write(fragment);
                                 out.newLine();
@@ -205,9 +212,9 @@ public class RNABloom {
                                     graph.addPairedKmersFromSeq(frag);
 
                                     /** write fragment */
-                                    out.write(">" + fid++ + " " + p.left + " " + p.right);
+                                    out.write(">" + fid++);
                                     out.newLine();
-                                    out.write(fragment);
+                                    out.write(frag);
                                     out.newLine();
                                 }
 
@@ -282,7 +289,7 @@ public class RNABloom {
         
         
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
-        String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left
+        String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left        
         String fragsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments.fa";
         
         //String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
