@@ -12,6 +12,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import static java.lang.Math.pow;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
@@ -19,6 +20,8 @@ import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
+import rnabloom.io.FastaReader;
+import rnabloom.io.FastaWriter;
 import rnabloom.io.FastqPair;
 import rnabloom.io.FastqPairReader;
 import rnabloom.io.FastqPairReader.ReadPair;
@@ -38,7 +41,6 @@ public class RNABloom {
     
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
     public final static long NUM_BYTES_1GB = (long) pow(1024, 3);
-    private final static String GZIP_EXTENSION = ".gz";
     
     private final int k;
     private final Pattern qualPattern;
@@ -64,51 +66,38 @@ public class RNABloom {
         int lineNum = 0;
         
         try {
-            BufferedReader br;
             FastqReader fr;
             
             for (String fastq : forwardFastqs) {
                 System.out.println("Parsing `" + fastq + "`...");
                 
-                if (fastq.endsWith(GZIP_EXTENSION)) {
-                    br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fastq))));
-                }
-                else {
-                    br = new BufferedReader(new InputStreamReader(new FileInputStream(fastq)));
-                }
-                fr = new FastqReader(br, false);
+                fr = new FastqReader(fastq, false);
                 while (fr.hasNext()) {
                     if (++lineNum % 100000 == 0) {
-                        System.out.println("Parsed " + lineNum + " reads...");
+                        System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
                     }
 
                     for (String seq : filterFastq(fr.next(), qualPattern)) {
                         graph.addKmersFromSeq(seq);
                     }
                 }
-                br.close();
+                fr.close();
             }
             
             for (String fastq : reverseFastqs) {
                 System.out.println("Parsing `" + fastq + "`...");
                 
-                if (fastq.endsWith(GZIP_EXTENSION)) {
-                    br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fastq))));
-                }
-                else {
-                    br = new BufferedReader(new InputStreamReader(new FileInputStream(fastq)));
-                }
-                fr = new FastqReader(br, false);
+                fr = new FastqReader(fastq, false);
                 while (fr.hasNext()) {
                     if (++lineNum % 100000 == 0) {
-                        System.out.println("Parsed " + lineNum + " reads...");
+                        System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
                     }
 
                     for (String seq : filterFastq(fr.next(), qualPattern)) {
                         graph.addKmersFromSeq(reverseComplement(seq));
                     }
                 }
-                br.close();
+                fr.close();
             }
         }
         catch (NoSuchElementException e) {
@@ -118,7 +107,7 @@ public class RNABloom {
             /**@TODO Handle it!!! */
         }
         finally {
-            System.out.println("Parsed " + lineNum + " reads...");
+            System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
         }
     }
 
@@ -127,40 +116,28 @@ public class RNABloom {
     }
         
     public void assembleFragments(FastqPair[] fastqs, String outFasta, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
+        long readPairsParsed = 0;
+        
         try {
-            BufferedReader lin, rin;
-            FastqReader leftReader, rightReader;
-            BufferedWriter out = new BufferedWriter(new FileWriter(outFasta));
+            FastqReader lin, rin;
+            FastaWriter out = new FastaWriter(outFasta);
             ArrayList<String> sampleFragments = new ArrayList<>(sampleSize);
             int[] fragmentLengths = new int[sampleSize];
             int fid = 0;
             
             for (FastqPair fqPair: fastqs) {
-                if (fqPair.leftFastq.endsWith(GZIP_EXTENSION)) {
-                    lin = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fqPair.leftFastq))));
-                }
-                else {
-                    lin = new BufferedReader(new InputStreamReader(new FileInputStream(fqPair.leftFastq)));
-                }
-                leftReader = new FastqReader(lin, true);
+                lin = new FastqReader(fqPair.leftFastq, true);
+                rin = new FastqReader(fqPair.rightFastq, true);
 
-                if (fqPair.rightFastq.endsWith(GZIP_EXTENSION)) {
-                    rin = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(fqPair.rightFastq))));
-                }
-                else {
-                    rin = new BufferedReader(new InputStreamReader(new FileInputStream(fqPair.rightFastq)));
-                }
-                rightReader = new FastqReader(rin, true);
-
-                FastqPairReader fqpr = new FastqPairReader(leftReader, rightReader, qualPattern, fqPair.leftRevComp, fqPair.rightRevComp);
-                ReadPair p;
-                long readPairsParsed = 0;
+                FastqPairReader fqpr = new FastqPairReader(lin, rin, qualPattern, fqPair.leftRevComp, fqPair.rightRevComp);
+                System.out.println("Parsing `" + fqPair.leftFastq + "` and `" + fqPair.rightFastq + "`...");
                 
+                ReadPair p;
                 while (fqpr.hasNext()) {
                     p = fqpr.next();
                     
                     if (++readPairsParsed % 100000 == 0) {
-                        System.out.println("Parsed " + readPairsParsed + " read pairs...");
+                        System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
                     }                    
                     
                     if (p.left.length() >= k && p.right.length() >= k) {
@@ -180,10 +157,7 @@ public class RNABloom {
                                 graph.addPairedKmersFromSeq(fragment);
                                 
                                 /** write fragment */
-                                out.write(">" + fid);
-                                out.newLine();
-                                out.write(fragment);
-                                out.newLine();
+                                out.write(Integer.toString(fid), fragment);
                             }
                             else if (fid == sampleSize) {
                                 fragmentLengths[0] = fragLen;
@@ -214,10 +188,7 @@ public class RNABloom {
                                     graph.addPairedKmersFromSeq(frag);
 
                                     /** write fragment */
-                                    out.write(">" + ++fid);
-                                    out.newLine();
-                                    out.write(frag);
-                                    out.newLine();
+                                    out.write(Integer.toString(++fid), frag);
                                 }
 
                                 /** clear sample fragments */
@@ -247,15 +218,30 @@ public class RNABloom {
 
                 lin.close();
                 rin.close();
-                System.out.println("Parsed " + readPairsParsed + " read pairs...");
             }
             
             out.close();
         } catch (IOException ex) {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
         }
     }
-        
+
+    public void assembleTranscripts(String inFasta, String outFasta) {
+        try {
+            FastaReader fin = new FastaReader(inFasta);
+            FastaWriter fout = new FastaWriter(outFasta);
+            
+            /**@TODO*/
+            
+            fin.close();
+            fout.close();
+        } catch (IOException ex) {
+            //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
     /**
      * @param args the command line arguments
      */
