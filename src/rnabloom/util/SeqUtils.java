@@ -28,6 +28,17 @@ public final class SeqUtils {
         return kmers;
     }
     
+    public static final ArrayList<String> kmerizeArrayList(String seq, int k) {
+        final int numKmers = seq.length() - k +1;
+        final ArrayList<String> kmers = new ArrayList<>(numKmers);
+        
+        for (int i=0; i<numKmers; ++i) {
+            kmers.add(seq.substring(i, i+k));
+        }
+        
+        return kmers;
+    }    
+    
     private final static int CHAR_A_INT = (int) 'A';
     private final static int CHAR_C_INT = (int) 'C';
     private final static int CHAR_G_INT = (int) 'G';
