@@ -595,21 +595,22 @@ public final class GraphUtils {
         return assembleFirstBase(leftKmers) + assemble(pathKmers) + assembleLastBase(rightKmers);
     }
     
-    public static String extendWithPairedKmers(String fragment, BloomFilterDeBruijnGraph graph) {
+    public static String extendWithPairedKmers(String fragment, BloomFilterDeBruijnGraph graph, int lookAhead) {
         int distance = graph.getPairedKmerDistance();
         ArrayList<String> kmers = kmerizeArrayList(fragment, graph.getK());
-        
-        /**@TODO detect cycle*/
+        HashSet<String> fragmentKmers = new HashSet<>(kmers);
         
         /** extend right*/
         String best = kmers.get(kmers.size()-1);
         LinkedList<String> neighbors = graph.getSuccessors(best);
         while (!neighbors.isEmpty()) {
+            best = null;
             if (neighbors.size() == 1) {
-                /**@TODO Check whether kmer is already in fragment*/
-                kmers.add(neighbors.peek());
+                best = neighbors.peek();
             }
             else {
+                // >1 neighbors
+                
                 LinkedList<String> fragmentNeighbors = new LinkedList<>();
                 for (String n : neighbors) {
                     if (graph.lookupFragmentKmer(n)) {
@@ -621,37 +622,213 @@ public final class GraphUtils {
                     break;
                 }
                 else if (fragmentNeighbors.size() == 1) {
-                    kmers.add(fragmentNeighbors.peek());
+                    best = fragmentNeighbors.peek();
                 }
                 else {
-                    String partner = kmers.get(kmers.size()-distance);
+                    // >1 fragment neighbors
+                    
                     LinkedList<String> pairedNeighbors = new LinkedList<>();
-                    for (String n : fragmentNeighbors) {
-                        if (graph.lookupPairedKmers(partner, n)) {
-                            pairedNeighbors.add(n);
+                    
+                    if (kmers.size() >= distance) {
+                        String partner = kmers.get(kmers.size()-distance);
+                        for (String n : fragmentNeighbors) {
+                            if (graph.lookupPairedKmers(partner, n)) {
+                                pairedNeighbors.add(n);
+                            }
                         }
                     }
                     
                     if (pairedNeighbors.isEmpty()) {
-                        break;
+                        // check depth
+                        LinkedList<String> longFragmentNeighbors = new LinkedList<>();
+                        for (String n : fragmentNeighbors) {
+                            if (hasFragmentDepthRight(n, graph, lookAhead)) {
+                                longFragmentNeighbors.add(n);
+                            }
+                        }
+                        
+                        if (longFragmentNeighbors.isEmpty()) {
+                            break;
+                        }
+                        else if (longFragmentNeighbors.size() == 1) {
+                            best = longFragmentNeighbors.peek();
+                        }
+                        else {
+                            // >1 long fragment neighbors
+                            break;
+                        }
                     }
                     else if (pairedNeighbors.size() == 1) {
-                        kmers.add(pairedNeighbors.peek());
+                        best = pairedNeighbors.peek();
                     }
                     else {
+                        // >1 paired neighbors
                         break;
                     }
                 }
             }
+            
+            if (best == null || fragmentKmers.contains(best)) {
+                break;
+            }
+            
+            kmers.add(best);
+            fragmentKmers.add(best);
+            neighbors = graph.getSuccessors(best);
         }
         
-        /**@TODO extend left*/
+        Collections.reverse(kmers);
         
+        /** extend left*/
+        best = kmers.get(kmers.size()-1);
+        neighbors = graph.getPredecessors(best);
+        while (!neighbors.isEmpty()) {
+            best = null;
+            if (neighbors.size() == 1) {
+                best = neighbors.peek();
+            }
+            else {
+                // >1 neighbors
+                
+                LinkedList<String> fragmentNeighbors = new LinkedList<>();
+                for (String n : neighbors) {
+                    if (graph.lookupFragmentKmer(n)) {
+                        fragmentNeighbors.add(n);
+                    }
+                }
+                
+                if (fragmentNeighbors.isEmpty()) {
+                    break;
+                }
+                else if (fragmentNeighbors.size() == 1) {
+                    best = fragmentNeighbors.peek();
+                }
+                else {
+                    // >1 fragment neighbors
+                    
+                    LinkedList<String> pairedNeighbors = new LinkedList<>();
+                    if (kmers.size() >= distance) {
+                        String partner = kmers.get(kmers.size()-distance);
+                        for (String n : fragmentNeighbors) {
+                            if (graph.lookupPairedKmers(n, partner)) {
+                                pairedNeighbors.add(n);
+                            }
+                        }
+                    }
+                    
+                    if (pairedNeighbors.isEmpty()) {
+                        // check depth
+                        LinkedList<String> longFragmentNeighbors = new LinkedList<>();
+                        for (String n : fragmentNeighbors) {
+                            if (hasFragmentDepthLeft(n, graph, lookAhead)) {
+                                longFragmentNeighbors.add(n);
+                            }
+                        }
+                        
+                        if (longFragmentNeighbors.isEmpty()) {
+                            break;
+                        }
+                        else if (longFragmentNeighbors.size() == 1) {
+                            best = longFragmentNeighbors.peek();
+                        }
+                        else {
+                            // >1 long fragment neighbors
+                            break;
+                        }
+                    }
+                    else if (pairedNeighbors.size() == 1) {
+                        best = pairedNeighbors.peek();
+                    }
+                    else {
+                        // >1 paired neighbors
+                        break;
+                    }
+                }
+            }
+            
+            if (best == null || fragmentKmers.contains(best)) {
+                break;
+            }
+            
+            kmers.add(best);
+            fragmentKmers.add(best);
+            neighbors = graph.getPredecessors(best);
+        }
+        
+        Collections.reverse(kmers);
         
         return assembleString(kmers);
     }
     
-    public static boolean hasDepthRight(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
+    private static boolean hasFragmentDepthRight(String source, BloomFilterDeBruijnGraph graph, int depth) {
+        LinkedList<LinkedList> frontier = new LinkedList<>();
+        LinkedList<String> alts = new LinkedList<>();
+        for (String s : graph.getSuccessors(source)) {
+            if (graph.lookupFragmentKmer(s)) {
+                alts.add(s);
+            }
+        }
+        frontier.add(alts);
+        
+        while (!frontier.isEmpty()) {
+            alts = frontier.peekLast();
+            if (alts.isEmpty()) {
+                frontier.removeLast();
+            }
+            else {
+                String a = alts.pop();
+                alts = new LinkedList<>();
+                for (String s : graph.getSuccessors(a)) {
+                    if (graph.lookupFragmentKmer(s)) {
+                        alts.add(s);
+                    }
+                }
+                frontier.add(alts);
+            }
+
+            if (frontier.size() >= depth) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    private static boolean hasFragmentDepthLeft(String source, BloomFilterDeBruijnGraph graph, int depth) {
+        LinkedList<LinkedList> frontier = new LinkedList<>();
+        LinkedList<String> alts = new LinkedList<>();
+        for (String s : graph.getPredecessors(source)) {
+            if (graph.lookupFragmentKmer(s)) {
+                alts.add(s);
+            }
+        }
+        frontier.add(alts);
+        
+        while (!frontier.isEmpty()) {
+            alts = frontier.peekLast();
+            if (alts.isEmpty()) {
+                frontier.removeLast();
+            }
+            else {
+                String a = alts.pop();
+                alts = new LinkedList<>();
+                for (String s : graph.getPredecessors(a)) {
+                    if (graph.lookupFragmentKmer(s)) {
+                        alts.add(s);
+                    }
+                }
+                frontier.add(alts);
+            }
+
+            if (frontier.size() >= depth) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    private static boolean hasDepthRight(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
         LinkedList<LinkedList> frontier = new LinkedList<>();
         LinkedList<Kmer> alts = graph.getSuccessors(source);
         frontier.add(alts);
@@ -673,7 +850,7 @@ public final class GraphUtils {
         return false;
     }
     
-    public static boolean hasDepthLeft(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
+    private static boolean hasDepthLeft(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
         LinkedList<LinkedList> frontier = new LinkedList<>();
         LinkedList<Kmer> alts = graph.getPredecessors(source);
         frontier.add(alts);
@@ -710,14 +887,14 @@ public final class GraphUtils {
         
         extension = naiveExtendRight(graph.getKmer(kmers[numKmers-1]), graph, maxTipLength, fragmentKmers);
         if (!extension.isEmpty()) {
-            extended = assembleLastBase(extension);
+            extended += assembleLastBase(extension);
         }
         
         return extended;
     }
     
     
-    public static ArrayList<Kmer> naiveExtendRight(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
+    private static ArrayList<Kmer> naiveExtendRight(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
         ArrayList<Kmer> extension = new ArrayList<>(100);
         
         LinkedList<Kmer> neighbors = graph.getSuccessors(source);
@@ -756,7 +933,7 @@ public final class GraphUtils {
         return extension;
     }
     
-    public static ArrayList<Kmer> naiveExtendLeft(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
+    private static ArrayList<Kmer> naiveExtendLeft(Kmer source, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
         ArrayList<Kmer> extension = new ArrayList<>(100);
         
         LinkedList<Kmer> neighbors = graph.getPredecessors(source);
