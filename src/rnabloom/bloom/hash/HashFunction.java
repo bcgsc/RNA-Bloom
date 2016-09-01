@@ -29,4 +29,10 @@ public class HashFunction {
                 
         return hashVals;
     }
+    
+    public static long combineHashValues(long a, long b) {
+        // See: http://stackoverflow.com/a/27952689
+        a ^= b + 0x9e3779b9 + (a << 6) + (b >> 2);
+        return a < 0 ? -a : a;
+    }
 }

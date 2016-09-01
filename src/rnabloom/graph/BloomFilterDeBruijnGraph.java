@@ -28,7 +28,6 @@ public class BloomFilterDeBruijnGraph {
     private final PairedKeysBloomFilter pkbf;
     private final int maxHash;
     private final HashFunction hashFunction;
-    private final HashFunction hashFunction2;
     private final int k;
     private final int overlap;
     private int pairedKmersDistance;
@@ -38,25 +37,22 @@ public class BloomFilterDeBruijnGraph {
                                     long pkbfNumBits,
                                     int dbgbfNumHash,
                                     int cbfNumHash,
-                                    int pkbfSingleKeyNumHash,
-                                    int pkbfPairedKeysNumHash,
+                                    int pkbfNumHash,
                                     int seed,
                                     int k,
                                     boolean stranded) {
-        this.maxHash = Math.max(Math.max(dbgbfNumHash, cbfNumHash), pkbfSingleKeyNumHash);
+        this.maxHash = Math.max(Math.max(dbgbfNumHash, cbfNumHash), pkbfNumHash);
         this.k = k;
         this.overlap = k-1;
         if (stranded) {
             this.hashFunction = new HashFunction(maxHash, seed, k);
-            this.hashFunction2 = new HashFunction(pkbfPairedKeysNumHash, seed, 2*k);
         }
         else {
             this.hashFunction = new SmallestStrandHashFunction(maxHash, seed, k);
-            this.hashFunction2 = new SmallestStrandHashFunction(pkbfPairedKeysNumHash, seed, 2*k);
         }
         this.dbgbf = new BloomFilter(dbgbfNumBits, dbgbfNumHash, this.hashFunction);
         this.cbf = new CountingBloomFilter(cbfNumBytes, cbfNumHash, this.hashFunction);
-        this.pkbf = new PairedKeysBloomFilter(pkbfNumBits, pkbfSingleKeyNumHash, this.hashFunction, pkbfPairedKeysNumHash, this.hashFunction2);
+        this.pkbf = new PairedKeysBloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
     }
     
     public void setPairedKmerDistance(int d) {

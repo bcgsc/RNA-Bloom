@@ -46,7 +46,7 @@ public class RNABloom {
     private final Pattern qualPattern;
     private final BloomFilterDeBruijnGraph graph;
     
-    public RNABloom(boolean strandSpecific, long dbgbfNumBits, long cbfNumBytes, long pkbfNumBits, int dbgbfNumHash, int cbfNumHash, int pkbfSingleKeyNumHash, int pkbfPairedKeysNumHash, int seed, int k, int q) {
+    public RNABloom(boolean strandSpecific, long dbgbfNumBits, long cbfNumBytes, long pkbfNumBits, int dbgbfNumHash, int cbfNumHash, int pkbfNumHash, int seed, int k, int q) {
         this.k = k;
         this.qualPattern = getPhred33Pattern(q, k);
         
@@ -55,8 +55,7 @@ public class RNABloom {
                                             pkbfNumBits,
                                             dbgbfNumHash,
                                             cbfNumHash,
-                                            pkbfSingleKeyNumHash,
-                                            pkbfPairedKeysNumHash,
+                                            pkbfNumHash,
                                             seed,
                                             k,
                                             strandSpecific);
@@ -306,15 +305,14 @@ public class RNABloom {
         long pkbfSize = NUM_BITS_1GB;
         int dbgbfNumHash = 3;
         int cbfNumHash = 4;
-        int pkbfSingleKeyNumHash = 1;
-        int pkbfPairedKeysNumHash = 1;
+        int pkbfNumHash = 1;
         int seed = 689;
         int k = 25;
         int q = 3;
         int sampleSize = 1000;
                 
                 
-        RNABloom assembler = new RNABloom(strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfSingleKeyNumHash, pkbfPairedKeysNumHash, seed, k, q);
+        RNABloom assembler = new RNABloom(strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed, k, q);
         assembler.createDBG(forwardFastqs, backwardFastqs);
         
         /*
