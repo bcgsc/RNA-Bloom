@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
@@ -322,6 +323,115 @@ public final class GraphUtils {
         return getMedian(covs);
     }
     
+    private static float rightGuidedMedianCoverageHelper2(BloomFilterDeBruijnGraph graph, String source, String guide) {
+        int guideLen = guide.length();
+        float[] covs = new float[guideLen+1];
+        covs[guideLen] = graph.getCount(source);
+        
+        String postfix = source.substring(1);
+        String kmer;
+        float count;
+        for (int i=0; i<guideLen; ++i) {
+            kmer = postfix + guide.charAt(i);
+            count = graph.getCount(kmer);
+            if (count > 0) {
+                covs[i] = count;
+                postfix = kmer.substring(1);
+            }
+            else {
+                // not a valid sequence
+                return 0;
+            }
+        }
+        
+        return getMedian(covs);
+    }
+    
+    private static float leftGuidedMedianCoverageHelper2(BloomFilterDeBruijnGraph graph, String source, String guide) {
+        int guideLen = guide.length();
+        float[] covs = new float[guideLen+1];
+        covs[0] = graph.getCount(source);
+        
+        int kMinus1 = graph.getK()-1;
+        String prefix = source.substring(0,kMinus1);
+        String kmer;
+        float count;
+        for (int i=guideLen-1; i>0; --i) {
+            kmer = guide.charAt(i) + prefix;
+            count = graph.getCount(kmer);
+            if (count > 0) {
+                covs[i] = count;
+                prefix = kmer.substring(0,kMinus1);
+            }
+            else {
+                // not a valid sequence
+                return 0;
+            }
+        }
+        
+        return getMedian(covs);
+    }
+    
+    private static String charArrayToString(char[] arr, int start, int stop) {
+        StringBuilder sb = new StringBuilder(stop-start);
+        for (int i=start; i<stop; ++i) {
+            sb.append(arr[i]);
+        }
+        return sb.toString();
+    }
+    
+    public static ArrayList<Kmer> correctMismatches2(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
+        ArrayList<Kmer> kmers = graph.getKmers(seq);
+        int numKmers = kmers.size();
+        
+        Kmer first = kmers.get(0);
+        int i1 = 0;
+        Kmer second = kmers.get(1);
+        int i2 = 1;
+        
+        Kmer tmp;
+        if (second.count > first.count) {
+            tmp = second;
+            second = first;
+            first = tmp;
+            
+            i1 = 1;
+            i2 = 0;
+        }
+        
+        for (int i=2; i<numKmers; ++i) {
+            tmp = kmers.get(i);
+            float c = tmp.count;
+            if (c > first.count) {
+                second = first;
+                first = tmp;
+                
+                i2 = i1;
+                i1 = i;
+            }
+            else if (c > second.count) {
+                second = tmp;
+                
+                i2 = i;
+            }
+        }
+        
+        char[] charArr = seq.toCharArray();
+        int seqLen = charArr.length;
+        int k = graph.getK();
+        
+        // correct right wing
+        for (int i=i1; i<numKmers-1; ++i) {
+            int end = i+k;
+            String kmer = charArrayToString(charArr, i, end);
+            String guide = charArrayToString(charArr, end, Math.min(end+lookahead, seqLen));
+            float bestCov = 0;
+            /**@TODO */
+        }
+        
+        return null;
+    }
+    
     public static ArrayList<Kmer> correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
         int seqLen = seq.length();
         int k = graph.getK();
@@ -356,10 +466,8 @@ public final class GraphUtils {
                 }
 
                 if (bestKmer == null) {
-                    // undo all corrections
                     return graph.getKmers(seq);
-                }
-                else {
+                } else {
                     if (!currKmerSeq.equals(bestKmer.seq) && ++mismatchesCorrected > mismatchesAllowed) {
                         // too many mismatches, undo all corrections
                         return graph.getKmers(seq);
@@ -375,10 +483,8 @@ public final class GraphUtils {
                 correctedSeq[seqLen-1] = graph.getLastBase(bestKmer.seq);
             }
             
-            /** correct mismatches in first kmer of the sequence*/
-            
-            /** Get the k-th kmer or the last kmer, whichever is more to the left*/
-            int i = Math.min(2*k, seqLen);
+            /** correct mismatches by walking in the opposite direction */
+            int i = seqLen;
             prevKmer = graph.getKmer(seq.substring(i-k,i));
             
             for (i=i-k-1; i>0; --i) {
@@ -399,8 +505,7 @@ public final class GraphUtils {
                 if (bestKmer == null) {
                     // undo all corrections
                     return graph.getKmers(seq);
-                }
-                else {
+                } else {
                     if (!currKmerSeq.equals(bestKmer.seq) && ++mismatchesCorrected > mismatchesAllowed) {
                         // too many mismatches, undo all corrections
                         return graph.getKmers(seq);

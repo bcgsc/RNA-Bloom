@@ -28,6 +28,8 @@ import rnabloom.io.FastqPairReader.ReadPair;
 import rnabloom.io.FastqReader;
 import static rnabloom.util.GraphUtils.assemble;
 import static rnabloom.util.GraphUtils.assembleFragment;
+import static rnabloom.util.GraphUtils.correctMismatches;
+import static rnabloom.util.GraphUtils.extendWithPairedKmers;
 import static rnabloom.util.GraphUtils.findBackbonePath;
 import static rnabloom.util.GraphUtils.naiveExtend;
 import static rnabloom.util.SeqUtils.*;
@@ -113,7 +115,39 @@ public class RNABloom {
     public BloomFilterDeBruijnGraph getGraph() {
         return graph;
     }
-        
+    
+    private boolean okToAssemble(ReadPair p) {
+        if (p.left.length() >= k && p.right.length() >= k) {
+            String[] leftKmers = kmerize(p.left, k);
+            String[] rightKmers = kmerize(p.right, k);
+            int threshold = 2*k-1;
+
+            int numLeftAssembled = 0;
+            for (String s : leftKmers) {
+                if (graph.lookupFragmentKmer(s)) {
+                    ++numLeftAssembled;
+                }
+            }
+
+            if (numLeftAssembled <= threshold && leftKmers.length - numLeftAssembled > 0) {
+                return true;
+            }
+
+            int numRightAssembled = 0;
+            for (String s : rightKmers) {
+                if (graph.lookupFragmentKmer(s)) {
+                    ++numRightAssembled;
+                }
+            }
+
+            if (numRightAssembled <= threshold && rightKmers.length - numRightAssembled > 0) {
+                return true;
+            }
+        }
+
+        return false;        
+    }
+    
     public void assembleFragments(FastqPair[] fastqs, String outFasta, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
         long readPairsParsed = 0;
         
@@ -139,13 +173,12 @@ public class RNABloom {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
                     }                    
                     
-                    if (p.left.length() >= k && p.right.length() >= k) {
-                        /**@TODO check whether kmers in reads had been assembled */
+                    if (okToAssemble(p)) {
                         
                         String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
                         int fragLen = fragment.length();
                         
-                        if (fragLen > 0) {                            
+                        if (fragLen > k) {                            
                             /** extend on both ends unambiguously*/
                             fragment = naiveExtend(fragment, graph, maxTipLen);
                             
@@ -227,15 +260,17 @@ public class RNABloom {
         }
     }
 
-    public void assembleTranscripts(String inFasta, String outFasta) {
+    public void assembleTranscripts(String inFasta, String outFasta, int lookAhead) {
         try {
             FastaReader fin = new FastaReader(inFasta);
             FastaWriter fout = new FastaWriter(outFasta);
             
-            /**@TODO*/
+            int cid = 0;
             while (fin.hasNext()) {
                 String fragment = fin.next();
+                String transcript = extendWithPairedKmers(fragment, graph, lookAhead);
                 
+                fout.write(Integer.toString(++cid), transcript);
             }
             
             fin.close();
@@ -243,6 +278,13 @@ public class RNABloom {
         } catch (IOException ex) {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    public void test() {
+        String f = "GGCGTGATGGCCGCGGAGCTCTCCAGAACAACATCCCTGACTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCAGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAA";
+        ArrayList<Kmer> kmers = correctMismatches(f, graph, 5, 5);
+        String f2 = assemble(kmers);
+        System.out.println(f2);
     }
     
     /**
@@ -282,7 +324,8 @@ public class RNABloom {
         
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
         String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left        
-        String fragsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments.fa";  
+        String fragsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments.fa";
+        String transcriptsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/transcripts.fa";
         
         //String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
         //String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
@@ -314,6 +357,7 @@ public class RNABloom {
                 
         RNABloom assembler = new RNABloom(strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed, k, q);
         assembler.createDBG(forwardFastqs, backwardFastqs);
+        assembler.test();
         
         /*
         String left = "AAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCA";
@@ -322,10 +366,13 @@ public class RNABloom {
         System.out.println(fragment);
         */
         
+        /*
         FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
         FastqPair[] fqPairs = new FastqPair[]{fqPair};
         
         assembler.assembleFragments(fqPairs, fragsFasta, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
+        assembler.assembleTranscripts(fragsFasta, transcriptsFasta, lookahead);
+        */
     }
     
 }
