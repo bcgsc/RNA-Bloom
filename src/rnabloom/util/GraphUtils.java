@@ -274,57 +274,12 @@ public final class GraphUtils {
         return a.get(halfLen);
     }
     
-    private static float rightGuidedMedianCoverageHelper(BloomFilterDeBruijnGraph graph, Kmer left, String guide) {
+    private static float rightGuidedMedianCoverage(BloomFilterDeBruijnGraph graph, String source, String guide) {
         int guideLen = guide.length();
-        float[] covs = new float[guideLen+1];
-        covs[guideLen] = left.count;
-        
-        String postfix = left.seq.substring(1);
-        String kmer;
-        float count;
-        for (int i=0; i<guideLen; ++i) {
-            kmer = postfix + guide.charAt(i);
-            count = graph.getCount(kmer);
-            if (count > 0) {
-                covs[i] = count;
-                postfix = kmer.substring(1);
-            }
-            else {
-                // not a valid sequence
-                return 0;
-            }
+        if (guideLen == 0) {
+            return graph.getCount(source);
         }
         
-        return getMedian(covs);
-    }
-
-    private static float leftGuidedMedianCoverageHelper(BloomFilterDeBruijnGraph graph, Kmer right, String guide) {
-        int guideLen = guide.length();
-        float[] covs = new float[guideLen+1];
-        covs[0] = right.count;
-        
-        int kMinus1 = graph.getK()-1;
-        String prefix = right.seq.substring(0,kMinus1);
-        String kmer;
-        float count;
-        for (int i=guideLen-1; i>0; --i) {
-            kmer = guide.charAt(i) + prefix;
-            count = graph.getCount(kmer);
-            if (count > 0) {
-                covs[i] = count;
-                prefix = kmer.substring(0,kMinus1);
-            }
-            else {
-                // not a valid sequence
-                return 0;
-            }
-        }
-        
-        return getMedian(covs);
-    }
-    
-    private static float rightGuidedMedianCoverageHelper2(BloomFilterDeBruijnGraph graph, String source, String guide) {
-        int guideLen = guide.length();
         float[] covs = new float[guideLen+1];
         covs[guideLen] = graph.getCount(source);
         
@@ -347,8 +302,12 @@ public final class GraphUtils {
         return getMedian(covs);
     }
     
-    private static float leftGuidedMedianCoverageHelper2(BloomFilterDeBruijnGraph graph, String source, String guide) {
+    private static float leftGuidedMedianCoverage(BloomFilterDeBruijnGraph graph, String source, String guide) {
         int guideLen = guide.length();
+        if (guideLen == 0) {
+            return graph.getCount(source);
+        }
+        
         float[] covs = new float[guideLen+1];
         covs[0] = graph.getCount(source);
         
@@ -372,160 +331,71 @@ public final class GraphUtils {
         return getMedian(covs);
     }
     
-    private static String charArrayToString(char[] arr, int start, int stop) {
-        StringBuilder sb = new StringBuilder(stop-start);
-        for (int i=start; i<stop; ++i) {
-            sb.append(arr[i]);
-        }
-        return sb.toString();
-    }
-    
-    public static ArrayList<Kmer> correctMismatches2(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
-        ArrayList<Kmer> kmers = graph.getKmers(seq);
-        int numKmers = kmers.size();
+    public static String correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
         
-        Kmer first = kmers.get(0);
-        int i1 = 0;
-        Kmer second = kmers.get(1);
-        int i2 = 1;
-        
-        Kmer tmp;
-        if (second.count > first.count) {
-            tmp = second;
-            second = first;
-            first = tmp;
-            
-            i1 = 1;
-            i2 = 0;
-        }
-        
-        for (int i=2; i<numKmers; ++i) {
-            tmp = kmers.get(i);
-            float c = tmp.count;
-            if (c > first.count) {
-                second = first;
-                first = tmp;
-                
-                i2 = i1;
-                i1 = i;
-            }
-            else if (c > second.count) {
-                second = tmp;
-                
-                i2 = i;
-            }
-        }
-        
-        char[] charArr = seq.toCharArray();
-        int seqLen = charArr.length;
-        int k = graph.getK();
-        
-        // correct right wing
-        for (int i=i1; i<numKmers-1; ++i) {
-            int end = i+k;
-            String kmer = charArrayToString(charArr, i, end);
-            String guide = charArrayToString(charArr, end, Math.min(end+lookahead, seqLen));
-            float bestCov = 0;
-            /**@TODO */
-        }
-        
-        return null;
-    }
-    
-    public static ArrayList<Kmer> correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
+        StringBuilder sb = new StringBuilder(seq);
         int seqLen = seq.length();
         int k = graph.getK();
+        int numKmers = seqLen-k+1;
         
-        int numKmers = seqLen - k + 1;
-        
-        if (numKmers > 1) {
-            char[] correctedSeq = seq.toCharArray();
-            
-            int mismatchesCorrected = 0;
-
-            String currKmerSeq;
-            Kmer prevKmer = graph.getKmer(seq.substring(0,k));
-            String guide;
-            Kmer bestKmer;
-            float bestCov;
-            float count;
-
-            for (int i=k; i<seqLen-1; ++i) {
-                currKmerSeq = graph.getSuffix(prevKmer.seq) + seq.charAt(i);
-                guide = seq.substring(i+1, Math.min(i+1+lookahead, seqLen));
-
-                bestKmer = null;
-                bestCov = 0;
-
-                for (Kmer s : graph.getSuccessors(prevKmer)) {
-                    count = rightGuidedMedianCoverageHelper(graph, s, guide);
-                    if (count > bestCov) {
-                        bestKmer = s;
-                        bestCov = count;
-                    }
-                }
-
-                if (bestKmer == null) {
-                    return graph.getKmers(seq);
-                } else {
-                    if (!currKmerSeq.equals(bestKmer.seq) && ++mismatchesCorrected > mismatchesAllowed) {
-                        // too many mismatches, undo all corrections
-                        return graph.getKmers(seq);
-                    }
-
-                    correctedSeq[i] = graph.getLastBase(bestKmer.seq);
-                    prevKmer = bestKmer;
-                }
-            }
-            
-            bestKmer = greedyExtendRightOnce(graph, prevKmer, lookahead);
-            if (bestKmer != null) {
-                correctedSeq[seqLen-1] = graph.getLastBase(bestKmer.seq);
-            }
-            
-            /** correct mismatches by walking in the opposite direction */
-            int i = seqLen;
-            prevKmer = graph.getKmer(seq.substring(i-k,i));
-            
-            for (i=i-k-1; i>0; --i) {
-                currKmerSeq = seq.charAt(i) + graph.getPrefix(prevKmer.seq);
-                guide = seq.substring(Math.max(0, i-lookahead), i);
+        // correct from start
+        for (int i=0; i<numKmers; ++i) {
+            int end = i+k;
+            String kmer = sb.substring(i, end);
+            LinkedList<String> variants = graph.getRightVariants(kmer);
+            if (!variants.isEmpty()) {
+                String guide = sb.substring(end, Math.min(end+lookahead, seqLen));
+                float bestCov = rightGuidedMedianCoverage(graph, kmer, guide);
                 
-                bestKmer = null;
-                bestCov = 0;
-
-                for (Kmer s : graph.getPredecessors(prevKmer)) {
-                    count = leftGuidedMedianCoverageHelper(graph, s, guide);
-                    if (count > bestCov) {
-                        bestKmer = s;
-                        bestCov = count;
+                boolean corrected = false;
+                for (String v : variants) {
+                    float cov = rightGuidedMedianCoverage(graph, v, guide);
+                    if (cov > bestCov) {
+                        bestCov = cov;
+                        sb.setCharAt(end-1, v.charAt(k-1));
+                        corrected = true;
                     }
                 }
-
-                if (bestKmer == null) {
-                    // undo all corrections
-                    return graph.getKmers(seq);
-                } else {
-                    if (!currKmerSeq.equals(bestKmer.seq) && ++mismatchesCorrected > mismatchesAllowed) {
-                        // too many mismatches, undo all corrections
-                        return graph.getKmers(seq);
+                
+                if (corrected) {
+                    --mismatchesAllowed;
+                    if (mismatchesAllowed < 0) {
+                        // too many mismatches
+                        return seq;
                     }
-
-                    correctedSeq[i] = graph.getFirstBase(bestKmer.seq);
-                    prevKmer = bestKmer;
                 }
             }
-            
-            bestKmer = greedyExtendLeftOnce(graph, prevKmer, lookahead);
-            if (bestKmer != null) {
-                correctedSeq[0] = graph.getFirstBase(bestKmer.seq);
+        }
+        
+        // correct from end
+        for (int i=seqLen-k; i>=0; --i) {
+            String kmer = sb.substring(i, i+k);
+            LinkedList<String> variants = graph.getLeftVariants(kmer);
+            if (!variants.isEmpty()) {
+                String guide = sb.substring(Math.max(0, i-lookahead), i);
+                float bestCov = leftGuidedMedianCoverage(graph, kmer, guide);
+                
+                boolean corrected = false;
+                for (String v : variants) {
+                    float cov = leftGuidedMedianCoverage(graph, v, guide);
+                    if (cov > bestCov) {
+                        bestCov = cov;
+                        sb.setCharAt(i, v.charAt(0));
+                        corrected = true;
+                    }
+                }
+                
+                if (corrected) {
+                    --mismatchesAllowed;
+                    if (mismatchesAllowed < 0) {
+                        // too many mismatches
+                        return seq;
+                    }
+                }
             }
-            
-            return graph.getKmers(new String(correctedSeq));
         }
-        else {
-            return graph.getKmers(seq);
-        }
+        
+        return sb.toString();
     }
 
     public static String assemble(ArrayList<Kmer> kmers) {
@@ -685,19 +555,40 @@ public final class GraphUtils {
         String overlapped = overlapMaximally(leftRead, rightRead, minOverlap);
         if (overlapped != null) {
             /**@TODO Check whether overlap is a valid path in DBG*/
-            return assemble(correctMismatches(overlapped, graph, lookahead, mismatchesAllowed));
+            return correctMismatches(overlapped, graph, lookahead, mismatchesAllowed);
         }
         
-        ArrayList<Kmer> leftKmers = correctMismatches(leftRead, graph, lookahead, mismatchesAllowed);
-        ArrayList<Kmer> rightKmers = correctMismatches(rightRead, graph, lookahead, mismatchesAllowed);
+        leftRead = correctMismatches(leftRead, graph, lookahead, mismatchesAllowed);
+        rightRead = correctMismatches(rightRead, graph, lookahead, mismatchesAllowed);
         
-        ArrayList<Kmer> pathKmers = getMaxCoveragePath(graph, leftKmers.get(leftKmers.size()-1), rightKmers.get(0), bound, lookahead);
+        int k = graph.getK();
+        int leftReadLength = leftRead.length();
+        Kmer leftReadRightmostKmer = graph.getKmer(leftRead.substring(leftReadLength-k, leftReadLength));
+        Kmer rightReadLeftmostKmer = graph.getKmer(rightRead.substring(0, k));
+        
+        ArrayList<Kmer> pathKmers = getMaxCoveragePath(graph, leftReadRightmostKmer, rightReadLeftmostKmer, bound, lookahead);
         
         if (pathKmers == null || pathKmers.isEmpty()) {
             return "";
         }
         
-        return assembleFirstBase(leftKmers) + assemble(pathKmers) + assembleLastBase(rightKmers);
+        String leftWing, rightWing;
+        if (leftReadLength == k) {
+            leftWing = leftRead.substring(0, 1);
+        }
+        else {
+            leftWing = leftRead.substring(0, leftReadLength-k+1);
+        }
+        
+        int rightReadLength = leftRead.length();
+        if (rightReadLength == k) {
+            rightWing = rightRead.substring(k-1, k);
+        }
+        else {
+            rightWing = rightRead.substring(k-1);
+        }
+        
+        return leftWing + assemble(pathKmers) + rightWing;
     }
     
     public static String extendWithPairedKmers(String fragment, BloomFilterDeBruijnGraph graph, int lookAhead) {
