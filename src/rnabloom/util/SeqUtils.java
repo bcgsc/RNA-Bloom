@@ -5,7 +5,10 @@
  */
 package rnabloom.util;
 
+import java.util.AbstractCollection;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.PrimitiveIterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -16,6 +19,15 @@ import rnabloom.io.FastqRecord;
  * @author kmnip
  */
 public final class SeqUtils {
+    
+    public static final String getFirstKmer(String seq, int k) {
+        return seq.substring(0, k);
+    }
+    
+    public static final String getLastKmer(String seq, int k) {
+        int seqLen = seq.length();
+        return seq.substring(seqLen-k, seqLen);
+    }
     
     public static final String[] kmerize(String seq, int k) {
         final int numKmers = seq.length() - k +1;
@@ -28,16 +40,13 @@ public final class SeqUtils {
         return kmers;
     }
     
-    public static final ArrayList<String> kmerizeArrayList(String seq, int k) {
-        final int numKmers = seq.length() - k +1;
-        final ArrayList<String> kmers = new ArrayList<>(numKmers);
+    public static final void kmerizeToCollection(String seq, int k, AbstractCollection<String> kmers) {
+        final int numKmers = seq.length()-k+1;
         
         for (int i=0; i<numKmers; ++i) {
             kmers.add(seq.substring(i, i+k));
         }
-        
-        return kmers;
-    }    
+    }
     
     private final static int CHAR_A_INT = (int) 'A';
     private final static int CHAR_C_INT = (int) 'C';

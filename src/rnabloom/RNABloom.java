@@ -174,77 +174,79 @@ public class RNABloom {
                     }                    
                     
                     if (okToAssemble(p)) {
+                        // correct individual reads
+                        p.left = correctMismatches(p.left, graph, lookahead, mismatchesAllowed);
+                        p.right = correctMismatches(p.right, graph, lookahead, mismatchesAllowed);
                         
-                        String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
-                        int fragLen = fragment.length();
-                        
-                        if (fragLen > k) {                            
-                            /** extend on both ends unambiguously*/
-                            fragment = naiveExtend(fragment, graph, maxTipLen);
+                        if (okToAssemble(p)) {
+                            String fragment = assembleFragment(p.left, p.right, graph, bound, lookahead, minOverlap);
                             
-                            ++fid;
-                            
-                            if (fid > sampleSize) {
-                                /** store paired kmers */
-                                graph.addPairedKmersFromSeq(fragment);
-                                
-                                /** write fragment */
-                                out.write(Integer.toString(fid), fragment);
-                            }
-                            else if (fid == sampleSize) {
-                                fragmentLengths[0] = fragLen;
-                                sampleFragments.add(fragment);
-                                
-                                /** Calculate median fragment length */
-                                Arrays.sort(fragmentLengths);
-                                int half = sampleSize/2;
-                                int medianFragLen = (fragmentLengths[half] + fragmentLengths[half - 1])/2;
+                            // correct fragment
+                            fragment = correctMismatches(fragment, graph, lookahead, mismatchesAllowed);
 
-                                System.out.println("Median fragment length: " + fragLen);
-                                
-                                /** set kmer pair distance */
-                                graph.setPairedKmerDistance(medianFragLen - k);
+                            int fragLen = fragment.length();
 
-                                /** readjust bound to be based on 1.5*IQR */
-                                int whisker = (fragmentLengths[sampleSize*3/4] - fragmentLengths[sampleSize/4]) * 3/2;
-                                bound = medianFragLen + whisker;
-                                
-                                System.out.println("longest fragment allowed: " + bound);
+                            if (fragLen > k) {                            
+                                /** extend on both ends unambiguously*/
+                                fragment = naiveExtend(fragment, graph, maxTipLen);
 
-                                /** clear sample fragment lengths */
-                                fragmentLengths = null;
+                                ++fid;
+                                //out.write(Integer.toString(fid), fragment);
+                                out.write(Integer.toString(fid) + " " + p.left + " " + p.right, fragment);
 
-                                /** store paired kmers of all sample fragments */
-                                fid = 0;
-                                for (String frag : sampleFragments) {
-                                    graph.addPairedKmersFromSeq(frag);
-
-                                    /** write fragment */
-                                    out.write(Integer.toString(++fid), frag);
+                                if (fid > sampleSize) {
+                                    /** store paired kmers */
+                                    graph.addPairedKmersFromSeq(fragment);
                                 }
+                                else if (fid == sampleSize) {
+                                    fragmentLengths[0] = fragLen;
+                                    sampleFragments.add(fragment);
 
-                                /** clear sample fragments */
-                                sampleFragments = null;
-                            }
-                            else {
-                                /** store fragment length*/
-                                fragmentLengths[fid] = fragLen;
-                                sampleFragments.add(fragment);
-                                
-                                //System.out.println(fragLen);
-                            }
-                        }
-                        
-                        /*
-                        if (p.right.endsWith("AAA")) {
-                            String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
-                            System.out.println("LEFT:  " + p.left);
-                            System.out.println("RIGHT: " + p.right);
-                            System.out.println(fragment.length() + ": " + fragment);
-                        }
-                        */
+                                    /** Calculate median fragment length */
+                                    Arrays.sort(fragmentLengths);
+                                    int half = sampleSize/2;
+                                    int medianFragLen = (fragmentLengths[half] + fragmentLengths[half - 1])/2;
 
-                        /**@TODO assemble with paired k-mers bloom filter*/
+                                    System.out.println("Median fragment length: " + fragLen);
+
+                                    /** set kmer pair distance */
+                                    graph.setPairedKmerDistance(medianFragLen - k);
+
+                                    /** readjust bound to be based on 1.5*IQR */
+                                    int whisker = (fragmentLengths[sampleSize*3/4] - fragmentLengths[sampleSize/4]) * 3/2;
+                                    bound = medianFragLen + whisker;
+
+                                    System.out.println("longest fragment allowed: " + bound);
+
+                                    /** clear sample fragment lengths */
+                                    fragmentLengths = null;
+
+                                    /** store paired kmers of all sample fragments */
+                                    for (String frag : sampleFragments) {
+                                        graph.addPairedKmersFromSeq(frag);
+                                    }
+
+                                    /** clear sample fragments */
+                                    sampleFragments = null;
+                                }
+                                else {
+                                    /** store fragment length*/
+                                    fragmentLengths[fid] = fragLen;
+                                    sampleFragments.add(fragment);
+
+                                    //System.out.println(fragLen);
+                                }
+                            }
+
+                            /* assemble 3' UTR only
+                            if (p.right.endsWith("AAA")) {
+                                String fragment = assembleFragment(p.left, p.right, graph, mismatchesAllowed, bound, lookahead, minOverlap);
+                                System.out.println("LEFT:  " + p.left);
+                                System.out.println("RIGHT: " + p.right);
+                                System.out.println(fragment.length() + ": " + fragment);
+                            }
+                            */
+                        }
                     }
                 }
 
@@ -281,7 +283,7 @@ public class RNABloom {
     }
     
     public void test() {
-        String f = "GGCGTGATGGCCGCGGAGCTCTCCAGAACAACATCCCTGACTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCAGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAA";
+        String f = "ACACTGAGCACCAGGTGGTCTCCTGTGACTTCAACAGCGACACCCACTCCTCCACCTTTGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTTGTCAAGCTCATTTCCTGGTATGACAACGAATTTGGCTACAGCAACAGGGTGGTGGACCTCATGGCCCACATGGCCTCCAAGGAGTAAGACCCCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTCACTGCTG";
         String f2 = correctMismatches(f, graph, 5, 5);
         System.out.println(f2);
     }
@@ -369,13 +371,13 @@ public class RNABloom {
         System.out.println(fragment);
         */
         
-        
+        ///*
         FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
         FastqPair[] fqPairs = new FastqPair[]{fqPair};
         
         assembler.assembleFragments(fqPairs, fragsFasta, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
         assembler.assembleTranscripts(fragsFasta, transcriptsFasta, lookahead);
-        
+        //*/
     }
     
 }

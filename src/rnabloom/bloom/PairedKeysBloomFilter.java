@@ -18,14 +18,15 @@ public class PairedKeysBloomFilter extends BloomFilter {
     }
     
     public void addPair(final String key1, final String key2) {
-        long[] hash1 = super.hashFunction.getHashValues(key1);
-        long[] hash2 = super.hashFunction.getHashValues(key2);
-        
+        addPair(super.hashFunction.getHashValues(key1), super.hashFunction.getHashValues(key2));
+    }
+
+    public void addPair(final long[] hash1, final long[] hash2) {
         for (int h=0; h<numHash; ++h) {
             bitArray.set(HashFunction.combineHashValues(hash1[h], hash2[h]) % size);
         }
     }
-
+    
     public void addSingleAndPair(final String key1, final String key2) {
         long[] hash1 = super.hashFunction.getHashValues(key1);
         long[] hash2 = super.hashFunction.getHashValues(key2);

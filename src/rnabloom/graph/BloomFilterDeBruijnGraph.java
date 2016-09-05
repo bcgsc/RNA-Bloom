@@ -74,7 +74,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void addKmersFromSeq(String seq) {
-        final int numKmers = seq.length() - k + 1;
+        final int numKmers = seq.length()-k+1;
         
         for (int i=0; i<numKmers; ++i) {
             long[] hashVals = hashFunction.getHashValues(seq.substring(i, i+k));
@@ -83,11 +83,29 @@ public class BloomFilterDeBruijnGraph {
         }
     }
     
-    public void addPairedKmersFromSeq(String seq) {
-        final int upperBound = seq.length() - k + 1 - this.pairedKmersDistance;
+    public void addFragmentKmersFromSeq(String seq) {
+        int numKmers = seq.length()-k+1;
         
+        for (int i=0; i<numKmers; ++i) {
+            pkbf.add(hashFunction.getHashValues(seq.substring(i, i+k)));
+        }
+    }
+    
+    public void addPairedKmersFromSeq(String seq) {
+        int numKmers = seq.length()-k+1;
+        long[][] hashValues = new long[numKmers][hashFunction.getNumHash()];
+        
+        // add kmers
+        for (int i=0; i<numKmers; ++i) {
+            long[] v = hashFunction.getHashValues(seq.substring(i, i+k));
+            pkbf.add(v);
+            hashValues[i] = v;
+        }
+        
+        // add paired kmers
+        int upperBound = numKmers-pairedKmersDistance;
         for (int i=0; i<upperBound; ++i) {
-            this.pkbf.addSingleAndPair(seq.substring(i, i+k), seq.substring(i+this.pairedKmersDistance, i+k+this.pairedKmersDistance));
+            pkbf.addPair(hashValues[i], hashValues[i+pairedKmersDistance]);
         }
     }
     
@@ -139,20 +157,12 @@ public class BloomFilterDeBruijnGraph {
         }
     }
     
-    public String getPrefix(String kmer) {
+    private String getPrefix(String kmer) {
         return kmer.substring(0, overlap);
     }
     
-    public String getSuffix(String kmer) {
+    private String getSuffix(String kmer) {
         return kmer.substring(1, k);
-    }
-
-    public char getFirstBase(String kmer) {
-        return kmer.charAt(0);
-    }
-    
-    public char getLastBase(String kmer) {
-        return kmer.charAt(overlap);
     }
     
     public LinkedList<Kmer> getPredecessors(Kmer kmer) {
@@ -312,7 +322,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public ArrayList<Kmer> getKmers(String seq) {
-        final int numKmers = seq.length() - k + 1;
+        final int numKmers = seq.length()-k+1;
         ArrayList<Kmer> result = new ArrayList<>(numKmers);
         
         for (int i=0; i<numKmers; ++i) {
