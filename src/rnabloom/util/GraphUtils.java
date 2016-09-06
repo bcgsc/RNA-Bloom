@@ -263,6 +263,14 @@ public final class GraphUtils {
         return a[halfLen];
     }
     
+    private static class Stats {
+        public float min;
+        public float q1;
+        public float median;
+        public float q3;
+        public float max;
+    }
+    
     private static float getMedian(List<Float> arr) {
         ArrayList<Float> a = new ArrayList<>(arr);
         Collections.sort(a);
@@ -272,6 +280,39 @@ public final class GraphUtils {
         }
         
         return a.get(halfLen);
+    }
+    
+    private static Stats getStats(final List<Float> arr) {
+        ArrayList<Float> a = new ArrayList<>(arr);
+        Collections.sort(a);
+        
+        Stats stats = new Stats();
+        
+        int arrLen = a.size();
+        int halfLen = arrLen/2;
+        int q1Index = arrLen/4;
+        int q3Index = halfLen+q1Index;
+        
+        stats.min = a.get(0);
+        stats.max = a.get(arrLen-1);
+        
+        if (arrLen % 2 == 0) {
+            stats.median = (a.get(halfLen-1) + a.get(halfLen))/2.0f;
+        }
+        else {
+            stats.median = a.get(halfLen);
+        }
+        
+        if (arrLen % 4 == 0) {
+            stats.q1 = (a.get(q1Index-1) + a.get(q1Index))/2.0f;
+            stats.q3 = (a.get(q3Index-1) + a.get(q3Index))/2.0f;
+        }
+        else {
+            stats.q1 = a.get(q1Index);
+            stats.q3 = a.get(q3Index);
+        }
+        
+        return stats;
     }
     
     private static float rightGuidedMedianCoverage(BloomFilterDeBruijnGraph graph, String source, String guide) {

@@ -5,28 +5,20 @@
  */
 package rnabloom;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileInputStream;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import static java.lang.Math.pow;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
-import java.util.zip.GZIPInputStream;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
-import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.FastqPair;
 import rnabloom.io.FastqPairReader;
 import rnabloom.io.FastqPairReader.ReadPair;
 import rnabloom.io.FastqReader;
-import static rnabloom.util.GraphUtils.assemble;
 import static rnabloom.util.GraphUtils.assembleFragment;
 import static rnabloom.util.GraphUtils.correctMismatches;
 import static rnabloom.util.GraphUtils.extendWithPairedKmers;
@@ -40,7 +32,7 @@ import static rnabloom.util.SeqUtils.*;
  */
 public class RNABloom {
     
-    
+    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
     public final static long NUM_BYTES_1GB = (long) pow(1024, 3);
     
@@ -74,7 +66,7 @@ public class RNABloom {
                 
                 fr = new FastqReader(fastq, false);
                 while (fr.hasNext()) {
-                    if (++lineNum % 100000 == 0) {
+                    if (++lineNum % NUM_PARSED_INTERVAL == 0) {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
                     }
 
@@ -90,7 +82,7 @@ public class RNABloom {
                 
                 fr = new FastqReader(fastq, false);
                 while (fr.hasNext()) {
-                    if (++lineNum % 100000 == 0) {
+                    if (++lineNum % NUM_PARSED_INTERVAL == 0) {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
                     }
 
@@ -150,6 +142,7 @@ public class RNABloom {
     
     public void assembleFragments(FastqPair[] fastqs, String outFasta, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
         long readPairsParsed = 0;
+        int correctionWorks = 0;
         
         try {
             FastqReader lin, rin;
@@ -169,7 +162,7 @@ public class RNABloom {
                 while (fqpr.hasNext()) {
                     p = fqpr.next();
                     
-                    if (++readPairsParsed % 100000 == 0) {
+                    if (++readPairsParsed % NUM_PARSED_INTERVAL == 0) {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
                     }                    
                     
@@ -248,6 +241,9 @@ public class RNABloom {
                             */
                         }
                     }
+                    else {
+                        ++correctionWorks;
+                    }
                 }
 
                 lin.close();
@@ -259,16 +255,25 @@ public class RNABloom {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
+            System.out.println(correctionWorks + " reads not needed for assembly due to correction");
         }
     }
 
     public void assembleTranscripts(String inFasta, String outFasta, int lookAhead) {
+        long numFragmentsParsed = 0;
+        
         try {
+            System.out.println("Parsing `" + inFasta + "`...");
+            
             FastaReader fin = new FastaReader(inFasta);
             FastaWriter fout = new FastaWriter(outFasta);
             
             int cid = 0;
             while (fin.hasNext()) {
+                if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
+                    System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments...");
+                }
+                
                 String fragment = fin.next();
                 String transcript = extendWithPairedKmers(fragment, graph, lookAhead);
                 
@@ -279,6 +284,8 @@ public class RNABloom {
             fout.close();
         } catch (IOException ex) {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments...");
         }
     }
     
