@@ -5,12 +5,26 @@
  */
 package rnabloom.bloom;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.buffer.LargeBitBuffer;
 import rnabloom.bloom.buffer.UnsafeBitBuffer;
 import rnabloom.bloom.buffer.AbstractLargeBitBuffer;
 import static java.lang.Math.pow;
 import static java.lang.Math.exp;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 /**
  *
@@ -26,6 +40,7 @@ public class BloomFilter implements BloomFilterInterface {
         
         this.size = size;
         try {
+            //System.out.println("unsafe");
             this.bitArray = new UnsafeBitBuffer(size);
         }
         catch(NoSuchFieldException | IllegalArgumentException | IllegalAccessException e) {
@@ -33,6 +48,63 @@ public class BloomFilter implements BloomFilterInterface {
         }
         this.numHash = numHash;
         this.hashFunction = hashFunction;
+    }
+    
+    private static final String LABEL_SEPARATOR = ":";
+    private static final String LABEL_SIZE = "size";
+    private static final String LABEL_SEED = "seed";
+    private static final String LABEL_K = "k";
+    private static final String LABEL_NUM_HASH = "numhash";
+    
+    public static BloomFilter read(File desc, File bits) throws FileNotFoundException, IOException {
+        int numHash = -1;
+        int seed = -1;
+        int k = -1;
+        long size = -1;
+        
+        BufferedReader br = new BufferedReader(new FileReader(desc));
+        String line;
+        while ((line = br.readLine()) != null) {
+            String[] entry = line.split(LABEL_SEPARATOR);
+            String key = entry[0];
+            String val = entry[1];
+            switch(key) {
+                case LABEL_SIZE:
+                    size = Long.parseLong(val);
+                    break;
+                case LABEL_NUM_HASH:
+                    numHash = Integer.parseInt(val);
+                    break;
+                case LABEL_SEED:
+                    seed = Integer.parseInt(val);
+                    break;
+                case LABEL_K:
+                    k = Integer.parseInt(val);
+                    break;
+            }
+        }
+        br.close();
+        
+        BloomFilter bf = new BloomFilter(size, numHash, new HashFunction(numHash, seed, k));
+        FileInputStream fin = new FileInputStream(bits);
+        bf.bitArray.read(fin);
+        fin.close();
+        
+        return bf;
+    }
+    
+    public void write(File desc, File bits) throws IOException {
+        FileWriter writer = new FileWriter(desc);
+        
+        writer.write(LABEL_SIZE + LABEL_SEPARATOR + this.size + "\n" +
+                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n" +
+                    LABEL_SEED + LABEL_SEPARATOR + this.hashFunction.getSeed() + "\n" +
+                    LABEL_K + LABEL_SEPARATOR + this.hashFunction.getK() + "\n");
+        writer.close();
+        
+        FileOutputStream out = new FileOutputStream(bits);
+        this.bitArray.write(out);
+        out.close();
     }
         
     @Override
@@ -72,4 +144,7 @@ public class BloomFilter implements BloomFilterInterface {
         return (float) pow(1 - exp(-numHash * bitArray.popCount() / size), numHash);
     }
     
+    public void destroy() {
+        this.bitArray.destroy();
+    }
 }

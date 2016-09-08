@@ -5,6 +5,12 @@
  */
 package rnabloom.bloom.buffer;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
 /**
  *
  * @author kmnip
@@ -49,5 +55,20 @@ public class LargeBitBuffer extends AbstractLargeBitBuffer {
     @Override
     public long popCount() {
         return backingByteBuffer.bitPopCount();
+    }
+    
+    @Override
+    public void destroy() {
+        backingByteBuffer.destroy();
+    }
+    
+    @Override
+    public void write(FileOutputStream out) throws IOException {
+        backingByteBuffer.write(out);
+    }
+    
+    @Override
+    public void read(FileInputStream in) throws IOException {
+        backingByteBuffer.read(in);
     }
 }

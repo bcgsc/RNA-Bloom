@@ -34,6 +34,14 @@ public class HashFunction {
         return numHash;
     }
     
+    public int getSeed() {
+        return seed;
+    }
+    
+    public int getK() {
+        return k;
+    }
+    
     public static long combineHashValues(long a, long b) {
         // See: http://stackoverflow.com/a/27952689
         a ^= b + 0x9e3779b9 + (a << 6) + (b >> 2);

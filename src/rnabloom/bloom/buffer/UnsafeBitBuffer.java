@@ -5,6 +5,12 @@
  */
 package rnabloom.bloom.buffer;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
 /**
  *
  * @author kmnip
@@ -54,5 +60,15 @@ public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
     
     public void destroy() {
         backingByteArray.destroy();
+    }
+    
+    @Override
+    public void write(FileOutputStream out) throws IOException {
+        backingByteArray.write(out);
+    }
+    
+    @Override
+    public void read(FileInputStream in) throws IOException {
+        backingByteArray.read(in);
     }
 }
