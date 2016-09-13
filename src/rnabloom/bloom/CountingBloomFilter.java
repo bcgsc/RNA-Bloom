@@ -5,8 +5,6 @@
  */
 package rnabloom.bloom;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -15,8 +13,6 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.buffer.UnsafeByteBuffer;
 import rnabloom.bloom.buffer.AbstractLargeByteBuffer;
@@ -25,25 +21,6 @@ import static java.lang.Math.exp;
 import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import java.nio.channels.FileChannel;
 
 /**
  *
