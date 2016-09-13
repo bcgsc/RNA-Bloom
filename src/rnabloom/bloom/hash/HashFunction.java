@@ -12,9 +12,9 @@ import static rnabloom.bloom.hash.MurmurHash3.murmurhash3_x64_128;
  * @author kmnip
  */
 public class HashFunction {
-    private final int numHash;
-    private final int seed;
-    private final int k;
+    protected final int numHash;
+    protected final int seed;
+    protected final int k;
     
     public HashFunction(int numHash, int seed, int k) {
         this.numHash = numHash;
@@ -23,11 +23,25 @@ public class HashFunction {
     }
     
     public long[] getHashValues(final String kmer) {
-        final byte[] b = kmer.getBytes();
         final long[] hashVals = new long[numHash];
-        murmurhash3_x64_128(b, 0, k, seed, numHash, hashVals);
+        murmurhash3_x64_128(kmer.getBytes(), 0, k, seed, numHash, hashVals);
                 
         return hashVals;
+    }
+    
+    public long[] getHashValues(final String kmer1, final String kmer2) {
+        final long[] hashVals1 = new long[numHash];
+        murmurhash3_x64_128(kmer1.getBytes(), 0, k, seed, numHash, hashVals1);
+        
+        final long[] hashVals2 = new long[numHash];
+        murmurhash3_x64_128(kmer2.getBytes(), 0, k, seed, numHash, hashVals2);
+        
+        final long[] hashVal = new long[numHash];
+        for (int i=0; i<numHash; ++i) {
+            hashVal[i] = combineHashValues(hashVals1[i], hashVals2[i]);
+        }
+        
+        return hashVal;
     }
     
     public int getNumHash() {

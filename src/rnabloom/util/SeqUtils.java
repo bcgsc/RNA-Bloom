@@ -95,6 +95,35 @@ public final class SeqUtils {
         }
     }
     
+    public static final String[] smallestStrand(String seq1, String seq2) {
+        String rc2 = reverseComplement(seq2);
+        int seq1Vrc2 = seq1.compareTo(rc2);
+        
+        if (seq1Vrc2 > 0) {
+            return new String[]{rc2, reverseComplement(seq1)};
+        }
+        else if (seq1Vrc2 == 0) {
+            String rc1 = reverseComplement(seq1);
+            if (seq2.compareTo(rc1) > 0) {
+                return new String[]{rc2, rc1};
+            }
+        }
+        
+        return new String[]{seq1, seq2};
+        
+        /*
+        String rc1 = reverseComplement(seq1);
+        String rc2 = reverseComplement(seq2);
+        
+        if ((seq1 + seq2).compareTo((rc2 + rc1)) > 0) {
+            return new String[]{rc2, rc1};
+        }
+        else {
+            return new String[]{seq1, seq2};
+        }
+        */
+    }
+    
     public static String overlapMaximally(String left, String right, int minOverlap) {
         String prefix = right.substring(0, minOverlap);
         int leftLength = left.length();
