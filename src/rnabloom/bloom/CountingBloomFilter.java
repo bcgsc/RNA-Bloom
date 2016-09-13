@@ -21,6 +21,9 @@ import static java.lang.Math.exp;
 import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
+import static java.lang.Math.scalb;
+import static java.lang.Math.scalb;
+import static java.lang.Math.scalb;
 
 /**
  *
@@ -51,14 +54,10 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     
     private static final String LABEL_SEPARATOR = ":";
     private static final String LABEL_SIZE = "size";
-    private static final String LABEL_SEED = "seed";
-    private static final String LABEL_K = "k";
     private static final String LABEL_NUM_HASH = "numhash";
     
-    public static CountingBloomFilter read(File desc, File bytes) throws FileNotFoundException, IOException {
+    public static CountingBloomFilter restore(File desc, File bytes, HashFunction hashFunction) throws FileNotFoundException, IOException {
         int numHash = -1;
-        int seed = -1;
-        int k = -1;
         long size = -1;
         
         BufferedReader br = new BufferedReader(new FileReader(desc));
@@ -74,17 +73,11 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
                 case LABEL_NUM_HASH:
                     numHash = Integer.parseInt(val);
                     break;
-                case LABEL_SEED:
-                    seed = Integer.parseInt(val);
-                    break;
-                case LABEL_K:
-                    k = Integer.parseInt(val);
-                    break;
             }
         }
         br.close();
         
-        CountingBloomFilter bf = new CountingBloomFilter(size, numHash, new HashFunction(numHash, seed, k));
+        CountingBloomFilter bf = new CountingBloomFilter(size, numHash, hashFunction);
         FileInputStream fin = new FileInputStream(bytes);
         bf.counts.read(fin);
         fin.close();
@@ -92,13 +85,11 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         return bf;
     }
     
-    public void write(File desc, File bytes) throws IOException {
+    public void save(File desc, File bytes) throws IOException {
         FileWriter writer = new FileWriter(desc);
         
         writer.write(LABEL_SIZE + LABEL_SEPARATOR + this.size + "\n" +
-                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n" +
-                    LABEL_SEED + LABEL_SEPARATOR + this.hashFunction.getSeed() + "\n" +
-                    LABEL_K + LABEL_SEPARATOR + this.hashFunction.getK() + "\n");
+                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n");
         writer.close();
         
         FileOutputStream out = new FileOutputStream(bytes);
@@ -108,7 +99,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         
     @Override
     public void increment(String key) {
-        increment(hashFunction.getHashValues(key));
+        increment(hashFunction.getHashValues(key, numHash));
     }
     
     public synchronized void increment(long[] hashVals) {
@@ -151,7 +142,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
 
     @Override
     public float getCount(String key) {
-        return getCount(hashFunction.getHashValues(key));
+        return getCount(hashFunction.getHashValues(key, numHash));
     }
     
     public float getCount(long[] hashVals) {

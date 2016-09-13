@@ -665,7 +665,7 @@ public final class GraphUtils {
         return leftWing + assemble(pathKmers) + rightWing;
     }
     
-    public static String extendWithPairedKmers(String fragment, BloomFilterDeBruijnGraph graph, int lookahead) {
+    public static String assembleTranscript(String fragment, BloomFilterDeBruijnGraph graph, int lookahead) {
         final int distance = graph.getPairedKmerDistance();
         final int k = graph.getK();
         

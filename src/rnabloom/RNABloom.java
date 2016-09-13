@@ -31,10 +31,10 @@ import rnabloom.io.FastqPairReader.ReadPair;
 import rnabloom.io.FastqReader;
 import static rnabloom.util.GraphUtils.assembleFragment;
 import static rnabloom.util.GraphUtils.correctMismatches;
-import static rnabloom.util.GraphUtils.extendWithPairedKmers;
 import static rnabloom.util.GraphUtils.findBackbonePath;
 import static rnabloom.util.GraphUtils.naiveExtend;
 import static rnabloom.util.SeqUtils.*;
+import static rnabloom.util.GraphUtils.assembleTranscript;
 
 /**
  *
@@ -285,7 +285,7 @@ public class RNABloom {
                 }
                 
                 String fragment = fin.next();
-                String transcript = extendWithPairedKmers(fragment, graph, lookAhead);
+                String transcript = assembleTranscript(fragment, graph, lookAhead);
                 
                 fout.write(Integer.toString(++cid), transcript);
             }
@@ -306,17 +306,17 @@ public class RNABloom {
         String kmer =  "AAAAATTTTTCCCCCGGGGG";
         String kmer2 = "AAAAAAAAAACCCCCGGGGG";
         
-        CountingBloomFilter bf = new CountingBloomFilter(NUM_BYTES_1GB*4, 3, new HashFunction(3, 689, kmer.length()));
+        CountingBloomFilter bf = new CountingBloomFilter(NUM_BYTES_1GB*4, 3, new HashFunction(89, kmer.length()));
         bf.increment(kmer);
         System.out.println("true:" + bf.getCount(kmer));
         System.out.println("false:" + bf.getCount(kmer2));
         
         try {
-            bf.write(new File(bfDescPath), new File(bfPath));
+            bf.save(new File(bfDescPath), new File(bfPath));
             bf.destroy();
             bf = null;
             
-            bf = CountingBloomFilter.read(new File(bfDescPath), new File(bfPath));
+            bf = CountingBloomFilter.restore(new File(bfDescPath), new File(bfPath), new HashFunction(689, 25));
             
             System.out.println("true:" + bf.getCount(kmer));
             System.out.println("false:" + bf.getCount(kmer2));
@@ -329,7 +329,7 @@ public class RNABloom {
     public void test() {
         //String f = "TCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCATCCCTGCCTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCC";
         String f = "CCCCCATGTTCGTCATGGGTGTGAACCATGAGAAGTATGACAACAGCCTCAAGATCATCAGCAATGCCTCCTGCACCACCAACTGCTTAGCACCCCTGGCCAAGGTCATCCATGACAACTTTGGTATCGTGGAAGGACTCATGACCACAGTCCATGCCATCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCATCCCTGCCTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACACCCACTCCTCCACCT";
-        String transcript = extendWithPairedKmers(f, graph, 5);
+        String transcript = assembleTranscript(f, graph, 5);
         System.out.print(transcript);
         for (Kmer kmer : graph.getKmers(transcript)) {
             System.out.print(kmer.count);
@@ -407,10 +407,10 @@ public class RNABloom {
         int k = 25;
         int q = 3;
         int sampleSize = 1000;
-
+        
         test2();
         
-        /*        
+        ///*
         RNABloom assembler = new RNABloom(strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed, k, q);
         assembler.createDBG(forwardFastqs, backwardFastqs);
                 
@@ -422,7 +422,7 @@ public class RNABloom {
         assembler.test();
         
         //assembler.assembleTranscripts(fragsFasta, transcriptsFasta, lookahead);
-        */
+        //*/
     }
     
 }

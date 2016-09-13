@@ -46,14 +46,10 @@ public class BloomFilter implements BloomFilterInterface {
     
     private static final String LABEL_SEPARATOR = ":";
     private static final String LABEL_SIZE = "size";
-    private static final String LABEL_SEED = "seed";
-    private static final String LABEL_K = "k";
     private static final String LABEL_NUM_HASH = "numhash";
     
-    public static BloomFilter read(File desc, File bits) throws FileNotFoundException, IOException {
+    public static BloomFilter restore(File desc, File bits, HashFunction hashFunction) throws FileNotFoundException, IOException {
         int numHash = -1;
-        int seed = -1;
-        int k = -1;
         long size = -1;
         
         BufferedReader br = new BufferedReader(new FileReader(desc));
@@ -69,17 +65,11 @@ public class BloomFilter implements BloomFilterInterface {
                 case LABEL_NUM_HASH:
                     numHash = Integer.parseInt(val);
                     break;
-                case LABEL_SEED:
-                    seed = Integer.parseInt(val);
-                    break;
-                case LABEL_K:
-                    k = Integer.parseInt(val);
-                    break;
             }
         }
         br.close();
         
-        BloomFilter bf = new BloomFilter(size, numHash, new HashFunction(numHash, seed, k));
+        BloomFilter bf = new BloomFilter(size, numHash, hashFunction);
         FileInputStream fin = new FileInputStream(bits);
         bf.bitArray.read(fin);
         fin.close();
@@ -87,13 +77,11 @@ public class BloomFilter implements BloomFilterInterface {
         return bf;
     }
     
-    public void write(File desc, File bits) throws IOException {
+    public void save(File desc, File bits) throws IOException {
         FileWriter writer = new FileWriter(desc);
         
         writer.write(LABEL_SIZE + LABEL_SEPARATOR + this.size + "\n" +
-                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n" +
-                    LABEL_SEED + LABEL_SEPARATOR + this.hashFunction.getSeed() + "\n" +
-                    LABEL_K + LABEL_SEPARATOR + this.hashFunction.getK() + "\n");
+                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n");
         writer.close();
         
         FileOutputStream out = new FileOutputStream(bits);
@@ -103,7 +91,7 @@ public class BloomFilter implements BloomFilterInterface {
         
     @Override
     public void add(final String key) {
-        add(hashFunction.getHashValues(key));
+        add(hashFunction.getHashValues(key, numHash));
     }
     
     public void add(final long[] hashVals){
@@ -114,7 +102,7 @@ public class BloomFilter implements BloomFilterInterface {
 
     @Override
     public boolean lookup(final String key) {        
-        return lookup(hashFunction.getHashValues(key));
+        return lookup(hashFunction.getHashValues(key, numHash));
     }
 
     public boolean lookup(final long[] hashVals) {

@@ -14,23 +14,13 @@ import static rnabloom.util.SeqUtils.smallestStrand;
  */
 public class SmallestStrandHashFunction extends HashFunction {
     
-    public SmallestStrandHashFunction(int numHash, int seed, int k) {
-        super(numHash, seed, k);
-    }
-
-    @Override
-    public long[] getHashValues(final String kmer) {
-        return getHashValues(kmer, numHash);
+    public SmallestStrandHashFunction(int seed, int k) {
+        super(seed, k);
     }
     
     @Override
     public long[] getHashValues(final String kmer, int numHash) {
         return super.getHashValues(smallestStrand(kmer), numHash);
-    }
-    
-    @Override
-    public long[] getHashValues(final String kmer1, final String kmer2) {
-        return getHashValues(kmer1, kmer2, numHash);
     }
     
     @Override

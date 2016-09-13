@@ -18,19 +18,16 @@ public class PairedKeysBloomFilter extends BloomFilter {
     }
     
     public void addPair(final String key1, final String key2) {
-        addPair(super.hashFunction.getHashValues(key1), super.hashFunction.getHashValues(key2));
-    }
-
-    public void addPair(final long[] hash1, final long[] hash2) {
+        long[] hash3 = hashFunction.getHashValues(key1, key2, numHash);
         for (int h=0; h<numHash; ++h) {
-            bitArray.set(HashFunction.combineHashValues(hash1[h], hash2[h]) % size);
-        }
+            bitArray.set(hash3[h] % size);
+        }        
     }
     
     public void addSingleAndPair(final String key1, final String key2) {
-        long[] hash1 = super.hashFunction.getHashValues(key1);
-        long[] hash2 = super.hashFunction.getHashValues(key2);
-        long[] hash3 = super.hashFunction.getHashValues(key1, key2);
+        long[] hash1 = hashFunction.getHashValues(key1, numHash);
+        long[] hash2 = hashFunction.getHashValues(key2, numHash);
+        long[] hash3 = hashFunction.getHashValues(key1, key2, numHash);
         
         for (int h=0; h<numHash; ++h) {
             bitArray.set(hash1[h] % size);
@@ -40,7 +37,7 @@ public class PairedKeysBloomFilter extends BloomFilter {
     }
         
     public boolean lookupPair(final String key1, final String key2) {
-        long[] hash = super.hashFunction.getHashValues(key1, key2);
+        long[] hash = hashFunction.getHashValues(key1, key2, numHash);
         
         for (int h=0; h<numHash; ++h) {
             if (!bitArray.get(hash[h] % size)) {
@@ -52,13 +49,14 @@ public class PairedKeysBloomFilter extends BloomFilter {
     }
 
     public boolean lookupSingleAndPair(final String key1, final String key2) {
-        long[] hash1 = super.hashFunction.getHashValues(key1);
-        long[] hash2 = super.hashFunction.getHashValues(key2);
+        long[] hash1 = hashFunction.getHashValues(key1, numHash);
+        long[] hash2 = hashFunction.getHashValues(key2, numHash);
+        long[] hash3 = hashFunction.getHashValues(key1, key2, numHash);
         
         for (int h=0; h<numHash; ++h) {
             if (!bitArray.get(hash1[h] % size) ||
                     !bitArray.get(hash2[h] % size) ||
-                    !bitArray.get(HashFunction.combineHashValues(hash1[h], hash2[h]) % size)) {
+                    !bitArray.get(hash3[h] % size)) {
                 return false;
             }
         }
