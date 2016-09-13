@@ -20,10 +20,21 @@ public class SmallestStrandHashFunction extends HashFunction {
 
     @Override
     public long[] getHashValues(final String kmer) {
-        return super.getHashValues(smallestStrand(kmer));
+        return getHashValues(kmer, numHash);
     }
     
+    @Override
+    public long[] getHashValues(final String kmer, int numHash) {
+        return super.getHashValues(smallestStrand(kmer), numHash);
+    }
+    
+    @Override
     public long[] getHashValues(final String kmer1, final String kmer2) {
+        return getHashValues(kmer1, kmer2, numHash);
+    }
+    
+    @Override
+    public long[] getHashValues(final String kmer1, final String kmer2, int numHash) {
         String[] reorientedKmers = smallestStrand(kmer1, kmer2);
         
         final long[] hashVals1 = new long[numHash];

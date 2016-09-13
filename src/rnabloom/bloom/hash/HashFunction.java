@@ -23,6 +23,10 @@ public class HashFunction {
     }
     
     public long[] getHashValues(final String kmer) {
+        return getHashValues(kmer, numHash);
+    }
+    
+    public long[] getHashValues(final String kmer, final int numHash) {
         final long[] hashVals = new long[numHash];
         murmurhash3_x64_128(kmer.getBytes(), 0, k, seed, numHash, hashVals);
                 
@@ -30,6 +34,10 @@ public class HashFunction {
     }
     
     public long[] getHashValues(final String kmer1, final String kmer2) {
+        return getHashValues(kmer1, kmer2, numHash);
+    }
+    
+    public long[] getHashValues(final String kmer1, final String kmer2, final int numHash) {
         final long[] hashVals1 = new long[numHash];
         murmurhash3_x64_128(kmer1.getBytes(), 0, k, seed, numHash, hashVals1);
         
