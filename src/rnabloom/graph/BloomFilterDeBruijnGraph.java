@@ -5,6 +5,7 @@
  */
 package rnabloom.graph;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -23,14 +24,16 @@ import static rnabloom.util.SeqUtils.kmerize;
 public class BloomFilterDeBruijnGraph {
     
     private final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
-    private final BloomFilter dbgbf;
-    private final CountingBloomFilter cbf;
-    private final PairedKeysBloomFilter pkbf;
+    private BloomFilter dbgbf = null;
+    private CountingBloomFilter cbf = null;
+    private PairedKeysBloomFilter pkbf = null;
     private final int dbgbfCbfMaxNumHash;
     private final HashFunction hashFunction;
     private final int k;
     private final int overlap;
     private int pairedKmersDistance;
+    private final long pkbfNumBits;
+    private final int pkbfNumHash;
     
     public BloomFilterDeBruijnGraph(long dbgbfNumBits,
                                     long cbfNumBytes,
@@ -52,6 +55,19 @@ public class BloomFilterDeBruijnGraph {
         this.dbgbfCbfMaxNumHash = Math.max(dbgbfNumHash, cbfNumHash);
         this.dbgbf = new BloomFilter(dbgbfNumBits, dbgbfNumHash, this.hashFunction);
         this.cbf = new CountingBloomFilter(cbfNumBytes, cbfNumHash, this.hashFunction);
+        this.pkbfNumBits = pkbfNumBits;
+        this.pkbfNumHash = pkbfNumHash;
+    }
+    
+    public void save(File desc) {
+        
+    }
+    
+    public void restore(File desc) {
+        
+    }
+    
+    public void initializePairKmersBloomFilter() {
         this.pkbf = new PairedKeysBloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
     }
     

@@ -151,6 +151,8 @@ public class RNABloom {
     }
     
     public void assembleFragments(FastqPair[] fastqs, String outFasta, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
+        graph.initializePairKmersBloomFilter();
+        
         long readPairsParsed = 0;
         int correctionWorks = 0;
         
