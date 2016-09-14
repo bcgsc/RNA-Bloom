@@ -21,9 +21,6 @@ import static java.lang.Math.exp;
 import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
-import static java.lang.Math.scalb;
 
 /**
  *
@@ -31,9 +28,9 @@ import static java.lang.Math.scalb;
  */
 public class CountingBloomFilter implements CountingBloomFilterInterface {
     protected AbstractLargeByteBuffer counts;
-    protected final int numHash;
-    protected final long size;
-    protected final HashFunction hashFunction;
+    protected int numHash;
+    protected long size;
+    protected HashFunction hashFunction;
         
     private static final byte MANTISSA = 3;
     private static final byte MANTI_MASK = 0xFF >> (8 - MANTISSA);
@@ -56,10 +53,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     private static final String LABEL_SIZE = "size";
     private static final String LABEL_NUM_HASH = "numhash";
     
-    public static CountingBloomFilter restore(File desc, File bytes, HashFunction hashFunction) throws FileNotFoundException, IOException {
-        int numHash = -1;
-        long size = -1;
-        
+    public CountingBloomFilter(File desc, File bytes, HashFunction hashFunction) throws FileNotFoundException, IOException {        
         BufferedReader br = new BufferedReader(new FileReader(desc));
         String line;
         while ((line = br.readLine()) != null) {
@@ -77,12 +71,12 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         }
         br.close();
         
-        CountingBloomFilter bf = new CountingBloomFilter(size, numHash, hashFunction);
+        this.hashFunction = hashFunction;
         FileInputStream fin = new FileInputStream(bytes);
-        bf.counts.read(fin);
+        this.counts.read(fin);
         fin.close();
         
-        return bf;
+        /**@TODO Assert file size*/
     }
     
     public void save(File desc, File bytes) throws IOException {

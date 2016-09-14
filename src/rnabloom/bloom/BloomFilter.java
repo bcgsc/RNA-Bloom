@@ -26,9 +26,9 @@ import static java.lang.Math.exp;
  */
 public class BloomFilter implements BloomFilterInterface {    
     protected AbstractLargeBitBuffer bitArray;
-    protected final int numHash;
-    protected final long size;
-    protected final HashFunction hashFunction;
+    protected int numHash;
+    protected long size;
+    protected HashFunction hashFunction;
         
     public BloomFilter(long size, int numHash, HashFunction hashFunction) {
         
@@ -48,9 +48,7 @@ public class BloomFilter implements BloomFilterInterface {
     private static final String LABEL_SIZE = "size";
     private static final String LABEL_NUM_HASH = "numhash";
     
-    public static BloomFilter restore(File desc, File bits, HashFunction hashFunction) throws FileNotFoundException, IOException {
-        int numHash = -1;
-        long size = -1;
+    public BloomFilter(File desc, File bits, HashFunction hashFunction) throws FileNotFoundException, IOException {
         
         BufferedReader br = new BufferedReader(new FileReader(desc));
         String line;
@@ -69,12 +67,12 @@ public class BloomFilter implements BloomFilterInterface {
         }
         br.close();
         
-        BloomFilter bf = new BloomFilter(size, numHash, hashFunction);
+        this.hashFunction = hashFunction;
         FileInputStream fin = new FileInputStream(bits);
-        bf.bitArray.read(fin);
+        this.bitArray.read(fin);
         fin.close();
         
-        return bf;
+        /**@TODO Assert file size*/
     }
     
     public void save(File desc, File bits) throws IOException {

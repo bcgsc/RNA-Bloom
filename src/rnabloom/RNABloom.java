@@ -318,7 +318,7 @@ public class RNABloom {
             bf.destroy();
             bf = null;
             
-            bf = CountingBloomFilter.restore(new File(bfDescPath), new File(bfPath), new HashFunction(689, 25));
+            bf = new CountingBloomFilter(new File(bfDescPath), new File(bfPath), new HashFunction(689, 25));
             
             System.out.println("true:" + bf.getCount(kmer));
             System.out.println("false:" + bf.getCount(kmer2));

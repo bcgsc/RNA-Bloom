@@ -5,6 +5,9 @@
  */
 package rnabloom.bloom;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import rnabloom.bloom.hash.HashFunction;
 
 /**
@@ -15,6 +18,10 @@ public class PairedKeysBloomFilter extends BloomFilter {
      
     public PairedKeysBloomFilter(long size, int numHash, HashFunction hashFunction) {
         super(size, numHash, hashFunction);
+    }
+    
+    public PairedKeysBloomFilter(File desc, File bits, HashFunction hashFunction) throws FileNotFoundException, IOException {
+        super(desc, bits, hashFunction);
     }
     
     public void addPair(final String key1, final String key2) {

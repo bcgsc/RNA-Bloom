@@ -5,7 +5,12 @@
  */
 package rnabloom.graph;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -24,16 +29,34 @@ import static rnabloom.util.SeqUtils.kmerize;
 public class BloomFilterDeBruijnGraph {
     
     private final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
+    
     private BloomFilter dbgbf = null;
     private CountingBloomFilter cbf = null;
     private PairedKeysBloomFilter pkbf = null;
-    private final int dbgbfCbfMaxNumHash;
-    private final HashFunction hashFunction;
-    private final int k;
-    private final int overlap;
-    private int pairedKmersDistance;
-    private final long pkbfNumBits;
-    private final int pkbfNumHash;
+    
+    private int dbgbfCbfMaxNumHash;
+    private HashFunction hashFunction;
+    private int k;
+    private int overlap;
+    private boolean stranded;
+    private int seed;
+    private int pairedKmersDistance = -1;
+    private long pkbfNumBits;
+    private int pkbfNumHash;
+    
+    private final static String FILE_DESC_EXTENSION = ".desc";
+    private final static String FILE_DBGBF_EXTENSION = ".dbgbf";
+    private final static String FILE_CBF_EXTENSION = ".cbf";
+    private final static String FILE_PKBF_EXTENSION = ".pkbf";
+    
+    private final static String LABEL_SEPARATOR = ":";
+    private final static String LABEL_DBGBF_CBF_NUM_HASH = "dbgbfCbfMaxNumHash";
+    private final static String LABEL_K = "k";
+    private final static String LABEL_STRANDED = "stranded";
+    private final static String LABEL_SEED = "seed";
+    private final static String LABEL_PAIRED_KMER_DIST = "pairedKmersDistance";
+    private final static String LABEL_PKBF_NUM_BITS = "pkbfNumBits";
+    private final static String LABEL_PKBF_NUM_HASH = "pkbfNumHash";
     
     public BloomFilterDeBruijnGraph(long dbgbfNumBits,
                                     long cbfNumBytes,
@@ -46,6 +69,8 @@ public class BloomFilterDeBruijnGraph {
                                     boolean stranded) {
         this.k = k;
         this.overlap = k-1;
+        this.stranded = stranded;
+        this.seed = seed;
         if (stranded) {
             this.hashFunction = new HashFunction(seed, k);
         }
@@ -59,12 +84,96 @@ public class BloomFilterDeBruijnGraph {
         this.pkbfNumHash = pkbfNumHash;
     }
     
-    public void save(File desc) {
+    public BloomFilterDeBruijnGraph(File graphFile) throws FileNotFoundException, IOException {
+        BufferedReader br = new BufferedReader(new FileReader(graphFile));
+        String line;
+        while ((line = br.readLine()) != null) {
+            String[] entry = line.split(LABEL_SEPARATOR);
+            String key = entry[0];
+            String val = entry[1];
+            switch(key) {
+                case LABEL_DBGBF_CBF_NUM_HASH:
+                    dbgbfCbfMaxNumHash = Integer.parseInt(val);
+                    break;
+                case LABEL_K:
+                    k = Integer.parseInt(val);
+                    overlap = k-1;
+                    break;
+                case LABEL_STRANDED:
+                    stranded = Boolean.parseBoolean(val);
+                    break;
+                case LABEL_SEED:
+                    seed = Integer.parseInt(val);
+                    break;
+                case LABEL_PAIRED_KMER_DIST:
+                    pairedKmersDistance = Integer.parseInt(val);
+                    break;
+                case LABEL_PKBF_NUM_BITS:
+                    pkbfNumBits = Integer.parseInt(val);
+                    break;
+                case LABEL_PKBF_NUM_HASH:
+                    pkbfNumHash = Integer.parseInt(val);
+                    break;
+            }
+        }
+        br.close();
         
+        hashFunction = new HashFunction(seed, k);
+        
+        String dbgbfBitsPath = graphFile.getPath() + FILE_DBGBF_EXTENSION;
+        String dbgbfDescPath = dbgbfBitsPath + FILE_DESC_EXTENSION;
+        dbgbf = new BloomFilter(new File(dbgbfDescPath), new File(dbgbfBitsPath), hashFunction);
+        
+        String cbfBitsPath = graphFile.getPath() + FILE_CBF_EXTENSION;
+        String cbfDescPath = cbfBitsPath + FILE_DESC_EXTENSION;
+        cbf = new CountingBloomFilter(new File(cbfDescPath), new File(cbfDescPath), hashFunction);
+        
+        String pkbfBitsPath = graphFile.getPath() + FILE_PKBF_EXTENSION;
+        String pkbfDescPath = pkbfBitsPath + FILE_DESC_EXTENSION;
+        File pkbfBitsFile = new File(pkbfBitsPath);
+        File pkbfDescFile = new File(pkbfDescPath);
+        if (pkbfDescFile.isFile() && pkbfBitsFile.isFile()) {
+            pkbf = new PairedKeysBloomFilter(pkbfDescFile, pkbfBitsFile, hashFunction);
+        }
+    }
+        
+    public void save(File graphFile) throws IOException {
+        /**@TODO write graph desc*/
+        
+        FileWriter writer = new FileWriter(graphFile);
+        writer.write(LABEL_DBGBF_CBF_NUM_HASH + LABEL_SEPARATOR + dbgbfCbfMaxNumHash + "\n" +
+                    LABEL_STRANDED + LABEL_SEPARATOR + stranded + "\n" +
+                    LABEL_SEED + LABEL_SEPARATOR + seed + "\n" +
+                    LABEL_K + LABEL_SEPARATOR + k + "\n" +
+                    LABEL_PAIRED_KMER_DIST + LABEL_SEPARATOR + pairedKmersDistance + "\n" +
+                    LABEL_PKBF_NUM_BITS + LABEL_SEPARATOR + pkbfNumBits + "\n" +
+                    LABEL_PKBF_NUM_HASH + LABEL_SEPARATOR + pkbfNumHash + "\n");
+        writer.close();
+        
+        /**@TODO write Bloom filters*/
+        String dbgbfBitsPath = graphFile.getPath() + FILE_DBGBF_EXTENSION;
+        String dbgbfDescPath = dbgbfBitsPath + FILE_DESC_EXTENSION;
+        dbgbf.save(new File(dbgbfDescPath), new File(dbgbfBitsPath));
+        
+        String cbfBitsPath = graphFile.getPath() + FILE_CBF_EXTENSION;
+        String cbfDescPath = cbfBitsPath + FILE_DESC_EXTENSION;
+        cbf.save(new File(cbfDescPath), new File(cbfDescPath));
+        
+        if (pkbf != null) {
+            savePkbf(graphFile);
+        }
     }
     
-    public void restore(File desc) {
-        
+    public void savePkbf(File graphFile) throws IOException {
+        String pkbfBitsPath = graphFile.getPath() + FILE_PKBF_EXTENSION;
+        String pkbfDescPath = pkbfBitsPath + FILE_DESC_EXTENSION;
+        pkbf.save(new File(pkbfDescPath), new File(pkbfBitsPath));
+    }
+    
+    public void restorePkbf(File graphFile) throws IOException {
+        String pkbfBitsPath = graphFile.getPath() + FILE_PKBF_EXTENSION;
+        String pkbfDescPath = pkbfBitsPath + FILE_DESC_EXTENSION;
+        pkbf = new PairedKeysBloomFilter(new File(pkbfDescPath), new File(pkbfBitsPath), hashFunction);
     }
     
     public void initializePairKmersBloomFilter() {
