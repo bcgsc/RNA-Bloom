@@ -21,4 +21,5 @@ public abstract class AbstractLargeBitBuffer {
     public abstract void destroy();
     public abstract void write(FileOutputStream out) throws IOException;
     public abstract void read(FileInputStream in) throws IOException;
+    public abstract AbstractLargeByteBuffer getBackingByteBuffer();
 }

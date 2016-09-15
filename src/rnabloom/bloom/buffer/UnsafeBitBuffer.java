@@ -16,7 +16,7 @@ import java.io.IOException;
 public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
     
     private final long size;
-    private final UnsafeByteBuffer backingByteArray;
+    private final UnsafeByteBuffer backingByteBuffer;
     
     public UnsafeBitBuffer(long size) throws NoSuchFieldException, IllegalArgumentException, IllegalAccessException {
         this.size = size;
@@ -25,21 +25,21 @@ public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
             ++numBytes;
         }
         
-        backingByteArray = new UnsafeByteBuffer(numBytes);
+        backingByteBuffer = new UnsafeByteBuffer(numBytes);
     }
     
     @Override
     public synchronized void set(long index) {
         long byteIndex = index / Byte.SIZE;
-        byte b = backingByteArray.get(byteIndex);
+        byte b = backingByteBuffer.get(byteIndex);
         b |= (1 << (int) (byteIndex % Byte.SIZE));
-        backingByteArray.set(byteIndex, b);
+        backingByteBuffer.set(byteIndex, b);
     }
 
     @Override
     public boolean get(long index) {
         long byteIndex = index / Byte.SIZE;
-        return (backingByteArray.get(byteIndex) & (1 << (int) (byteIndex % Byte.SIZE))) != 0;
+        return (backingByteBuffer.get(byteIndex) & (1 << (int) (byteIndex % Byte.SIZE))) != 0;
     }
         
     @Override
@@ -48,25 +48,30 @@ public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
     }
     
     public void empty() {
-        backingByteArray.empty();
+        backingByteBuffer.empty();
     }
         
     @Override
     public long popCount() {
-        return backingByteArray.bitPopCount();
+        return backingByteBuffer.bitPopCount();
     }
     
     public void destroy() {
-        backingByteArray.destroy();
+        backingByteBuffer.destroy();
     }
     
     @Override
     public void write(FileOutputStream out) throws IOException {
-        backingByteArray.write(out);
+        backingByteBuffer.write(out);
     }
     
     @Override
     public void read(FileInputStream in) throws IOException {
-        backingByteArray.read(in);
+        backingByteBuffer.read(in);
+    }
+
+    @Override
+    public AbstractLargeByteBuffer getBackingByteBuffer() {
+        return backingByteBuffer;
     }
 }

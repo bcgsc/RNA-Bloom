@@ -19,6 +19,7 @@ import rnabloom.bloom.buffer.UnsafeBitBuffer;
 import rnabloom.bloom.buffer.AbstractLargeBitBuffer;
 import static java.lang.Math.pow;
 import static java.lang.Math.exp;
+import rnabloom.bloom.buffer.BufferComparator;
 
 /**
  *
@@ -135,5 +136,9 @@ public class BloomFilter implements BloomFilterInterface {
     
     public void destroy() {
         this.bitArray.destroy();
+    }
+    
+    public boolean equivalent(BloomFilter bf) {
+        return this.size != bf.size || this.numHash != bf.numHash || !BufferComparator.equivalentBitBuffers(bitArray, bf.bitArray);
     }
 }

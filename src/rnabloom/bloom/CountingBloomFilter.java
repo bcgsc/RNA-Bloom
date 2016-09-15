@@ -21,6 +21,7 @@ import static java.lang.Math.exp;
 import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
+import rnabloom.bloom.buffer.BufferComparator;
 
 /**
  *
@@ -74,7 +75,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         this.hashFunction = hashFunction;
         
         try {
-            System.out.println("unsafe");
+            //System.out.println("unsafe");
             this.counts = new UnsafeByteBuffer(size);
         }
         catch (NoSuchFieldException | IllegalArgumentException | IllegalAccessException e) {
@@ -183,5 +184,9 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
  
     public void destroy() {
         this.counts.destroy();
+    }
+    
+    public boolean equivalent(CountingBloomFilter bf) {
+        return this.size != bf.size || this.numHash != bf.numHash || !BufferComparator.equivalentByteBuffers(counts, bf.counts);
     }
 }

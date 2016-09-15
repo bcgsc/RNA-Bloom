@@ -69,4 +69,9 @@ public class LargeBitBuffer extends AbstractLargeBitBuffer {
     public void read(FileInputStream in) throws IOException {
         backingByteBuffer.read(in);
     }
+
+    @Override
+    public AbstractLargeByteBuffer getBackingByteBuffer() {
+        return backingByteBuffer;
+    }
 }
