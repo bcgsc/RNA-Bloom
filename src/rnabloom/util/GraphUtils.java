@@ -683,7 +683,7 @@ public final class GraphUtils {
                 fragMinCov = c;
             }
         }
-        System.out.println(fragMinCov);
+        //System.out.println(fragMinCov);
         
         /** extend right*/
         String best = kmers.get(kmers.size()-1);

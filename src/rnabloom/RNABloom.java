@@ -289,6 +289,22 @@ public class RNABloom {
             System.out.println(correctionWorks + " reads not needed for assembly due to correction");
         }
     }
+    
+    public void savePairedKmersBloomFilter(File graphFile) {
+        try {
+            graph.savePkbf(graphFile);
+        } catch (IOException ex) {
+            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
+    public void restorePairedKmersBloomFilter(File graphFile) {
+        try {
+            graph.restorePkbf(graphFile);
+        } catch (IOException ex) {
+            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
 
     public void assembleTranscripts(String inFasta, String outFasta, int lookAhead) {
         long numFragmentsParsed = 0;
@@ -363,35 +379,7 @@ public class RNABloom {
      */
     public static void main(String[] args) {
         // TODO code application logic here
-        
-        /*
-        String kmer = "AAAAATTTTTCCCCCGGGGG";
-        String kmer2 = "AACAATTTTTCCCCCGGGGG";
-        
-        BloomFilter f1 = new BloomFilter(NUM_BITS_1GB, 3, 689, kmer.length());
-        f1.add(kmer);
-        System.out.println(f1.lookup(kmer));
-        System.out.println(f1.lookup(kmer2));
-        
-        CountingBloomFilter f2 = new CountingBloomFilter((int) NUM_BYTES_1GB, 3, 689, kmer.length());
-        
-        for (int i=0; i < 20; ++i) {
-            f2.increment(kmer);
-        }
-        
-        System.out.println(f2.getCount(kmer));
-        */
-        
-        /*
-        String seq  = "NATCGGAAGAGCACACGTCTGAACTCCAGTCACCTTGTAATCTCGTATGCCGTCTTCTGCTTTTCAAAAACCTCCTGCCGATTCTTGGCAGGCAAACATAC";
-        String qual = "#0<BFFBFFBFFFIFIIFFFFIIIFIIBFFFBFFFBFFF<BBBBB7F######################################################";
-        FastqRecord fq = new FastqRecord(seq, qual);
-        int k = 25;
-        int q = 3;
-        Pattern p = SequenceOperations.getPhred33Pattern(q, k);
-        System.out.println( SequenceOperations.filterFastq(fq, p).toString() );
-        */
-        
+                
         ///*
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
         String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left        
@@ -414,7 +402,7 @@ public class RNABloom {
         int bound = 500;
         int lookahead = 5;
         int minOverlap = 10;
-        int maxTipLen = 5;
+        int maxTipLen = 10;
         
         String[] forwardFastqs = new String[]{fastq2};
         String[] backwardFastqs = new String[]{fastq1};
@@ -434,25 +422,30 @@ public class RNABloom {
         ///*
         RNABloom assembler = new RNABloom(strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed, k, q);
         
-        ///*
+        /*
         assembler.createDBG(forwardFastqs, backwardFastqs);
         
-        ///*
+        
         System.out.println("Saving graph to file `" + graphFile + "`...");
         assembler.saveGraph(new File(graphFile));
-
+        */
         
         System.out.println("Loading graph from file `" + graphFile + "`...");
         assembler.restoreGraph(new File(graphFile));
-        //*/
         
+        /*
         FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
         FastqPair[] fqPairs = new FastqPair[]{fqPair};
         
         assembler.assembleFragments(fqPairs, fragsFasta, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
         
+        System.out.println("Saving paired kmers Bloom filter to file...");
+        assembler.savePairedKmersBloomFilter(new File(graphFile));
+        */
+        System.out.println("Restoring paired kmers Bloom filter from file...");
+        assembler.restorePairedKmersBloomFilter(new File(graphFile));
         
-        //assembler.assembleTranscripts(fragsFasta, transcriptsFasta, lookahead);
+        assembler.assembleTranscripts(fragsFasta, transcriptsFasta, lookahead);
         //*/
     }
     

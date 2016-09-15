@@ -150,9 +150,7 @@ public class BloomFilterDeBruijnGraph {
         return cbf;
     }    
     
-    public void save(File graphFile) throws IOException {
-        /** write graph desc*/
-        
+    private void saveDesc(File graphFile) throws IOException {
         FileWriter writer = new FileWriter(graphFile);
         writer.write(LABEL_DBGBF_CBF_NUM_HASH + LABEL_SEPARATOR + dbgbfCbfMaxNumHash + "\n" +
                     LABEL_STRANDED + LABEL_SEPARATOR + stranded + "\n" +
@@ -162,6 +160,11 @@ public class BloomFilterDeBruijnGraph {
                     LABEL_PKBF_NUM_BITS + LABEL_SEPARATOR + pkbfNumBits + "\n" +
                     LABEL_PKBF_NUM_HASH + LABEL_SEPARATOR + pkbfNumHash + "\n");
         writer.close();
+    }
+    
+    public void save(File graphFile) throws IOException {
+        /** write graph desc*/
+        saveDesc(graphFile);
         
         /** write Bloom filters*/
         String dbgbfBitsPath = graphFile.getPath() + FILE_DBGBF_EXTENSION;
@@ -178,6 +181,9 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void savePkbf(File graphFile) throws IOException {
+        /** update the graph desc because kmer pair distance is updated*/
+        saveDesc(graphFile);
+        
         String pkbfBitsPath = graphFile.getPath() + FILE_PKBF_EXTENSION;
         String pkbfDescPath = pkbfBitsPath + FILE_DESC_EXTENSION;
         pkbf.save(new File(pkbfDescPath), new File(pkbfBitsPath));
