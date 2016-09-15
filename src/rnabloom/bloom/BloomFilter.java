@@ -68,6 +68,15 @@ public class BloomFilter implements BloomFilterInterface {
         br.close();
         
         this.hashFunction = hashFunction;
+        
+        try {
+            //System.out.println("unsafe");
+            this.bitArray = new UnsafeBitBuffer(size);
+        }
+        catch(NoSuchFieldException | IllegalArgumentException | IllegalAccessException e) {
+            this.bitArray = new LargeBitBuffer(size);
+        }
+        
         FileInputStream fin = new FileInputStream(bits);
         this.bitArray.read(fin);
         fin.close();

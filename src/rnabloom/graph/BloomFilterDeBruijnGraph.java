@@ -109,7 +109,7 @@ public class BloomFilterDeBruijnGraph {
                     pairedKmersDistance = Integer.parseInt(val);
                     break;
                 case LABEL_PKBF_NUM_BITS:
-                    pkbfNumBits = Integer.parseInt(val);
+                    pkbfNumBits = Long.parseLong(val);
                     break;
                 case LABEL_PKBF_NUM_HASH:
                     pkbfNumHash = Integer.parseInt(val);
@@ -138,7 +138,7 @@ public class BloomFilterDeBruijnGraph {
     }
         
     public void save(File graphFile) throws IOException {
-        /**@TODO write graph desc*/
+        /** write graph desc*/
         
         FileWriter writer = new FileWriter(graphFile);
         writer.write(LABEL_DBGBF_CBF_NUM_HASH + LABEL_SEPARATOR + dbgbfCbfMaxNumHash + "\n" +
@@ -150,14 +150,14 @@ public class BloomFilterDeBruijnGraph {
                     LABEL_PKBF_NUM_HASH + LABEL_SEPARATOR + pkbfNumHash + "\n");
         writer.close();
         
-        /**@TODO write Bloom filters*/
+        /** write Bloom filters*/
         String dbgbfBitsPath = graphFile.getPath() + FILE_DBGBF_EXTENSION;
         String dbgbfDescPath = dbgbfBitsPath + FILE_DESC_EXTENSION;
         dbgbf.save(new File(dbgbfDescPath), new File(dbgbfBitsPath));
         
         String cbfBitsPath = graphFile.getPath() + FILE_CBF_EXTENSION;
         String cbfDescPath = cbfBitsPath + FILE_DESC_EXTENSION;
-        cbf.save(new File(cbfDescPath), new File(cbfDescPath));
+        cbf.save(new File(cbfDescPath), new File(cbfBitsPath));
         
         if (pkbf != null) {
             savePkbf(graphFile);

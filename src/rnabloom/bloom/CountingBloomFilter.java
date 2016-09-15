@@ -39,7 +39,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     public CountingBloomFilter(long size, int numHash, HashFunction hashFunction) {
         this.size = size;
         try {
-            System.out.println("unsafe");
+            //System.out.println("unsafe");
             this.counts = new UnsafeByteBuffer(size);
         }
         catch (NoSuchFieldException | IllegalArgumentException | IllegalAccessException e) {
@@ -72,6 +72,15 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         br.close();
         
         this.hashFunction = hashFunction;
+        
+        try {
+            System.out.println("unsafe");
+            this.counts = new UnsafeByteBuffer(size);
+        }
+        catch (NoSuchFieldException | IllegalArgumentException | IllegalAccessException e) {
+            this.counts = new LargeByteBuffer(size);
+        }
+        
         FileInputStream fin = new FileInputStream(bytes);
         this.counts.read(fin);
         fin.close();

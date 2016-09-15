@@ -8,9 +8,6 @@ package rnabloom;
 import java.io.File;
 import java.io.IOException;
 import static java.lang.Math.pow;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,7 +45,7 @@ public class RNABloom {
     
     private final int k;
     private final Pattern qualPattern;
-    private final BloomFilterDeBruijnGraph graph;
+    private BloomFilterDeBruijnGraph graph;
     
     public RNABloom(boolean strandSpecific, long dbgbfNumBits, long cbfNumBytes, long pkbfNumBits, int dbgbfNumHash, int cbfNumHash, int pkbfNumHash, int seed, int k, int q) {
         this.k = k;
@@ -63,6 +60,22 @@ public class RNABloom {
                                             seed,
                                             k,
                                             strandSpecific);
+    }
+    
+    public void saveGraph(File f) {
+        try {
+            graph.save(f);
+        } catch (IOException ex) {
+            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
+    public void restoreGraph(File f) {
+        try {
+            graph = new BloomFilterDeBruijnGraph(f);
+        } catch (IOException ex) {
+            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
     
     public void createDBG(String[] forwardFastqs, String[] reverseFastqs) {
@@ -151,6 +164,8 @@ public class RNABloom {
     }
     
     public void assembleFragments(FastqPair[] fastqs, String outFasta, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
+        System.out.println("Assembling fragments ...");
+        
         graph.initializePairKmersBloomFilter();
         
         long readPairsParsed = 0;
@@ -373,18 +388,20 @@ public class RNABloom {
         System.out.println( SequenceOperations.filterFastq(fq, p).toString() );
         */
         
-        ///*
+        /*
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
         String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left        
         String fragsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments.fa";
         String transcriptsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/transcripts.fa";
-        //*/
-        /*
+        String graphFile = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/graph";
+        */
+        ///*
         String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
         String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
         String fragsFasta = "/home/gengar/test_assemblies/GAPDH/fragments.fa";
         String transcriptsFasta = "/home/gengar/test_assemblies/GAPDH/transcripts.fa";
-        */        
+        String graphFile = "/home/gengar/test_assemblies/GAPDH/graph";
+        //*/        
         
         boolean revComp1 = true;
         boolean revComp2 = false;
@@ -410,18 +427,26 @@ public class RNABloom {
         int q = 3;
         int sampleSize = 1000;
         
-        test2();
-        
         ///*
         RNABloom assembler = new RNABloom(strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed, k, q);
+        
+        ///*
         assembler.createDBG(forwardFastqs, backwardFastqs);
-                
+        
+        /*
+        System.out.println("Saving graph to file `" + graphFile + "`...");
+        assembler.saveGraph(new File(graphFile));
+        
+        
+        System.out.println("Loading graph from file `" + graphFile + "`...");
+        assembler.restoreGraph(new File(graphFile));
+        */
+        
         FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
         FastqPair[] fqPairs = new FastqPair[]{fqPair};
         
         assembler.assembleFragments(fqPairs, fragsFasta, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
         
-        assembler.test();
         
         //assembler.assembleTranscripts(fragsFasta, transcriptsFasta, lookahead);
         //*/
