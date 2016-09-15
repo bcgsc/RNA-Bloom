@@ -73,6 +73,10 @@ public class RNABloom {
     public void restoreGraph(File f) {
         try {
             graph = new BloomFilterDeBruijnGraph(f);
+            
+            //BloomFilterDeBruijnGraph graph2 = new BloomFilterDeBruijnGraph(f);
+            //System.out.println(graph2.getDbgbf().equivalent(graph.getDbgbf()));
+            //System.out.println(graph2.getCbf().equivalent(graph.getCbf()));
         } catch (IOException ex) {
             Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -388,20 +392,20 @@ public class RNABloom {
         System.out.println( SequenceOperations.filterFastq(fq, p).toString() );
         */
         
-        /*
+        ///*
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
         String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left        
         String fragsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments.fa";
         String transcriptsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/transcripts.fa";
         String graphFile = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/graph";
-        */
-        ///*
+        //*/
+        /*
         String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
         String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
         String fragsFasta = "/home/gengar/test_assemblies/GAPDH/fragments.fa";
         String transcriptsFasta = "/home/gengar/test_assemblies/GAPDH/transcripts.fa";
         String graphFile = "/home/gengar/test_assemblies/GAPDH/graph";
-        //*/        
+        */        
         
         boolean revComp1 = true;
         boolean revComp2 = false;
@@ -433,14 +437,14 @@ public class RNABloom {
         ///*
         assembler.createDBG(forwardFastqs, backwardFastqs);
         
-        /*
+        ///*
         System.out.println("Saving graph to file `" + graphFile + "`...");
         assembler.saveGraph(new File(graphFile));
-        
+
         
         System.out.println("Loading graph from file `" + graphFile + "`...");
         assembler.restoreGraph(new File(graphFile));
-        */
+        //*/
         
         FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
         FastqPair[] fqPairs = new FastqPair[]{fqPair};

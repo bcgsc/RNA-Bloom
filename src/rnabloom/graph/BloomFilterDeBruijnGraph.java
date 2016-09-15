@@ -30,12 +30,12 @@ public class BloomFilterDeBruijnGraph {
     
     private final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
     
-    private BloomFilter dbgbf = null;
-    private CountingBloomFilter cbf = null;
+    private final BloomFilter dbgbf;
+    private final CountingBloomFilter cbf;
     private PairedKeysBloomFilter pkbf = null;
     
     private int dbgbfCbfMaxNumHash;
-    private HashFunction hashFunction;
+    private final HashFunction hashFunction;
     private int k;
     private int overlap;
     private boolean stranded;
@@ -118,7 +118,12 @@ public class BloomFilterDeBruijnGraph {
         }
         br.close();
         
-        hashFunction = new HashFunction(seed, k);
+        if (stranded) {
+            this.hashFunction = new HashFunction(seed, k);
+        }
+        else {
+            this.hashFunction = new SmallestStrandHashFunction(seed, k);
+        }
         
         String dbgbfBitsPath = graphFile.getPath() + FILE_DBGBF_EXTENSION;
         String dbgbfDescPath = dbgbfBitsPath + FILE_DESC_EXTENSION;
@@ -126,7 +131,7 @@ public class BloomFilterDeBruijnGraph {
         
         String cbfBitsPath = graphFile.getPath() + FILE_CBF_EXTENSION;
         String cbfDescPath = cbfBitsPath + FILE_DESC_EXTENSION;
-        cbf = new CountingBloomFilter(new File(cbfDescPath), new File(cbfDescPath), hashFunction);
+        cbf = new CountingBloomFilter(new File(cbfDescPath), new File(cbfBitsPath), hashFunction);
         
         String pkbfBitsPath = graphFile.getPath() + FILE_PKBF_EXTENSION;
         String pkbfDescPath = pkbfBitsPath + FILE_DESC_EXTENSION;
@@ -136,7 +141,15 @@ public class BloomFilterDeBruijnGraph {
             pkbf = new PairedKeysBloomFilter(pkbfDescFile, pkbfBitsFile, hashFunction);
         }
     }
-        
+
+    public BloomFilter getDbgbf() {
+        return dbgbf;
+    }
+
+    public CountingBloomFilter getCbf() {
+        return cbf;
+    }    
+    
     public void save(File graphFile) throws IOException {
         /** write graph desc*/
         
