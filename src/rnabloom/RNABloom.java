@@ -135,6 +135,11 @@ public class RNABloom {
         return graph;
     }
     
+    private boolean isPolyA(ReadPair p) {
+        /**@TODO polyT for non stranded sample*/
+        return p.right.endsWith("AAA");
+    }
+    
     private boolean okToAssemble(ReadPair p) {
         if (p.left.length() >= k && p.right.length() >= k) {
             String[] leftKmers = kmerize(p.left, k);
