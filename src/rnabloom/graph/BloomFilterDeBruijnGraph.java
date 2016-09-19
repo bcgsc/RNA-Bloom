@@ -148,6 +148,10 @@ public class BloomFilterDeBruijnGraph {
 
     public CountingBloomFilter getCbf() {
         return cbf;
+    }
+
+    public boolean isStranded() {
+        return stranded;
     }    
     
     private void saveDesc(File graphFile) throws IOException {

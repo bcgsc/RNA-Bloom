@@ -46,7 +46,7 @@ public class RNABloom {
     private final int k;
     private final Pattern qualPattern;
     private BloomFilterDeBruijnGraph graph;
-    
+        
     public RNABloom(boolean strandSpecific, long dbgbfNumBits, long cbfNumBytes, long pkbfNumBits, int dbgbfNumHash, int cbfNumHash, int pkbfNumHash, int seed, int k, int q) {
         this.k = k;
         this.qualPattern = getPhred33Pattern(q, k);
@@ -136,8 +136,7 @@ public class RNABloom {
     }
     
     private boolean isPolyA(ReadPair p) {
-        /**@TODO polyT for non stranded sample*/
-        return p.right.endsWith("AAA");
+        return p.right.endsWith("AAAA") || (!graph.isStranded() && p.left.startsWith("TTTT"));
     }
     
     private boolean okToAssemble(ReadPair p) {
@@ -341,31 +340,13 @@ public class RNABloom {
         }
     }
     
-    public static void test2() {
-        String bfPath = "/projects/btl2/kmnip/rna-bloom/tests/test.bf";
-        String bfDescPath = bfPath + ".desc";
+    public void test2() {
+        String left = "ATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCG";
+        String right = "CCTCCACCTTCGACGCTGGGGCTGGCATTGCC";
         
-        String kmer =  "AAAAATTTTTCCCCCGGGGG";
-        String kmer2 = "AAAAAAAAAACCCCCGGGGG";
+        String fragment = assembleFragment(left, right, graph, 500, 5, 10);
         
-        CountingBloomFilter bf = new CountingBloomFilter(NUM_BYTES_1GB*4, 3, new HashFunction(89, kmer.length()));
-        bf.increment(kmer);
-        System.out.println("true:" + bf.getCount(kmer));
-        System.out.println("false:" + bf.getCount(kmer2));
         
-        try {
-            bf.save(new File(bfDescPath), new File(bfPath));
-            bf.destroy();
-            bf = null;
-            
-            bf = new CountingBloomFilter(new File(bfDescPath), new File(bfPath), new HashFunction(689, 25));
-            
-            System.out.println("true:" + bf.getCount(kmer));
-            System.out.println("false:" + bf.getCount(kmer2));
-            
-        } catch (IOException ex) {
-            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
-        }
     }
     
     public void test() {
@@ -438,15 +419,16 @@ public class RNABloom {
         System.out.println("Loading graph from file `" + graphFile + "`...");
         assembler.restoreGraph(new File(graphFile));
         
-        /*
+        ///*
         FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
         FastqPair[] fqPairs = new FastqPair[]{fqPair};
         
+        ///*
         assembler.assembleFragments(fqPairs, fragsFasta, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
         
         System.out.println("Saving paired kmers Bloom filter to file...");
         assembler.savePairedKmersBloomFilter(new File(graphFile));
-        */
+        
         System.out.println("Restoring paired kmers Bloom filter from file...");
         assembler.restorePairedKmersBloomFilter(new File(graphFile));
         
