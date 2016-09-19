@@ -268,11 +268,9 @@ public final class GraphUtils {
                     String convergingKmer = best.seq;
                     ArrayList<Kmer> path = new ArrayList<>(bound);
                     for (Kmer kmer : leftPath) {
+                        path.add(kmer);
                         if (convergingKmer.equals(kmer.seq)) {
                             break;
-                        }
-                        else {
-                            path.add(kmer);
                         }
                     }
                     Collections.reverse(rightPath);
@@ -653,14 +651,7 @@ public final class GraphUtils {
             leftWing = leftRead.substring(0, leftReadLength-k+1);
         }
         
-        int rightReadLength = leftRead.length();
-        if (rightReadLength == k) {
-            // last base only
-            rightWing = rightRead.substring(k-1, k);
-        }
-        else {
-            rightWing = rightRead.substring(k-1);
-        }
+        rightWing = rightRead.substring(k-1);
         
         return leftWing + assemble(pathKmers) + rightWing;
     }
