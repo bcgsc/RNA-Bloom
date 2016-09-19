@@ -7,8 +7,6 @@ package rnabloom.util;
 
 import java.util.AbstractCollection;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.PrimitiveIterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
