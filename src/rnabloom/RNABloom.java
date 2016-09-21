@@ -212,16 +212,17 @@ public class RNABloom {
                             
                             // correct fragment
                             fragment = correctMismatches(fragment, graph, lookahead, mismatchesAllowed);
-
                             int fragLen = fragment.length();
 
-                            if (fragLen > k) {                            
+                            if (fragLen > k) {
+                                float minCov = graph.getMinKmerCoverage(fragment);
+                                
                                 /** extend on both ends unambiguously*/
                                 fragment = naiveExtend(fragment, graph, maxTipLen);
 
                                 ++fid;
                                 //out.write(Integer.toString(fid), fragment);
-                                out.write(Integer.toString(fid) + " " + p.left + " " + p.right, fragment);
+                                out.write(Integer.toString(fid) + " " + minCov + " " + p.left + " " + p.right, fragment);
 
                                 if (fid > sampleSize) {
                                     /** store paired kmers */
@@ -352,6 +353,17 @@ public class RNABloom {
             System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments...");
         }
     }
+        
+    public void printCounts(float[] arr){
+        StringBuilder sb = new StringBuilder();
+        sb.append("[ ");
+        for (float f : arr) {
+            sb.append(f);
+            sb.append(" ");
+        }
+        sb.append("]");
+        System.out.print(sb.toString());
+    }
     
     public void test2() {
         String seq = "GACTCCACGACGTACTCAGCGCCATGGAGAAGGCTGGGGCTCATTTGCAGGGGGGAGCCAAAAGGGTCATCATCTCTGCCCCCTCTGCTGACGCCCCCAT";
@@ -433,12 +445,14 @@ public class RNABloom {
         FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
         FastqPair[] fqPairs = new FastqPair[]{fqPair};
         
-        /*
+        //assembler.test3();
+        
+        
         assembler.assembleFragments(fqPairs, fragsFasta, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
         
         System.out.println("Saving paired kmers Bloom filter to file...");
         assembler.savePairedKmersBloomFilter(new File(graphFile));
-        */
+        
         
         System.out.println("Restoring paired kmers Bloom filter from file...");
         assembler.restorePairedKmersBloomFilter(new File(graphFile));
