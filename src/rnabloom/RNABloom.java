@@ -11,6 +11,7 @@ import static java.lang.Math.pow;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -319,6 +320,8 @@ public class RNABloom {
             FastaReader fin = new FastaReader(inFasta);
             FastaWriter fout = new FastaWriter(outFasta);
             
+            HashSet<String> assembledKmers = new HashSet<>();
+            
             int cid = 0;
             while (fin.hasNext()) {
                 if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
@@ -326,9 +329,19 @@ public class RNABloom {
                 }
                 
                 String fragment = fin.next();
-                String transcript = assembleTranscript(fragment, graph, lookAhead);
-                
-                fout.write(Integer.toString(++cid), transcript);
+
+                for (String kmer : kmerize(fragment, k)) {
+                    if (!assembledKmers.contains(kmer)) {
+                        String transcript = assembleTranscript(fragment, graph, lookAhead);
+                        fout.write(Integer.toString(++cid), transcript);
+                        
+                        for (String kmer2 : kmerize(transcript, k)) {
+                            assembledKmers.add(kmer2);
+                        }
+                        
+                        break;
+                    }
+                }
             }
             
             fin.close();
@@ -341,18 +354,15 @@ public class RNABloom {
     }
     
     public void test2() {
-        String left = "ATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCG";
-        String right = "CCTCCACCTTCGACGCTGGGGCTGGCATTGCC";
+        String seq = "GACTCCACGACGTACTCAGCGCCATGGAGAAGGCTGGGGCTCATTTGCAGGGGGGAGCCAAAAGGGTCATCATCTCTGCCCCCTCTGCTGACGCCCCCAT";
+        String corrected = correctMismatches(seq, graph, 10, 5);
         
-        String fragment = assembleFragment(left, right, graph, 500, 5, 10);
-        
-        
+        System.out.print(seq + "\n" + corrected);
     }
     
     public void test() {
-        //String f = "TCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCATCCCTGCCTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCC";
-        String f = "CCCCCATGTTCGTCATGGGTGTGAACCATGAGAAGTATGACAACAGCCTCAAGATCATCAGCAATGCCTCCTGCACCACCAACTGCTTAGCACCCCTGGCCAAGGTCATCCATGACAACTTTGGTATCGTGGAAGGACTCATGACCACAGTCCATGCCATCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCATCCCTGCCTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACACCCACTCCTCCACCT";
-        String transcript = assembleTranscript(f, graph, 5);
+        String f = "GCCCCCATGTTCGTCATGGGTGTGAACCATGAGAAGTATGACAACAGCCTCAAGATCATCAGCAATGCCTCCTGCACCACCAACTGCTTAGCACCCCTGGCCAAGGTCATCCATGACAACTTTGGTATCGTGGAAGGACTCATGACCACAGTCCATGCCATCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCATCCCTGCCTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACACCCACTCCTCCACCTTTGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTTGTCAAGCTCATTTCCTGGTATGACAACGAATTTGGCTACAGCAACAGGGTGGTGGACCTCATGGCCCACATGGCCTCCAAGGAGTAAGACCCCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTCACTGCTGGGGAGTCCCTGCCACACTCAGTCCCCCACCACACTGAATCTCCCCTCCTCACAGTTGCCATGTAGACCCCTTGAAGAGGGGAGGGGCCTAGGGAGCCGCACCTTGTCATGTACCATCAATAAAGTACCCTGTGCTCAACCAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        String transcript = assembleTranscript(f, graph, 10);
         System.out.print(transcript);
         for (Kmer kmer : graph.getKmers(transcript)) {
             System.out.print(kmer.count);
@@ -423,16 +433,18 @@ public class RNABloom {
         FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
         FastqPair[] fqPairs = new FastqPair[]{fqPair};
         
-        ///*
+        /*
         assembler.assembleFragments(fqPairs, fragsFasta, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
         
         System.out.println("Saving paired kmers Bloom filter to file...");
         assembler.savePairedKmersBloomFilter(new File(graphFile));
+        */
         
         System.out.println("Restoring paired kmers Bloom filter from file...");
         assembler.restorePairedKmersBloomFilter(new File(graphFile));
         
-        assembler.assembleTranscripts(fragsFasta, transcriptsFasta, lookahead);
+        //assembler.test2();
+        assembler.assembleTranscripts(fragsFasta, transcriptsFasta, 10);
         //*/
     }
     
