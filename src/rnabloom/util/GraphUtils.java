@@ -628,8 +628,7 @@ public final class GraphUtils {
         
         // overlap before finding path
         String overlapped = overlapMaximally(leftRead, rightRead, minOverlap);
-        if (overlapped != null) {
-            /**@TODO Check whether overlap is a valid path in DBG*/
+        if (overlapped != null && graph.isValidSeq(overlapped)) {
             return overlapped;
         }
         
@@ -665,7 +664,7 @@ public final class GraphUtils {
         final HashSet<String> fragmentKmers = new HashSet<>(kmers);
         final HashSet<String> usedPairs = new HashSet<>();
         
-        float covGradient = 0.05f;
+        float covGradient = 0.1f;
         
         float fragMinCov = Float.POSITIVE_INFINITY;
         for (String kmer : kmers) {
