@@ -422,6 +422,20 @@ public class BloomFilterDeBruijnGraph {
         return counts;
     }
     
+    public float getMinKmerCoverage(String seq) {
+        float min = Float.POSITIVE_INFINITY;
+        for (String kmer : kmerize(seq, k)) {
+            float c = getCount(kmer);
+            if (c < min) {
+                min = c;
+                if (min < 1) {
+                    return min;
+                }
+            }
+        }
+        return min;
+    }
+    
     public float getMedianKmerCoverage(String seq){
         return getMedianKmerCoverage(kmerize(seq, k));
     }
