@@ -407,11 +407,16 @@ public final class GraphUtils {
     }
     
     public static String correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
-        
-        StringBuilder sb = new StringBuilder(seq);
         int seqLen = seq.length();
         int k = graph.getK();
+        
+        if (seqLen < k) {
+            // no correction
+            return seq;
+        }
+        
         int numKmers = seqLen-k+1;
+        StringBuilder sb = new StringBuilder(seq);
         
         // correct from start
         for (int i=0; i<numKmers; ++i) {
@@ -470,7 +475,13 @@ public final class GraphUtils {
             }
         }
         
-        return sb.toString();
+        String seq2 = sb.toString();
+        
+        if (!graph.isValidSeq(seq2)) {
+            return seq;
+        }
+        
+        return seq2;
     }
 
     public static String assemble(ArrayList<Kmer> kmers) {
@@ -977,8 +988,10 @@ public final class GraphUtils {
         int lastBaseIndex = graph.getK()-1;
         
         LinkedList<String> neighbors = graph.getSuccessors(kmer);
-        String best;
+        String best = kmer;
         while (!neighbors.isEmpty()) {
+            String prev = best;
+            
             if (neighbors.size() == 1) {
                 best = neighbors.peek();
             }
@@ -996,12 +1009,21 @@ public final class GraphUtils {
                         }
                     }
                 }
-                
-                /**@TODO look for back branches*/
-                
             }
             
             if (best == null || terminators.contains(best)) {
+                break;
+            }
+            
+            /** look for back branches*/
+            boolean hasBackBranch = false;
+            for (String s : graph.getPredecessors(kmer)) {
+                if (!s.equals(prev) && hasDepthLeft(s, graph, maxTipLength)) {
+                    hasBackBranch = true;
+                    break;
+                }
+            }
+            if (hasBackBranch) {
                 break;
             }
 
@@ -1016,8 +1038,10 @@ public final class GraphUtils {
         StringBuilder sb = new StringBuilder(100);
         
         LinkedList<String> neighbors = graph.getPredecessors(kmer);
-        String best;
+        String best = kmer;
         while (!neighbors.isEmpty()) {
+            String prev = best;
+            
             if (neighbors.size() == 1) {
                 best = neighbors.peek();
             }
@@ -1035,12 +1059,21 @@ public final class GraphUtils {
                         }
                     }
                 }
-                
-                /**@TODO look for back branches*/
-                
             }
             
             if (best == null || terminators.contains(best)) {
+                break;
+            }
+            
+            /** look for back branches*/
+            boolean hasBackBranch = false;
+            for (String s : graph.getSuccessors(kmer)) {
+                if (!s.equals(prev) && hasDepthRight(s, graph, maxTipLength)) {
+                    hasBackBranch = true;
+                    break;
+                }
+            }
+            if (hasBackBranch) {
                 break;
             }
 
