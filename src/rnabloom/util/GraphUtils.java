@@ -15,6 +15,7 @@ import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
+import static rnabloom.util.SeqUtils.kmerize;
 import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 
@@ -286,7 +287,7 @@ public final class GraphUtils {
         return null;
     }
     
-    private static float getMedian(float[] arr) {
+    public static float getMedian(float[] arr) {
         float[] a = Arrays.copyOf(arr, arr.length);
         Arrays.sort(a);
         int halfLen = a.length/2;
@@ -297,7 +298,7 @@ public final class GraphUtils {
         return a[halfLen];
     }
         
-    private static float getMedian(List<Float> arr) {
+    public static float getMedian(List<Float> arr) {
         ArrayList<Float> a = new ArrayList<>(arr);
         Collections.sort(a);
         int halfLen = a.size()/2;
@@ -482,6 +483,40 @@ public final class GraphUtils {
         }
         
         return seq2;
+    }
+    
+    public static float[] coverageGradients(String seq, BloomFilterDeBruijnGraph graph, int lookahead) {
+        float[] counts = graph.getCounts(seq);
+        int numCounts = counts.length;
+        
+        LinkedList<Float> window = new LinkedList<>();
+        for (int i=0; i<lookahead; ++i) {
+            window.addLast(counts[i]);
+        }        
+
+        int numMedCounts = numCounts-lookahead+1;
+        float[] medCounts = new float[numMedCounts];
+        medCounts[0] = getMedian(window);
+        int m = 0;
+        for (int i=lookahead; i<numCounts; ++i) {
+            window.removeFirst();
+            window.addLast(counts[i]);
+            medCounts[++m] = getMedian(window);
+        }
+        
+        int numGradients = numCounts-(2*lookahead)+1;
+        float[] gradients = new float[numGradients];
+        for (int i=0; i<numGradients; ++i) {
+            float r = medCounts[i]/medCounts[i+lookahead];
+            if (r > 1) {
+                gradients[i] = 1/r;
+            }
+            else {
+                gradients[i] = r;
+            }
+        }
+        
+        return gradients;
     }
 
     public static String assemble(ArrayList<Kmer> kmers) {
@@ -675,7 +710,8 @@ public final class GraphUtils {
         final HashSet<String> fragmentKmers = new HashSet<>(kmers);
         final HashSet<String> usedPairs = new HashSet<>();
         
-        float covGradient = 0.1f;
+        //float covGradient = 0.1f;
+        float covGradient = 0.7f;
         
         float fragMinCov = Float.POSITIVE_INFINITY;
         for (String kmer : kmers) {

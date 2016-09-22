@@ -11,6 +11,7 @@ import static java.lang.Math.pow;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.logging.Level;
@@ -33,6 +34,8 @@ import static rnabloom.util.GraphUtils.findBackbonePath;
 import static rnabloom.util.GraphUtils.naiveExtend;
 import static rnabloom.util.SeqUtils.*;
 import static rnabloom.util.GraphUtils.assembleTranscript;
+import static rnabloom.util.GraphUtils.coverageGradients;
+import static rnabloom.util.GraphUtils.getMedian;
 
 /**
  *
@@ -184,6 +187,7 @@ public class RNABloom {
             FastqReader lin, rin;
             FastaWriter out = new FastaWriter(outFasta);
             ArrayList<String> sampleFragments = new ArrayList<>(sampleSize);
+            ArrayList<Float> coverageGradients = new ArrayList<>(2*sampleSize*lookahead);
             int[] fragmentLengths = new int[sampleSize];
             int fid = 0;
             
@@ -203,6 +207,21 @@ public class RNABloom {
                     }                    
                     
                     if (okToAssemble(p)) {
+                        
+                        if (fid < sampleSize) {
+                            if (p.left.length() > k+lookahead*2*2) {
+                                for (Float g : coverageGradients(p.left, graph, lookahead)) {
+                                    coverageGradients.add(g);
+                                }
+                            }
+                            
+                            if (p.right.length() > k+lookahead*2*2) {
+                                for (Float g : coverageGradients(p.right, graph, lookahead)) {
+                                    coverageGradients.add(g);
+                                }
+                            }
+                        }
+                        
                         // correct individual reads
                         p.left = correctMismatches(p.left, graph, lookahead, mismatchesAllowed);
                         p.right = correctMismatches(p.right, graph, lookahead, mismatchesAllowed);
@@ -258,6 +277,16 @@ public class RNABloom {
 
                                     /** clear sample fragments */
                                     sampleFragments = null;
+                                    
+                                    /** */
+                                    Collections.sort(coverageGradients);
+                                    int cgSize = coverageGradients.size();
+                                    float cgIqr15 = (coverageGradients.get(cgSize*3/4) - coverageGradients.get(cgSize/4)) * 3/2;
+                                    float cgMedian = coverageGradients.get(cgSize/2);
+                                    System.out.println("median cov gradient: " + cgMedian + "+/-" + cgIqr15);
+                                    
+                                    coverageGradients = null;
+                                    
                                 }
                                 else {
                                     /** store fragment length*/
@@ -354,7 +383,7 @@ public class RNABloom {
         }
     }
         
-    public void printCounts(float[] arr){
+    public void printFloatArray(float[] arr){
         StringBuilder sb = new StringBuilder();
         sb.append("[ ");
         for (float f : arr) {
@@ -366,10 +395,11 @@ public class RNABloom {
     }
     
     public void test2() {
-        String seq = "GACTCCACGACGTACTCAGCGCCATGGAGAAGGCTGGGGCTCATTTGCAGGGGGGAGCCAAAAGGGTCATCATCTCTGCCCCCTCTGCTGACGCCCCCAT";
-        String corrected = correctMismatches(seq, graph, 10, 5);
+        String seq = "AAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACACCCACT";
         
-        System.out.print(seq + "\n" + corrected);
+        float[] grads = coverageGradients(seq, graph, 10);
+        System.out.print(getMedian(grads));
+        printFloatArray(grads);
     }
     
     public void test() {
@@ -441,6 +471,8 @@ public class RNABloom {
         System.out.println("Loading graph from file `" + graphFile + "`...");
         assembler.restoreGraph(new File(graphFile));
         
+        //assembler.test2();
+        
         ///*
         FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
         FastqPair[] fqPairs = new FastqPair[]{fqPair};
@@ -457,7 +489,7 @@ public class RNABloom {
         System.out.println("Restoring paired kmers Bloom filter from file...");
         assembler.restorePairedKmersBloomFilter(new File(graphFile));
         
-        //assembler.test2();
+        
         assembler.assembleTranscripts(fragsFasta, transcriptsFasta, 10);
         //*/
     }

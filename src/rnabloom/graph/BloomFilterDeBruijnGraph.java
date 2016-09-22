@@ -422,6 +422,20 @@ public class BloomFilterDeBruijnGraph {
         return counts;
     }
     
+    public float[] getCounts(String seq) {
+        int seqLen = seq.length();
+        int numKmers = seqLen-k+1;
+        
+        float[] counts = new float[numKmers];
+        String[] kmers = kmerize(seq, k);
+        
+        for (int i=0; i<numKmers; ++i) {
+            counts[i] = getCount(kmers[i]);
+        }
+        
+        return counts;
+    }
+    
     public float getMinKmerCoverage(String seq) {
         float min = Float.POSITIVE_INFINITY;
         for (String kmer : kmerize(seq, k)) {
