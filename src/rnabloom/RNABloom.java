@@ -12,14 +12,14 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.NoSuchElementException;
+import java.util.Random;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-import rnabloom.bloom.BloomFilter;
-import rnabloom.bloom.CountingBloomFilter;
-import rnabloom.bloom.hash.HashFunction;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import rnabloom.io.FastaReader;
@@ -28,14 +28,17 @@ import rnabloom.io.FastqPair;
 import rnabloom.io.FastqPairReader;
 import rnabloom.io.FastqPairReader.ReadPair;
 import rnabloom.io.FastqReader;
+import static rnabloom.util.GraphUtils.assemble;
 import static rnabloom.util.GraphUtils.assembleFragment;
 import static rnabloom.util.GraphUtils.correctMismatches;
-import static rnabloom.util.GraphUtils.findBackbonePath;
 import static rnabloom.util.GraphUtils.naiveExtend;
 import static rnabloom.util.SeqUtils.*;
 import static rnabloom.util.GraphUtils.assembleTranscript;
 import static rnabloom.util.GraphUtils.coverageGradients;
+import static rnabloom.util.GraphUtils.findMaxCoverageWindowKmer;
 import static rnabloom.util.GraphUtils.getMedian;
+import static rnabloom.util.GraphUtils.greedyExtendLeftOnce;
+import static rnabloom.util.GraphUtils.greedyExtendRightOnce;
 
 /**
  *
@@ -50,6 +53,17 @@ public class RNABloom {
     private final int k;
     private final Pattern qualPattern;
     private BloomFilterDeBruijnGraph graph;
+    
+    private final Random random;
+    
+    private final int bbLookahead = 5;
+    private final int bbWindowSize = 10;
+    private final int bbMaxIteration = 2;
+    private final Function<String, Integer> findBackBoneId;
+    
+    private ArrayList<String> backbones = new ArrayList<>(10000);
+    private HashMap<String, Integer> kmerToBackboneID = new HashMap<>(10000);
+    private final int backboneHashKmerDistance = 200;
         
     public RNABloom(boolean strandSpecific, long dbgbfNumBits, long cbfNumBytes, long pkbfNumBits, int dbgbfNumHash, int cbfNumHash, int pkbfNumHash, int seed, int k, int q) {
         this.k = k;
@@ -64,6 +78,15 @@ public class RNABloom {
                                             seed,
                                             k,
                                             strandSpecific);
+        
+        random = new Random(seed);
+        
+        if (strandSpecific) {
+            findBackBoneId = this::findBackboneIdStranded;
+        }
+        else {
+            findBackBoneId = this::findBackboneIdNonStranded;
+        }
     }
     
     public void saveGraph(File f) {
@@ -148,31 +171,260 @@ public class RNABloom {
             String[] leftKmers = kmerize(p.left, k);
             String[] rightKmers = kmerize(p.right, k);
             int threshold = 2*k-1;
+            int highCov = 16;
 
+            int numCov1Kmers = 0;
+            int numHighCovKmers = 0; // >
+            
             int numLeftAssembled = 0;
+            float c;
             for (String s : leftKmers) {
                 if (graph.lookupFragmentKmer(s)) {
                     ++numLeftAssembled;
                 }
+                
+                c = graph.getCount(s);
+                if (c == 1) {
+                    ++numCov1Kmers;
+                }
+                else if (c > highCov) {
+                    ++numHighCovKmers;
+                }
             }
 
-            if (numLeftAssembled <= threshold && leftKmers.length - numLeftAssembled > 0) {
-                return true;
+            if (numCov1Kmers > 0 && numHighCovKmers >= k) {
+                return false;
             }
-
+            
             int numRightAssembled = 0;
             for (String s : rightKmers) {
                 if (graph.lookupFragmentKmer(s)) {
                     ++numRightAssembled;
                 }
+                
+                c = graph.getCount(s);
+                if (c == 1) {
+                    ++numCov1Kmers;
+                }
+                else if (c > highCov) {
+                    ++numHighCovKmers;
+                }
+            }
+            
+            if (numCov1Kmers > 0 && numHighCovKmers >= k) {
+                return false;
             }
 
-            if (numRightAssembled <= threshold && rightKmers.length - numRightAssembled > 0) {
+            if ((numLeftAssembled <= threshold && leftKmers.length - numLeftAssembled > 0) || (numRightAssembled <= threshold && rightKmers.length - numRightAssembled > 0)) {
                 return true;
             }
         }
 
         return false;        
+    }
+    
+    private int findBackboneIdNonStranded(String fragment) {
+        ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
+        Kmer seed = fragKmers.get(0);
+        for (Kmer kmer : fragKmers) {
+            String seq = smallestStrand(kmer.seq);
+            
+            if (kmerToBackboneID.containsKey(seq)) {
+                return kmerToBackboneID.get(seq);
+            }
+            
+            if (kmer.count > seed.count) {
+                seed = kmer;
+            }
+        }
+        
+        ArrayList<Kmer> path = null;
+        boolean randomSeed = false;
+        for (int i=0; i<bbMaxIteration; ++i) {
+            if (i>0) {
+                if (randomSeed) {
+                    seed = path.get(random.nextInt(path.size()));
+                    randomSeed = false;
+                }
+                else {
+                    seed = findMaxCoverageWindowKmer(path, graph, bbWindowSize);
+                    randomSeed = true;
+                }
+            }
+
+            /* greedy extend on both sides */
+            HashSet<String> pathKmerStr = new HashSet<>(1000);
+            pathKmerStr.add(smallestStrand(seed.seq));
+            
+            /* extend on right side */
+            ArrayList<Kmer> rightPath = new ArrayList<>(1000);
+            Kmer best = seed;
+            while (true) {
+                best = greedyExtendRightOnce(graph, best, bbLookahead);
+                if (best != null) {
+                    String seq = smallestStrand(best.seq);
+                    
+                    if (kmerToBackboneID.containsKey(seq)) {
+                        return kmerToBackboneID.get(seq);
+                    }
+                    
+                    if (pathKmerStr.contains(seq)) {
+                        break;
+                    }
+                    
+                    pathKmerStr.add(seq);
+                    rightPath.add(best);
+                }
+                else {
+                    break;
+                }
+            }
+
+            /* extend on left side */
+            ArrayList<Kmer> leftPath = new ArrayList<>(1000);
+            best = seed;
+            while (true) {
+                best = greedyExtendLeftOnce(graph, best, bbLookahead);
+                if (best != null) {
+                    String seq = smallestStrand(best.seq);
+                    
+                    if (kmerToBackboneID.containsKey(seq)) {
+                        return kmerToBackboneID.get(seq);
+                    }
+                    
+                    if (pathKmerStr.contains(seq)) {
+                        break;
+                    }
+                    
+                    pathKmerStr.add(seq);
+                    leftPath.add(best);
+                }
+                else {
+                    break;
+                }
+            }
+
+            Collections.reverse(leftPath);
+            leftPath.add(seed);
+            leftPath.addAll(rightPath);
+
+            path = leftPath;
+        }
+        
+        /* new backbone */
+        backbones.add(assemble(path));
+        int id = backbones.size() - 1;
+        
+        /* store kmers in path */
+        int numKmers = path.size();
+        for (int i=0; i<numKmers; ++i) {
+            if (i % backboneHashKmerDistance == 0) {
+                kmerToBackboneID.put(smallestStrand(path.get(i).seq), i);
+            }
+        }
+        
+        return id;
+    }
+    
+    private int findBackboneIdStranded(String fragment) {
+        ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
+        Kmer seed = fragKmers.get(0);
+        for (Kmer kmer : fragKmers) {
+            if (kmerToBackboneID.containsKey(kmer.seq)) {
+                return kmerToBackboneID.get(kmer.seq);
+            }
+            
+            if (kmer.count > seed.count) {
+                seed = kmer;
+            }
+        }
+        
+        ArrayList<Kmer> path = null;
+        boolean randomSeed = false;
+        for (int i=0; i<bbMaxIteration; ++i) {
+            if (i>0) {
+                if (randomSeed) {
+                    seed = path.get(random.nextInt(path.size()));
+                    randomSeed = false;
+                }
+                else {
+                    seed = findMaxCoverageWindowKmer(path, graph, bbWindowSize);
+                    randomSeed = true;
+                }
+            }
+
+            /* greedy extend on both sides */
+            HashSet<String> pathKmerStr = new HashSet<>(1000);
+            pathKmerStr.add(seed.seq);
+            
+            /* extend on right side */
+            ArrayList<Kmer> rightPath = new ArrayList<>(1000);
+            Kmer best = seed;
+            while (true) {
+                best = greedyExtendRightOnce(graph, best, bbLookahead);
+                if (best != null) {
+                    String seq = best.seq;
+                    
+                    if (kmerToBackboneID.containsKey(seq)) {
+                        return kmerToBackboneID.get(seq);
+                    }
+                    
+                    if (pathKmerStr.contains(seq)) {
+                        break;
+                    }
+                    
+                    pathKmerStr.add(seq);
+                    rightPath.add(best);
+                }
+                else {
+                    break;
+                }
+            }
+
+            /* extend on left side */
+            ArrayList<Kmer> leftPath = new ArrayList<>(1000);
+            best = seed;
+            while (true) {
+                best = greedyExtendLeftOnce(graph, best, bbLookahead);
+                if (best != null) {
+                    String seq = best.seq;
+                    
+                    if (kmerToBackboneID.containsKey(seq)) {
+                        return kmerToBackboneID.get(seq);
+                    }
+                    
+                    if (pathKmerStr.contains(seq)) {
+                        break;
+                    }
+                    
+                    pathKmerStr.add(seq);
+                    leftPath.add(best);
+                }
+                else {
+                    break;
+                }
+            }
+
+            Collections.reverse(leftPath);
+            leftPath.add(seed);
+            leftPath.addAll(rightPath);
+
+            path = leftPath;
+        }
+        
+        /* new backbone */
+        backbones.add(assemble(path));
+        int id = backbones.size() - 1;
+        
+        /* store kmers in path */
+        int numKmers = path.size();
+        for (int i=0; i<numKmers; ++i) {
+            if (i % backboneHashKmerDistance == 0) {
+                kmerToBackboneID.put(path.get(i).seq, i);
+            }
+        }
+        
+        return id;
     }
     
     public void assembleFragments(FastqPair[] fastqs, String outFasta, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
@@ -187,7 +439,7 @@ public class RNABloom {
             FastqReader lin, rin;
             FastaWriter out = new FastaWriter(outFasta);
             ArrayList<String> sampleFragments = new ArrayList<>(sampleSize);
-            ArrayList<Float> coverageGradients = new ArrayList<>(2*sampleSize*lookahead);
+            //ArrayList<Float> coverageGradients = new ArrayList<>(2*sampleSize*lookahead);
             int[] fragmentLengths = new int[sampleSize];
             int fid = 0;
             
@@ -199,6 +451,7 @@ public class RNABloom {
                 System.out.println("Parsing `" + fqPair.leftFastq + "` and `" + fqPair.rightFastq + "`...");
                 
                 ReadPair p;
+                String rawLeft, rawRight;
                 while (fqpr.hasNext()) {
                     p = fqpr.next();
                     
@@ -207,7 +460,10 @@ public class RNABloom {
                     }                    
                     
                     if (okToAssemble(p)) {
+                        rawLeft = p.left;
+                        rawRight = p.right;
                         
+                        /*
                         if (fid < sampleSize) {
                             if (p.left.length() > k+lookahead*2*2) {
                                 for (Float g : coverageGradients(p.left, graph, lookahead)) {
@@ -221,10 +477,11 @@ public class RNABloom {
                                 }
                             }
                         }
+                        */
                         
                         // correct individual reads
-                        p.left = correctMismatches(p.left, graph, lookahead, mismatchesAllowed);
-                        p.right = correctMismatches(p.right, graph, lookahead, mismatchesAllowed);
+                        p.left = correctMismatches(rawLeft, graph, lookahead, mismatchesAllowed);
+                        p.right = correctMismatches(rawRight, graph, lookahead, mismatchesAllowed);
                         
                         if (okToAssemble(p)) {
                             String fragment = assembleFragment(p.left, p.right, graph, bound, lookahead, minOverlap);
@@ -241,7 +498,7 @@ public class RNABloom {
 
                                 ++fid;
                                 //out.write(Integer.toString(fid), fragment);
-                                out.write(Integer.toString(fid) + " " + minCov + " " + p.left + " " + p.right, fragment);
+                                out.write(Integer.toString(fid) + " " + minCov + " " + rawLeft + " " + rawRight, fragment);
 
                                 if (fid > sampleSize) {
                                     /** store paired kmers */
@@ -278,15 +535,14 @@ public class RNABloom {
                                     /** clear sample fragments */
                                     sampleFragments = null;
                                     
-                                    /** */
+                                    /*
                                     Collections.sort(coverageGradients);
                                     int cgSize = coverageGradients.size();
                                     float cgIqr15 = (coverageGradients.get(cgSize*3/4) - coverageGradients.get(cgSize/4)) * 3/2;
                                     float cgMedian = coverageGradients.get(cgSize/2);
                                     System.out.println("median cov gradient: " + cgMedian + "+/-" + cgIqr15);
-                                    
                                     coverageGradients = null;
-                                    
+                                    */
                                 }
                                 else {
                                     /** store fragment length*/
