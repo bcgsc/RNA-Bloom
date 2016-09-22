@@ -15,7 +15,6 @@ import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
-import static rnabloom.util.SeqUtils.kmerize;
 import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 
@@ -572,6 +571,8 @@ public final class GraphUtils {
     }
     
     public static ArrayList<Kmer> greedyExtend(Kmer seed, BloomFilterDeBruijnGraph graph, int lookahead) {
+        /**@TODO store smallest strand kmers for non-strand specific sequences */
+        
         HashSet<String> pathKmerStr = new HashSet<>(1000);
         pathKmerStr.add(seed.seq);
         
@@ -710,8 +711,7 @@ public final class GraphUtils {
         final HashSet<String> fragmentKmers = new HashSet<>(kmers);
         final HashSet<String> usedPairs = new HashSet<>();
         
-        //float covGradient = 0.1f;
-        float covGradient = 0.7f;
+        float covGradient = 0.1f;
         
         float fragMinCov = Float.POSITIVE_INFINITY;
         for (String kmer : kmers) {
