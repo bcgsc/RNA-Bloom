@@ -194,6 +194,13 @@ public final class SeqUtils {
     public static Pattern getACTGPattern(int minLength) {
         return Pattern.compile("[ACTG]{" + Integer.toString(minLength) + ",}");
     }
+    
+    public static Pattern getHomoPolymerPattern(int length) {
+        return Pattern.compile("(?:A{" + length + "})" +
+                              "|(?:C{" + length + "})" +
+                              "|(?:G{" + length + "})" +
+                              "|(?:T{" + length + "})");
+    }
         
     public static ArrayList<String> filterFastq(FastqRecord fq, Pattern qualPattern) {
         Matcher m = qualPattern.matcher(fq.qual);
