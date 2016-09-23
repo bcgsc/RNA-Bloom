@@ -18,6 +18,14 @@ import rnabloom.io.FastqRecord;
  */
 public final class SeqUtils {
     
+    public static final int getNumKmers(String seq, int k) {
+        return seq.length() - k + 1;
+    }
+    
+    public static final int getSeqLength(int numKmers, int k) {
+        return k + numKmers - 1;
+    }
+    
     public static final String getFirstKmer(String seq, int k) {
         return seq.substring(0, k);
     }
