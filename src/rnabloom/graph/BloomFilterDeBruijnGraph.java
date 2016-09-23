@@ -20,6 +20,7 @@ import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysBloomFilter;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.SmallestStrandHashFunction;
+import static rnabloom.util.SeqUtils.getNumKmers;
 import static rnabloom.util.SeqUtils.kmerize;
 
 /**
@@ -222,7 +223,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void addKmersFromSeq(String seq) {
-        final int numKmers = seq.length()-k+1;
+        final int numKmers = getNumKmers(seq, k);
         
         for (int i=0; i<numKmers; ++i) {
             long[] hashVals = hashFunction.getHashValues(seq.substring(i, i+k), dbgbfCbfMaxNumHash);
@@ -232,7 +233,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void addFragmentKmersFromSeq(String seq) {
-        int numKmers = seq.length()-k+1;
+        final int numKmers = getNumKmers(seq, k);
         
         for (int i=0; i<numKmers; ++i) {
             pkbf.add(seq.substring(i, i+k));
@@ -240,7 +241,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void addPairedKmersFromSeq(String seq) {
-        int numKmers = seq.length()-k+1;
+        final int numKmers = getNumKmers(seq, k);
         
         // add kmers
         for (int i=0; i<numKmers; ++i) {
@@ -248,7 +249,7 @@ public class BloomFilterDeBruijnGraph {
         }
         
         // add paired kmers
-        int upperBound = numKmers-pairedKmersDistance;
+        final int upperBound = numKmers-pairedKmersDistance;
         for (int i=0; i<upperBound; ++i) {
             pkbf.addPair(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
         }
@@ -312,7 +313,7 @@ public class BloomFilterDeBruijnGraph {
     
     public LinkedList<Kmer> getPredecessors(Kmer kmer) {
         LinkedList<Kmer> result = new LinkedList<>();
-        String prefix = getPrefix(kmer.seq);
+        final String prefix = getPrefix(kmer.seq);
         String v;
         long[] hashVals;
         float count;
@@ -331,7 +332,7 @@ public class BloomFilterDeBruijnGraph {
     
     public LinkedList<String> getPredecessors(String kmer) {
         LinkedList<String> result = new LinkedList<>();
-        String prefix = getPrefix(kmer);
+        final String prefix = getPrefix(kmer);
         String v;
         long[] hashVals;
         float count;
@@ -350,7 +351,7 @@ public class BloomFilterDeBruijnGraph {
 
     public LinkedList<Kmer> getSuccessors(Kmer kmer) {
         LinkedList<Kmer> result = new LinkedList<>();
-        String suffix = getSuffix(kmer.seq);
+        final String suffix = getSuffix(kmer.seq);
         String v;
         long[] hashVals;
         float count;
@@ -369,7 +370,7 @@ public class BloomFilterDeBruijnGraph {
     
     public LinkedList<String> getSuccessors(String kmer) {
         LinkedList<String> result = new LinkedList<>();
-        String suffix = getSuffix(kmer);
+        final String suffix = getSuffix(kmer);
         String v;
         long[] hashVals;
         float count;
@@ -388,7 +389,7 @@ public class BloomFilterDeBruijnGraph {
     
     public LinkedList<String> getLeftVariants(String kmer) {
         LinkedList<String> result = new LinkedList<>();
-        String suffix = getSuffix(kmer);
+        final String suffix = getSuffix(kmer);
         String v;
         for (char c : NUCLEOTIDES) {
             v = c + suffix;
@@ -401,8 +402,7 @@ public class BloomFilterDeBruijnGraph {
 
     public LinkedList<String> getRightVariants(String kmer) {
         LinkedList<String> result = new LinkedList<>();
-        
-        String prefix = getPrefix(kmer);
+        final String prefix = getPrefix(kmer);
         String v;
         for (char c : NUCLEOTIDES) {
             v = prefix + c;
@@ -414,7 +414,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public float[] getCounts(String[] kmers){
-        int numKmers = kmers.length;
+        final int numKmers = kmers.length;
         float[] counts = new float[numKmers];
         for (int i=0; i<numKmers; ++i) {
             counts[i] = getCount(kmers[i]);
@@ -423,8 +423,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public float[] getCounts(String seq) {
-        int seqLen = seq.length();
-        int numKmers = seqLen-k+1;
+        final int numKmers = getNumKmers(seq, k);
         
         float[] counts = new float[numKmers];
         String[] kmers = kmerize(seq, k);
@@ -455,8 +454,8 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public float getMedianKmerCoverage(String[] kmers) {
-        int numKmers = kmers.length;
-        int halfNumKmers = numKmers/2;
+        final int numKmers = kmers.length;
+        final int halfNumKmers = numKmers/2;
         
         ArrayList<Float> counts = new ArrayList<>(numKmers);
         for (String kmer : kmers) {
@@ -495,7 +494,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public ArrayList<Kmer> getKmers(String seq) {
-        final int numKmers = seq.length()-k+1;
+        final int numKmers = getNumKmers(seq, k);
         ArrayList<Kmer> result = new ArrayList<>(numKmers);
         
         for (int i=0; i<numKmers; ++i) {
