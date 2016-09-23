@@ -6,6 +6,7 @@
 package rnabloom.io;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -28,6 +29,16 @@ public class FastaReader implements Iterator<String> {
         }
         else {
             br = new BufferedReader(new InputStreamReader(new FileInputStream(path)));
+        }
+        itr = br.lines().iterator();
+    }
+    
+    public FastaReader(File f) throws IOException {
+        if (f.getName().endsWith(GZIP_EXTENSION)) {
+            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(f))));
+        }
+        else {
+            br = new BufferedReader(new InputStreamReader(new FileInputStream(f)));
         }
         itr = br.lines().iterator();
     }
