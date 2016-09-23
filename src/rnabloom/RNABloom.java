@@ -6,6 +6,7 @@
 package rnabloom;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import static java.lang.Math.pow;
 import java.text.NumberFormat;
@@ -59,7 +60,7 @@ public class RNABloom {
     private final int bbLookahead = 5;
     private final int bbWindowSize = 10;
     private final int bbMaxIteration = 2;
-    private final Function<String, Integer> findBackBoneId;
+    private final Function<String, Integer> findBackboneId;
     
     private ArrayList<String> backbones = new ArrayList<>(10000);
     private HashMap<String, Integer> kmerToBackboneID = new HashMap<>(10000);
@@ -82,10 +83,10 @@ public class RNABloom {
         random = new Random(seed);
         
         if (strandSpecific) {
-            findBackBoneId = this::findBackboneIdStranded;
+            findBackboneId = this::findBackboneIdStranded;
         }
         else {
-            findBackBoneId = this::findBackboneIdNonStranded;
+            findBackboneId = this::findBackboneIdNonStranded;
         }
     }
     
@@ -420,14 +421,14 @@ public class RNABloom {
         int numKmers = path.size();
         for (int i=0; i<numKmers; ++i) {
             if (i % backboneHashKmerDistance == 0) {
-                kmerToBackboneID.put(path.get(i).seq, i);
+                kmerToBackboneID.put(path.get(i).seq, id);
             }
         }
         
         return id;
     }
     
-    public void assembleFragments(FastqPair[] fastqs, String outFasta, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
+    public void assembleFragments(FastqPair[] fastqs, String outDir, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
         System.out.println("Assembling fragments ...");
         
         graph.initializePairKmersBloomFilter();
@@ -435,9 +436,11 @@ public class RNABloom {
         long readPairsParsed = 0;
         int correctionWorks = 0;
         
+        ArrayList<Integer> clustersMaxContigId = new ArrayList<>(10000);
+        
         try {
             FastqReader lin, rin;
-            FastaWriter out = new FastaWriter(outFasta);
+            FastaWriter out;
             ArrayList<String> sampleFragments = new ArrayList<>(sampleSize);
             //ArrayList<Float> coverageGradients = new ArrayList<>(2*sampleSize*lookahead);
             int[] fragmentLengths = new int[sampleSize];
@@ -491,15 +494,29 @@ public class RNABloom {
                             int fragLen = fragment.length();
 
                             if (fragLen > k) {
+                                int backboneId = findBackboneId.apply(fragment);
+                                
+                                int cid = 0;
+                                boolean append = true;
+                                if (backboneId >= clustersMaxContigId.size()) {
+                                    clustersMaxContigId.add(0);
+                                    append = false;
+                                }
+                                else {
+                                    cid = clustersMaxContigId.get(backboneId)+1;
+                                    clustersMaxContigId.set(backboneId, cid);
+                                }
+                                
+                                out = new FastaWriter(outDir + File.separator + backboneId + ".fa", append);
+                                
                                 float minCov = graph.getMinKmerCoverage(fragment);
                                 
                                 /** extend on both ends unambiguously*/
                                 fragment = naiveExtend(fragment, graph, maxTipLen);
 
-                                ++fid;
-                                //out.write(Integer.toString(fid), fragment);
-                                out.write(Integer.toString(fid) + " " + minCov + " " + rawLeft + " " + rawRight, fragment);
+                                out.write(Integer.toString(cid) + " " + minCov + " " + rawLeft + " " + rawRight, fragment);
 
+                                ++fid;
                                 if (fid > sampleSize) {
                                     /** store paired kmers */
                                     graph.addPairedKmersFromSeq(fragment);
@@ -551,6 +568,8 @@ public class RNABloom {
 
                                     //System.out.println(fragLen);
                                 }
+                                
+                                out.close();
                             }
 
                             /* assemble 3' UTR only
@@ -571,8 +590,6 @@ public class RNABloom {
                 lin.close();
                 rin.close();
             }
-            
-            out.close();
         } catch (IOException ex) {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -596,41 +613,55 @@ public class RNABloom {
             Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-
-    public void assembleTranscripts(String inFasta, String outFasta, int lookAhead) {
+        
+    public void assembleTranscripts(String fragsDirPath, String outFasta, int lookAhead) {
         long numFragmentsParsed = 0;
+        boolean append = false;
+        FilenameFilter fragsFilenameFilter = (File dir, String name) -> name.endsWith(".fa");
         
         try {
-            System.out.println("Parsing `" + inFasta + "`...");
+            File fragsDir = new File(fragsDirPath);
+            System.out.println("Looking for fragments in `" + fragsDir.getName() + "`...");
             
-            FastaReader fin = new FastaReader(inFasta);
-            FastaWriter fout = new FastaWriter(outFasta);
+            FastaWriter fout = new FastaWriter(outFasta, append);
             
             HashSet<String> assembledKmers = new HashSet<>();
             
-            int cid = 0;
-            while (fin.hasNext()) {
-                if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
-                    System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments...");
-                }
+            for (File inFasta : fragsDir.listFiles(fragsFilenameFilter)) {
+                FastaReader fin = new FastaReader(inFasta);
+                String fileName = inFasta.getName();
                 
-                String fragment = fin.next();
+                System.out.println("Parsing `" + fileName + "`...");
+                
+                String clusterId = fileName.substring(0, fileName.indexOf("."));
+                int cid = 0;
+                
+                /**@TODO sort fragments by min kmer count */
+                
+                while (fin.hasNext()) {
+                    if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
+                        System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments...");
+                    }
 
-                for (String kmer : kmerize(fragment, k)) {
-                    if (!assembledKmers.contains(kmer)) {
-                        String transcript = assembleTranscript(fragment, graph, lookAhead);
-                        fout.write(Integer.toString(++cid), transcript);
-                        
-                        for (String kmer2 : kmerize(transcript, k)) {
-                            assembledKmers.add(kmer2);
+                    String fragment = fin.next();
+
+                    for (String kmer : kmerize(fragment, k)) {
+                        if (!assembledKmers.contains(kmer)) {
+                            String transcript = assembleTranscript(fragment, graph, lookAhead);
+                            fout.write("c" + clusterId + "_t" + Integer.toString(++cid), transcript);
+
+                            for (String kmer2 : kmerize(transcript, k)) {
+                                assembledKmers.add(kmer2);
+                            }
+
+                            break;
                         }
-                        
-                        break;
                     }
                 }
+
+                fin.close();
             }
             
-            fin.close();
             fout.close();
         } catch (IOException ex) {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
@@ -677,7 +708,7 @@ public class RNABloom {
         ///*
         String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
         String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left        
-        String fragsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments.fa";
+        String fragsDirPath = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments";
         String transcriptsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/transcripts.fa";
         String graphFile = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/graph";
         //*/
@@ -735,18 +766,23 @@ public class RNABloom {
         
         //assembler.test3();
         
+        File fragsDir = new File(fragsDirPath);
+        if (!fragsDir.exists()) {
+            fragsDir.mkdirs();
+        }
         
-        assembler.assembleFragments(fqPairs, fragsFasta, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
+        /*
+        assembler.assembleFragments(fqPairs, fragsDirPath, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
         
         System.out.println("Saving paired kmers Bloom filter to file...");
         assembler.savePairedKmersBloomFilter(new File(graphFile));
-        
+        */
         
         System.out.println("Restoring paired kmers Bloom filter from file...");
         assembler.restorePairedKmersBloomFilter(new File(graphFile));
         
         
-        assembler.assembleTranscripts(fragsFasta, transcriptsFasta, 10);
+        assembler.assembleTranscripts(fragsDirPath, transcriptsFasta, 10);
         //*/
     }
     

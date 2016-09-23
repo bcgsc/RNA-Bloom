@@ -16,8 +16,8 @@ import java.io.IOException;
 public class FastaWriter {
     private final BufferedWriter out;
     
-    public FastaWriter(String path) throws IOException {
-        out = new BufferedWriter(new FileWriter(path));
+    public FastaWriter(String path, boolean append) throws IOException {
+        out = new BufferedWriter(new FileWriter(path, append));
     }
     
     public void write(String header, String seq) throws IOException {
