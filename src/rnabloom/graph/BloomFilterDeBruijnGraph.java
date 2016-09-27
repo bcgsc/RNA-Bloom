@@ -143,6 +143,24 @@ public class BloomFilterDeBruijnGraph {
         }
     }
 
+    public void destroy() {
+        dbgbf.destroy();
+        cbf.destroy();
+        if (pkbf != null) {
+            pkbf.destroy();
+        }        
+    }
+    
+    public void destroyPkbf() {
+        if (pkbf != null) {
+            pkbf.destroy();
+        }
+    }
+    
+    public int getSeed() {
+        return seed;
+    }
+    
     public BloomFilter getDbgbf() {
         return dbgbf;
     }
@@ -447,6 +465,31 @@ public class BloomFilterDeBruijnGraph {
             }
         }
         return min;
+    }
+    
+    public float[] getMinMedianMaxKmerCoverage(String seq) {
+        float[] minMedianMax = new float[3];
+        final int numKmers = getNumKmers(seq, k);
+        final int halfNumKmers = numKmers/2;
+        
+        ArrayList<Float> counts = new ArrayList<>(numKmers);
+        for (String kmer : kmerize(seq, k)) {
+            counts.add(cbf.getCount(kmer));
+        }
+        
+        Collections.sort(counts);
+        
+        minMedianMax[0] = counts.get(0);
+        minMedianMax[2] = counts.get(numKmers-1);
+        
+        if (numKmers % 2 == 0) {
+            minMedianMax[1] = (counts.get(halfNumKmers) + counts.get(halfNumKmers -1))/2.0f;
+        }
+        else {
+            minMedianMax[1] = counts.get(halfNumKmers);
+        }
+        
+        return minMedianMax;
     }
     
     public float getMedianKmerCoverage(String seq){

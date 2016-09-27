@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import rnabloom.RNABloom.KmerSet;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import static rnabloom.util.SeqUtils.getFirstKmer;
@@ -702,7 +703,7 @@ public final class GraphUtils {
         return leftWing + assemble(pathKmers) + rightWing;
     }
     
-    public static String assembleTranscript(String fragment, BloomFilterDeBruijnGraph graph, int lookahead) {
+    public static String assembleTranscript(String fragment, BloomFilterDeBruijnGraph graph, int lookahead, float covGradient, KmerSet assembledKmers) {
         final int distance = graph.getPairedKmerDistance();
         final int k = graph.getK();
         
@@ -710,8 +711,6 @@ public final class GraphUtils {
         kmerizeToCollection(fragment, k, kmers);
         final HashSet<String> fragmentKmers = new HashSet<>(kmers);
         final HashSet<String> usedPairs = new HashSet<>();
-        
-        float covGradient = 0.1f;
         
         float fragMinCov = Float.POSITIVE_INFINITY;
         for (String kmer : kmers) {
@@ -761,11 +760,17 @@ public final class GraphUtils {
                     float currentCov = getMedian(covs);
                     float min = currentCov * covGradient;
                     float max = currentCov / covGradient;
+                    float cov = 0;
                     
                     for (String n : fragmentNeighbors) {
                         float c = getMaxMedianCoverageRight(graph, graph.getKmer(n), lookahead);
                         if (c >= min && c <= max) {
-                            neighborsWithSimilarCoverage.add(n);
+                            if (c > cov) {
+                                neighborsWithSimilarCoverage.addFirst(n);
+                            }
+                            else {
+                                neighborsWithSimilarCoverage.addLast(n);
+                            }
                         }
                     }
                     
@@ -782,6 +787,13 @@ public final class GraphUtils {
                         }
                         if (pairedNeighbors.size() == 1) {
                             best = pairedNeighbors.peek();
+                        }
+                    }
+                    
+                    if (best == null && neighborsWithSimilarCoverage.size() > 1) {
+                        best = neighborsWithSimilarCoverage.getFirst();
+                        if (assembledKmers.contains(best)) {
+                            best = null;
                         }
                     }
                 }
@@ -848,10 +860,17 @@ public final class GraphUtils {
                     float min = currentCov * covGradient;
                     float max = currentCov / covGradient;
                     
+                    float cov = 0;
+                    
                     for (String n : fragmentNeighbors) {
                         float c = getMaxMedianCoverageLeft(graph, graph.getKmer(n), lookahead);
                         if (c >= min && c <= max) {
-                            neighborsWithSimilarCoverage.add(n);
+                            if (c > cov) {
+                                neighborsWithSimilarCoverage.addFirst(n);
+                            }
+                            else {
+                                neighborsWithSimilarCoverage.addLast(n);
+                            }
                         }
                     }
                     
@@ -868,6 +887,13 @@ public final class GraphUtils {
                         }
                         if (pairedNeighbors.size() == 1) {
                             best = pairedNeighbors.peek();
+                        }
+                    }
+                    
+                    if (best == null && neighborsWithSimilarCoverage.size() > 1) {
+                        best = neighborsWithSimilarCoverage.getFirst();
+                        if (assembledKmers.contains(best)) {
+                            best = null;
                         }
                     }
                 }
