@@ -7,6 +7,7 @@ package rnabloom.util;
 
 import java.util.AbstractCollection;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.PrimitiveIterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,6 +34,34 @@ public final class SeqUtils {
     public static final String getLastKmer(String seq, int k) {
         int seqLen = seq.length();
         return seq.substring(seqLen-k, seqLen);
+    }
+    
+    public class KmerIterator implements Iterator<String> {
+        private final String seq;
+        private final int k;
+        private int i = 0;
+        private final int numKmers;
+        
+        public KmerIterator(String seq, int k) {
+            this.seq = seq;
+            this.k = k;
+            this.numKmers = seq.length() - k + 1;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return i < numKmers;
+        }
+
+        @Override
+        public String next() {
+            int j = i++;
+            return seq.substring(j, j+k);
+        }
+        
+        public void reset() {
+            i = 0;
+        }
     }
     
     public static final String[] kmerize(String seq, int k) {

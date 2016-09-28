@@ -709,7 +709,7 @@ public final class GraphUtils {
         
         final ArrayList<String> kmers = new ArrayList<>(2*(fragment.length()-k+1));
         kmerizeToCollection(fragment, k, kmers);
-        final HashSet<String> fragmentKmers = new HashSet<>(kmers);
+        final HashSet<String> transcriptKmers = new HashSet<>(kmers);
         final HashSet<String> usedPairs = new HashSet<>();
         
         float fragMinCov = Float.POSITIVE_INFINITY;
@@ -759,13 +759,13 @@ public final class GraphUtils {
                     }
                     float currentCov = getMedian(covs);
                     float min = currentCov * covGradient;
-                    float max = currentCov / covGradient;
                     float cov = 0;
                     
                     for (String n : fragmentNeighbors) {
                         float c = getMaxMedianCoverageRight(graph, graph.getKmer(n), lookahead);
-                        if (c >= min && c <= max) {
+                        if (c >= min) {
                             if (c > cov) {
+                                cov = c;
                                 neighborsWithSimilarCoverage.addFirst(n);
                             }
                             else {
@@ -779,7 +779,7 @@ public final class GraphUtils {
                     }
                     else if (numKmers >= distance) {
                         LinkedList<String> pairedNeighbors = new LinkedList<>();
-                        partner = kmers.get(kmers.size()-distance);
+                        partner = kmers.get(numKmers-distance);
                         for (String n : fragmentNeighbors) {
                             if (graph.lookupPairedKmers(partner, n)) {
                                 pairedNeighbors.add(n);
@@ -803,19 +803,33 @@ public final class GraphUtils {
                 break;
             }
             else {
-                if (fragmentKmers.contains(best)) {
-                    String pairedKmersStr = partner + best;
-                    if (partner != null && !usedPairs.contains(pairedKmersStr)) {
-                        usedPairs.add(pairedKmersStr);
-                    }
-                    else {
+                int numKmers = kmers.size();
+                if (numKmers >= distance && partner == null) {
+                    partner = kmers.get(numKmers-distance);
+                }
+                
+                if (transcriptKmers.contains(best)) {
+                    if (partner == null || !graph.lookupPairedKmers(partner, best)) {
                         break;
                     }
+                    else {
+                        String pairedKmersStr = partner + best;
+                        if (usedPairs.contains(pairedKmersStr)) {
+                            break;
+                        }
+                        else {
+                            usedPairs.add(pairedKmersStr);
+                        }
+                    }
+                }
+                
+                if (assembledKmers.contains(best) && (partner == null || assembledKmers.contains(partner))) {
+                    break;
                 }
             }
             
             kmers.add(best);
-            fragmentKmers.add(best);
+            transcriptKmers.add(best);
             neighbors = graph.getSuccessors(best);
         }
         
@@ -858,14 +872,14 @@ public final class GraphUtils {
                     }
                     float currentCov = getMedian(covs);
                     float min = currentCov * covGradient;
-                    float max = currentCov / covGradient;
                     
                     float cov = 0;
                     
                     for (String n : fragmentNeighbors) {
                         float c = getMaxMedianCoverageLeft(graph, graph.getKmer(n), lookahead);
-                        if (c >= min && c <= max) {
+                        if (c >= min) {
                             if (c > cov) {
+                                cov = c;
                                 neighborsWithSimilarCoverage.addFirst(n);
                             }
                             else {
@@ -879,7 +893,7 @@ public final class GraphUtils {
                     }
                     else if (numKmers >= distance) {
                         LinkedList<String> pairedNeighbors = new LinkedList<>();
-                        partner = kmers.get(kmers.size()-distance);
+                        partner = kmers.get(numKmers-distance);
                         for (String n : fragmentNeighbors) {
                             if (graph.lookupPairedKmers(n, partner)) {
                                 pairedNeighbors.add(n);
@@ -903,19 +917,33 @@ public final class GraphUtils {
                 break;
             }
             else {
-                if (fragmentKmers.contains(best)) {
-                    String pairedKmersStr = best + partner;
-                    if (partner != null && !usedPairs.contains(pairedKmersStr)) {
-                        usedPairs.add(pairedKmersStr);
-                    }
-                    else {
+                int numKmers = kmers.size();
+                if (numKmers >= distance && partner == null) {
+                    partner = kmers.get(numKmers-distance);
+                }
+                
+                if (transcriptKmers.contains(best)) {
+                    if (partner == null || !graph.lookupPairedKmers(best, partner)) {
                         break;
                     }
+                    else {
+                        String pairedKmersStr = best + partner;
+                        if (usedPairs.contains(pairedKmersStr)) {
+                            break;
+                        }
+                        else {
+                            usedPairs.add(pairedKmersStr);
+                        }
+                    }
+                }
+                
+                if (assembledKmers.contains(best) && (partner == null || assembledKmers.contains(partner))) {
+                    break;
                 }
             }
             
             kmers.add(best);
-            fragmentKmers.add(best);
+            transcriptKmers.add(best);
             neighbors = graph.getPredecessors(best);
         }
         

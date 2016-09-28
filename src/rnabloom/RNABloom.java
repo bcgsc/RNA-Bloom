@@ -20,7 +20,6 @@ import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -32,32 +31,8 @@ import rnabloom.io.FastqPair;
 import rnabloom.io.FastqPairReader;
 import rnabloom.io.FastqPairReader.ReadPair;
 import rnabloom.io.FastqReader;
-import static rnabloom.util.GraphUtils.assemble;
-import static rnabloom.util.GraphUtils.assembleFragment;
-import static rnabloom.util.GraphUtils.correctMismatches;
-import static rnabloom.util.GraphUtils.naiveExtend;
+import static rnabloom.util.GraphUtils.*;
 import static rnabloom.util.SeqUtils.*;
-import static rnabloom.util.GraphUtils.assembleTranscript;
-import static rnabloom.util.GraphUtils.coverageGradients;
-import static rnabloom.util.GraphUtils.findMaxCoverageWindowKmer;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.greedyExtendLeftOnce;
-import static rnabloom.util.GraphUtils.greedyExtendRightOnce;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
-import static rnabloom.util.GraphUtils.getMedian;
 
 /**
  *
@@ -918,12 +893,12 @@ public class RNABloom {
             fragsDir.mkdirs();
         }
         
-        ///*
+        /*
         assembler.assembleFragments(fqPairs, fragsDirPath, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
         
         System.out.println("Saving paired kmers Bloom filter to file...");
         assembler.savePairedKmersBloomFilter(new File(graphFile));
-        //*/
+        */
         
         System.out.println("Restoring paired kmers Bloom filter from file...");
         assembler.restorePairedKmersBloomFilter(new File(graphFile));
