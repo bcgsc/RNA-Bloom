@@ -23,6 +23,13 @@ import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Option.Builder;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import rnabloom.io.FastaReader;
@@ -46,7 +53,8 @@ public class RNABloom {
     
     private int k;
     private boolean strandSpecific;
-    private Pattern qualPattern;
+    private Pattern qualPatternDBG;
+    private Pattern qualPatternFrag;
     private BloomFilterDeBruijnGraph graph = null;
     
     private Random random;
@@ -60,9 +68,10 @@ public class RNABloom {
     private HashMap<String, Integer> kmerToBackboneID = new HashMap<>(10000);
     private int backboneHashKmerDistance = 200;
         
-    public RNABloom(int k, int q) {
+    public RNABloom(int k, int qDBG, int qFrag) {
         this.k = k;
-        this.qualPattern = getPhred33Pattern(q, k);
+        this.qualPatternDBG = getPhred33Pattern(qDBG, k);
+        this.qualPatternFrag = getPhred33Pattern(qFrag, k);
     }
     
     public void saveGraph(File f) {
@@ -138,7 +147,7 @@ public class RNABloom {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
                     }
 
-                    for (String seq : filterFastq(fr.next(), qualPattern)) {
+                    for (String seq : filterFastq(fr.next(), qualPatternDBG)) {
                         graph.addKmersFromSeq(seq);
                     }
                 }
@@ -154,7 +163,7 @@ public class RNABloom {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
                     }
 
-                    for (String seq : filterFastq(fr.next(), qualPattern)) {
+                    for (String seq : filterFastq(fr.next(), qualPatternDBG)) {
                         graph.addKmersFromSeq(reverseComplement(seq));
                     }
                 }
@@ -180,7 +189,7 @@ public class RNABloom {
         return p.right.endsWith("AAAA") || (!graph.isStranded() && p.left.startsWith("TTTT"));
     }
     
-    private boolean okToAssemble(ReadPair p) {
+    private boolean okToConnectPair(ReadPair p) {
         if (p.left.length() >= k && p.right.length() >= k) {
             String[] leftKmers = kmerize(p.left, k);
             String[] rightKmers = kmerize(p.right, k);
@@ -463,7 +472,7 @@ public class RNABloom {
                 lin = new FastqReader(fqPair.leftFastq, true);
                 rin = new FastqReader(fqPair.rightFastq, true);
 
-                FastqPairReader fqpr = new FastqPairReader(lin, rin, qualPattern, fqPair.leftRevComp, fqPair.rightRevComp);
+                FastqPairReader fqpr = new FastqPairReader(lin, rin, qualPatternFrag, fqPair.leftRevComp, fqPair.rightRevComp);
                 System.out.println("Parsing `" + fqPair.leftFastq + "` and `" + fqPair.rightFastq + "`...");
                 
                 ReadPair p;
@@ -475,7 +484,7 @@ public class RNABloom {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
                     }                    
                     
-                    if (okToAssemble(p)) {
+                    if (okToConnectPair(p)) {
                         rawLeft = p.left;
                         rawRight = p.right;
                         
@@ -499,7 +508,7 @@ public class RNABloom {
                         p.left = correctMismatches(rawLeft, graph, lookahead, mismatchesAllowed);
                         p.right = correctMismatches(rawRight, graph, lookahead, mismatchesAllowed);
                         
-                        if (okToAssemble(p)) {
+                        if (okToConnectPair(p)) {
                             String fragment = assembleFragment(p.left, p.right, graph, bound, lookahead, minOverlap);
                                                         
                             // correct fragment
@@ -722,7 +731,7 @@ public class RNABloom {
             return set.contains(smallestStrand(s));
         }
     }
-    
+        
     public void assembleTranscripts(String fragsDirPath, String outFasta, int lookAhead, float covGradient) {
         long numFragmentsParsed = 0;
         boolean append = false;
@@ -825,87 +834,263 @@ public class RNABloom {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        // TODO code application logic here
-                
-        ///*
-        String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
-        String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left        
-        String fragsDirPath = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments";
-        String transcriptsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/transcripts.fa";
-        String graphFile = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/graph";
-        //*/
-        /*
-        String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
-        String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
-        String fragsFasta = "/home/gengar/test_assemblies/GAPDH/fragments.fa";
-        String transcriptsFasta = "/home/gengar/test_assemblies/GAPDH/transcripts.fa";
-        String graphFile = "/home/gengar/test_assemblies/GAPDH/graph";
-        */        
         
-        boolean revComp1 = true;
-        boolean revComp2 = false;
+        // Based on: http://commons.apache.org/proper/commons-cli/usage.html
+        CommandLineParser parser = new DefaultParser();
+
+        Options options = new Options();
+
+        Builder builder;
         
-        int mismatchesAllowed = 5;
-        int bound = 500;
-        int lookahead = 5;
-        int minOverlap = 10;
-        int maxTipLen = 10;
+        builder = Option.builder("l");
+        builder.longOpt("left");
+        builder.desc("left reads file");
+        builder.hasArg(true);
+        builder.argName("FILE");
+        builder.required(true);
+        Option optLeftReads = builder.build();
+        options.addOption(optLeftReads);
         
-        String[] forwardFastqs = new String[]{fastq2};
-        String[] backwardFastqs = new String[]{fastq1};
+        builder = Option.builder("r");
+        builder.longOpt("right");
+        builder.desc("right reads file");
+        builder.hasArg(true);
+        builder.argName("FILE");
+        builder.required(true);
+        Option optRightReads = builder.build();
+        options.addOption(optRightReads);
         
-        boolean strandSpecific = true;
-        long dbgbfSize = NUM_BITS_1GB;
-        long cbfSize = NUM_BYTES_1GB;
-        long pkbfSize = NUM_BITS_1GB;
-        int dbgbfNumHash = 3;
-        int cbfNumHash = 4;
-        int pkbfNumHash = 1;
-        int seed = 689;
-        int k = 25;
-        int q = 3;
-        int sampleSize = 1000;
+        builder = Option.builder("o");
+        builder.longOpt("orientation");
+        builder.desc("read pair orientation");
+        builder.hasArg(true);
+        builder.argName("FR|FF|RR|RF");
+        Option optOrientation = builder.build();
+        options.addOption(optOrientation);        
         
-        ///*
-        RNABloom assembler = new RNABloom(k, q);
+        builder = Option.builder("ss");
+        builder.longOpt("stranded");
+        builder.desc("strand specific");
+        builder.hasArg(false);
+        Option optStranded = builder.build();
+        options.addOption(optStranded);
         
-        /*
-        assembler.createGraph(forwardFastqs, backwardFastqs, strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed);
+        builder = Option.builder("k");
+        builder.longOpt("kmer");
+        builder.desc("kmer size");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optKmerSize = builder.build();
+        options.addOption(optKmerSize);
+        
+        builder = Option.builder("q");
+        builder.longOpt("qual");
+        builder.desc("min base quality");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optBaseQual = builder.build();
+        options.addOption(optBaseQual);        
+        
+        builder = Option.builder("s");
+        builder.longOpt("seed");
+        builder.desc("seed for random number generator and hash function");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optSeed = builder.build();
+        options.addOption(optSeed);
+        
+        builder = Option.builder();
+        builder.longOpt("dbgbf-hash");
+        builder.desc("number of hash functions for de Bruijn graph Bloom filter");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optDbgbfHash = builder.build();
+        options.addOption(optDbgbfHash);
+
+        builder = Option.builder();
+        builder.longOpt("cbf-hash");
+        builder.desc("number of hash functions for kmer counting Bloom filter");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optCbfHash = builder.build();
+        options.addOption(optCbfHash);
+        
+        builder = Option.builder();
+        builder.longOpt("pkbf-hash");
+        builder.desc("number of hash functions for paired kmers Bloom filter");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optPkbfHash = builder.build();
+        options.addOption(optPkbfHash);        
+
+        builder = Option.builder();
+        builder.longOpt("dbgbf-mem");
+        builder.desc("allocate FLOAT-gigabyte for de Bruijn graph Bloom filter");
+        builder.hasArg(true);
+        builder.argName("FLOAT");
+        Option optDbgbfMem = builder.build();
+        options.addOption(optDbgbfMem);
+
+        builder = Option.builder();
+        builder.longOpt("cbf-mem");
+        builder.desc("allocate FLOAT-gigabyte for kmer counting Bloom filter");
+        builder.hasArg(true);
+        builder.argName("FLOAT");
+        Option optCbfMem = builder.build();
+        options.addOption(optCbfMem);
+        
+        builder = Option.builder();
+        builder.longOpt("pkbf-mem");
+        builder.desc("allocate FLOAT-gigabyte for paired kmers Bloom filter");
+        builder.hasArg(true);
+        builder.argName("FLOAT");
+        Option optPkbfMem = builder.build();
+        options.addOption(optPkbfMem);
+        
+        builder = Option.builder("m");
+        builder.longOpt("mismatch");
+        builder.desc("max number of mismatch bases allowed per read");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optMismatch = builder.build();
+        options.addOption(optMismatch);
+
+        builder = Option.builder("t");
+        builder.longOpt("tiplength");
+        builder.desc("max length of tip allowed");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optTipLength = builder.build();
+        options.addOption(optTipLength);  
+        
+        builder = Option.builder("a");
+        builder.longOpt("lookahead");
+        builder.desc("number of kmers to look ahead during graph traversal");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optLookahead = builder.build();
+        options.addOption(optLookahead);        
+        
+        builder = Option.builder("o");
+        builder.longOpt("overlap");
+        builder.desc("min number of overlapping bases between mates");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optOverlap = builder.build();
+        options.addOption(optOverlap);
+        
+        builder = Option.builder("b");
+        builder.longOpt("bound");
+        builder.desc("max distance between mates");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optBound = builder.build();
+        options.addOption(optBound);
+
+        builder = Option.builder("S");
+        builder.longOpt("sample");
+        builder.desc("sample size for estimating median fragment length");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optSample = builder.build();
+        options.addOption(optSample);
         
         
-        System.out.println("Saving graph to file `" + graphFile + "`...");
-        assembler.saveGraph(new File(graphFile));
-        */
+
+        try {
+            CommandLine line = parser.parse(options, args);
+            
+            /**@TODO evaluate options*/
+
+            ///*
+            String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
+            String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left        
+            String fragsDirPath = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments";
+            String transcriptsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/transcripts.fa";
+            String graphFile = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/graph";
+            //*/
+            /*
+            String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
+            String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
+            String fragsFasta = "/home/gengar/test_assemblies/GAPDH/fragments.fa";
+            String transcriptsFasta = "/home/gengar/test_assemblies/GAPDH/transcripts.fa";
+            String graphFile = "/home/gengar/test_assemblies/GAPDH/graph";
+            */        
+
+            boolean revComp1 = true;
+            boolean revComp2 = false;
+
+            int mismatchesAllowed = 5;
+            int bound = 500;
+            int lookahead = 5;
+            int minOverlap = 10;
+            int maxTipLen = 10;
+
+            String[] forwardFastqs = new String[]{fastq2};
+            String[] backwardFastqs = new String[]{fastq1};
+
+            boolean strandSpecific = true;
+            long dbgbfSize = NUM_BITS_1GB;
+            long cbfSize = NUM_BYTES_1GB;
+            long pkbfSize = NUM_BITS_1GB;
+            int dbgbfNumHash = 3;
+            int cbfNumHash = 4;
+            int pkbfNumHash = 1;
+            int seed = 689;
+            int k = 25;
+            int qDBG = 3;
+            int qFrag = 3;
+            int sampleSize = 1000;
+
+
+            boolean saveGraph = true;
+            boolean loadGraph = true;
+            boolean saveKmerPairs = true;
+            boolean loadKmerPairs = true;
+
+
+            RNABloom assembler = new RNABloom(k, qDBG, qFrag);
+
+            if (loadGraph) {
+                System.out.println("Loading graph from file `" + graphFile + "`...");
+                assembler.restoreGraph(new File(graphFile));
+            }
+            else {
+                assembler.createGraph(forwardFastqs, backwardFastqs, strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed);
+
+                if (saveGraph) {
+                    System.out.println("Saving graph to file `" + graphFile + "`...");
+                    assembler.saveGraph(new File(graphFile));
+                }
+            }
+
+            FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
+            FastqPair[] fqPairs = new FastqPair[]{fqPair};        
+
+            File fragsDir = new File(fragsDirPath);
+            if (!fragsDir.exists()) {
+                fragsDir.mkdirs();
+            }
+
+            if (loadKmerPairs) {
+                System.out.println("Restoring paired kmers Bloom filter from file...");
+                assembler.restorePairedKmersBloomFilter(new File(graphFile));            
+            }
+            else {
+                assembler.assembleFragments(fqPairs, fragsDirPath, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
+
+                if (saveKmerPairs) {
+                    System.out.println("Saving paired kmers Bloom filter to file...");
+                    assembler.savePairedKmersBloomFilter(new File(graphFile));            
+                }
+            }
+
+            assembler.assembleTranscripts(fragsDirPath, transcriptsFasta, 10, 0.1f);
         
-        System.out.println("Loading graph from file `" + graphFile + "`...");
-        assembler.restoreGraph(new File(graphFile));
-        
-        //assembler.test2();
-        
-        ///*
-        FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
-        FastqPair[] fqPairs = new FastqPair[]{fqPair};
-        
-        //assembler.test3();
-        
-        File fragsDir = new File(fragsDirPath);
-        if (!fragsDir.exists()) {
-            fragsDir.mkdirs();
         }
-        
-        /*
-        assembler.assembleFragments(fqPairs, fragsDirPath, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
-        
-        System.out.println("Saving paired kmers Bloom filter to file...");
-        assembler.savePairedKmersBloomFilter(new File(graphFile));
-        */
-        
-        System.out.println("Restoring paired kmers Bloom filter from file...");
-        assembler.restorePairedKmersBloomFilter(new File(graphFile));
-        
-        //assembler.test2();
-        assembler.assembleTranscripts(fragsDirPath, transcriptsFasta, 10, 0.1f);
-        //*/
+        catch (ParseException exp) {
+            System.out.println("ERROR:" + exp.getMessage() );
+        }
     }
     
 }
