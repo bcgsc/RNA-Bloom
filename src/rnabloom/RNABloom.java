@@ -139,7 +139,7 @@ public class RNABloom {
             FastqReader fr;
             
             for (String fastq : forwardFastqs) {
-                System.out.println("Parsing `" + fastq + "`...");
+                System.out.println("Parsing forward reads `" + fastq + "`...");
                 
                 fr = new FastqReader(fastq, false);
                 while (fr.hasNext()) {
@@ -155,7 +155,7 @@ public class RNABloom {
             }
             
             for (String fastq : reverseFastqs) {
-                System.out.println("Parsing `" + fastq + "`...");
+                System.out.println("Parsing reverse reads `" + fastq + "`...");
                 
                 fr = new FastqReader(fastq, false);
                 while (fr.hasNext()) {
@@ -834,6 +834,9 @@ public class RNABloom {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
+        System.out.println("args: " + Arrays.toString(args));
+        
+        // -left /projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/gapdh
         
         // Based on: http://commons.apache.org/proper/commons-cli/usage.html
         CommandLineParser parser = new DefaultParser();
@@ -841,6 +844,26 @@ public class RNABloom {
         Options options = new Options();
 
         Builder builder;
+        
+        /**@TODO add option to load Bloom filters from disk */
+        
+        builder = Option.builder("n");
+        builder.longOpt("name");
+        builder.desc("assembly name");
+        builder.hasArg(true);
+        builder.argName("STR");
+        //builder.required(true);
+        Option optName = builder.build();
+        options.addOption(optName);
+        
+        builder = Option.builder("o");
+        builder.longOpt("outdir");
+        builder.desc("output directory");
+        builder.hasArg(true);
+        builder.argName("PATH");
+        //builder.required(true);
+        Option optOutdir = builder.build();
+        options.addOption(optOutdir);
         
         builder = Option.builder("l");
         builder.longOpt("left");
@@ -860,13 +883,19 @@ public class RNABloom {
         Option optRightReads = builder.build();
         options.addOption(optRightReads);
         
-        builder = Option.builder("o");
-        builder.longOpt("orientation");
-        builder.desc("read pair orientation");
-        builder.hasArg(true);
-        builder.argName("FR|FF|RR|RF");
-        Option optOrientation = builder.build();
-        options.addOption(optOrientation);        
+        builder = Option.builder("rcl");
+        builder.longOpt("revcomp-left");
+        builder.desc("reverse-complement left reads");
+        builder.hasArg(false);
+        Option optRevCompLeft = builder.build();
+        options.addOption(optRevCompLeft);
+
+        builder = Option.builder("rcr");
+        builder.longOpt("revcomp-right");
+        builder.desc("reverse-complement right reads");
+        builder.hasArg(false);
+        Option optRevCompRight = builder.build();
+        options.addOption(optRevCompRight);
         
         builder = Option.builder("ss");
         builder.longOpt("stranded");
@@ -899,7 +928,7 @@ public class RNABloom {
         Option optSeed = builder.build();
         options.addOption(optSeed);
         
-        builder = Option.builder();
+        builder = Option.builder("dh");
         builder.longOpt("dbgbf-hash");
         builder.desc("number of hash functions for de Bruijn graph Bloom filter");
         builder.hasArg(true);
@@ -907,7 +936,7 @@ public class RNABloom {
         Option optDbgbfHash = builder.build();
         options.addOption(optDbgbfHash);
 
-        builder = Option.builder();
+        builder = Option.builder("ch");
         builder.longOpt("cbf-hash");
         builder.desc("number of hash functions for kmer counting Bloom filter");
         builder.hasArg(true);
@@ -915,7 +944,7 @@ public class RNABloom {
         Option optCbfHash = builder.build();
         options.addOption(optCbfHash);
         
-        builder = Option.builder();
+        builder = Option.builder("ph");
         builder.longOpt("pkbf-hash");
         builder.desc("number of hash functions for paired kmers Bloom filter");
         builder.hasArg(true);
@@ -923,27 +952,27 @@ public class RNABloom {
         Option optPkbfHash = builder.build();
         options.addOption(optPkbfHash);        
 
-        builder = Option.builder();
+        builder = Option.builder("dm");
         builder.longOpt("dbgbf-mem");
-        builder.desc("allocate FLOAT-gigabyte for de Bruijn graph Bloom filter");
+        builder.desc("allocate DECIMAL-gigabyte for de Bruijn graph Bloom filter");
         builder.hasArg(true);
-        builder.argName("FLOAT");
+        builder.argName("DECIMAL");
         Option optDbgbfMem = builder.build();
         options.addOption(optDbgbfMem);
 
-        builder = Option.builder();
+        builder = Option.builder("cm");
         builder.longOpt("cbf-mem");
-        builder.desc("allocate FLOAT-gigabyte for kmer counting Bloom filter");
+        builder.desc("allocate DECIMAL-gigabyte for kmer counting Bloom filter");
         builder.hasArg(true);
-        builder.argName("FLOAT");
+        builder.argName("DECIMAL");
         Option optCbfMem = builder.build();
         options.addOption(optCbfMem);
         
-        builder = Option.builder();
+        builder = Option.builder("pm");
         builder.longOpt("pkbf-mem");
-        builder.desc("allocate FLOAT-gigabyte for paired kmers Bloom filter");
+        builder.desc("allocate DECIMAL-gigabyte for paired kmers Bloom filter");
         builder.hasArg(true);
-        builder.argName("FLOAT");
+        builder.argName("DECIMAL");
         Option optPkbfMem = builder.build();
         options.addOption(optPkbfMem);
         
@@ -963,7 +992,7 @@ public class RNABloom {
         Option optTipLength = builder.build();
         options.addOption(optTipLength);  
         
-        builder = Option.builder("a");
+        builder = Option.builder("la");
         builder.longOpt("lookahead");
         builder.desc("number of kmers to look ahead during graph traversal");
         builder.hasArg(true);
@@ -971,7 +1000,7 @@ public class RNABloom {
         Option optLookahead = builder.build();
         options.addOption(optLookahead);        
         
-        builder = Option.builder("o");
+        builder = Option.builder("ol");
         builder.longOpt("overlap");
         builder.desc("min number of overlapping bases between mates");
         builder.hasArg(true);
@@ -1002,52 +1031,68 @@ public class RNABloom {
             
             /**@TODO evaluate options*/
 
-            ///*
-            String fastq1 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
-            String fastq2 = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left        
+            /*
+            String fastqLeft = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left
+            String fastqRight = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
+
             String fragsDirPath = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments";
             String transcriptsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/transcripts.fa";
             String graphFile = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/graph";
-            //*/
+            */
             /*
             String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
             String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
             String fragsFasta = "/home/gengar/test_assemblies/GAPDH/fragments.fa";
             String transcriptsFasta = "/home/gengar/test_assemblies/GAPDH/transcripts.fa";
             String graphFile = "/home/gengar/test_assemblies/GAPDH/graph";
-            */        
-
-            boolean revComp1 = true;
-            boolean revComp2 = false;
-
-            int mismatchesAllowed = 5;
-            int bound = 500;
-            int lookahead = 5;
-            int minOverlap = 10;
-            int maxTipLen = 10;
-
-            String[] forwardFastqs = new String[]{fastq2};
-            String[] backwardFastqs = new String[]{fastq1};
-
-            boolean strandSpecific = true;
-            long dbgbfSize = NUM_BITS_1GB;
-            long cbfSize = NUM_BYTES_1GB;
-            long pkbfSize = NUM_BITS_1GB;
-            int dbgbfNumHash = 3;
-            int cbfNumHash = 4;
-            int pkbfNumHash = 1;
-            int seed = 689;
-            int k = 25;
-            int qDBG = 3;
-            int qFrag = 3;
-            int sampleSize = 1000;
-
-
+            */
+            
+            String name = line.getOptionValue(optName.getOpt(), "rna-bloom");
+            String outdir = line.getOptionValue(optOutdir.getOpt(), System.getProperty("user.dir") + File.separator + name + "_assembly");
+            
+            String fragsDirPath = outdir + File.separator + "fragments";
+            String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
+            String graphFile = outdir + File.separator + name + ".graph";
+            
+            String fastqLeft = line.getOptionValue(optLeftReads.getOpt());
+            String fastqRight = line.getOptionValue(optRightReads.getOpt());
+            
+            boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
+            boolean revCompRight = line.hasOption(optRevCompRight.getOpt());
+            boolean strandSpecific = line.hasOption(optStranded.getOpt());
+            
+            int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "25"));
+            int qDBG = Integer.parseInt(line.getOptionValue(optBaseQual.getOpt(), "3"));
+            int qFrag = qDBG;
+            int seed = Integer.parseInt(line.getOptionValue(optSeed.getOpt(), "689"));
+            
+            long dbgbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), "1")));
+            long cbfSize = (long) (NUM_BYTES_1GB * Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), "1")));
+            long pkbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), "1")));
+            
+            int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), "3"));
+            int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), "4"));
+            int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), "1"));
+                        
+            int mismatchesAllowed = Integer.parseInt(line.getOptionValue(optMismatch.getOpt(), "5"));
+            int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), "10"));
+            int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
+            int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
+            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "5"));
+            int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
+            
             boolean saveGraph = true;
-            boolean loadGraph = true;
+            boolean loadGraph = false;
             boolean saveKmerPairs = true;
-            boolean loadKmerPairs = true;
+            boolean loadKmerPairs = false;
 
+            System.out.println("name: " + name);
+            System.out.println("outdir: " + outdir);
+            
+            File f = new File(outdir);
+            if (!f.exists()) {
+                f.mkdirs();
+            }
 
             RNABloom assembler = new RNABloom(k, qDBG, qFrag);
 
@@ -1056,6 +1101,9 @@ public class RNABloom {
                 assembler.restoreGraph(new File(graphFile));
             }
             else {
+                String[] forwardFastqs = new String[]{fastqLeft};
+                String[] backwardFastqs = new String[]{fastqRight};
+                
                 assembler.createGraph(forwardFastqs, backwardFastqs, strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed);
 
                 if (saveGraph) {
@@ -1064,7 +1112,7 @@ public class RNABloom {
                 }
             }
 
-            FastqPair fqPair = new FastqPair(fastq2, fastq1, revComp2, revComp1);
+            FastqPair fqPair = new FastqPair(fastqLeft, fastqRight, revCompLeft, revCompRight);
             FastqPair[] fqPairs = new FastqPair[]{fqPair};        
 
             File fragsDir = new File(fragsDirPath);
