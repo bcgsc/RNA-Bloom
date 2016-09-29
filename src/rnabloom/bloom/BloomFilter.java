@@ -48,6 +48,7 @@ public class BloomFilter implements BloomFilterInterface {
     private static final String LABEL_SEPARATOR = ":";
     private static final String LABEL_SIZE = "size";
     private static final String LABEL_NUM_HASH = "numhash";
+    private static final String LABEL_FPR = "fpr";
     
     public BloomFilter(File desc, File bits, HashFunction hashFunction) throws FileNotFoundException, IOException {
         
@@ -89,7 +90,8 @@ public class BloomFilter implements BloomFilterInterface {
         FileWriter writer = new FileWriter(desc);
         
         writer.write(LABEL_SIZE + LABEL_SEPARATOR + this.size + "\n" +
-                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n");
+                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n" +
+                    LABEL_FPR + LABEL_SEPARATOR + this.getFPR());
         writer.close();
         
         FileOutputStream out = new FileOutputStream(bits);

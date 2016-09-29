@@ -53,6 +53,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     private static final String LABEL_SEPARATOR = ":";
     private static final String LABEL_SIZE = "size";
     private static final String LABEL_NUM_HASH = "numhash";
+    private static final String LABEL_FPR = "fpr";
     
     public CountingBloomFilter(File desc, File bytes, HashFunction hashFunction) throws FileNotFoundException, IOException {        
         BufferedReader br = new BufferedReader(new FileReader(desc));
@@ -93,7 +94,8 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         FileWriter writer = new FileWriter(desc);
         
         writer.write(LABEL_SIZE + LABEL_SEPARATOR + this.size + "\n" +
-                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n");
+                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n" +
+                    LABEL_FPR + LABEL_SEPARATOR + this.getFPR());
         writer.close();
         
         FileOutputStream out = new FileOutputStream(bytes);
