@@ -778,21 +778,21 @@ public class RNABloom {
                 fin.close();
                 
                 Collections.sort(frags, fragComp);
-                KmerIterator fragItr = new KmerIterator(k);
-                KmerIterator txptItr = new KmerIterator(k);
+                KmerIterator fragKmerItr = new KmerIterator(k);
+                KmerIterator txptKmerItr = new KmerIterator(k);
                 for (Fragment fragment : frags) {
                     String fragmentSeq = fragment.seq;
-                    fragItr.initialize(fragmentSeq);
+                    fragKmerItr.initialize(fragmentSeq);
                     
-                    while (fragItr.hasNext()) {
-                        if (!assembledKmers.contains(fragItr.next())) {
+                    while (fragKmerItr.hasNext()) {
+                        if (!assembledKmers.contains(fragKmerItr.next())) {
                             
                             String transcript = assembleTranscript(fragmentSeq, graph, lookAhead, covGradient, assembledKmers);
-                            fout.write("c" + clusterId + "_t" + Integer.toString(++cid) + " " + fragmentSeq, transcript);
+                            fout.write("c" + clusterId + "_t" + Integer.toString(++cid), transcript);
                             
-                            txptItr.initialize(transcript);
-                            while (txptItr.hasNext()) {
-                                assembledKmers.add(txptItr.next());
+                            txptKmerItr.initialize(transcript);
+                            while (txptKmerItr.hasNext()) {
+                                assembledKmers.add(txptKmerItr.next());
                             }
 
                             break;
