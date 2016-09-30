@@ -456,7 +456,7 @@ public class RNABloom {
     }
     
     public void assembleFragments(FastqPair[] fastqs, String outDir, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
-        System.out.println("Assembling fragments ...");
+        System.out.println("Assembling fragments...");
         
         graph.initializePairKmersBloomFilter();
         
@@ -566,7 +566,7 @@ public class RNABloom {
                                     int whisker = (fragmentLengths[sampleSize*3/4] - fragmentLengths[sampleSize/4]) * 3/2;
                                     bound = medianFragLen + whisker;
 
-                                    System.out.println("longest fragment allowed: " + bound);
+                                    System.out.println("Max graph traversal depth: " + bound);
 
                                     /** clear sample fragment lengths */
                                     fragmentLengths = null;
@@ -742,19 +742,22 @@ public class RNABloom {
     }
         
     public void assembleTranscripts(String fragsDirPath, String outFasta, int lookAhead, float covGradient) {
+        System.out.println("Assembling transcripts...");
         long numFragmentsParsed = 0;
         boolean append = false;
         FilenameFilter fragsFilenameFilter = (File dir, String name) -> name.endsWith(".fa");
         
         try {
             File fragsDir = new File(fragsDirPath);
-            System.out.println("Parsing fragments in `" + fragsDir.getName() + "`...");
-            
             FastaWriter fout = new FastaWriter(outFasta, append);
             
             FragmentComparator fragComp = new FragmentComparator();
             
-            for (File inFasta : fragsDir.listFiles(fragsFilenameFilter)) {
+            File[] fragFiles = fragsDir.listFiles(fragsFilenameFilter);
+            System.out.println("Found " + fragFiles.length + " clusters...");
+            System.out.println("Parsing fragments in `" + fragsDir.getName() + "`...");
+            
+            for (File inFasta : fragFiles) {
                 ArrayList<Fragment> frags = new ArrayList<>();
                 KmerSet assembledKmers = new KmerSet(strandSpecific);
                 
