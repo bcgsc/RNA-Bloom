@@ -851,6 +851,7 @@ public class RNABloom {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
+        final String STARTED = "STARTED";
         final String DBG_DONE = "DBG.DONE";
         final String FRAGMENTS_DONE = "FRAGMENTS.DONE";
         final String TRANSCRIPTS_DONE = "TRANSCRIPTS.DONE";
@@ -1067,6 +1068,7 @@ public class RNABloom {
             String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
             String graphFile = outdir + File.separator + name + ".graph";
             
+            File startedStamp = new File(outdir + File.separator + STARTED);
             File dbgDoneStamp = new File(outdir + File.separator + DBG_DONE);
             File fragsDoneStamp = new File(outdir + File.separator + FRAGMENTS_DONE);
             File txptsDoneStamp = new File(outdir + File.separator + TRANSCRIPTS_DONE);
@@ -1111,6 +1113,12 @@ public class RNABloom {
 
             RNABloom assembler = new RNABloom(k, qDBG, qFrag);
 
+            try {
+                touch(startedStamp);
+            } catch (IOException ex) {
+                Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            
             if (!forceOverwrite && dbgDoneStamp.exists()) {
                 System.out.println("Loading graph from file `" + graphFile + "`...");
                 assembler.restoreGraph(new File(graphFile));
