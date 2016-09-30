@@ -755,7 +755,7 @@ public class RNABloom {
             
             File[] fragFiles = fragsDir.listFiles(fragsFilenameFilter);
             System.out.println("Found " + fragFiles.length + " clusters...");
-            System.out.println("Parsing fragments in `" + fragsDir.getName() + "`...");
+            System.out.println("Parsing fragments *.fa in `" + fragsDir.getName() + "`...");
             
             for (File inFasta : fragFiles) {
                 ArrayList<Fragment> frags = new ArrayList<>();
