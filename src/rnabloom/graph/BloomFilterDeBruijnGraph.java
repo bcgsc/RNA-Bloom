@@ -20,6 +20,7 @@ import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysBloomFilter;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.SmallestStrandHashFunction;
+import rnabloom.util.SeqUtils.KmerIterator;
 import static rnabloom.util.SeqUtils.getNumKmers;
 import static rnabloom.util.SeqUtils.kmerize;
 
@@ -452,29 +453,17 @@ public class BloomFilterDeBruijnGraph {
         
         return counts;
     }
-    
-    public float getMinKmerCoverage(String seq) {
-        float min = Float.POSITIVE_INFINITY;
-        for (String kmer : kmerize(seq, k)) {
-            float c = getCount(kmer);
-            if (c < min) {
-                min = c;
-                if (min < 1) {
-                    return min;
-                }
-            }
-        }
-        return min;
-    }
-    
+        
     public float[] getMinMedianMaxKmerCoverage(String seq) {
         float[] minMedianMax = new float[3];
-        final int numKmers = getNumKmers(seq, k);
-        final int halfNumKmers = numKmers/2;
         
+        KmerIterator itr = new KmerIterator(seq, k);
+        final int numKmers = itr.numKmers;
+        final int halfNumKmers = numKmers/2;
         ArrayList<Float> counts = new ArrayList<>(numKmers);
-        for (String kmer : kmerize(seq, k)) {
-            counts.add(cbf.getCount(kmer));
+        
+        while (itr.hasNext()) {
+            counts.add(cbf.getCount(itr.next()));
         }
         
         Collections.sort(counts);
@@ -491,57 +480,24 @@ public class BloomFilterDeBruijnGraph {
         
         return minMedianMax;
     }
-    
-    public float getMedianKmerCoverage(String seq){
-        return getMedianKmerCoverage(kmerize(seq, k));
-    }
-    
-    public float getMedianKmerCoverage(String[] kmers) {
-        final int numKmers = kmers.length;
-        final int halfNumKmers = numKmers/2;
-        
-        ArrayList<Float> counts = new ArrayList<>(numKmers);
-        for (String kmer : kmers) {
-            counts.add(cbf.getCount(kmer));
-        }
-        
-        Collections.sort(counts);
-        
-        if (numKmers % 2 == 0) {
-            return (counts.get(halfNumKmers) + counts.get(halfNumKmers -1))/2.0f;
-        }
-        
-        return counts.get(halfNumKmers);
-    }
         
     public boolean isValidSeq(String seq) {
-        return containsAll(kmerize(seq, k));
-    }
-    
-    public boolean isValidSeq(Collection<Kmer> kmers) {
-        for (Kmer kmer : kmers) {
-            if (kmer.count == 0) {
+        KmerIterator itr = new KmerIterator(seq, k);
+        while (itr.hasNext()) {
+            if (!contains(itr.next())) {
                 return false;
             }
         }
-        return true;
-    }
-    
-    public boolean containsAll(String[] kmers) {
-        for (String kmer : kmers) {
-            if (!contains(kmer)) {
-                return false;
-            }
-        }
+                
         return true;
     }
     
     public ArrayList<Kmer> getKmers(String seq) {
-        final int numKmers = getNumKmers(seq, k);
-        ArrayList<Kmer> result = new ArrayList<>(numKmers);
+        KmerIterator itr = new KmerIterator(seq, k);
+        ArrayList<Kmer> result = new ArrayList<>(itr.numKmers);
         
-        for (int i=0; i<numKmers; ++i) {
-            result.add(getKmer(seq.substring(i, i+k)));
+        while (itr.hasNext()) {
+            result.add(getKmer(itr.next()));
         }
         
         return result;

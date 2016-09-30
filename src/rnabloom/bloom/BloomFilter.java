@@ -90,8 +90,7 @@ public class BloomFilter implements BloomFilterInterface {
         FileWriter writer = new FileWriter(desc);
         
         writer.write(LABEL_SIZE + LABEL_SEPARATOR + this.size + "\n" +
-                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n" +
-                    LABEL_FPR + LABEL_SEPARATOR + this.getFPR());
+                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n");
         writer.close();
         
         FileOutputStream out = new FileOutputStream(bits);

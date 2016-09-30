@@ -191,17 +191,18 @@ public class RNABloom {
     
     private boolean okToConnectPair(ReadPair p) {
         if (p.left.length() >= k && p.right.length() >= k) {
-            String[] leftKmers = kmerize(p.left, k);
-            String[] rightKmers = kmerize(p.right, k);
             int threshold = 2*k-1;
             int highCov = 16;
 
             int numCov1Kmers = 0;
             int numHighCovKmers = 0; // >
+            float c;
             
             int numLeftAssembled = 0;
-            float c;
-            for (String s : leftKmers) {
+            
+            KmerIterator leftItr = new KmerIterator(p.left, k);
+            while (leftItr.hasNext()) {
+                String s = leftItr.next();
                 if (graph.lookupFragmentKmer(s)) {
                     ++numLeftAssembled;
                 }
@@ -213,14 +214,17 @@ public class RNABloom {
                 else if (c > highCov) {
                     ++numHighCovKmers;
                 }
+                
+                if (numCov1Kmers > 0 && numHighCovKmers >= k) {
+                    return false;
+                }
             }
-
-            if (numCov1Kmers > 0 && numHighCovKmers >= k) {
-                return false;
-            }
-            
+                        
             int numRightAssembled = 0;
-            for (String s : rightKmers) {
+            KmerIterator rightItr = new KmerIterator(p.right, k);
+            while (rightItr.hasNext()) {
+                String s = rightItr.next();
+                
                 if (graph.lookupFragmentKmer(s)) {
                     ++numRightAssembled;
                 }
@@ -232,13 +236,14 @@ public class RNABloom {
                 else if (c > highCov) {
                     ++numHighCovKmers;
                 }
-            }
-            
-            if (numCov1Kmers > 0 && numHighCovKmers >= k) {
-                return false;
+                
+                if (numCov1Kmers > 0 && numHighCovKmers >= k) {
+                    return false;
+                }
             }
 
-            if ((numLeftAssembled <= threshold && leftKmers.length - numLeftAssembled > 0) || (numRightAssembled <= threshold && rightKmers.length - numRightAssembled > 0)) {
+            if ((numLeftAssembled <= threshold && leftItr.numKmers - numLeftAssembled > 0) ||
+                    (numRightAssembled <= threshold && rightItr.numKmers - numRightAssembled > 0)) {
                 return true;
             }
         }
@@ -757,7 +762,7 @@ public class RNABloom {
                 
                 /** sort fragments by min kmer count */
                 
-                ArrayList<Fragment> frags = new ArrayList<>(100);
+                ArrayList<Fragment> frags = new ArrayList<>();
                 
                 while (fin.hasNext()) {
                     if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
@@ -770,18 +775,20 @@ public class RNABloom {
                 fin.close();
                 
                 Collections.sort(frags, fragComp);
-                
+                KmerIterator fragItr, txptItr;
                 for (Fragment fragment : frags) {
-                    String seq = fragment.seq;
+                    String fragmentSeq = fragment.seq;
+                    fragItr = new KmerIterator(fragmentSeq, k);
                     
-                    for (String kmer : kmerize(seq, k)) {
-                        if (!assembledKmers.contains(kmer)) {
+                    while (fragItr.hasNext()) {
+                        if (!assembledKmers.contains(fragItr.next())) {
                             
-                            String transcript = assembleTranscript(seq, graph, lookAhead, covGradient, assembledKmers);
-                            fout.write("c" + clusterId + "_t" + Integer.toString(++cid) + " " + seq, transcript);
-
-                            for (String kmer2 : kmerize(transcript, k)) {
-                                assembledKmers.add(kmer2);
+                            String transcript = assembleTranscript(fragmentSeq, graph, lookAhead, covGradient, assembledKmers);
+                            fout.write("c" + clusterId + "_t" + Integer.toString(++cid) + " " + fragmentSeq, transcript);
+                            
+                            txptItr = new KmerIterator(transcript, k);
+                            while (txptItr.hasNext()) {
+                                assembledKmers.add(txptItr.next());
                             }
 
                             break;
