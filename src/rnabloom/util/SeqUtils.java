@@ -37,15 +37,24 @@ public final class SeqUtils {
     }
     
     public static class KmerIterator implements Iterator<String> {
-        private final String seq;
-        private final int k;
+        private String seq;
+        private int k;
         private int i = 0;
-        public final int numKmers;
+        public int numKmers;
         
-        public KmerIterator(String seq, int k) {
-            this.seq = seq;
+        public KmerIterator(int k) {
             this.k = k;
+        }
+
+        public KmerIterator(String seq, int k) {
+            this.k = k;
+            initialize(seq);
+        }
+        
+        public final void initialize(String seq) {
+            this.seq = seq;
             this.numKmers = seq.length() - k + 1;
+            i = 0;
         }
 
         @Override

@@ -735,6 +735,10 @@ public class RNABloom {
         private boolean containsNonStranded(String s) {
             return set.contains(smallestStrand(s));
         }
+        
+        public void clear() {
+            set.clear();
+        }
     }
         
     public void assembleTranscripts(String fragsDirPath, String outFasta, int lookAhead, float covGradient) {
@@ -744,26 +748,25 @@ public class RNABloom {
         
         try {
             File fragsDir = new File(fragsDirPath);
-            System.out.println("Looking for fragments in `" + fragsDir.getName() + "`...");
+            System.out.println("Parsing fragments in `" + fragsDir.getName() + "`...");
             
             FastaWriter fout = new FastaWriter(outFasta, append);
             
-            KmerSet assembledKmers = new KmerSet(strandSpecific);
             FragmentComparator fragComp = new FragmentComparator();
             
             for (File inFasta : fragsDir.listFiles(fragsFilenameFilter)) {
+                ArrayList<Fragment> frags = new ArrayList<>();
+                KmerSet assembledKmers = new KmerSet(strandSpecific);
+                
                 FastaReader fin = new FastaReader(inFasta);
                 String fileName = inFasta.getName();
                 
-                System.out.println("Parsing `" + fileName + "`...");
+                //System.out.println("Parsing `" + fileName + "`...");
                 
                 String clusterId = fileName.substring(0, fileName.indexOf("."));
                 int cid = 0;
                 
                 /** sort fragments by min kmer count */
-                
-                ArrayList<Fragment> frags = new ArrayList<>();
-                
                 while (fin.hasNext()) {
                     if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments...");
@@ -775,10 +778,11 @@ public class RNABloom {
                 fin.close();
                 
                 Collections.sort(frags, fragComp);
-                KmerIterator fragItr, txptItr;
+                KmerIterator fragItr = new KmerIterator(k);
+                KmerIterator txptItr = new KmerIterator(k);
                 for (Fragment fragment : frags) {
                     String fragmentSeq = fragment.seq;
-                    fragItr = new KmerIterator(fragmentSeq, k);
+                    fragItr.initialize(fragmentSeq);
                     
                     while (fragItr.hasNext()) {
                         if (!assembledKmers.contains(fragItr.next())) {
@@ -786,7 +790,7 @@ public class RNABloom {
                             String transcript = assembleTranscript(fragmentSeq, graph, lookAhead, covGradient, assembledKmers);
                             fout.write("c" + clusterId + "_t" + Integer.toString(++cid) + " " + fragmentSeq, transcript);
                             
-                            txptItr = new KmerIterator(transcript, k);
+                            txptItr.initialize(transcript);
                             while (txptItr.hasNext()) {
                                 assembledKmers.add(txptItr.next());
                             }
@@ -795,7 +799,6 @@ public class RNABloom {
                         }
                     }
                 }
-                
                 
             }
             
