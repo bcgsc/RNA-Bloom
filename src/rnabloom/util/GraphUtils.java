@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import rnabloom.RNABloom.KmerSet;
@@ -44,29 +45,29 @@ public final class GraphUtils {
     }
     
     public static float getMaxMedianCoverageRight(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead) {
-        LinkedList<Kmer> candidates = graph.getSuccessors(source);
+        Iterator<Kmer> itr = graph.getSuccessors(source).iterator();
         
-        if (candidates.isEmpty()) {
+        if (!itr.hasNext()) {
             return source.count;
         }
         else {
-            Kmer cursor = candidates.pop();
+            Kmer cursor = itr.next();
             ArrayList<Kmer> path = new ArrayList<>(lookahead); 
             path.add(source);
             path.add(cursor);
 
-            ArrayList<LinkedList<Kmer>> frontier = new ArrayList<>(lookahead);
-            frontier.add(candidates);
+            ArrayList<Iterator<Kmer>> frontier = new ArrayList<>(lookahead);
+            frontier.add(itr);
 
             float bestCov = 0;
 
             while (!frontier.isEmpty()) {
                 if (path.size() < lookahead) {
-                    candidates = graph.getSuccessors(cursor);
-                    if (!candidates.isEmpty()) {
-                        cursor = candidates.pop();
+                    itr = graph.getSuccessors(cursor).iterator();
+                    if (itr.hasNext()) {
+                        cursor = itr.next();
                         path.add(cursor);
-                        frontier.add(candidates);
+                        frontier.add(itr);
                         continue;
                     }
                 }
@@ -78,14 +79,14 @@ public final class GraphUtils {
 
                 int i = path.size()-2;
                 while (i >= 0) {
-                    candidates = frontier.get(i);
+                    itr = frontier.get(i);
                     path.remove(i+1);
-                    if (candidates.isEmpty()) {
+                    if (!itr.hasNext()) {
                         frontier.remove(i);
                         --i;
                     }
                     else {
-                        cursor = candidates.pop();
+                        cursor = itr.next();
                         path.add(cursor);
                         break;
                     }
@@ -97,29 +98,29 @@ public final class GraphUtils {
     }
 
     public static float getMaxMedianCoverageLeft(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead) {
-        LinkedList<Kmer> candidates = graph.getPredecessors(source);
+        Iterator<Kmer> itr = graph.getPredecessors(source).iterator();
         
-        if (candidates.isEmpty()) {
+        if (!itr.hasNext()) {
             return source.count;
         }
         else {
-            Kmer cursor = candidates.pop();
+            Kmer cursor = itr.next();
             ArrayList<Kmer> path = new ArrayList<>(lookahead);
             path.add(source);
             path.add(cursor);
 
-            ArrayList<LinkedList<Kmer>> frontier = new ArrayList<>(lookahead);
-            frontier.add(candidates);
+            ArrayList<Iterator<Kmer>> frontier = new ArrayList<>(lookahead);
+            frontier.add(itr);
 
             float bestCov = 0;
 
             while (!frontier.isEmpty()) {
                 if (path.size() < lookahead) {
-                    candidates = graph.getPredecessors(cursor);
-                    if (!candidates.isEmpty()) {
-                        cursor = candidates.pop();
+                    itr = graph.getPredecessors(cursor).iterator();
+                    if (itr.hasNext()) {
+                        cursor = itr.next();
                         path.add(cursor);
-                        frontier.add(candidates);
+                        frontier.add(itr);
                         continue;
                     }
                 }
@@ -131,14 +132,14 @@ public final class GraphUtils {
 
                 int i = path.size()-2;
                 while (i >= 0) {
-                    candidates = frontier.get(i);
+                    itr = frontier.get(i);
                     path.remove(i+1);
-                    if (candidates.isEmpty()) {
+                    if (!itr.hasNext()) {
                         frontier.remove(i);
                         --i;
                     }
                     else {
-                        cursor = candidates.pop();
+                        cursor = itr.next();
                         path.add(cursor);
                         break;
                     }

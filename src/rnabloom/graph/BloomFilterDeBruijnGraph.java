@@ -12,7 +12,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import rnabloom.bloom.BloomFilter;
@@ -311,6 +310,8 @@ public class BloomFilterDeBruijnGraph {
     public static class Kmer {
         public String seq;
         public float count;
+        public LinkedList<Kmer> predecessors = null;
+        public LinkedList<Kmer> successors = null;
         
         public Kmer(String seq, float count) {
             this.seq = seq;
@@ -331,6 +332,10 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public LinkedList<Kmer> getPredecessors(Kmer kmer) {
+        if (kmer.predecessors != null) {
+            return kmer.predecessors;
+        }
+        
         LinkedList<Kmer> result = new LinkedList<>();
         final String prefix = getPrefix(kmer.seq);
         String v;
@@ -346,6 +351,9 @@ public class BloomFilterDeBruijnGraph {
                 }
             }
         }
+        
+        kmer.predecessors = result;
+        
         return result;
     }
     
@@ -369,6 +377,10 @@ public class BloomFilterDeBruijnGraph {
     }
 
     public LinkedList<Kmer> getSuccessors(Kmer kmer) {
+        if (kmer.successors != null) {
+            return kmer.successors;
+        }
+        
         LinkedList<Kmer> result = new LinkedList<>();
         final String suffix = getSuffix(kmer.seq);
         String v;
@@ -384,6 +396,9 @@ public class BloomFilterDeBruijnGraph {
                 }
             }
         }
+        
+        kmer.successors = result;
+        
         return result;
     }
     

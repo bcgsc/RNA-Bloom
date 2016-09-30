@@ -461,7 +461,6 @@ public class RNABloom {
         graph.initializePairKmersBloomFilter();
         
         long readPairsParsed = 0;
-        int correctionWorks = 0;
         
         ArrayList<Integer> clustersMaxContigId = new ArrayList<>(10000);
         
@@ -609,9 +608,6 @@ public class RNABloom {
                             */
                         }
                     }
-                    else {
-                        ++correctionWorks;
-                    }
                 }
 
                 lin.close();
@@ -621,7 +617,6 @@ public class RNABloom {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
-            System.out.println(correctionWorks + " reads not needed for assembly due to correction");
         }
     }
     
