@@ -830,13 +830,27 @@ public class RNABloom {
         }
     }
     
+    public static void touch(File f) throws IOException {
+        f.getParentFile().mkdirs();
+        if (!f.createNewFile()){
+            f.setLastModified(System.currentTimeMillis());
+        }
+    }
+    
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
+        final String DBG_DONE = "DBG.DONE";
+        final String FRAGMENTS_DONE = "FRAGMENTS.DONE";
+        final String TRANSCRIPTS_DONE = "TRANSCRIPTS.DONE";
+        
         System.out.println("args: " + Arrays.toString(args));
         
         // -left /projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/gapdh
+        // -left /home/gengar/test_data/GAPDH/GAPDH_2.fq.gz -right /home/gengar/test_data/GAPDH/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /home/gengar/test_assemblies/GAPDH
+
+        // -dm 1.5 -cm 1.5 -pm 1 -left /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_2.fq -right /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_1.fq -revcomp-right -stranded -name SRR1360926 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1360926
         
         // Based on: http://commons.apache.org/proper/commons-cli/usage.html
         CommandLineParser parser = new DefaultParser();
@@ -844,9 +858,7 @@ public class RNABloom {
         Options options = new Options();
 
         Builder builder;
-        
-        /**@TODO add option to load Bloom filters from disk */
-        
+                
         builder = Option.builder("n");
         builder.longOpt("name");
         builder.desc("assembly name");
@@ -864,6 +876,13 @@ public class RNABloom {
         //builder.required(true);
         Option optOutdir = builder.build();
         options.addOption(optOutdir);
+        
+        builder = Option.builder("f");
+        builder.longOpt("force");
+        builder.desc("force overwrite existing files");
+        builder.hasArg(false);
+        Option optForce = builder.build();
+        options.addOption(optForce);
         
         builder = Option.builder("l");
         builder.longOpt("left");
@@ -1029,23 +1048,7 @@ public class RNABloom {
         try {
             CommandLine line = parser.parse(options, args);
             
-            /**@TODO evaluate options*/
-
-            /*
-            String fastqLeft = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz"; //left
-            String fastqRight = "/projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz"; //right
-
-            String fragsDirPath = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/fragments";
-            String transcriptsFasta = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/transcripts.fa";
-            String graphFile = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/graph";
-            */
-            /*
-            String fastq1 = "/home/gengar/test_data/GAPDH/GAPDH_1.fq.gz";
-            String fastq2 = "/home/gengar/test_data/GAPDH/GAPDH_2.fq.gz";
-            String fragsFasta = "/home/gengar/test_assemblies/GAPDH/fragments.fa";
-            String transcriptsFasta = "/home/gengar/test_assemblies/GAPDH/transcripts.fa";
-            String graphFile = "/home/gengar/test_assemblies/GAPDH/graph";
-            */
+            boolean forceOverwrite = line.hasOption(optForce.getOpt());
             
             String name = line.getOptionValue(optName.getOpt(), "rna-bloom");
             String outdir = line.getOptionValue(optOutdir.getOpt(), System.getProperty("user.dir") + File.separator + name + "_assembly");
@@ -1053,6 +1056,10 @@ public class RNABloom {
             String fragsDirPath = outdir + File.separator + "fragments";
             String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
             String graphFile = outdir + File.separator + name + ".graph";
+            
+            File dbgDoneStamp = new File(outdir + File.separator + DBG_DONE);
+            File fragsDoneStamp = new File(outdir + File.separator + FRAGMENTS_DONE);
+            File txptsDoneStamp = new File(outdir + File.separator + TRANSCRIPTS_DONE);
             
             String fastqLeft = line.getOptionValue(optLeftReads.getOpt());
             String fastqRight = line.getOptionValue(optRightReads.getOpt());
@@ -1082,9 +1089,7 @@ public class RNABloom {
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
             
             boolean saveGraph = true;
-            boolean loadGraph = false;
             boolean saveKmerPairs = true;
-            boolean loadKmerPairs = false;
 
             System.out.println("name: " + name);
             System.out.println("outdir: " + outdir);
@@ -1096,7 +1101,7 @@ public class RNABloom {
 
             RNABloom assembler = new RNABloom(k, qDBG, qFrag);
 
-            if (loadGraph) {
+            if (!forceOverwrite && dbgDoneStamp.exists()) {
                 System.out.println("Loading graph from file `" + graphFile + "`...");
                 assembler.restoreGraph(new File(graphFile));
             }
@@ -1110,6 +1115,12 @@ public class RNABloom {
                     System.out.println("Saving graph to file `" + graphFile + "`...");
                     assembler.saveGraph(new File(graphFile));
                 }
+                
+                try {
+                    touch(dbgDoneStamp);
+                } catch (IOException ex) {
+                    Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
 
             FastqPair fqPair = new FastqPair(fastqLeft, fastqRight, revCompLeft, revCompRight);
@@ -1120,7 +1131,7 @@ public class RNABloom {
                 fragsDir.mkdirs();
             }
 
-            if (loadKmerPairs) {
+            if (!forceOverwrite && fragsDoneStamp.exists()) {
                 System.out.println("Restoring paired kmers Bloom filter from file...");
                 assembler.restorePairedKmersBloomFilter(new File(graphFile));            
             }
@@ -1131,10 +1142,25 @@ public class RNABloom {
                     System.out.println("Saving paired kmers Bloom filter to file...");
                     assembler.savePairedKmersBloomFilter(new File(graphFile));            
                 }
+                
+                try {
+                    touch(fragsDoneStamp);
+                } catch (IOException ex) {
+                    Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
 
-            assembler.assembleTranscripts(fragsDirPath, transcriptsFasta, 10, 0.1f);
-        
+            if (forceOverwrite || !txptsDoneStamp.exists()) {
+                assembler.assembleTranscripts(fragsDirPath, transcriptsFasta, 10, 0.1f);
+
+                try {
+                    touch(txptsDoneStamp);
+                } catch (IOException ex) {
+                    Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            
+            
         }
         catch (ParseException exp) {
             System.out.println("ERROR:" + exp.getMessage() );
