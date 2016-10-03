@@ -673,35 +673,76 @@ public final class GraphUtils {
         return path;
     }
     
-    public static String assembleFragment(String leftRead, String rightRead, BloomFilterDeBruijnGraph graph, int bound, int lookahead, int minOverlap) {
-        
-        // overlap before finding path
-        String overlapped = overlapMaximally(leftRead, rightRead, minOverlap);
-        if (overlapped != null && graph.isValidSeq(overlapped)) {
-            return overlapped;
+    public static String connect(ArrayList<String> segments, BloomFilterDeBruijnGraph graph, int bound, int lookahead) {
+        int numSeqs = segments.size();
+        switch (numSeqs) {
+            case 0:
+                return "";
+            case 1:
+                return segments.get(0);
+            default:
+                String last = segments.get(0);
+                String longest = last;
+                
+                for (int i=1; i<numSeqs; ++i) {
+                    String current = segments.get(i);
+                    
+                    String connected = connect(last, current, graph, bound, lookahead);
+                    int connectedLength = connected.length();
+                    
+                    if (connectedLength > 0) {
+                        last = connected;
+                        
+                        if (connectedLength > longest.length()) {
+                            longest = connected;
+                        }
+                    }
+                    else {
+                        last = current;
+                        
+                        if (current.length() > longest.length()) {
+                            longest = current;
+                        }
+                    }
+                }
+                
+                return longest;
         }
-        
+    }
+    
+    public static String connect(String left, String right, BloomFilterDeBruijnGraph graph, int bound, int lookahead) {
         int k = graph.getK();
         
-        ArrayList<Kmer> pathKmers = getMaxCoveragePath(graph, graph.getKmer(getLastKmer(leftRead, k)), graph.getKmer(getFirstKmer(rightRead, k)), bound, lookahead);
+        ArrayList<Kmer> pathKmers = getMaxCoveragePath(graph, graph.getKmer(getLastKmer(left, k)), graph.getKmer(getFirstKmer(right, k)), bound, lookahead);
         
         if (pathKmers == null || pathKmers.isEmpty()) {
             return "";
         }
         
         String leftWing, rightWing;
-        int leftReadLength = leftRead.length();
+        int leftReadLength = left.length();
         if (leftReadLength == k) {
             // first base only
-            leftWing = leftRead.substring(0, 1);
+            leftWing = left.substring(0, 1);
         }
         else {
-            leftWing = leftRead.substring(0, leftReadLength-k+1);
+            leftWing = left.substring(0, leftReadLength-k+1);
         }
         
-        rightWing = rightRead.substring(k-1);
+        rightWing = right.substring(k-1);
         
         return leftWing + assemble(pathKmers) + rightWing;
+    }
+    
+    public static String overlapThenConnect(String left, String right, BloomFilterDeBruijnGraph graph, int bound, int lookahead, int minOverlap) {
+        
+        // overlap before finding path
+        String overlapped = overlapMaximally(left, right, minOverlap);
+        if (overlapped != null && graph.isValidSeq(overlapped)) {
+            return overlapped;
+        }
+        
+        return connect(left, right, graph, bound, lookahead);
     }
     
     public static String assembleTranscript(String fragment, BloomFilterDeBruijnGraph graph, int lookahead, float covGradient, KmerSet assembledKmers) {

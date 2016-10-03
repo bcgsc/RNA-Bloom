@@ -185,12 +185,12 @@ public class RNABloom {
         return graph;
     }
     
-    private boolean isPolyA(ReadPair p) {
-        return p.right.endsWith("AAAA") || (!graph.isStranded() && p.left.startsWith("TTTT"));
+    private boolean isPolyA(String left, String right) {
+        return right.endsWith("AAAA") || (!graph.isStranded() && left.startsWith("TTTT"));
     }
     
-    private boolean okToConnectPair(ReadPair p) {
-        if (p.left.length() >= k && p.right.length() >= k) {
+    private boolean okToConnectPair(String left, String right) {
+        if (left.length() >= k && right.length() >= k) {
             int threshold = 2*k-1;
             int highCov = 16;
 
@@ -200,7 +200,7 @@ public class RNABloom {
             
             int numLeftAssembled = 0;
             
-            KmerIterator leftItr = new KmerIterator(p.left, k);
+            KmerIterator leftItr = new KmerIterator(left, k);
             while (leftItr.hasNext()) {
                 String s = leftItr.next();
                 if (graph.lookupFragmentKmer(s)) {
@@ -221,7 +221,7 @@ public class RNABloom {
             }
                         
             int numRightAssembled = 0;
-            KmerIterator rightItr = new KmerIterator(p.right, k);
+            KmerIterator rightItr = new KmerIterator(right, k);
             while (rightItr.hasNext()) {
                 String s = rightItr.next();
                 
@@ -487,11 +487,11 @@ public class RNABloom {
                     if (++readPairsParsed % NUM_PARSED_INTERVAL == 0) {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
                     }                    
+
+                    rawLeft = connect(p.left, graph, k+2, lookahead);
+                    rawRight = connect(p.right, graph, k+2, lookahead);
                     
-                    if (okToConnectPair(p)) {
-                        rawLeft = p.left;
-                        rawRight = p.right;
-                        
+                    if (okToConnectPair(rawLeft, rawRight)) {
                         /*
                         if (fid < sampleSize) {
                             if (p.left.length() > k+lookahead*2*2) {
@@ -509,11 +509,11 @@ public class RNABloom {
                         */
                         
                         // correct individual reads
-                        p.left = correctMismatches(rawLeft, graph, lookahead, mismatchesAllowed);
-                        p.right = correctMismatches(rawRight, graph, lookahead, mismatchesAllowed);
+                        String left = correctMismatches(rawLeft, graph, lookahead, mismatchesAllowed);
+                        String right = correctMismatches(rawRight, graph, lookahead, mismatchesAllowed);
                         
-                        if (okToConnectPair(p)) {
-                            String fragment = assembleFragment(p.left, p.right, graph, bound, lookahead, minOverlap);
+                        if (okToConnectPair(left, right)) {
+                            String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
                                                         
                             // correct fragment
                             fragment = correctMismatches(fragment, graph, lookahead, mismatchesAllowed);
