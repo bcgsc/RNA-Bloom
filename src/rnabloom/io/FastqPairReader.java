@@ -94,7 +94,7 @@ public class FastqPairReader implements Iterator<ReadPair> {
         if (rights.isEmpty()) {
             p.right = "";
         }
-        else if (lefts.size() == 1) {
+        else if (rights.size() == 1) {
             p.right = rights.get(0);
         }
         else {
