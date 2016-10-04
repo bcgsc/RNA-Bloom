@@ -91,7 +91,7 @@ public final class SeqUtils {
             kmers.add(seq.substring(i, i+k));
         }
     }
-    
+        
     private final static int CHAR_A_INT = (int) 'A';
     private final static int CHAR_C_INT = (int) 'C';
     private final static int CHAR_G_INT = (int) 'G';
