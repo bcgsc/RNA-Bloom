@@ -1106,6 +1106,127 @@ public final class GraphUtils {
         return false;
     }
     
+    public static String naiveExtendWithSimpleBubblePopping(String fragment, BloomFilterDeBruijnGraph graph, int maxTipLength) {
+        int k = graph.getK();
+        int kMinus1 = k - 1;
+        HashSet<String> fragmentKmers = new HashSet<>(2*(fragment.length()-k+1));
+        kmerizeToCollection(fragment, k, fragmentKmers);
+        
+        LinkedList<String> neighbors = graph.getPredecessors(getFirstKmer(fragment, k));
+        while (neighbors.size() > 0) {
+            String bestExtension = null;
+            String bestPrefix = null;
+            float bestCov = 0;
+            
+            for (String p : neighbors) {
+                String e = naiveExtendLeft(p, graph, maxTipLength, fragmentKmers);
+                if (e.length() > maxTipLength) {
+                    String ext = e + p;
+                    
+                    if (bestExtension == null) {
+                        bestExtension = e + p.charAt(0);
+                        bestPrefix = getFirstKmer(ext, kMinus1);
+                        bestCov = getMedianKmerCoverage(graph.getKmers(ext));
+                    }
+                    else {
+                        String myPrefix = getFirstKmer(ext, kMinus1);
+                        if (bestPrefix.equals(myPrefix)) {
+                            if (Math.abs(e.length() + 1 - bestExtension.length()) <= 1) {
+                                float myCov = getMedianKmerCoverage(graph.getKmers(ext));
+                                if (myCov > bestCov) {
+                                    bestExtension = e + p.charAt(0);
+                                    bestPrefix = myPrefix;
+                                    bestCov = myCov;
+                                }
+                            }
+                            else {
+                                bestExtension = null;
+                                bestPrefix = null;
+                                bestCov = 0;
+                                break;
+                            }
+                        }
+                        else {
+                            bestExtension = null;
+                            bestPrefix = null;
+                            bestCov = 0;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (bestExtension == null) {
+                break;
+            }
+            else {
+                fragment = bestExtension + fragment;
+            }
+            
+            /**@TODO extend to junction kmer*/
+            
+            neighbors = graph.getPredecessors(getFirstKmer(fragment, k));
+        }
+        
+        neighbors = graph.getSuccessors(getLastKmer(fragment, k));
+        while (neighbors.size() > 0) {
+            String bestExtension = null;
+            String bestPrefix = null;
+            float bestCov = 0;
+            
+            for (String s : neighbors) {
+                String e = naiveExtendRight(s, graph, maxTipLength, fragmentKmers);
+                if (e.length() > maxTipLength) {
+                    String ext = s + e;
+                    
+                    if (bestExtension == null) {
+                        bestExtension = s.charAt(kMinus1) + e;
+                        bestPrefix = getLastKmer(ext, kMinus1);
+                        bestCov = getMedianKmerCoverage(graph.getKmers(ext));
+                    }
+                    else {
+                        String myPrefix = getLastKmer(ext, kMinus1);
+                        if (bestPrefix.equals(myPrefix)) {
+                            if (Math.abs(e.length() + 1 - bestExtension.length()) <= 1) {
+                                float myCov = getMedianKmerCoverage(graph.getKmers(ext));
+                                if (myCov > bestCov) {
+                                    bestExtension = s.charAt(kMinus1) + e;
+                                    bestPrefix = myPrefix;
+                                    bestCov = myCov;
+                                }
+                            }
+                            else {
+                                bestExtension = null;
+                                bestPrefix = null;
+                                bestCov = 0;
+                                break;
+                            }
+                        }
+                        else {
+                            bestExtension = null;
+                            bestPrefix = null;
+                            bestCov = 0;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (bestExtension == null) {
+                break;
+            }
+            else {
+                fragment = fragment + bestExtension;
+            }
+            
+            /**@TODO extend to junction kmer*/
+            
+            neighbors = graph.getSuccessors(getLastKmer(fragment, k));
+        }
+        
+        return fragment;
+    }
+    
     public static String naiveExtend(String fragment, BloomFilterDeBruijnGraph graph, int maxTipLength) {
         int k = graph.getK();
         HashSet<String> fragmentKmers = new HashSet<>(2*(fragment.length()-k+1));
@@ -1113,7 +1234,6 @@ public final class GraphUtils {
         
         return naiveExtendLeft(getFirstKmer(fragment, k), graph, maxTipLength, fragmentKmers) + fragment + naiveExtendRight(getLastKmer(fragment, k), graph, maxTipLength, fragmentKmers);
     }
-    
     
     private static String naiveExtendRight(String kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
         StringBuilder sb = new StringBuilder(100);
