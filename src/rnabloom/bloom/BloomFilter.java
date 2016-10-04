@@ -90,7 +90,8 @@ public class BloomFilter implements BloomFilterInterface {
         FileWriter writer = new FileWriter(desc);
         
         writer.write(LABEL_SIZE + LABEL_SEPARATOR + this.size + "\n" +
-                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n");
+                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n" +
+                    LABEL_FPR + LABEL_SEPARATOR + this.getFPR() + "\n");
         writer.close();
         
         FileOutputStream out = new FileOutputStream(bits);
@@ -132,7 +133,8 @@ public class BloomFilter implements BloomFilterInterface {
         n = pop count
         */
         
-        return (float) pow(1 - exp(-numHash * bitArray.popCount() / size), numHash);
+        float fpr = (float) pow(1 - exp((float)(-numHash * bitArray.popCount()) / size), numHash);
+        return fpr;
     }
     
     public void destroy() {

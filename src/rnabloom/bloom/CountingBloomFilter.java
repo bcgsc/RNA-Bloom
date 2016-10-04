@@ -94,7 +94,8 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         FileWriter writer = new FileWriter(desc);
         
         writer.write(LABEL_SIZE + LABEL_SEPARATOR + this.size + "\n" +
-                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n");
+                    LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n" +
+                    LABEL_FPR + LABEL_SEPARATOR + this.getFPR() + "\n");
         writer.close();
         
         FileOutputStream out = new FileOutputStream(bytes);
@@ -180,7 +181,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         n = pop count
         */
                 
-        return (float) pow(1 - exp(-numHash * counts.popCount() / size), numHash);
+        return (float) pow(1 - exp((float)(-numHash * counts.popCount()) / size), numHash);
     }
  
     public void destroy() {
