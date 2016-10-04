@@ -26,6 +26,10 @@ public class HashFunction {
                 
         return hashVals;
     }
+    
+    public void getHashValues(final String kmer, final int numHash, long[] out) {
+        murmurhash3_x64_128(kmer.getBytes(), 0, k, seed, numHash, out);
+    }
         
     public long[] getHashValues(final String kmer1, final String kmer2, final int numHash) {
         final long[] hashVals1 = new long[numHash];
