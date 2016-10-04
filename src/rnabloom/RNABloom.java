@@ -533,14 +533,14 @@ public class RNABloom {
                                     clustersMaxContigId.set(backboneId, cid);
                                 }
                                 
-                                out = new FastaWriter(outDir + File.separator + backboneId + ".fa", append);
-                                
                                 //float minCov = graph.getMinKmerCoverage(fragment);
                                 
                                 /** extend on both ends unambiguously*/
                                 fragment = naiveExtend(fragment, graph, maxTipLen);
 
+                                out = new FastaWriter(outDir + File.separator + backboneId + ".fa", append);
                                 out.write(Integer.toString(cid) + " " + rawLeft + " " + rawRight, fragment);
+                                out.close();
 
                                 ++fid;
                                 if (fid > sampleSize) {
@@ -594,8 +594,6 @@ public class RNABloom {
 
                                     //System.out.println(fragLen);
                                 }
-                                
-                                out.close();
                             }
 
                             /* assemble 3' UTR only
