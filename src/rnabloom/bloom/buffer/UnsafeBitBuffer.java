@@ -32,14 +32,14 @@ public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
     public synchronized void set(long index) {
         long byteIndex = index / Byte.SIZE;
         byte b = backingByteBuffer.get(byteIndex);
-        b |= (1 << (int) (byteIndex % Byte.SIZE));
+        b |= (1 << (int) (index % Byte.SIZE));
         backingByteBuffer.set(byteIndex, b);
     }
 
     @Override
     public boolean get(long index) {
         long byteIndex = index / Byte.SIZE;
-        return (backingByteBuffer.get(byteIndex) & (1 << (int) (byteIndex % Byte.SIZE))) != 0;
+        return (backingByteBuffer.get(byteIndex) & (1 << (int) (index % Byte.SIZE))) != 0;
     }
         
     @Override
