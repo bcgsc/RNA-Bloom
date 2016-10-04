@@ -56,7 +56,7 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     public long popCount() {
         long count = 0;
         for (long i=0; i<size; ++i) {
-            if (get(i) > 0) {
+            if (unsafe.getByte(start + i) != 0) {
                 ++count;
             }
         }
@@ -65,13 +65,20 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     
     public long bitPopCount() {
         long count = 0;
-        for (long i=0; i<size; ++i) {
+        
+        long numLongs = (long) Math.floor(size / 8f);
+        for (long i=0; i<numLongs; ++i) {
+            count += Long.bitCount(unsafe.getLong(start + (i * 8L)));
+        }
+        
+        for (long i=numLongs * 8L; i<size; ++i) {
             byte b = get(i);
             while (b != 0) {
                 count += (b & 1);
                 b = (byte) (b >> 1);
             }
         }
+        
         return count;
     }
     
