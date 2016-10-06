@@ -31,20 +31,6 @@ public class BufferComparator {
             return false;
         }
         
-        final AbstractLargeByteBuffer aBack = a.getBackingByteBuffer();
-        final AbstractLargeByteBuffer bBack = b.getBackingByteBuffer();
-        final long size = aBack.size();
-        
-        if (size != bBack.size()) {
-            return false;
-        }
-        
-        for (long i=0; i<size; ++i) {
-            if (Byte.compare(aBack.get(i), bBack.get(i)) != 0) {
-                return false;
-            }
-        }
-        
-        return true;
+        return equivalentByteBuffers(a.getBackingByteBuffer(), b.getBackingByteBuffer());
     }
 }

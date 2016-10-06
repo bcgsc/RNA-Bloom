@@ -24,14 +24,14 @@ public class PairedKeysBloomFilter extends BloomFilter {
         super(desc, bits, hashFunction);
     }
     
-    public void addPair(final String key1, final String key2) {
+    public void addPair(String key1, String key2) {
         long[] hash3 = hashFunction.getHashValues(key1, key2, numHash);
         for (int h=0; h<numHash; ++h) {
             bitArray.set(hash3[h] % size);
         }        
     }
     
-    public void addSingleAndPair(final String key1, final String key2) {
+    public void addSingleAndPair(String key1, String key2) {
         long[] hash1 = hashFunction.getHashValues(key1, numHash);
         long[] hash2 = hashFunction.getHashValues(key2, numHash);
         long[] hash3 = hashFunction.getHashValues(key1, key2, numHash);
@@ -43,7 +43,7 @@ public class PairedKeysBloomFilter extends BloomFilter {
         }
     }
         
-    public boolean lookupPair(final String key1, final String key2) {
+    public boolean lookupPair(String key1, String key2) {
         long[] hash = hashFunction.getHashValues(key1, key2, numHash);
         
         for (int h=0; h<numHash; ++h) {
@@ -55,7 +55,7 @@ public class PairedKeysBloomFilter extends BloomFilter {
         return true;
     }
 
-    public boolean lookupSingleAndPair(final String key1, final String key2) {
+    public boolean lookupSingleAndPair(String key1, String key2) {
         long[] hash1 = hashFunction.getHashValues(key1, numHash);
         long[] hash2 = hashFunction.getHashValues(key2, numHash);
         long[] hash3 = hashFunction.getHashValues(key1, key2, numHash);

@@ -100,7 +100,7 @@ public class BloomFilter implements BloomFilterInterface {
     }
         
     @Override
-    public void add(final String key) {
+    public void add(String key) {
         add(hashFunction.getHashValues(key, numHash));
     }
     
@@ -111,7 +111,7 @@ public class BloomFilter implements BloomFilterInterface {
     }
 
     @Override
-    public boolean lookup(final String key) {        
+    public boolean lookup(String key) {        
         return lookup(hashFunction.getHashValues(key, numHash));
     }
 

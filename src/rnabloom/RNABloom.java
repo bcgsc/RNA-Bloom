@@ -64,9 +64,10 @@ public class RNABloom {
     private final int bbMaxIteration = 2;
     private Function<String, Integer> findBackboneId;
     
-    private ArrayList<String> backbones = new ArrayList<>(10000);
-    private HashMap<String, Integer> kmerToBackboneID = new HashMap<>(10000);
-    private int backboneHashKmerDistance = 200;
+    //private ArrayList<String> backbones = new ArrayList<>(10000);
+    private int currentBackboneId = 0;
+    private HashMap<String, Integer> kmerToBackboneID = new HashMap<>(100000);
+    private final int backboneHashKmerDistance = 100;
         
     public RNABloom(int k, int qDBG, int qFrag) {
         this.k = k;
@@ -164,7 +165,7 @@ public class RNABloom {
                     }
 
                     for (String seq : filterFastq(fr.next(), qualPatternDBG)) {
-                        graph.addKmersFromSeq(reverseComplement(seq));
+                        graph.addKmersFromSeqReverseComplement(seq);
                     }
                 }
                 fr.close();
@@ -340,8 +341,8 @@ public class RNABloom {
         }
         
         /* new backbone */
-        backbones.add(assemble(path));
-        int id = backbones.size() - 1;
+        //backbones.add(assemble(path));
+        int id = ++currentBackboneId;
         
         /* store kmers in path */
         int numKmers = path.size();
@@ -441,8 +442,8 @@ public class RNABloom {
         }
         
         /* new backbone */
-        backbones.add(assemble(path));
-        int id = backbones.size() - 1;
+        //backbones.add(assemble(path));
+        int id = ++currentBackboneId;;
         
         /* store kmers in path */
         int numKmers = path.size();
@@ -488,8 +489,8 @@ public class RNABloom {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
                     }                    
 
-                    rawLeft = connect(p.left, graph, k+2, lookahead);
-                    rawRight = connect(p.right, graph, k+2, lookahead);
+                    rawLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+1, lookahead);
+                    rawRight = connect(p.right, graph, k+p.numRightBasesTrimmed+1, lookahead);
                     
                     if (okToConnectPair(rawLeft, rawRight)) {
                         /*
@@ -610,11 +611,13 @@ public class RNABloom {
 
                 lin.close();
                 rin.close();
+                kmerToBackboneID = null;
             }
         } catch (IOException ex) {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
+            System.out.println("Assembled fragments in " + currentBackboneId + " clusters...");
         }
     }
     
@@ -747,7 +750,7 @@ public class RNABloom {
             FragmentComparator fragComp = new FragmentComparator();
             
             File[] fragFiles = fragsDir.listFiles(fragsFilenameFilter);
-            System.out.println("Found " + fragFiles.length + " clusters...");
+            System.out.println("Found " + fragFiles.length + " fragment clusters...");
             System.out.println("Parsing fragments *.fa in `" + fragsDir.getName() + "`...");
             
             for (File inFasta : fragFiles) {
@@ -940,12 +943,20 @@ public class RNABloom {
         options.addOption(optKmerSize);
         
         builder = Option.builder("q");
-        builder.longOpt("qual");
-        builder.desc("min base quality");
+        builder.longOpt("qual-dbg");
+        builder.desc("min base quality for constructing DBG");
         builder.hasArg(true);
         builder.argName("INT");
-        Option optBaseQual = builder.build();
-        options.addOption(optBaseQual);        
+        Option optBaseQualDbg = builder.build();
+        options.addOption(optBaseQualDbg);
+
+        builder = Option.builder("Q");
+        builder.longOpt("qual-frag");
+        builder.desc("min base quality for fragment assembly");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optBaseQualFrag = builder.build();
+        options.addOption(optBaseQualFrag);        
         
         builder = Option.builder("s");
         builder.longOpt("seed");
@@ -1078,8 +1089,8 @@ public class RNABloom {
             boolean strandSpecific = line.hasOption(optStranded.getOpt());
             
             int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "25"));
-            int qDBG = Integer.parseInt(line.getOptionValue(optBaseQual.getOpt(), "3"));
-            int qFrag = qDBG;
+            int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
+            int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "3"));
             int seed = Integer.parseInt(line.getOptionValue(optSeed.getOpt(), "689"));
             
             long dbgbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), "1")));
@@ -1124,8 +1135,12 @@ public class RNABloom {
                 String[] forwardFastqs = new String[]{fastqLeft};
                 String[] backwardFastqs = new String[]{fastqRight};
                 
+                long startTime = System.nanoTime();
+                
                 assembler.createGraph(forwardFastqs, backwardFastqs, strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed);
 
+                System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
+                
                 if (saveGraph) {
                     System.out.println("Saving graph to file `" + graphFile + "`...");
                     assembler.saveGraph(new File(graphFile));

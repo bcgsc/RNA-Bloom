@@ -356,10 +356,10 @@ public final class MurmurHash3 {
         h2 += h1;
         
         // store the hash value in out
-        out[h] = h1 >>> 1;
+        out[h] = h1 >>> 1; // remove the sign bit
 
         if (++h<numHash) {
-          out[h] = h2 >>> 1;
+          out[h] = h2 >>> 1; // remove the sign bit
         }
     }
   }

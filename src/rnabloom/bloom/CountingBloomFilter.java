@@ -108,7 +108,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         increment(hashFunction.getHashValues(key, numHash));
     }
     
-    public synchronized void increment(long[] hashVals) {
+    public synchronized void increment(final long[] hashVals) {
         // find the smallest count at all hash positions
         byte min = counts.get(hashVals[0] % size);
         byte c;
@@ -151,7 +151,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         return getCount(hashFunction.getHashValues(key, numHash));
     }
     
-    public float getCount(long[] hashVals) {
+    public float getCount(final long[] hashVals) {
         // find the smallest count
         byte min = counts.get(hashVals[0] % size);
         byte c;

@@ -127,7 +127,7 @@ public final class SeqUtils {
         
         return new String(rc);
     }
-    
+        
     public static final String smallestStrand(String seq) {
         String rc = reverseComplement(seq);
         
@@ -237,7 +237,7 @@ public final class SeqUtils {
         return Pattern.compile("[\\Q" + PHRED33.substring(minQual) + "\\E]{" + Integer.toString(minLength) + ",}");
     }
     
-    public static Pattern getACTGPattern(int minLength) {
+    public static Pattern getNucleotideCharsPattern(int minLength) {
         return Pattern.compile("[ACTG]{" + Integer.toString(minLength) + ",}");
     }
     

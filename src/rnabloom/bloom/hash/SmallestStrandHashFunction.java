@@ -7,6 +7,8 @@ package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.MurmurHash3.murmurhash3_x64_128;
 import static rnabloom.util.SeqUtils.smallestStrand;
+import static rnabloom.bloom.hash.MurmurHash3.murmurhash3_x64_128;
+import static rnabloom.util.SeqUtils.smallestStrand;
 
 /**
  *
@@ -14,23 +16,23 @@ import static rnabloom.util.SeqUtils.smallestStrand;
  */
 public class SmallestStrandHashFunction extends HashFunction {
     
-    public SmallestStrandHashFunction(int seed, int k) {
-        super(seed, k);
+    public SmallestStrandHashFunction(int seed, int k, int maxNumVals) {
+        super(seed, k, maxNumVals);
     }
     
     @Override
-    public long[] getHashValues(final String kmer, int numHash) {
-        return super.getHashValues(smallestStrand(kmer), numHash);
+    public long[] getHashValues(final CharSequence kmer, int numHash) {
+        return super.getHashValues(smallestStrand(kmer.toString()), numHash);
     }
     
     @Override
-    public void getHashValues(final String kmer, final int numHash, long[] out) {
-        super.getHashValues(smallestStrand(kmer), numHash, out);
+    public void getHashValues(final CharSequence kmer, final int numHash, long[] out) {
+        super.getHashValues(smallestStrand(kmer.toString()), numHash, out);
     }
     
     @Override
-    public long[] getHashValues(final String kmer1, final String kmer2, int numHash) {
-        String[] reorientedKmers = smallestStrand(kmer1, kmer2);
+    public long[] getHashValues(final CharSequence kmer1, final CharSequence kmer2, int numHash) {
+        String[] reorientedKmers = smallestStrand(kmer1.toString(), kmer2.toString());
         
         final long[] hashVals1 = new long[numHash];
         murmurhash3_x64_128(reorientedKmers[0].getBytes(), 0, k, seed, numHash, hashVals1);
@@ -45,4 +47,7 @@ public class SmallestStrandHashFunction extends HashFunction {
         
         return hashVal;
     }
+    
+    /**@TODO long[][] getHashValues(final CharSequence cs)*/
+    
 }
