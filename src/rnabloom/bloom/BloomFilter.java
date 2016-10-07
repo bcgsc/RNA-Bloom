@@ -86,6 +86,11 @@ public class BloomFilter implements BloomFilterInterface {
         /**@TODO Assert file size*/
     }
     
+    private long getIndex(long hashVal) {
+        // shift right to remove sign bit and modulus the size of buffer
+        return (hashVal >>> 1) % size;
+    }
+    
     public void save(File desc, File bits) throws IOException {
         FileWriter writer = new FileWriter(desc);
         
@@ -106,7 +111,7 @@ public class BloomFilter implements BloomFilterInterface {
     
     public void add(final long[] hashVals){
         for (int h=0; h<numHash; ++h) {
-            bitArray.set(hashVals[h] % size);
+            bitArray.set(getIndex(hashVals[h]));
         }
     }
 
@@ -117,7 +122,7 @@ public class BloomFilter implements BloomFilterInterface {
 
     public boolean lookup(final long[] hashVals) {
         for (int h=0; h<numHash; ++h) {
-            if (!bitArray.get(hashVals[h] % size)) {
+            if (!bitArray.get(getIndex(hashVals[h]))) {
                 return false;
             }
         }

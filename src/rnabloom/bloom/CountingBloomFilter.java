@@ -90,6 +90,11 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         /**@TODO Assert file size*/
     }
     
+    private long getIndex(long hashVal) {
+        // shift right to remove sign bit and modulus the size of buffer
+        return (hashVal >>> 1) % size;
+    }
+    
     public void save(File desc, File bytes) throws IOException {
         FileWriter writer = new FileWriter(desc);
         
@@ -110,11 +115,11 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     
     public synchronized void increment(final long[] hashVals) {
         // find the smallest count at all hash positions
-        byte min = counts.get(hashVals[0] % size);
+        byte min = counts.get(getIndex(hashVals[0]));
         byte c;
         int h;
         for (h=1; h<numHash; ++h) {
-            c = counts.get(hashVals[h] % size);
+            c = counts.get(getIndex(hashVals[h]));
             if (c < min) {
                 min = c;
             }
@@ -138,7 +143,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         // update the smallest count only
         long index;
         for (h=0; h<numHash; ++h) {
-            index = hashVals[h] % size;
+            index = getIndex(hashVals[h]);
 
             if (counts.get(index) == min) {
                 counts.set(index, updated);
@@ -153,10 +158,10 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     
     public float getCount(final long[] hashVals) {
         // find the smallest count
-        byte min = counts.get(hashVals[0] % size);
+        byte min = counts.get(getIndex(hashVals[0]));
         byte c;
         for (int h=1; h<numHash; ++h) {
-            c = counts.get(hashVals[h] % size);
+            c = counts.get(getIndex(hashVals[h]));
             if (c < min) {
                 min = c;
             }

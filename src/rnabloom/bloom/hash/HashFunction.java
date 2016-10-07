@@ -75,7 +75,7 @@ public class HashFunction {
         h *= MIX; 
         h ^= h >>> ROLL;
         
-        return h >>> 1; // remove the sign bit
+        return h;
     }
     
     
@@ -112,7 +112,7 @@ public class HashFunction {
         h *= MIX; 
         h ^= h >>> ROLL;
         
-        return h >>> 1; // remove the sign bit
+        return h;
     }
 
     public void getHashValues(final CharSequence kmer,
