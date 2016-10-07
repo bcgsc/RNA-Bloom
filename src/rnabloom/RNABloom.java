@@ -542,7 +542,7 @@ public class RNABloom {
                                 out = new FastaWriter(outDir + File.separator + backboneId + ".fa", append);
                                 out.write(Integer.toString(cid) + " " + rawLeft + " " + rawRight, fragment);
                                 out.close();
-
+                                
                                 ++fid;
                                 if (fid > sampleSize) {
                                     /** store paired kmers */
@@ -1134,12 +1134,8 @@ public class RNABloom {
             else {
                 String[] forwardFastqs = new String[]{fastqLeft};
                 String[] backwardFastqs = new String[]{fastqRight};
-                
-                long startTime = System.nanoTime();
-                
+                                
                 assembler.createGraph(forwardFastqs, backwardFastqs, strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed);
-
-                System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
                 
                 if (saveGraph) {
                     System.out.println("Saving graph to file `" + graphFile + "`...");
@@ -1166,8 +1162,12 @@ public class RNABloom {
                 assembler.restorePairedKmersBloomFilter(new File(graphFile));            
             }
             else {
+                long startTime = System.nanoTime();
+                
                 assembler.assembleFragments(fqPairs, fragsDirPath, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
 
+                System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
+                
                 if (saveKmerPairs) {
                     System.out.println("Saving paired kmers Bloom filter to file...");
                     assembler.savePairedKmersBloomFilter(new File(graphFile));            
