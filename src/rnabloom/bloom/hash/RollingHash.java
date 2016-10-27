@@ -15,7 +15,10 @@ public class RollingHash {
     private static final long SEED_C = 0x3193c18562a02b4cL;
     private static final long SEED_G = 0x20323ed082572324L;
     private static final long SEED_T = 0x295549f54be24456L;
-        
+    
+    private static final long SEED_MULTIPLIER = 0x90b45d39fb6da1faL;
+    private static final long SEED_SHIFTER = 27;
+    
     private static final long[] ROLL_A = getRollArray(SEED_A);
     private static final long[] ROLL_C = getRollArray(SEED_C);
     private static final long[] ROLL_G = getRollArray(SEED_G);
@@ -74,6 +77,11 @@ public class RollingHash {
         return 0;
     }
 
+    /**
+     * Return the hash value of kmer 
+     * @param kmer
+     * @return 
+     */
     public long getHashValue(final CharSequence kmer) {
         long hashVal = 0L;
         
@@ -84,12 +92,27 @@ public class RollingHash {
         return hashVal;
     }
     
-    public long getHashValue(final CharSequence kmer, int offset) {
+    /**
+     * Return the hash value of kmer at offset in seq
+     * @param seq
+     * @param offset    position of first base of kmer
+     * @return 
+     */
+    public long getHashValue(final CharSequence seq, int offset) {
         long hashVal = 0L;
         
         for (int i=0; i<k; ++i) {
-            hashVal ^= getNucleotideHash(kmer.charAt(offset+i), i);
+            hashVal ^= getNucleotideHash(seq.charAt(offset+i), i);
         }
+        
+        return hashVal;
+    }
+    
+    public long getHashValueSeeded(final CharSequence kmer, int seed) {
+        long hashVal = getHashValue(kmer);
+        
+        hashVal *= seed ^ k * SEED_MULTIPLIER;
+        hashVal ^= hashVal >> SEED_SHIFTER;
         
         return hashVal;
     }
@@ -102,6 +125,11 @@ public class RollingHash {
         return getNucleotideHash(add) ^ rollRight(hashVal ^ getNucleotideHash(remove, k-1), 1);
     }
     
+    /**
+     * Return the hash values of all sliding kmers
+     * @param seq
+     * @return 
+     */
     public long[] getHashValues(final CharSequence seq) {
         int numKmers = seq.length() - k + 1;
         
