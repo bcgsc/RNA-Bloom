@@ -565,4 +565,66 @@ public class NTHash {
         }
     }
     
+    public class NTHashIterator {
+        protected CharSequence seq;
+        protected final int k;
+        protected final int h;
+        protected int pos;
+        protected int max;
+        public long[] hVals = null;
+        
+        public NTHashIterator(CharSequence seq, int k, int h) {
+            this.seq = seq;
+            this.k = k;
+            this.h = h;
+            hVals = new long[h];
+            pos = 0;
+            max = seq.length() - k;
+        }
+        
+        public void setSeq(CharSequence seq) {
+            this.seq = seq;
+            pos = 0;
+            max = seq.length() - k;
+        }
+        
+        public void next() {
+            if (pos == 0) {
+                NTM64(seq.subSequence(0, k), k, h, hVals);
+            }
+            else if (pos < max) {
+                NTM64(seq.charAt(pos), seq.charAt(pos+k), k, h, hVals);
+            }
+            else {
+                hVals = null;
+            }
+            ++pos;
+        }
+        
+        public boolean hasNext() {
+            return pos < max;
+        }
+    }
+    
+    public class CanonicalNTHashIterator extends NTHashIterator{
+        private final long[] frhval = new long[2];
+        
+        public CanonicalNTHashIterator(CharSequence seq, int k, int h) {
+            super(seq, k, h);
+        }
+        
+        @Override
+        public void next() {
+            if (pos == 0) {
+                NTMC64(seq.subSequence(0, k), k, h, frhval, hVals);
+            }
+            else if (pos < max) {
+                NTMC64(seq.charAt(pos), seq.charAt(pos+k), k, h, frhval, hVals);
+            }
+            else {
+                hVals = null;
+            }
+            ++pos;
+        }
+    }
 }
