@@ -578,18 +578,18 @@ public class NTHash {
             this.k = k;
             this.h = h;
             hVals = new long[h];
-            pos = 0;
+            pos = -1;
             max = seq.length() - k;
         }
         
         public void setSeq(CharSequence seq) {
             this.seq = seq;
-            pos = 0;
+            pos = -1;
             max = seq.length() - k;
         }
         
         public void next() {
-            if (pos == 0) {
+            if (pos == -1) {
                 NTM64(seq.subSequence(0, k), k, h, hVals);
             }
             else if (pos < max) {
@@ -615,7 +615,7 @@ public class NTHash {
         
         @Override
         public void next() {
-            if (pos == 0) {
+            if (pos == -1) {
                 NTMC64(seq.subSequence(0, k), k, h, frhval, hVals);
             }
             else if (pos < max) {
