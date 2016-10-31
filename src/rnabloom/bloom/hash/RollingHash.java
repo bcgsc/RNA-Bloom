@@ -5,6 +5,8 @@
  */
 package rnabloom.bloom.hash;
 
+import static rnabloom.util.SeqUtils.kmerize;
+
 /**
  *
  * @author kmnip
@@ -30,20 +32,12 @@ public class RollingHash {
     public RollingHash(int k) {
         this.k = k;
     }
-    
-    private static long rollLeft(long val, int pos) {
-        return val << pos | val >> (ROLL_SIZE - pos);
-    }
-
-    private static long rollRight(long val, int pos) {
-        return val >> pos | val << (ROLL_SIZE - pos);
-    }
-    
+        
     private static long[] getRollArray(final long seed) {
         long[] arr = new long[ROLL_SIZE];
         
         for (int i=0; i<ROLL_SIZE; ++i) {
-            arr[i] = rollRight(seed, i);
+            arr[i] = Long.rotateRight(seed, i);
         }
         
         return arr;
@@ -118,11 +112,11 @@ public class RollingHash {
     }
     
     public long getRightHashValue(long hashVal, char remove, char add) {
-        return rollLeft(hashVal ^ getNucleotideHash(remove), 1) ^ getNucleotideHash(add, k-1);
+        return Long.rotateLeft(hashVal ^ getNucleotideHash(remove), 1) ^ getNucleotideHash(add, k-1);
     }
     
     public long getLeftHashValue(long hashVal, char remove, char add) {
-        return getNucleotideHash(add) ^ rollRight(hashVal ^ getNucleotideHash(remove, k-1), 1);
+        return getNucleotideHash(add) ^ Long.rotateRight(hashVal ^ getNucleotideHash(remove, k-1), 1);
     }
     
     /**
@@ -146,5 +140,24 @@ public class RollingHash {
         return out;
     }
     
-    /**@TODO */
+    public static void main(String[] args) {
+        String seq = "ATACGTCGATCGTCGTCGTAGTAGATGCTAGCTGACTGATGCGGATCGACTGACTCATCGTACGTAGATCGACTCACACAACCACACTCGATCGTAGCTGACTGACTGATCGTAGCTAGCTAGCTGATAGCTAGCTGAGTACGTAGCTGACTGATCGATCGTAGCTGACTGACTGTACGCGGC";
+        int k = 25;
+        //int h = 3;
+        
+        RollingHash rh = new RollingHash(k);
+        long[] hashes = rh.getHashValues(seq);
+        
+        int i = 0;
+        String[] kmers = kmerize(seq, k);
+        for (String kmer : kmers) {
+            long h = rh.getHashValue(kmer);
+            long h2 = hashes[i++];
+            
+            if (h != h2) {
+                System.out.println("uhoh");
+                return;
+            }
+        }
+    }
 }
