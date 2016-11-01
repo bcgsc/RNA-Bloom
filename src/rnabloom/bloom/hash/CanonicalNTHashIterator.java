@@ -6,6 +6,7 @@
 package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.NTHash.NTMC64;
+import static rnabloom.bloom.hash.NTHash.NTMC64;
 
 /**
  *
@@ -14,8 +15,8 @@ import static rnabloom.bloom.hash.NTHash.NTMC64;
 public class CanonicalNTHashIterator extends NTHashIterator {
     private final long[] frhval = new long[2];
 
-    public CanonicalNTHashIterator(CharSequence seq, int k, int h) {
-        super(seq, k, h);
+    public CanonicalNTHashIterator(int k, int h) {
+        super(k, h);
     }
 
     @Override

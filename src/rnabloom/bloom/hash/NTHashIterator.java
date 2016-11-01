@@ -6,6 +6,7 @@
 package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.NTHash.NTM64;
+import static rnabloom.bloom.hash.NTHash.NTM64;
 
 /**
  *
@@ -15,20 +16,17 @@ public class NTHashIterator {
     protected CharSequence seq;
     protected final int k;
     protected final int h;
-    protected int pos;
-    protected int max;
+    protected int pos = -1;
+    protected int max = -2;
     public long[] hVals = null;
 
-    public NTHashIterator(CharSequence seq, int k, int h) {
-        this.seq = seq;
+    public NTHashIterator(int k, int h) {
         this.k = k;
         this.h = h;
         this.hVals = new long[h];
-        this.pos = -1;
-        this.max = seq.length() - k;
     }
-
-    public void setSeq(CharSequence seq) {
+    
+    public void start(CharSequence seq) {
         this.seq = seq;
         this.pos = -1;
         this.max = seq.length() - k;

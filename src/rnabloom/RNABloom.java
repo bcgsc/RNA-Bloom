@@ -30,6 +30,9 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Option.Builder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import rnabloom.bloom.hash.CanonicalNTHashIterator;
+import rnabloom.bloom.hash.NTHashIterator;
+import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import rnabloom.io.FastaReader;
@@ -124,12 +127,20 @@ public class RNABloom {
         random = new Random(seed);
         
         this.strandSpecific = strandSpecific;
+        NTHashIterator itrF;
+        NTHashIterator itrR;        
         
         if (strandSpecific) {
             findBackboneId = this::findBackboneIdStranded;
+            
+            itrF = new NTHashIterator(k, graph.getMaxNumHash());
+            itrR = new ReverseComplementNTHashIterator(k, graph.getMaxNumHash());
         }
         else {
             findBackboneId = this::findBackboneIdNonStranded;
+            
+            itrF = new CanonicalNTHashIterator(k, graph.getMaxNumHash());
+            itrR = itrF;
         }
         
         /** parse the reads */
@@ -138,6 +149,7 @@ public class RNABloom {
         
         try {
             FastqReader fr;
+            long[] hashVals = itrF.hVals;
             
             for (String fastq : forwardFastqs) {
                 System.out.println("Parsing forward reads `" + fastq + "`...");
@@ -149,11 +161,19 @@ public class RNABloom {
                     }
 
                     for (String seq : filterFastq(fr.next(), qualPatternDBG)) {
-                        graph.addKmersFromSeq(seq);
+                        //graph.addKmersFromSeq(seq);
+                        
+                        itrF.start(seq);
+                        while (itrF.hasNext()) {
+                            itrF.next();
+                            graph.add(hashVals);
+                        }
                     }
                 }
                 fr.close();
             }
+            
+            hashVals = itrR.hVals;
             
             for (String fastq : reverseFastqs) {
                 System.out.println("Parsing reverse reads `" + fastq + "`...");
@@ -165,7 +185,13 @@ public class RNABloom {
                     }
 
                     for (String seq : filterFastq(fr.next(), qualPatternDBG)) {
-                        graph.addKmersFromSeqReverseComplement(seq);
+                        //graph.addKmersFromSeqReverseComplement(seq);
+                        
+                        itrR.start(seq);
+                        while (itrR.hasNext()) {
+                            itrR.next();
+                            graph.add(hashVals);
+                        }
                     }
                 }
                 fr.close();
@@ -1148,7 +1174,7 @@ public class RNABloom {
                     Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-
+            
             FastqPair fqPair = new FastqPair(fastqLeft, fastqRight, revCompLeft, revCompRight);
             FastqPair[] fqPairs = new FastqPair[]{fqPair};        
 

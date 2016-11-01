@@ -6,14 +6,15 @@
 package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.NTHash.NTM64RC;
+import static rnabloom.bloom.hash.NTHash.NTM64RC;
 
 /**
  *
  * @author kmnip
  */
 public class ReverseComplementNTHashIterator extends NTHashIterator {
-    public ReverseComplementNTHashIterator(CharSequence seq, int k, int h) {
-        super(seq, k, h);
+    public ReverseComplementNTHashIterator(int k, int h) {
+        super(k, h);
     }
 
     @Override

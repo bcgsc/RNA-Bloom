@@ -143,6 +143,10 @@ public class BloomFilterDeBruijnGraph {
         }
     }
 
+    public int getMaxNumHash() {
+        return dbgbfCbfMaxNumHash;
+    }
+    
     public void destroy() {
         dbgbf.destroy();
         cbf.destroy();
@@ -238,6 +242,11 @@ public class BloomFilterDeBruijnGraph {
         final long[] hashVals = hashFunction.getHashValues(kmer, dbgbfCbfMaxNumHash);
         dbgbf.add(hashVals);
         cbf.increment(hashVals);
+    }
+    
+    public void add(final long[] hashVals) {
+        dbgbf.add(hashVals);
+        cbf.increment(hashVals);        
     }
     
     public void addKmersFromSeq(String seq) {

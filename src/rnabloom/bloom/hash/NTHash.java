@@ -614,7 +614,8 @@ public class NTHash {
         long[] hVals = new long[h];
         
         //NTHashIterator itr = new NTHashIterator(seq, k, h);
-        ReverseComplementNTHashIterator itr = new ReverseComplementNTHashIterator(seq, k, h);
+        ReverseComplementNTHashIterator itr = new ReverseComplementNTHashIterator(k, h);
+        itr.start(seq);
         long[] itrHVals = itr.hVals;
         
         for (String kmer : kmers) {
