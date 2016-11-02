@@ -22,6 +22,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -41,6 +42,7 @@ import rnabloom.io.FastqPair;
 import rnabloom.io.FastqPairReader;
 import rnabloom.io.FastqPairReader.ReadPair;
 import rnabloom.io.FastqReader;
+import rnabloom.io.FastqRecord;
 import static rnabloom.util.GraphUtils.*;
 import static rnabloom.util.SeqUtils.*;
 
@@ -147,23 +149,25 @@ public class RNABloom {
         
         int lineNum = 0;
         
-        try {
-            FastqReader fr;
-            long[] hashVals = itrF.hVals;
-            
+        try {            
             for (String fastq : forwardFastqs) {
                 System.out.println("Parsing forward reads `" + fastq + "`...");
                 
-                fr = new FastqReader(fastq, false);
+                FastqReader fr = new FastqReader(fastq, false);
+                FastqRecord record = fr.record;
+                Matcher m = qualPatternDBG.matcher("");
+                long[] hashVals = itrF.hVals;
+                
                 while (fr.hasNext()) {
                     if (++lineNum % NUM_PARSED_INTERVAL == 0) {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
                     }
 
-                    for (String seq : filterFastq(fr.next(), qualPatternDBG)) {
-                        //graph.addKmersFromSeq(seq);
-                        
-                        itrF.start(seq);
+                    fr.nextWithoutNameFunction();
+                    m.reset(record.qual);
+                    
+                    while (m.find()) {
+                        itrF.start(record.seq.substring(m.start(), m.end()));
                         while (itrF.hasNext()) {
                             itrF.next();
                             graph.add(hashVals);
@@ -173,21 +177,24 @@ public class RNABloom {
                 fr.close();
             }
             
-            hashVals = itrR.hVals;
-            
             for (String fastq : reverseFastqs) {
                 System.out.println("Parsing reverse reads `" + fastq + "`...");
                 
-                fr = new FastqReader(fastq, false);
+                FastqReader fr = new FastqReader(fastq, false);
+                FastqRecord record = fr.record;
+                Matcher m = qualPatternDBG.matcher("");
+                long[] hashVals = itrR.hVals;
+                
                 while (fr.hasNext()) {
                     if (++lineNum % NUM_PARSED_INTERVAL == 0) {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
                     }
 
-                    for (String seq : filterFastq(fr.next(), qualPatternDBG)) {
-                        //graph.addKmersFromSeqReverseComplement(seq);
-                        
-                        itrR.start(seq);
+                    fr.nextWithoutNameFunction();
+                    m.reset(record.qual);
+                    
+                    while (m.find()) {
+                        itrR.start(record.seq.substring(m.start(), m.end()));
                         while (itrR.hasNext()) {
                             itrR.next();
                             graph.add(hashVals);
@@ -199,9 +206,11 @@ public class RNABloom {
         }
         catch (NoSuchElementException e) {
             /**@TODO handle invalid format*/
+            e.printStackTrace();
         }
         catch (IOException e) {
             /**@TODO Handle it!!! */
+            e.printStackTrace();
         }
         finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
@@ -1134,7 +1143,7 @@ public class RNABloom {
             int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "5"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
             
-            boolean saveGraph = true;
+            boolean saveGraph = false;
             boolean saveKmerPairs = true;
 
             System.out.println("name: " + name);
@@ -1174,6 +1183,9 @@ public class RNABloom {
                     Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
+            
+            /**@TODO */
+            System.exit(0);
             
             FastqPair fqPair = new FastqPair(fastqLeft, fastqRight, revCompLeft, revCompRight);
             FastqPair[] fqPairs = new FastqPair[]{fqPair};        
