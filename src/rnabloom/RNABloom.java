@@ -147,7 +147,7 @@ public class RNABloom {
         
         /** parse the reads */
         
-        int lineNum = 0;
+        int numReads = 0;
         
         try {            
             for (String fastq : forwardFastqs) {
@@ -159,9 +159,12 @@ public class RNABloom {
                 long[] hashVals = itrF.hVals;
                 
                 while (fr.hasNext()) {
+                    ++numReads;
+                    /*
                     if (++lineNum % NUM_PARSED_INTERVAL == 0) {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
                     }
+                    */
 
                     fr.nextWithoutNameFunction();
                     m.reset(record.qual);
@@ -175,6 +178,8 @@ public class RNABloom {
                     }
                 }
                 fr.close();
+                
+                System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads...");
             }
             
             for (String fastq : reverseFastqs) {
@@ -186,9 +191,12 @@ public class RNABloom {
                 long[] hashVals = itrR.hVals;
                 
                 while (fr.hasNext()) {
+                    ++numReads;
+                    /*
                     if (++lineNum % NUM_PARSED_INTERVAL == 0) {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
                     }
+                    */
 
                     fr.nextWithoutNameFunction();
                     m.reset(record.qual);
@@ -202,6 +210,8 @@ public class RNABloom {
                     }
                 }
                 fr.close();
+                
+                System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads...");
             }
         }
         catch (NoSuchElementException e) {
@@ -213,7 +223,7 @@ public class RNABloom {
             e.printStackTrace();
         }
         finally {
-            System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
+            
         }
     }
 
