@@ -28,13 +28,20 @@ public class LargeBitBuffer extends AbstractLargeBitBuffer {
     }
     
     @Override
-    public synchronized void set(long index) {
+    public void set(long index) {
         long byteIndex = index / Byte.SIZE;
         byte b = backingByteBuffer.get(byteIndex);
         b |= (1 << (byte) (byteIndex % Byte.SIZE));
         backingByteBuffer.set(byteIndex, b);
     }
 
+    @Override
+    public boolean compareAndSwap(long index) {
+        long byteIndex = index / Byte.SIZE;
+        byte expected = backingByteBuffer.get(byteIndex);
+        return backingByteBuffer.compareAndSwap(byteIndex, expected, (byte) (expected | (1 << (int) (index % Byte.SIZE))));    
+    }
+    
     @Override
     public boolean get(long index) {
         long byteIndex = index / Byte.SIZE;

@@ -38,6 +38,39 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
         unsafe.putByte(start + index, value);
     }
 
+    // rotate "v" to the left by "s" positions
+    public static int rol(final int v, final int s) {
+        return (v << s) | (v >>> (32 - s));
+    }
+
+    // rotate "v" to the right by "s" positions
+    public static int ror(final int v, final int s) {
+        return (v >>> s) | (v << (32 - s));
+    }
+    
+    // rotate "v" to the left by "s" positions
+    public static long rol(final long v, final int s) {
+        return (v << s) | (v >>> (64 - s));
+    }
+
+    // rotate "v" to the right by "s" positions
+    public static long ror(final long v, final int s) {
+        return (v >>> s) | (v << (64 - s));
+    }
+    
+    @Override
+    public boolean compareAndSwap(long index, byte expected, byte updated) {
+        long i = start + index;
+        
+        int expInt = unsafe.getInt(i);
+        
+        if (expected != (byte) (expInt >>> 24)) {
+            return false;
+        }
+                
+        return unsafe.compareAndSwapInt(this, i, expInt, rol(ror(expInt, 24) & updated | (updated & 0xFF), 24));
+    }
+
     @Override
     public byte get(long index) {
         return unsafe.getByte(start + index);

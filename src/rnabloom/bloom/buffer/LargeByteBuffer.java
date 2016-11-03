@@ -56,6 +56,17 @@ public class LargeByteBuffer extends AbstractLargeByteBuffer {
     }
 
     @Override
+    public boolean compareAndSwap(long index, byte expected, byte updated) {
+        ByteBuffer bb = buffers[(int) (index / MAX_PARTITION_SIZE)];
+        int bbIndex = (int) (index % MAX_PARTITION_SIZE);
+        if (bb.get(bbIndex) == expected) {
+            bb.put(bbIndex, updated);
+            return true;
+        }
+        return false;
+    }
+    
+    @Override
     public byte get(long index) {
         return buffers[(int) (index / MAX_PARTITION_SIZE)].get((int) (index % MAX_PARTITION_SIZE));
     }
