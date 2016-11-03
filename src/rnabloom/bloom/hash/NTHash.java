@@ -7,7 +7,6 @@ package rnabloom.bloom.hash;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import static rnabloom.util.SeqUtils.kmerize;
 import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.reverseComplement;
 
