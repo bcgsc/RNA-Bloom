@@ -114,6 +114,47 @@ public class RNABloom {
             Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
+
+    public int addKmersFromFastq(String fastq, boolean stranded, boolean reverseComplement, int numHash) throws IOException {
+        int numReads = 0;
+        
+        NTHashIterator itr;
+        
+        if (stranded) {
+            if (reverseComplement) {
+                itr = new NTHashIterator(k, numHash);
+            }
+            else {
+                itr = new ReverseComplementNTHashIterator(k, graph.getMaxNumHash());
+            }
+        }
+        else {
+            itr = new CanonicalNTHashIterator(k, numHash);
+        }
+        
+        FastqReader fr = new FastqReader(fastq, false);
+        FastqRecord record = fr.record;
+        Matcher m = qualPatternDBG.matcher("");
+        long[] hashVals = itr.hVals;
+
+        while (fr.hasNext()) {
+            ++numReads;
+
+            fr.nextWithoutNameFunction();
+            m.reset(record.qual);
+
+            while (m.find()) {
+                itr.start(record.seq.substring(m.start(), m.end()));
+                while (itr.hasNext()) {
+                    itr.next();
+                    graph.add(hashVals);
+                }
+            }
+        }
+        fr.close();
+        
+        return numReads;
+    }    
     
     public void createGraph(String[] forwardFastqs, String[] reverseFastqs, boolean strandSpecific, long dbgbfNumBits, long cbfNumBytes, long pkbfNumBits, int dbgbfNumHash, int cbfNumHash, int pkbfNumHash, int seed) {        
         graph = new BloomFilterDeBruijnGraph(dbgbfNumBits,
@@ -129,55 +170,24 @@ public class RNABloom {
         random = new Random(seed);
         
         this.strandSpecific = strandSpecific;
-        NTHashIterator itrF;
-        NTHashIterator itrR;        
         
         if (strandSpecific) {
             findBackboneId = this::findBackboneIdStranded;
-            
-            itrF = new NTHashIterator(k, graph.getMaxNumHash());
-            itrR = new ReverseComplementNTHashIterator(k, graph.getMaxNumHash());
         }
         else {
             findBackboneId = this::findBackboneIdNonStranded;
-            
-            itrF = new CanonicalNTHashIterator(k, graph.getMaxNumHash());
-            itrR = itrF;
         }
         
         /** parse the reads */
         
         int numReads = 0;
+        int numHash = graph.getMaxNumHash();
         
         try {            
             for (String fastq : forwardFastqs) {
                 System.out.println("Parsing forward reads `" + fastq + "`...");
                 
-                FastqReader fr = new FastqReader(fastq, false);
-                FastqRecord record = fr.record;
-                Matcher m = qualPatternDBG.matcher("");
-                long[] hashVals = itrF.hVals;
-                
-                while (fr.hasNext()) {
-                    ++numReads;
-                    /*
-                    if (++lineNum % NUM_PARSED_INTERVAL == 0) {
-                        System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
-                    }
-                    */
-
-                    fr.nextWithoutNameFunction();
-                    m.reset(record.qual);
-                    
-                    while (m.find()) {
-                        itrF.start(record.seq.substring(m.start(), m.end()));
-                        while (itrF.hasNext()) {
-                            itrF.next();
-                            graph.add(hashVals);
-                        }
-                    }
-                }
-                fr.close();
+                numReads += addKmersFromFastq(fastq, strandSpecific, false, numHash);
                 
                 System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads...");
             }
@@ -185,31 +195,7 @@ public class RNABloom {
             for (String fastq : reverseFastqs) {
                 System.out.println("Parsing reverse reads `" + fastq + "`...");
                 
-                FastqReader fr = new FastqReader(fastq, false);
-                FastqRecord record = fr.record;
-                Matcher m = qualPatternDBG.matcher("");
-                long[] hashVals = itrR.hVals;
-                
-                while (fr.hasNext()) {
-                    ++numReads;
-                    /*
-                    if (++lineNum % NUM_PARSED_INTERVAL == 0) {
-                        System.out.println("Parsed " + NumberFormat.getInstance().format(lineNum) + " reads...");
-                    }
-                    */
-
-                    fr.nextWithoutNameFunction();
-                    m.reset(record.qual);
-                    
-                    while (m.find()) {
-                        itrR.start(record.seq.substring(m.start(), m.end()));
-                        while (itrR.hasNext()) {
-                            itrR.next();
-                            graph.add(hashVals);
-                        }
-                    }
-                }
-                fr.close();
+                numReads += addKmersFromFastq(fastq, strandSpecific, true, numHash);
                 
                 System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads...");
             }
