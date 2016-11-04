@@ -35,10 +35,12 @@ public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
     }
     
     @Override
-    public boolean compareAndSwap(long index) {
+    public void setCAS(long index) {
         long byteIndex = index / Byte.SIZE;
         byte expected = backingByteBuffer.get(byteIndex);
-        return backingByteBuffer.compareAndSwap(byteIndex, expected, (byte) (expected | (1 << (int) (index % Byte.SIZE))));        
+        while (!backingByteBuffer.compareAndSwap(byteIndex, expected, (byte) (expected | (1 << (int) (index % Byte.SIZE))))) {
+            expected = backingByteBuffer.get(byteIndex);
+        }
     }
 
     @Override

@@ -15,7 +15,7 @@ import java.io.IOException;
  */
 public abstract class AbstractLargeBitBuffer {
     public abstract void set(long index);
-    public abstract boolean compareAndSwap(long index);
+    public abstract void setCAS(long index);
     public abstract boolean get(long index);
     public abstract long size();
     public abstract long popCount();

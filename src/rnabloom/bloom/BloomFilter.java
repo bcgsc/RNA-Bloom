@@ -117,9 +117,7 @@ public class BloomFilter implements BloomFilterInterface {
     
     public void addCAS(final long[] hashVals) {
         for (int h=0; h<numHash; ++h) {
-            while (!bitArray.compareAndSwap(getIndex(hashVals[h]))) {
-                // nothing
-            }
+            bitArray.setCAS(getIndex(hashVals[h]));
         }        
     }
 
