@@ -113,7 +113,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         increment(hashFunction.getHashValues(key, numHash));
     }
     
-    public synchronized void increment(final long[] hashVals) {
+    public void increment(final long[] hashVals) {
         // find the smallest count at all hash positions
         byte min = counts.get(getIndex(hashVals[0]));
         byte c;
@@ -147,6 +147,44 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
 
             if (counts.get(index) == min) {
                 counts.set(index, updated);
+            }
+        }
+    }
+    
+    public void incrementCAS(final long[] hashVals) {
+        // find the smallest count at all hash positions
+        byte min = counts.get(getIndex(hashVals[0]));
+        byte c;
+        int h;
+        for (h=1; h<numHash; ++h) {
+            c = counts.get(getIndex(hashVals[h]));
+            if (c < min) {
+                min = c;
+            }
+            if (min == 0) {
+                break;
+            }
+        }
+        
+        // increment the smallest count
+        byte updated = min;
+        if (min <= MANTI_MASK) {
+            ++updated;
+        }
+        else {
+            int shiftVal = (1 << ((updated >> MANTISSA) - 1));
+            if ((int) (random() * Integer.MAX_VALUE) % shiftVal == 0) {
+                ++updated;
+            }
+        }
+        
+        // update the smallest count only
+        long index;
+        for (h=0; h<numHash; ++h) {
+            index = getIndex(hashVals[h]);
+
+            if (counts.get(index) == min) {
+                counts.compareAndSwap(index, min, updated);
             }
         }
     }

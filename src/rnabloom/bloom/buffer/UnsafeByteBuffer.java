@@ -62,13 +62,12 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     public boolean compareAndSwap(long index, byte expected, byte updated) {
         long i = start + index;
         
-        int expInt = unsafe.getInt(i);
-        
-        if (expected != (byte) (expInt >>> 24)) {
-            return false;
+        if (expected == unsafe.getByte(i)) {
+            unsafe.putByte(i, updated);
+            return true;
         }
                 
-        return unsafe.compareAndSwapInt(this, i, expInt, rol(ror(expInt, 24) & updated | (updated & 0xFF), 24));
+        return false;
     }
 
     @Override

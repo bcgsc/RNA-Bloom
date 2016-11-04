@@ -18,6 +18,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.logging.Level;
@@ -154,7 +157,80 @@ public class RNABloom {
         fr.close();
         
         return numReads;
-    }    
+    }
+
+    public class FastqParser implements Runnable {
+        private final int id;
+        
+        private final String fastq;
+        
+        private final NTHashIterator itr;
+        private int numReads = 0;
+        private boolean successful = false;
+        
+        public FastqParser(int id, String fastq, boolean stranded, boolean reverseComplement, int numHash) {
+            this.id = id;
+            this.fastq = fastq;
+            
+            if (stranded) {
+                if (reverseComplement) {
+                    itr = new NTHashIterator(k, numHash);
+                }
+                else {
+                    itr = new ReverseComplementNTHashIterator(k, graph.getMaxNumHash());
+                }
+            }
+            else {
+                itr = new CanonicalNTHashIterator(k, numHash);
+            }
+        }
+        
+        @Override
+        public void run() {
+            System.out.println("[" + id + "] Parsing `" + fastq + "`...");
+            
+            try {
+                FastqReader fr = new FastqReader(fastq, false);
+                FastqRecord record = fr.record;
+                Matcher m = qualPatternDBG.matcher("");
+                long[] hashVals = itr.hVals;
+                
+                while (fr.hasNext()) {
+                    ++numReads;
+                    
+                    fr.nextWithoutNameFunction();
+                    m.reset(record.qual);
+                    
+                    while (m.find()) {
+                        itr.start(record.seq.substring(m.start(), m.end()));
+                        while (itr.hasNext()) {
+                            itr.next();
+                            graph.addCAS(hashVals);
+                        }
+                    }
+                }
+                fr.close();
+                
+                successful = true;
+                System.out.println("[" + id + "] Parsed " + NumberFormat.getInstance().format(numReads) + " reads...");
+            } catch (IOException e) {
+                /**@TODO */
+                e.printStackTrace();
+            }
+            catch (NoSuchElementException e) {
+                /**@TODO handle invalid format*/
+                e.printStackTrace();
+            }
+        }
+        
+        public boolean isSuccessful() {
+            return successful;
+        }
+        
+        public long getReadCount() {
+            return numReads;
+        }
+    }
     
     public void createGraph(String[] forwardFastqs, String[] reverseFastqs, boolean strandSpecific, long dbgbfNumBits, long cbfNumBytes, long pkbfNumBits, int dbgbfNumHash, int cbfNumHash, int pkbfNumHash, int seed) {        
         graph = new BloomFilterDeBruijnGraph(dbgbfNumBits,
@@ -183,33 +259,35 @@ public class RNABloom {
         int numReads = 0;
         int numHash = graph.getMaxNumHash();
         
-        try {            
-            for (String fastq : forwardFastqs) {
-                System.out.println("Parsing forward reads `" + fastq + "`...");
-                
-                numReads += addKmersFromFastq(fastq, strandSpecific, false, numHash);
-                
-                System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads...");
-            }
+        ExecutorService service = Executors.newFixedThreadPool(2);
+        
+        ArrayList<FastqParser> threadPool = new ArrayList<>();
+        int threadId = 0;
+           
+        for (String fastq : forwardFastqs) {
+            FastqParser t = new FastqParser(++threadId, fastq, strandSpecific, false, numHash);
+            service.submit(t);
+            threadPool.add(t);
+        }
+
+        for (String fastq : reverseFastqs) {
+            FastqParser t = new FastqParser(++threadId, fastq, strandSpecific, true, numHash);
+            service.submit(t);
+            threadPool.add(t);
+        }
+
+        service.shutdown();
+        
+        try {
+            service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
             
-            for (String fastq : reverseFastqs) {
-                System.out.println("Parsing reverse reads `" + fastq + "`...");
-                
-                numReads += addKmersFromFastq(fastq, strandSpecific, true, numHash);
-                
-                System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads...");
+            for (FastqParser t : threadPool) {
+                numReads += t.getReadCount();
             }
-        }
-        catch (NoSuchElementException e) {
-            /**@TODO handle invalid format*/
-            e.printStackTrace();
-        }
-        catch (IOException e) {
-            /**@TODO Handle it!!! */
-            e.printStackTrace();
-        }
-        finally {
-            
+
+            System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads in total.");
+        } catch (InterruptedException ex) {
+            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
