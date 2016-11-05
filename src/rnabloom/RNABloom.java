@@ -205,7 +205,7 @@ public class RNABloom {
                         itr.start(record.seq.substring(m.start(), m.end()));
                         while (itr.hasNext()) {
                             itr.next();
-                            graph.addCAS(hashVals);
+                            graph.addThreadSafe(hashVals);
                         }
                     }
                 }

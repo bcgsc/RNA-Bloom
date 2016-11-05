@@ -249,8 +249,8 @@ public class BloomFilterDeBruijnGraph {
         cbf.increment(hashVals);        
     }
     
-    public void addCAS(final long[] hashVals) {
-        dbgbf.addCAS(hashVals);
+    public void addThreadSafe(final long[] hashVals) {
+        dbgbf.add(hashVals);
         cbf.incrementCAS(hashVals);        
     }
     
