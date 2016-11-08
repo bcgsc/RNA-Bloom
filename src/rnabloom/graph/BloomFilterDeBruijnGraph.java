@@ -249,11 +249,6 @@ public class BloomFilterDeBruijnGraph {
         cbf.increment(hashVals);        
     }
     
-    public void addThreadSafe(final long[] hashVals) {
-        dbgbf.add(hashVals);
-        cbf.incrementCAS(hashVals);        
-    }
-    
     public void addKmersFromSeq(String seq) {
         long[][] hashVals = hashFunction.getHashValues(seq);
         final int numKmers = hashVals.length;
