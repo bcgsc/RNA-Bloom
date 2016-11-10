@@ -87,7 +87,7 @@ public class BloomFilter implements BloomFilterInterface {
         /**@TODO Assert file size*/
     }
     
-    private long getIndex(long hashVal) {
+    protected long getIndex(long hashVal) {
         // shift right to remove sign bit and modulus the size of buffer
         return (hashVal >>> 1) % size;
     }

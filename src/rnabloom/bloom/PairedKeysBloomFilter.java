@@ -8,7 +8,6 @@ package rnabloom.bloom;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.HashFunction2;
 
 /**
@@ -28,7 +27,7 @@ public class PairedKeysBloomFilter extends BloomFilter {
     public void addPair(String key1, String key2) {
         long[] hash3 = hashFunction.getHashValues(key1, key2, numHash);
         for (int h=0; h<numHash; ++h) {
-            bitArray.set(hash3[h] % size);
+            bitArray.set(getIndex(hash3[h]));
         }        
     }
     
@@ -40,9 +39,9 @@ public class PairedKeysBloomFilter extends BloomFilter {
         long[] hash3 = hashFunction.getHashValues(key1, key2, numHash);
         
         for (int h=0; h<numHash; ++h) {
-            bitArray.set(hash1[h] % size);
-            bitArray.set(hash2[h] % size);
-            bitArray.set(hash3[h] % size);
+            bitArray.set(getIndex(hash1[h]));
+            bitArray.set(getIndex(hash2[h]));
+            bitArray.set(getIndex(hash3[h]));
         }
     }
         
@@ -50,7 +49,7 @@ public class PairedKeysBloomFilter extends BloomFilter {
         long[] hash = hashFunction.getHashValues(key1, key2, numHash);
         
         for (int h=0; h<numHash; ++h) {
-            if (!bitArray.get(hash[h] % size)) {
+            if (!bitArray.get(getIndex(hash[h]))) {
                 return false;
             }
         }
@@ -66,9 +65,9 @@ public class PairedKeysBloomFilter extends BloomFilter {
         long[] hash3 = hashFunction.getHashValues(key1, key2, numHash);
         
         for (int h=0; h<numHash; ++h) {
-            if (!bitArray.get(hash1[h] % size) ||
-                    !bitArray.get(hash2[h] % size) ||
-                    !bitArray.get(hash3[h] % size)) {
+            if (!bitArray.get(getIndex(hash1[h])) ||
+                    !bitArray.get(getIndex(hash2[h])) ||
+                    !bitArray.get(getIndex(hash3[h]))) {
                 return false;
             }
         }
