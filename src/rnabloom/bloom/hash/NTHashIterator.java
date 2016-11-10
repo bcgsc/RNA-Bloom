@@ -48,4 +48,8 @@ public class NTHashIterator {
     public boolean hasNext() {
         return pos < max;
     }
+    
+    public int getPos() {
+        return pos;
+    }
 }

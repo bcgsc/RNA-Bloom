@@ -13,7 +13,6 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.buffer.UnsafeByteBuffer;
 import rnabloom.bloom.buffer.AbstractLargeByteBuffer;
 import rnabloom.bloom.buffer.LargeByteBuffer;
@@ -22,6 +21,7 @@ import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
 import rnabloom.bloom.buffer.BufferComparator;
+import rnabloom.bloom.hash.HashFunction2;
 
 /**
  *
@@ -31,13 +31,13 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     protected AbstractLargeByteBuffer counts;
     protected int numHash;
     protected long size;
-    protected HashFunction hashFunction;
+    protected HashFunction2 hashFunction;
         
     private static final byte MANTISSA = 3;
     private static final byte MANTI_MASK = 0xFF >> (8 - MANTISSA);
     private static final byte ADD_MASK = 0x80 >> (7 - MANTISSA);
     
-    public CountingBloomFilter(long size, int numHash, HashFunction hashFunction) {
+    public CountingBloomFilter(long size, int numHash, HashFunction2 hashFunction) {
         this.size = size;
         try {
             //System.out.println("unsafe");
@@ -55,7 +55,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     private static final String LABEL_NUM_HASH = "numhash";
     private static final String LABEL_FPR = "fpr";
     
-    public CountingBloomFilter(File desc, File bytes, HashFunction hashFunction) throws FileNotFoundException, IOException {        
+    public CountingBloomFilter(File desc, File bytes, HashFunction2 hashFunction) throws FileNotFoundException, IOException {        
         BufferedReader br = new BufferedReader(new FileReader(desc));
         String line;
         while ((line = br.readLine()) != null) {
@@ -110,7 +110,9 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         
     @Override
     public void increment(String key) {
-        increment(hashFunction.getHashValues(key, numHash));
+        final long[] hashVals = new long[numHash];
+        hashFunction.getHashValues(key, numHash, hashVals);
+        increment(hashVals);
     }
         
     public void increment(final long[] hashVals) {
@@ -142,7 +144,9 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
 
     @Override
     public float getCount(String key) {
-        return getCount(hashFunction.getHashValues(key, numHash));
+        final long[] hashVals = new long[numHash];
+        hashFunction.getHashValues(key, numHash, hashVals);
+        return getCount(hashVals);
     }
     
     public float getCount(final long[] hashVals) {

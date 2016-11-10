@@ -1259,7 +1259,7 @@ public class RNABloom {
             }
             
             /**@TODO */
-            System.exit(0);
+            //System.exit(0);
             
             FastqPair fqPair = new FastqPair(fastqLeft, fastqRight, revCompLeft, revCompRight);
             FastqPair[] fqPairs = new FastqPair[]{fqPair};        

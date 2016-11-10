@@ -17,7 +17,10 @@ import java.util.LinkedList;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysBloomFilter;
+import rnabloom.bloom.hash.CanonicalHashFunction2;
 import rnabloom.bloom.hash.HashFunction;
+import rnabloom.bloom.hash.HashFunction2;
+import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.bloom.hash.SmallestStrandHashFunction;
 import rnabloom.util.SeqUtils.KmerIterator;
 import static rnabloom.util.SeqUtils.getNumKmers;
@@ -36,7 +39,7 @@ public class BloomFilterDeBruijnGraph {
     private PairedKeysBloomFilter pkbf = null;
     
     private int dbgbfCbfMaxNumHash;
-    private final HashFunction hashFunction;
+    private final HashFunction2 hashFunction;
     private int k;
     private int overlap;
     private boolean stranded;
@@ -74,10 +77,10 @@ public class BloomFilterDeBruijnGraph {
         this.seed = seed;
         this.dbgbfCbfMaxNumHash = Math.max(dbgbfNumHash, cbfNumHash);
         if (stranded) {
-            this.hashFunction = new HashFunction(seed, k, dbgbfCbfMaxNumHash);
+            this.hashFunction = new HashFunction2(k);
         }
         else {
-            this.hashFunction = new SmallestStrandHashFunction(seed, k, dbgbfCbfMaxNumHash);
+            this.hashFunction = new CanonicalHashFunction2(k);
         }
         this.dbgbf = new BloomFilter(dbgbfNumBits, dbgbfNumHash, this.hashFunction);
         this.cbf = new CountingBloomFilter(cbfNumBytes, cbfNumHash, this.hashFunction);
@@ -120,10 +123,10 @@ public class BloomFilterDeBruijnGraph {
         br.close();
         
         if (stranded) {
-            this.hashFunction = new HashFunction(seed, k, dbgbfCbfMaxNumHash);
+            this.hashFunction = new HashFunction2(k);
         }
         else {
-            this.hashFunction = new SmallestStrandHashFunction(seed, k, dbgbfCbfMaxNumHash);
+            this.hashFunction = new CanonicalHashFunction2(k);
         }
         
         String dbgbfBitsPath = graphFile.getPath() + FILE_DBGBF_EXTENSION;
@@ -239,7 +242,8 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void add(String kmer) {
-        final long[] hashVals = hashFunction.getHashValues(kmer, dbgbfCbfMaxNumHash);
+        final long[] hashVals = new long[dbgbfCbfMaxNumHash];
+        hashFunction.getHashValues(kmer, dbgbfCbfMaxNumHash, hashVals);
         dbgbf.add(hashVals);
         cbf.increment(hashVals);
     }
@@ -247,50 +251,6 @@ public class BloomFilterDeBruijnGraph {
     public void add(final long[] hashVals) {
         dbgbf.add(hashVals);
         cbf.increment(hashVals);        
-    }
-    
-    public void addKmersFromSeq(String seq) {
-        long[][] hashVals = hashFunction.getHashValues(seq);
-        final int numKmers = hashVals.length;
-        for (int i=0; i<numKmers; ++i) {
-            long[] temp = hashVals[i];
-            dbgbf.add(temp);
-            cbf.increment(temp);
-        }
-        
-        /*
-        final int numKmers = getNumKmers(seq, k);
-        
-        long[] hashVals = new long[dbgbfCbfMaxNumHash];
-        
-        for (int i=0; i<numKmers; ++i) {
-            hashFunction.getHashValues(seq.substring(i, i+k), dbgbfCbfMaxNumHash, hashVals);
-            dbgbf.add(hashVals);
-            cbf.increment(hashVals);
-        }
-        */
-    }
-    
-    public void addKmersFromSeqReverseComplement(String seq) {
-        long[][] hashVals = hashFunction.getHashValuesReverseComplement(seq);
-        final int numKmers = hashVals.length;
-        for (int i=0; i<numKmers; ++i) {
-            long[] temp = hashVals[i];
-            dbgbf.add(temp);
-            cbf.increment(temp);
-        }
-        
-        /*
-        final int numKmers = getNumKmers(seq, k);
-        
-        long[] hashVals = new long[dbgbfCbfMaxNumHash];
-        
-        for (int i=0; i<numKmers; ++i) {
-            hashFunction.getHashValues(seq.substring(i, i+k), dbgbfCbfMaxNumHash, hashVals);
-            dbgbf.add(hashVals);
-            cbf.increment(hashVals);
-        }
-        */
     }
     
     public void addFragmentKmersFromSeq(String seq) {
@@ -333,7 +293,8 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public float getCount(String kmer) {
-        final long[] hashVals = hashFunction.getHashValues(kmer, dbgbfCbfMaxNumHash);
+        final long[] hashVals = new long[dbgbfCbfMaxNumHash];
+        hashFunction.getHashValues(kmer, dbgbfCbfMaxNumHash, hashVals);
         if (dbgbf.lookup(hashVals)) {
             return cbf.getCount(hashVals);
         }
@@ -384,7 +345,7 @@ public class BloomFilterDeBruijnGraph {
         long[] hashVals = new long[dbgbfCbfMaxNumHash];
         for (char c : NUCLEOTIDES) {
             String v = c + prefix;
-            hashFunction.getHashValues(v, hashVals);
+            hashFunction.getHashValues(v, dbgbfCbfMaxNumHash, hashVals);
             if (dbgbf.lookup(hashVals)) {
                 float count = cbf.getCount(hashVals);
                 if (count > 0) {
@@ -404,7 +365,7 @@ public class BloomFilterDeBruijnGraph {
         long[] hashVals = new long[dbgbfCbfMaxNumHash];
         for (char c : NUCLEOTIDES) {
             String v = c + prefix;
-            hashFunction.getHashValues(v, hashVals);
+            hashFunction.getHashValues(v, dbgbfCbfMaxNumHash, hashVals);
             if (dbgbf.lookup(hashVals)) {
                 float count = cbf.getCount(hashVals);
                 if (count > 0) {
@@ -425,7 +386,7 @@ public class BloomFilterDeBruijnGraph {
         long[] hashVals = new long[dbgbfCbfMaxNumHash];
         for (char c : NUCLEOTIDES) {
             String v = suffix + c;
-            hashFunction.getHashValues(v, hashVals);
+            hashFunction.getHashValues(v, dbgbfCbfMaxNumHash, hashVals);
             if (dbgbf.lookup(hashVals)) {
                 float count = cbf.getCount(hashVals);
                 if (count > 0) {
@@ -445,7 +406,7 @@ public class BloomFilterDeBruijnGraph {
         long[] hashVals = new long[dbgbfCbfMaxNumHash];
         for (char c : NUCLEOTIDES) {
             String v = suffix + c;
-            hashFunction.getHashValues(v, hashVals);
+            hashFunction.getHashValues(v, dbgbfCbfMaxNumHash, hashVals);
             if (dbgbf.lookup(hashVals)) {
                 float count = cbf.getCount(hashVals);
                 if (count > 0) {
@@ -542,15 +503,17 @@ public class BloomFilterDeBruijnGraph {
         return true;
     }
     
-    public ArrayList<Kmer> getKmers(String seq) {
-        int numKmers = getNumKmers(seq, k);
-        
+    public ArrayList<Kmer> getKmers(String seq) {        
         ArrayList<Kmer> result = new ArrayList<>();
-        long[][] vals = hashFunction.getHashValues(seq);
-        for (int i=0; i<numKmers; ++i) {
-            long[] temp = vals[i];
-            if (dbgbf.lookup(temp)) {
-                result.add(new Kmer(seq.substring(i, i+k), cbf.getCount(temp)));
+        
+        NTHashIterator itr = hashFunction.getHashIterator(seq, this.dbgbfCbfMaxNumHash);
+        long[] hVals = itr.hVals;
+        int i;
+        while (itr.hasNext()) {
+            itr.next();
+            i = itr.getPos();
+            if (dbgbf.lookup(hVals)) {
+                result.add(new Kmer(seq.substring(i, i+k), cbf.getCount(hVals)));
             }
             else {
                 result.add(new Kmer(seq.substring(i, i+k), 0f));

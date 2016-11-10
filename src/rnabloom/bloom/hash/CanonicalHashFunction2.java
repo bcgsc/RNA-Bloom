@@ -5,40 +5,40 @@
  */
 package rnabloom.bloom.hash;
 
-import static rnabloom.bloom.hash.NTHash.NTM64;
+import static rnabloom.bloom.hash.NTHash.NTMC64;
+import static rnabloom.util.SeqUtils.smallestStrand;
 
 /**
  *
  * @author gengar
  */
-public class HashFunction2 {
-    protected final int k;
-    
-    public HashFunction2(int k) {
-        this.k = k;
+public class CanonicalHashFunction2 extends HashFunction2 {
+    public CanonicalHashFunction2(int k) {
+        super(k);
     }
     
+    @Override
     public void getHashValues(final CharSequence kmer,
                               final int numHash,
                               final long[] out) {
-        NTM64(kmer, k, numHash, out);
+        NTMC64(kmer, k, numHash, out);
     }
     
+    @Override
     public NTHashIterator getHashIterator(final CharSequence seq,
                                           final int numHash) {
-        return new NTHashIterator(k, numHash);
+        return new CanonicalNTHashIterator(k, numHash);
     }
     
-    public long[] getHashValues(final CharSequence kmer1,
-                                final CharSequence kmer2,
-                                final int numHash) {
+    @Override
+    public long[] getHashValues(final CharSequence kmer1, final CharSequence kmer2, int numHash) {
+        String[] reorientedKmers = smallestStrand(kmer1.toString(), kmer2.toString());
+        
         final long[] hashVals1 = new long[numHash];
-        //murmurhash3_x64_128(kmer1.getBytes(), 0, k, seed, numHash, hashVals1);
-        getHashValues(kmer1, numHash, hashVals1);
+        super.getHashValues(reorientedKmers[0], numHash, hashVals1);
         
         final long[] hashVals2 = new long[numHash];
-        //murmurhash3_x64_128(kmer2.getBytes(), 0, k, seed, numHash, hashVals2);
-        getHashValues(kmer2, numHash, hashVals2);
+        super.getHashValues(reorientedKmers[1], numHash, hashVals2);
         
         final long[] hashVal = new long[numHash];
         for (int i=0; i<numHash; ++i) {
@@ -46,11 +46,5 @@ public class HashFunction2 {
         }
         
         return hashVal;
-    }
-    
-    public static long combineHashValues(long a, long b) {
-        // See: http://stackoverflow.com/a/27952689
-        a ^= b + 0x9e3779b9 + (a << 6) + (b >> 2);
-        return a < 0 ? -a : a;
     }
 }

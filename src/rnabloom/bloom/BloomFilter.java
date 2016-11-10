@@ -20,6 +20,7 @@ import rnabloom.bloom.buffer.AbstractLargeBitBuffer;
 import static java.lang.Math.pow;
 import static java.lang.Math.exp;
 import rnabloom.bloom.buffer.BufferComparator;
+import rnabloom.bloom.hash.HashFunction2;
 
 /**
  *
@@ -29,9 +30,9 @@ public class BloomFilter implements BloomFilterInterface {
     protected AbstractLargeBitBuffer bitArray;
     protected int numHash;
     protected long size;
-    protected HashFunction hashFunction;
+    protected HashFunction2 hashFunction;
         
-    public BloomFilter(long size, int numHash, HashFunction hashFunction) {
+    public BloomFilter(long size, int numHash, HashFunction2 hashFunction) {
         
         this.size = size;
         try {
@@ -50,7 +51,7 @@ public class BloomFilter implements BloomFilterInterface {
     private static final String LABEL_NUM_HASH = "numhash";
     private static final String LABEL_FPR = "fpr";
     
-    public BloomFilter(File desc, File bits, HashFunction hashFunction) throws FileNotFoundException, IOException {
+    public BloomFilter(File desc, File bits, HashFunction2 hashFunction) throws FileNotFoundException, IOException {
         
         BufferedReader br = new BufferedReader(new FileReader(desc));
         String line;
@@ -106,7 +107,9 @@ public class BloomFilter implements BloomFilterInterface {
         
     @Override
     public void add(String key) {
-        add(hashFunction.getHashValues(key, numHash));
+        final long[] hashVals = new long[numHash];
+        hashFunction.getHashValues(key, numHash, hashVals);
+        add(hashVals);
     }
     
     public void add(final long[] hashVals){
@@ -122,8 +125,10 @@ public class BloomFilter implements BloomFilterInterface {
     }
 
     @Override
-    public boolean lookup(String key) {        
-        return lookup(hashFunction.getHashValues(key, numHash));
+    public boolean lookup(String key) {
+        final long[] hashVals = new long[numHash];
+        hashFunction.getHashValues(key, numHash, hashVals);
+        return lookup(hashVals);
     }
 
     public boolean lookup(final long[] hashVals) {
