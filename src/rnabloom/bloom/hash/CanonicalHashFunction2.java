@@ -25,8 +25,7 @@ public class CanonicalHashFunction2 extends HashFunction2 {
     }
     
     @Override
-    public NTHashIterator getHashIterator(final CharSequence seq,
-                                          final int numHash) {
+    public NTHashIterator getHashIterator(final int numHash) {
         return new CanonicalNTHashIterator(k, numHash);
     }
     

@@ -212,7 +212,7 @@ public class RNABloom {
                 fr.close();
                 
                 successful = true;
-                System.out.println("[" + id + "] Parsed " + NumberFormat.getInstance().format(numReads) + " reads...");
+                System.out.println("[" + id + "] Parsed " + NumberFormat.getInstance().format(numReads) + " reads.");
             } catch (IOException e) {
                 /**@TODO */
                 e.printStackTrace();
@@ -723,10 +723,10 @@ public class RNABloom {
                 kmerToBackboneID = null;
             }
         } catch (IOException ex) {
-            //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
-            System.out.println("Assembled fragments in " + currentBackboneId + " clusters...");
+            System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
+            System.out.println("Assembled fragments in " + currentBackboneId + " clusters.");
         }
     }
     
@@ -955,6 +955,12 @@ public class RNABloom {
         }
     }
     
+    public static void clearDirectory(File dir) {
+        for(File file: dir.listFiles()) 
+            if (!file.isDirectory()) 
+                file.delete();
+    }    
+
     /**
      * @param args the command line arguments
      */
@@ -1217,7 +1223,7 @@ public class RNABloom {
             int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "5"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
             
-            boolean saveGraph = false;
+            boolean saveGraph = true;
             boolean saveKmerPairs = true;
 
             System.out.println("name: " + name);
@@ -1264,16 +1270,19 @@ public class RNABloom {
             FastqPair fqPair = new FastqPair(fastqLeft, fastqRight, revCompLeft, revCompRight);
             FastqPair[] fqPairs = new FastqPair[]{fqPair};        
 
-            File fragsDir = new File(fragsDirPath);
-            if (!fragsDir.exists()) {
-                fragsDir.mkdirs();
-            }
-
             if (!forceOverwrite && fragsDoneStamp.exists()) {
                 System.out.println("Restoring paired kmers Bloom filter from file...");
                 assembler.restorePairedKmersBloomFilter(new File(graphFile));            
             }
             else {
+                File fragsDir = new File(fragsDirPath);
+                if (fragsDir.exists()) {
+                    clearDirectory(fragsDir);
+                }
+                else {
+                    fragsDir.mkdirs();
+                }
+                
                 long startTime = System.nanoTime();
                 
                 assembler.assembleFragments(fqPairs, fragsDirPath, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);

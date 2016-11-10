@@ -24,8 +24,7 @@ public class HashFunction2 {
         NTM64(kmer, k, numHash, out);
     }
     
-    public NTHashIterator getHashIterator(final CharSequence seq,
-                                          final int numHash) {
+    public NTHashIterator getHashIterator(final int numHash) {
         return new NTHashIterator(k, numHash);
     }
     

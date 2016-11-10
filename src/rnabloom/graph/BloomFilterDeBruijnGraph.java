@@ -506,7 +506,8 @@ public class BloomFilterDeBruijnGraph {
     public ArrayList<Kmer> getKmers(String seq) {        
         ArrayList<Kmer> result = new ArrayList<>();
         
-        NTHashIterator itr = hashFunction.getHashIterator(seq, this.dbgbfCbfMaxNumHash);
+        NTHashIterator itr = hashFunction.getHashIterator(this.dbgbfCbfMaxNumHash);
+        itr.start(seq);
         long[] hVals = itr.hVals;
         int i;
         while (itr.hasNext()) {

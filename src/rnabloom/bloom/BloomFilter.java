@@ -93,14 +93,14 @@ public class BloomFilter implements BloomFilterInterface {
     }
     
     public void save(File desc, File bits) throws IOException {
-        FileWriter writer = new FileWriter(desc);
+        FileWriter writer = new FileWriter(desc, false);
         
         writer.write(LABEL_SIZE + LABEL_SEPARATOR + this.size + "\n" +
                     LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n" +
                     LABEL_FPR + LABEL_SEPARATOR + this.getFPR() + "\n");
         writer.close();
         
-        FileOutputStream out = new FileOutputStream(bits);
+        FileOutputStream out = new FileOutputStream(bits, false);
         this.bitArray.write(out);
         out.close();
     }

@@ -96,14 +96,14 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     }
     
     public void save(File desc, File bytes) throws IOException {
-        FileWriter writer = new FileWriter(desc);
+        FileWriter writer = new FileWriter(desc, false);
         
         writer.write(LABEL_SIZE + LABEL_SEPARATOR + this.size + "\n" +
                     LABEL_NUM_HASH + LABEL_SEPARATOR + this.numHash + "\n" +
                     LABEL_FPR + LABEL_SEPARATOR + this.getFPR() + "\n");
         writer.close();
         
-        FileOutputStream out = new FileOutputStream(bytes);
+        FileOutputStream out = new FileOutputStream(bytes, false);
         this.counts.write(out);
         out.close();
     }
