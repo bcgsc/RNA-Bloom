@@ -280,6 +280,10 @@ public class BloomFilterDeBruijnGraph {
         return pkbf.lookup(kmer);
     }
 
+    public boolean lookupFragmentKmer(final long[] hashVals) {
+        return pkbf.lookup(hashVals);
+    }
+    
     public boolean lookupPairedKmers(String kmer1, String kmer2) {
         return pkbf.lookupSingleAndPair(kmer1, kmer2);
     }
@@ -295,12 +299,16 @@ public class BloomFilterDeBruijnGraph {
     public float getCount(String kmer) {
         final long[] hashVals = new long[dbgbfCbfMaxNumHash];
         hashFunction.getHashValues(kmer, dbgbfCbfMaxNumHash, hashVals);
+        return getCount(hashVals);
+    }
+    
+    public float getCount(final long[] hashVals) {
         if (dbgbf.lookup(hashVals)) {
             return cbf.getCount(hashVals);
         }
         else {
             return 0;
-        }
+        }        
     }
 
     public float getFPR() {
