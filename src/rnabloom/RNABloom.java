@@ -125,10 +125,10 @@ public class RNABloom {
         
         if (stranded) {
             if (reverseComplement) {
-                itr = new NTHashIterator(k, numHash);
+                itr = new ReverseComplementNTHashIterator(k, numHash);
             }
             else {
-                itr = new ReverseComplementNTHashIterator(k, graph.getMaxNumHash());
+                itr = new NTHashIterator(k, numHash);
             }
         }
         else {
@@ -174,10 +174,10 @@ public class RNABloom {
             
             if (stranded) {
                 if (reverseComplement) {
-                    itr = new NTHashIterator(k, numHash);
+                    itr = new ReverseComplementNTHashIterator(k, numHash);
                 }
                 else {
-                    itr = new ReverseComplementNTHashIterator(k, graph.getMaxNumHash());
+                    itr = new NTHashIterator(k, numHash);
                 }
             }
             else {
@@ -548,6 +548,8 @@ public class RNABloom {
             leftPath.addAll(rightPath);
 
             path = leftPath;
+            
+            //System.out.println(">" + i + "\n" + assemble(path));
         }
         
         /* new backbone */
@@ -555,6 +557,9 @@ public class RNABloom {
         int id = ++currentBackboneId;;
         
         /* store kmers in path */
+        
+        //System.out.println(">bb\n" + assemble(path));
+        
         int numKmers = path.size();
         for (int i=0; i<numKmers; ++i) {
             if (i % backboneHashKmerDistance == 0) {
@@ -602,6 +607,9 @@ public class RNABloom {
                     rawRight = connect(p.right, graph, k+p.numRightBasesTrimmed+1, lookahead);
                     
                     if (okToConnectPair(rawLeft, rawRight)) {
+                        //System.out.println(">left\n" + rawLeft);
+                        //System.out.println(">right\n" + rawRight);
+                        
                         /*
                         if (fid < sampleSize) {
                             if (p.left.length() > k+lookahead*2*2) {
@@ -627,6 +635,9 @@ public class RNABloom {
                                                         
                             // correct fragment
                             fragment = correctMismatches(fragment, graph, lookahead, mismatchesAllowed);
+                            
+                            //System.out.println(">fragment\n" + fragment);
+                            
                             int fragLen = fragment.length();
 
                             if (fragLen > k) {
