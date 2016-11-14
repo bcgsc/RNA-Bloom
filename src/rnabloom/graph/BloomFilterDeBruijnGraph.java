@@ -13,6 +13,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedList;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
@@ -22,7 +23,7 @@ import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.HashFunction2;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.bloom.hash.SmallestStrandHashFunction;
-import rnabloom.util.SeqUtils.KmerIterator;
+import rnabloom.util.SeqUtils.KmerSeqIterator;
 import static rnabloom.util.SeqUtils.getNumKmers;
 import static rnabloom.util.SeqUtils.kmerize;
 
@@ -476,7 +477,7 @@ public class BloomFilterDeBruijnGraph {
     public float[] getMinMedianMaxKmerCoverage(String seq) {
         float[] minMedianMax = new float[3];
         
-        KmerIterator itr = new KmerIterator(seq, k);
+        KmerSeqIterator itr = new KmerSeqIterator(seq, k);
         final int numKmers = itr.numKmers;
         final int halfNumKmers = numKmers/2;
         ArrayList<Float> counts = new ArrayList<>(numKmers);
@@ -501,7 +502,7 @@ public class BloomFilterDeBruijnGraph {
     }
         
     public boolean isValidSeq(String seq) {
-        KmerIterator itr = new KmerIterator(seq, k);
+        KmerSeqIterator itr = new KmerSeqIterator(seq, k);
         while (itr.hasNext()) {
             if (!contains(itr.next())) {
                 return false;
@@ -511,10 +512,14 @@ public class BloomFilterDeBruijnGraph {
         return true;
     }
     
+    public NTHashIterator getHashIterator() {
+        return hashFunction.getHashIterator(this.dbgbfCbfMaxNumHash);
+    }
+    
     public ArrayList<Kmer> getKmers(String seq) {        
         ArrayList<Kmer> result = new ArrayList<>();
         
-        NTHashIterator itr = hashFunction.getHashIterator(this.dbgbfCbfMaxNumHash);
+        NTHashIterator itr = getHashIterator();
         itr.start(seq);
         long[] hVals = itr.hVals;
         int i;
@@ -530,5 +535,43 @@ public class BloomFilterDeBruijnGraph {
         }
         
         return result;
+    }
+    
+    public class KmerIterator implements Iterator<Kmer> {
+        private String seq;
+        private int i;
+        public int numKmers;
+        private NTHashIterator itr;
+        private long[] hVals;
+
+        public KmerIterator(String seq) {
+            initialize(seq);
+        }
+        
+        public final void initialize(String seq) {
+            this.seq = seq;
+            this.numKmers = seq.length() - k + 1;
+            this.itr = hashFunction.getHashIterator(dbgbfCbfMaxNumHash);
+            itr.start(seq);
+            hVals = itr.hVals;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return itr.hasNext();
+        }
+
+        @Override
+        public Kmer next() {
+            itr.next();
+            
+            i = itr.getPos();
+            
+            if (dbgbf.lookup(hVals)) {
+                return new Kmer(seq.substring(i, i+k), cbf.getCount(hVals));
+            }
+            
+            return new Kmer(seq.substring(i, i+k), 0);
+        }
     }
 }

@@ -39,6 +39,7 @@ import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
+import rnabloom.graph.BloomFilterDeBruijnGraph.KmerIterator;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.FastqPair;
@@ -310,14 +311,18 @@ public class RNABloom {
             
             int numLeftAssembled = 0;
             
-            KmerIterator leftItr = new KmerIterator(left, k);
-            while (leftItr.hasNext()) {
-                String s = leftItr.next();
-                if (graph.lookupFragmentKmer(s)) {
+            NTHashIterator itr = graph.getHashIterator();
+            itr.start(left);
+            long[] hVals = itr.hVals;
+            
+            while (itr.hasNext()) {
+                itr.next();
+                
+                if (graph.lookupFragmentKmer(hVals)) {
                     ++numLeftAssembled;
                 }
                 
-                c = graph.getCount(s);
+                c = graph.getCount(hVals);
                 if (c == 1) {
                     ++numCov1Kmers;
                 }
@@ -331,15 +336,16 @@ public class RNABloom {
             }
                         
             int numRightAssembled = 0;
-            KmerIterator rightItr = new KmerIterator(right, k);
-            while (rightItr.hasNext()) {
-                String s = rightItr.next();
+            itr.start(right);
+            
+            while (itr.hasNext()) {
+                itr.next();
                 
-                if (graph.lookupFragmentKmer(s)) {
+                if (graph.lookupFragmentKmer(hVals)) {
                     ++numRightAssembled;
                 }
                 
-                c = graph.getCount(s);
+                c = graph.getCount(hVals);
                 if (c == 1) {
                     ++numCov1Kmers;
                 }
@@ -352,8 +358,8 @@ public class RNABloom {
                 }
             }
 
-            if ((numLeftAssembled <= threshold && leftItr.numKmers - numLeftAssembled > 0) ||
-                    (numRightAssembled <= threshold && rightItr.numKmers - numRightAssembled > 0)) {
+            if ((numLeftAssembled <= threshold && getNumKmers(left, k) - numLeftAssembled > 0) ||
+                    (numRightAssembled <= threshold && getNumKmers(right, k) - numRightAssembled > 0)) {
                 return true;
             }
         }
@@ -362,9 +368,11 @@ public class RNABloom {
     }
     
     private int findBackboneIdNonStranded(String fragment) {
-        ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
-        Kmer seed = fragKmers.get(0);
-        for (Kmer kmer : fragKmers) {
+        KmerIterator itr = graph.new KmerIterator(fragment);
+        Kmer seed = itr.next();
+        while (itr.hasNext()) {
+            Kmer kmer = itr.next();
+            
             String seq = smallestStrand(kmer.seq);
             
             if (kmerToBackboneID.containsKey(seq)) {
@@ -465,9 +473,11 @@ public class RNABloom {
     }
     
     private int findBackboneIdStranded(String fragment) {
-        ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
-        Kmer seed = fragKmers.get(0);
-        for (Kmer kmer : fragKmers) {
+        KmerIterator itr = graph.new KmerIterator(fragment);
+        Kmer seed = itr.next();
+        while (itr.hasNext()) {
+            Kmer kmer = itr.next();
+            
             if (kmerToBackboneID.containsKey(kmer.seq)) {
                 return kmerToBackboneID.get(kmer.seq);
             }
@@ -897,8 +907,8 @@ public class RNABloom {
                 fin.close();
                 
                 Collections.sort(frags, fragComp);
-                KmerIterator fragKmerItr = new KmerIterator(k);
-                KmerIterator txptKmerItr = new KmerIterator(k);
+                KmerSeqIterator fragKmerItr = new KmerSeqIterator(k);
+                KmerSeqIterator txptKmerItr = new KmerSeqIterator(k);
                 for (Fragment fragment : frags) {
                     String fragmentSeq = fragment.seq;
                     fragKmerItr.initialize(fragmentSeq);

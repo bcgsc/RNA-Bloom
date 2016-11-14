@@ -36,17 +36,17 @@ public final class SeqUtils {
         return seq.substring(seqLen-k, seqLen);
     }
     
-    public static class KmerIterator implements Iterator<String> {
+    public static class KmerSeqIterator implements Iterator<String> {
         private String seq;
         private int k;
         private int i = 0;
         public int numKmers;
         
-        public KmerIterator(int k) {
+        public KmerSeqIterator(int k) {
             this.k = k;
         }
 
-        public KmerIterator(String seq, int k) {
+        public KmerSeqIterator(String seq, int k) {
             this.k = k;
             initialize(seq);
         }
