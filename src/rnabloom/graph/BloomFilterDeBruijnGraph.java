@@ -502,9 +502,13 @@ public class BloomFilterDeBruijnGraph {
     }
         
     public boolean isValidSeq(String seq) {
-        KmerSeqIterator itr = new KmerSeqIterator(seq, k);
+        NTHashIterator itr = getHashIterator();
+        itr.start(seq);
+        long[] hVals = itr.hVals;
+        
         while (itr.hasNext()) {
-            if (!contains(itr.next())) {
+            itr.next();
+            if (!dbgbf.lookup(hVals)) {
                 return false;
             }
         }

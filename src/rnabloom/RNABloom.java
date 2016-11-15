@@ -611,8 +611,8 @@ public class RNABloom {
                     
                     if (++readPairsParsed % NUM_PARSED_INTERVAL == 0) {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
-                    }                    
-
+                    }
+                    
                     rawLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+1, lookahead);
                     rawRight = connect(p.right, graph, k+p.numRightBasesTrimmed+1, lookahead);
                     
@@ -935,7 +935,7 @@ public class RNABloom {
         } catch (IOException ex) {
             //Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
-            System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments...");
+            System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments.");
         }
     }
         
@@ -1014,6 +1014,14 @@ public class RNABloom {
         //builder.required(true);
         Option optName = builder.build();
         options.addOption(optName);
+        
+        builder = Option.builder("t");
+        builder.longOpt("threads");
+        builder.desc("run in INT threads");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optThreads = builder.build();
+        options.addOption(optThreads);
         
         builder = Option.builder("o");
         builder.longOpt("outdir");
@@ -1158,7 +1166,7 @@ public class RNABloom {
         Option optMismatch = builder.build();
         options.addOption(optMismatch);
 
-        builder = Option.builder("t");
+        builder = Option.builder("tl");
         builder.longOpt("tiplength");
         builder.desc("max length of tip allowed");
         builder.hasArg(true);
