@@ -19,10 +19,8 @@ import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction2;
-import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.HashFunction2;
 import rnabloom.bloom.hash.NTHashIterator;
-import rnabloom.bloom.hash.SmallestStrandHashFunction;
 import rnabloom.util.SeqUtils.KmerSeqIterator;
 import static rnabloom.util.SeqUtils.getNumKmers;
 import static rnabloom.util.SeqUtils.kmerize;
@@ -465,11 +463,22 @@ public class BloomFilterDeBruijnGraph {
         final int numKmers = getNumKmers(seq, k);
         
         float[] counts = new float[numKmers];
-        String[] kmers = kmerize(seq, k);
         
+        NTHashIterator itr = getHashIterator();
+        itr.start(seq);
+        long[] hVals = itr.hVals;
+        
+        for (int i=0; i<numKmers; ++i) {
+            itr.next();
+            counts[i] = getCount(hVals);
+        }
+        
+        /*
+        String[] kmers = kmerize(seq, k);
         for (int i=0; i<numKmers; ++i) {
             counts[i] = getCount(kmers[i]);
         }
+        */
         
         return counts;
     }
@@ -549,10 +558,6 @@ public class BloomFilterDeBruijnGraph {
         private long[] hVals;
 
         public KmerIterator(String seq) {
-            initialize(seq);
-        }
-        
-        public final void initialize(String seq) {
             this.seq = seq;
             this.numKmers = seq.length() - k + 1;
             this.itr = hashFunction.getHashIterator(dbgbfCbfMaxNumHash);
