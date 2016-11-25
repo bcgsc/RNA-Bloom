@@ -584,6 +584,37 @@ public class RNABloom {
         return id;
     }
     
+    public class FragmentAssembler implements Runnable {
+        private ReadPair p;
+        private int mismatchesAllowed;
+        private int bound;
+        private int lookahead;
+        private int minOverlap;
+        private int maxTipLen;
+        
+        public FragmentAssembler(ReadPair p, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen) {
+            this.p = p;
+            this.mismatchesAllowed = mismatchesAllowed;
+            this.bound = bound;
+            this.lookahead = lookahead;
+            this.maxTipLen = maxTipLen;
+            this.minOverlap = minOverlap;
+        }
+        
+        @Override
+        public void run() {
+            // connect segments of left read
+            String rawLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+1, lookahead);
+            
+            // connect segments of right read
+            String rawRight = connect(p.right, graph, k+p.numRightBasesTrimmed+1, lookahead);
+            
+            if (okToConnectPair(rawLeft, rawRight)) {
+                /**@TODO*/
+            }
+        }
+    }
+    
     public void assembleFragments(FastqPair[] fastqs, String outDir, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
         System.out.println("Assembling fragments...");
         
