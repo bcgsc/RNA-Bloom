@@ -370,10 +370,13 @@ public class RNABloom {
     private int findBackboneIdNonStranded(String fragment) {
         KmerIterator itr = graph.new KmerIterator(fragment);
         Kmer seed = itr.next();
+        Kmer kmer;
+        String seq;
+        
         while (itr.hasNext()) {
-            Kmer kmer = itr.next();
+            kmer = itr.next();
             
-            String seq = smallestStrand(kmer.seq);
+            seq = smallestStrand(kmer.seq);
             
             if (kmerToBackboneID.containsKey(seq)) {
                 return kmerToBackboneID.get(seq);
@@ -408,7 +411,7 @@ public class RNABloom {
             while (true) {
                 best = greedyExtendRightOnce(graph, best, bbLookahead);
                 if (best != null) {
-                    String seq = smallestStrand(best.seq);
+                    seq = smallestStrand(best.seq);
                     
                     if (kmerToBackboneID.containsKey(seq)) {
                         return kmerToBackboneID.get(seq);
@@ -432,7 +435,7 @@ public class RNABloom {
             while (true) {
                 best = greedyExtendLeftOnce(graph, best, bbLookahead);
                 if (best != null) {
-                    String seq = smallestStrand(best.seq);
+                    seq = smallestStrand(best.seq);
                     
                     if (kmerToBackboneID.containsKey(seq)) {
                         return kmerToBackboneID.get(seq);
@@ -475,8 +478,9 @@ public class RNABloom {
     private int findBackboneIdStranded(String fragment) {
         KmerIterator itr = graph.new KmerIterator(fragment);
         Kmer seed = itr.next();
+        Kmer kmer;
         while (itr.hasNext()) {
-            Kmer kmer = itr.next();
+            kmer = itr.next();
             
             if (kmerToBackboneID.containsKey(kmer.seq)) {
                 return kmerToBackboneID.get(kmer.seq);
@@ -609,9 +613,13 @@ public class RNABloom {
                 while (fqpr.hasNext()) {
                     p = fqpr.next();
                     
+                    ++readPairsParsed;
+                    
+                    /*
                     if (++readPairsParsed % NUM_PARSED_INTERVAL == 0) {
                         System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs...");
                     }
+                    */
                     
                     rawLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+1, lookahead);
                     rawRight = connect(p.right, graph, k+p.numRightBasesTrimmed+1, lookahead);
