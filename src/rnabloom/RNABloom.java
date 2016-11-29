@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -75,7 +76,7 @@ public class RNABloom {
     
     //private ArrayList<String> backbones = new ArrayList<>(10000);
     private int currentBackboneId = 0;
-    private HashMap<String, Integer> kmerToBackboneID = new HashMap<>(100000);
+    private ConcurrentHashMap<String, Integer> kmerToBackboneID = new ConcurrentHashMap<>(100000);
     private final int backboneHashKmerDistance = 100;
         
     public RNABloom(int k, int qDBG, int qFrag) {
@@ -585,6 +586,7 @@ public class RNABloom {
     }
     
     public class FragmentAssembler implements Runnable {
+        private String outdir;
         private ReadPair p;
         private int mismatchesAllowed;
         private int bound;
@@ -592,7 +594,8 @@ public class RNABloom {
         private int minOverlap;
         private int maxTipLen;
         
-        public FragmentAssembler(ReadPair p, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen) {
+        public FragmentAssembler(String outdir, ReadPair p, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen) {
+            this.outdir = outdir;
             this.p = p;
             this.mismatchesAllowed = mismatchesAllowed;
             this.bound = bound;
@@ -603,13 +606,45 @@ public class RNABloom {
         
         @Override
         public void run() {
-            // connect segments of left read
+            // connect segments of each read
             String rawLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+1, lookahead);
-            
-            // connect segments of right read
             String rawRight = connect(p.right, graph, k+p.numRightBasesTrimmed+1, lookahead);
             
             if (okToConnectPair(rawLeft, rawRight)) {
+                
+                // correct each read
+                String left = correctMismatches(rawLeft, graph, lookahead, mismatchesAllowed);
+                String right = correctMismatches(rawRight, graph, lookahead, mismatchesAllowed);
+                
+                if (okToConnectPair(left, right)) {
+                    
+                    // assemble fragment from read pair
+                    String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
+
+                    // correct fragment
+                    fragment = correctMismatches(fragment, graph, lookahead, mismatchesAllowed);
+
+                    int fragLen = fragment.length();
+
+                    if (fragLen > k) {
+                        int backboneId = findBackboneId.apply(fragment);
+                        
+                        /** extend on both ends unambiguously*/
+                        fragment = naiveExtend(fragment, graph, maxTipLen);
+
+                        try {
+                            FastaWriter out = new FastaWriter(outdir + File.separator + backboneId + ".fa", true);
+                            out.write(rawLeft + " " + rawRight, fragment);
+                            out.close();
+                        }
+                        catch (IOException e) {
+                            /**@TODO print proper error message */
+                            e.printStackTrace();
+                        }
+                    }
+                    
+                }    
+                
                 /**@TODO*/
             }
         }
