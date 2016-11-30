@@ -41,7 +41,7 @@ public class FastaWriter {
     }
     
     public void close() throws IOException {
-        lock.close();
-        //out.close();
+        lock.release();
+        out.close();
     }
 }
