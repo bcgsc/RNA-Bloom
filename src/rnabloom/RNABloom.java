@@ -1216,6 +1216,8 @@ public class RNABloom {
         final String FRAGMENTS_DONE = "FRAGMENTS.DONE";
         final String TRANSCRIPTS_DONE = "TRANSCRIPTS.DONE";
         
+        long globalStartTime = System.nanoTime();
+        
         System.out.println("args: " + Arrays.toString(args));
         
         // -left /projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/gapdh
@@ -1580,6 +1582,7 @@ public class RNABloom {
         catch (ParseException exp) {
             System.out.println("ERROR:" + exp.getMessage() );
         }
+        
+        System.out.println("Total Runtime: " + (System.nanoTime() - globalStartTime) / Math.pow(10, 9) + " seconds");
     }
-    
 }
