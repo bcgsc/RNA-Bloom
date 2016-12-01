@@ -261,6 +261,7 @@ public class RNABloom {
         int numReads = 0;
         int numHash = graph.getMaxNumHash();
         
+        /** @TODO specify the number of threads */
         ExecutorService service = Executors.newFixedThreadPool(2);
         
         ArrayList<FastqParser> threadPool = new ArrayList<>();
@@ -631,6 +632,8 @@ public class RNABloom {
                         
                         /** extend on both ends unambiguously*/
                         fragment = naiveExtend(fragment, graph, maxTipLen);
+                        
+                        /**@TODO store paired kmers in pkBf */
 
                         try {
                             FastaWriter out = new FastaWriter(outdir + File.separator + backboneId + ".fa", true);
@@ -643,11 +646,116 @@ public class RNABloom {
                         }
                     }
                     
-                }    
-                
-                /**@TODO*/
+                }
             }
         }
+    }
+    
+    public void assembleFragmentsMultiThreaded(FastqPair[] fastqs, String outdir, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize, int numThreads) {
+        System.out.println("Assembling fragments...");
+        
+        graph.initializePairKmersBloomFilter();
+        
+        long readPairsParsed = 0;
+
+        /** Set up multi threading */
+        ExecutorService service = Executors.newFixedThreadPool(2);
+        
+        try {
+            FastqReader lin, rin;
+            
+            for (FastqPair fqPair: fastqs) {
+                lin = new FastqReader(fqPair.leftFastq, true);
+                rin = new FastqReader(fqPair.rightFastq, true);
+
+                FastqPairReader fqpr = new FastqPairReader(lin, rin, qualPatternFrag, fqPair.leftRevComp, fqPair.rightRevComp);
+                System.out.println("Parsing `" + fqPair.leftFastq + "` and `" + fqPair.rightFastq + "`...");
+                
+                ReadPair p;
+                
+                ArrayList<String> fragments = new ArrayList<>(sampleSize);
+                ArrayList<Integer> fragmentLengths = new ArrayList<>(sampleSize);
+                
+                /* Assembled initial sample of fragments */
+                while (fqpr.hasNext()) {
+                    p = fqpr.next();
+                    
+                    // connect segments of each read
+                    String rawLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+1, lookahead);
+                    String rawRight = connect(p.right, graph, k+p.numRightBasesTrimmed+1, lookahead);
+
+                    if (okToConnectPair(rawLeft, rawRight)) {
+
+                        // correct each read
+                        String left = correctMismatches(rawLeft, graph, lookahead, mismatchesAllowed);
+                        String right = correctMismatches(rawRight, graph, lookahead, mismatchesAllowed);
+
+                        if (okToConnectPair(left, right)) {
+
+                            // assemble fragment from read pair
+                            String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
+
+                            // correct fragment
+                            fragment = correctMismatches(fragment, graph, lookahead, mismatchesAllowed);
+
+                            int fragLen = fragment.length();
+
+                            if (fragLen > k) {
+                                int backboneId = findBackboneId.apply(fragment);
+
+                                /** extend on both ends unambiguously*/
+                                fragment = naiveExtend(fragment, graph, maxTipLen);
+
+                                fragments.add(fragment);
+                                fragmentLengths.add(fragLen);
+
+                                try {
+                                    FastaWriter out = new FastaWriter(outdir + File.separator + backboneId + ".fa", true);
+                                    out.write(rawLeft + " " + rawRight, fragment);
+                                    out.close();
+                                }
+                                catch (IOException e) {
+                                    /**@TODO print proper error message */
+                                    e.printStackTrace();
+                                }
+                                
+                                if (fragments.size() >= sampleSize) {
+                                    break;
+                                }
+                            }
+
+                        }
+                    }
+                }
+                
+                /* Calculate median and max fragment length */
+                
+                fragmentLengths = null;
+                
+                /* Store paired kmerse in pkBf */
+                
+                fragments = null;
+                
+                
+                FragmentAssembler assembler;
+                
+                while (fqpr.hasNext()) {
+                    ++readPairsParsed;
+                    
+                    /** Assign a read pair to each thread */
+                    assembler = new FragmentAssembler(outdir, fqpr.next(), mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen);
+                    service.submit(assembler);
+                }
+                
+                lin.close();
+                rin.close();
+            }
+        } catch (IOException ex) {
+            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
+            System.out.println("Assembled fragments in " + currentBackboneId + " clusters.");
+        }        
     }
     
     public void assembleFragments(FastqPair[] fastqs, String outDir, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, int sampleSize) {
@@ -815,8 +923,10 @@ public class RNABloom {
 
                 lin.close();
                 rin.close();
-                kmerToBackboneID = null;
             }
+            
+            kmerToBackboneID = null;
+            
         } catch (IOException ex) {
             Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
