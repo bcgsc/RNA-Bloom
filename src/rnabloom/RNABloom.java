@@ -669,7 +669,7 @@ public class RNABloom {
         long readPairsParsed = 0;
 
         /** Set up multi threading */
-        ExecutorService service = Executors.newFixedThreadPool(2);
+        ExecutorService service = Executors.newFixedThreadPool(numThreads);
         
         try {
             FastqReader lin, rin;
@@ -774,6 +774,12 @@ public class RNABloom {
                     /** assign a read pair to each thread */
                     assembler = new FragmentAssembler(outdir, fqpr.next(), mismatchesAllowed, newBound, lookahead, minOverlap, maxTipLen);
                     service.submit(assembler);
+                    
+                    if (readPairsParsed % sampleSize == 0) {
+                        service.shutdown();
+                        service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                        service = Executors.newFixedThreadPool(numThreads);
+                    }
                 }
                 
                 lin.close();
@@ -1527,11 +1533,10 @@ public class RNABloom {
             else {
                 File fragsDir = new File(fragsDirPath);
                 if (fragsDir.exists()) {
-                    clearDirectory(fragsDir);
+                    fragsDir.delete();
                 }
-                else {
-                    fragsDir.mkdirs();
-                }
+                
+                fragsDir.mkdirs();
                 
                 long startTime = System.nanoTime();
                 
