@@ -750,9 +750,9 @@ public class RNABloom {
 
                 /** readjust bound to be based on 1.5*IQR */
                 int whisker = (fragmentLengths.get(sampleSize*3/4) - fragmentLengths.get(sampleSize/4)) * 3/2;
-                bound = medianFragLen + whisker;
+                int newBound = medianFragLen + whisker;
 
-                System.out.println("Max graph traversal depth: " + bound);
+                System.out.println("Max graph traversal depth: " + newBound);
 
                 /** clear sample fragment lengths */
                 fragmentLengths = null;
@@ -772,7 +772,7 @@ public class RNABloom {
                     ++readPairsParsed;
                     
                     /** assign a read pair to each thread */
-                    assembler = new FragmentAssembler(outdir, fqpr.next(), mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen);
+                    assembler = new FragmentAssembler(outdir, fqpr.next(), mismatchesAllowed, newBound, lookahead, minOverlap, maxTipLen);
                     service.submit(assembler);
                 }
                 
@@ -780,6 +780,7 @@ public class RNABloom {
                 rin.close();
             }
             
+            service.shutdown();
             service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
             
         } catch (IOException ex) {
@@ -1434,6 +1435,7 @@ public class RNABloom {
             
             String name = line.getOptionValue(optName.getOpt(), "rna-bloom");
             String outdir = line.getOptionValue(optOutdir.getOpt(), System.getProperty("user.dir") + File.separator + name + "_assembly");
+            /**@TODO evaluate whether out dir is a valid dir */
             
             String fragsDirPath = outdir + File.separator + "fragments";
             String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
