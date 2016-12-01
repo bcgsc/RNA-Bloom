@@ -1505,8 +1505,12 @@ public class RNABloom {
             else {
                 String[] forwardFastqs = new String[]{fastqLeft};
                 String[] backwardFastqs = new String[]{fastqRight};
-                                
+                
+                long startTime = System.nanoTime();
+                
                 assembler.createGraph(forwardFastqs, backwardFastqs, strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed, numThreads);
+
+                System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
                 
                 if (saveGraph) {
                     System.out.println("Saving graph to file `" + graphFile + "`...");
