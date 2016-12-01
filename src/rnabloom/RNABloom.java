@@ -234,7 +234,18 @@ public class RNABloom {
         }
     }
     
-    public void createGraph(String[] forwardFastqs, String[] reverseFastqs, boolean strandSpecific, long dbgbfNumBits, long cbfNumBytes, long pkbfNumBits, int dbgbfNumHash, int cbfNumHash, int pkbfNumHash, int seed) {        
+    public void createGraph(String[] forwardFastqs,
+                            String[] reverseFastqs,
+                            boolean strandSpecific,
+                            long dbgbfNumBits,
+                            long cbfNumBytes,
+                            long pkbfNumBits,
+                            int dbgbfNumHash,
+                            int cbfNumHash,
+                            int pkbfNumHash,
+                            int seed,
+                            int numThreads) {        
+        
         graph = new BloomFilterDeBruijnGraph(dbgbfNumBits,
                                             cbfNumBytes,
                                             pkbfNumBits,
@@ -261,8 +272,7 @@ public class RNABloom {
         int numReads = 0;
         int numHash = graph.getMaxNumHash();
         
-        /** @TODO specify the number of threads */
-        ExecutorService service = Executors.newFixedThreadPool(2);
+        ExecutorService service = Executors.newFixedThreadPool(numThreads);
         
         ArrayList<FastqParser> threadPool = new ArrayList<>();
         int threadId = 0;
@@ -728,21 +738,40 @@ public class RNABloom {
                     }
                 }
                 
-                /* Calculate median and max fragment length */
-                
+                /** Calculate median fragment length */
+                Collections.sort(fragmentLengths);
+                int half = sampleSize/2;
+                int medianFragLen = (fragmentLengths.get(half) + fragmentLengths.get(half - 1))/2;
+
+                System.out.println("Median fragment length: " + medianFragLen);
+
+                /** set kmer pair distance */
+                graph.setPairedKmerDistance(medianFragLen - k);
+
+                /** readjust bound to be based on 1.5*IQR */
+                int whisker = (fragmentLengths.get(sampleSize*3/4) - fragmentLengths.get(sampleSize/4)) * 3/2;
+                bound = medianFragLen + whisker;
+
+                System.out.println("Max graph traversal depth: " + bound);
+
+                /** clear sample fragment lengths */
                 fragmentLengths = null;
+
+                /** store paired kmers of all sample fragments */
+                for (String frag : fragments) {
+                    graph.addPairedKmersFromSeq(frag);
+                }
                 
-                /* Store paired kmerse in pkBf */
-                
+                /** clear sample fragments */
                 fragments = null;
                 
-                
+                /** assemble the remaining fragments multi-threaded */
                 FragmentAssembler assembler;
                 
                 while (fqpr.hasNext()) {
                     ++readPairsParsed;
                     
-                    /** Assign a read pair to each thread */
+                    /** assign a read pair to each thread */
                     assembler = new FragmentAssembler(outdir, fqpr.next(), mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen);
                     service.submit(assembler);
                 }
@@ -750,7 +779,12 @@ public class RNABloom {
                 lin.close();
                 rin.close();
             }
+            
+            service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            
         } catch (IOException ex) {
+            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (InterruptedException ex) {
             Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
@@ -869,7 +903,7 @@ public class RNABloom {
                                     int half = sampleSize/2;
                                     int medianFragLen = (fragmentLengths[half] + fragmentLengths[half - 1])/2;
 
-                                    System.out.println("Median fragment length: " + fragLen);
+                                    System.out.println("Median fragment length: " + medianFragLen);
 
                                     /** set kmer pair distance */
                                     graph.setPairedKmerDistance(medianFragLen - k);
@@ -1395,6 +1429,7 @@ public class RNABloom {
         try {
             CommandLine line = parser.parse(options, args);
             
+            int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), "2"));
             boolean forceOverwrite = line.hasOption(optForce.getOpt());
             
             String name = line.getOptionValue(optName.getOpt(), "rna-bloom");
@@ -1463,7 +1498,7 @@ public class RNABloom {
                 String[] forwardFastqs = new String[]{fastqLeft};
                 String[] backwardFastqs = new String[]{fastqRight};
                                 
-                assembler.createGraph(forwardFastqs, backwardFastqs, strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed);
+                assembler.createGraph(forwardFastqs, backwardFastqs, strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed, numThreads);
                 
                 if (saveGraph) {
                     System.out.println("Saving graph to file `" + graphFile + "`...");
@@ -1498,7 +1533,7 @@ public class RNABloom {
                 
                 long startTime = System.nanoTime();
                 
-                assembler.assembleFragments(fqPairs, fragsDirPath, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize);
+                assembler.assembleFragmentsMultiThreaded(fqPairs, fragsDirPath, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, sampleSize, numThreads);
 
                 System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
                 
