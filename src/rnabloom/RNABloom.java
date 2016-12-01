@@ -1561,8 +1561,13 @@ public class RNABloom {
             }
 
             if (forceOverwrite || !txptsDoneStamp.exists()) {
+                
+                long startTime = System.nanoTime();
+                
                 assembler.assembleTranscripts(fragsDirPath, transcriptsFasta, 10, 0.1f);
 
+                System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
+                
                 try {
                     touch(txptsDoneStamp);
                 } catch (IOException ex) {
