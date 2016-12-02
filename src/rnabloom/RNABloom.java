@@ -635,18 +635,14 @@ public class RNABloom {
                     // correct fragment
                     fragment = correctMismatches(fragment, graph, lookahead, mismatchesAllowed);
 
-                    int fragLen = fragment.length();
-
-                    if (fragLen > k) {
-                        int backboneId = findBackboneId.apply(fragment);
-                        
-                        /** extend on both ends unambiguously*/
+                    if (fragment.length() > k) {
                         fragment = naiveExtend(fragment, graph, maxTipLen);
                         
-                        /**@TODO store paired kmers in pkBf */
+                        /** store paired kmers in pkBf */
+                        graph.addPairedKmersFromSeq(fragment);
 
                         try {
-                            FastaWriter out = new FastaWriter(outdir + File.separator + backboneId + ".fa", true);
+                            FastaWriter out = new FastaWriter(outdir + File.separator + findBackboneId.apply(fragment) + ".fa", true);
                             out.write(rawLeft + " " + rawRight, fragment);
                             out.close();
                         }
@@ -711,8 +707,6 @@ public class RNABloom {
                             int fragLen = fragment.length();
 
                             if (fragLen > k) {
-                                int backboneId = findBackboneId.apply(fragment);
-
                                 /** extend on both ends unambiguously*/
                                 fragment = naiveExtend(fragment, graph, maxTipLen);
 
@@ -720,7 +714,7 @@ public class RNABloom {
                                 fragmentLengths.add(fragLen);
 
                                 try {
-                                    FastaWriter out = new FastaWriter(outdir + File.separator + backboneId + ".fa", true);
+                                    FastaWriter out = new FastaWriter(outdir + File.separator + findBackboneId.apply(fragment) + ".fa", true);
                                     out.write(rawLeft + " " + rawRight, fragment);
                                     out.close();
                                 }
