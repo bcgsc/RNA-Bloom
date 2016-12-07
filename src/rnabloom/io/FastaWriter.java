@@ -5,43 +5,42 @@
  */
 package rnabloom.io;
 
-import java.io.FileOutputStream;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
 
 /**
  *
  * @author kmnip
  */
 public class FastaWriter {
-    //private final BufferedWriter out;
-    private OutputStreamWriter out;
-    private FileLock lock = null;
+    private final BufferedWriter out;
+    //private FileLock lock = null;
     
     public FastaWriter(String path, boolean append) throws IOException {
-        //out = new BufferedWriter(new FileWriter(path, append));
+        out = new BufferedWriter(new FileWriter(path, append));
+        /*
         FileOutputStream stream = new FileOutputStream(path, append);
-        out = new OutputStreamWriter(stream);
+        out = new BufferedWriter(new OutputStreamWriter(stream));
         
         FileChannel channel = stream.getChannel();
         
-        while (lock == null) {
+        for (lock = channel.tryLock(); lock == null;) {
             lock = channel.tryLock();
         }
+        */
     }
     
     public void write(String header, String seq) throws IOException {
         out.write(">");
         out.write(header);
-        out.write("\n");
+        out.newLine();
         out.write(seq);
-        out.write("\n");
+        out.newLine();
     }
     
     public void close() throws IOException {
-        lock.release();
+        //lock.release();
         out.close();
     }
 }
