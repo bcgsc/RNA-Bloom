@@ -266,7 +266,7 @@ public final class GraphUtils {
                     return rightPath;
                 }
                 else if (leftPathKmers.contains(best.seq)) {
-                    /*right path intersects the left path */
+                    /* right path intersects the left path */
                     String convergingKmer = best.seq;
                     ArrayList<Kmer> path = new ArrayList<>(bound);
                     for (Kmer kmer : leftPath) {
@@ -420,18 +420,22 @@ public final class GraphUtils {
         int numKmers = seqLen-k+1;
         StringBuilder sb = new StringBuilder(seq);
         
+        float bestCov, cov;
+        String kmer, guide;
+        LinkedList<String> variants;
+        
         // correct from start
         for (int i=0; i<numKmers; ++i) {
             int end = i+k;
-            String kmer = sb.substring(i, end);
-            LinkedList<String> variants = graph.getRightVariants(kmer);
+            kmer = sb.substring(i, end);
+            variants = graph.getRightVariants(kmer);
             if (!variants.isEmpty()) {
-                String guide = sb.substring(end, Math.min(end+lookahead, seqLen));
-                float bestCov = rightGuidedMedianCoverage(graph, kmer, guide);
+                guide = sb.substring(end, Math.min(end+lookahead, seqLen));
+                bestCov = rightGuidedMedianCoverage(graph, kmer, guide);
                 
                 boolean corrected = false;
                 for (String v : variants) {
-                    float cov = rightGuidedMedianCoverage(graph, v, guide);
+                    cov = rightGuidedMedianCoverage(graph, v, guide);
                     if (cov > bestCov) {
                         bestCov = cov;
                         sb.setCharAt(end-1, v.charAt(k-1));
@@ -440,8 +444,7 @@ public final class GraphUtils {
                 }
                 
                 if (corrected) {
-                    --mismatchesAllowed;
-                    if (mismatchesAllowed < 0) {
+                    if (--mismatchesAllowed < 0) {
                         // too many mismatches
                         return seq;
                     }
@@ -451,15 +454,15 @@ public final class GraphUtils {
         
         // correct from end
         for (int i=seqLen-k; i>=0; --i) {
-            String kmer = sb.substring(i, i+k);
-            LinkedList<String> variants = graph.getLeftVariants(kmer);
+            kmer = sb.substring(i, i+k);
+            variants = graph.getLeftVariants(kmer);
             if (!variants.isEmpty()) {
-                String guide = sb.substring(Math.max(0, i-lookahead), i);
-                float bestCov = leftGuidedMedianCoverage(graph, kmer, guide);
+                guide = sb.substring(Math.max(0, i-lookahead), i);
+                bestCov = leftGuidedMedianCoverage(graph, kmer, guide);
                 
                 boolean corrected = false;
                 for (String v : variants) {
-                    float cov = leftGuidedMedianCoverage(graph, v, guide);
+                    cov = leftGuidedMedianCoverage(graph, v, guide);
                     if (cov > bestCov) {
                         bestCov = cov;
                         sb.setCharAt(i, v.charAt(0));
@@ -468,8 +471,7 @@ public final class GraphUtils {
                 }
                 
                 if (corrected) {
-                    --mismatchesAllowed;
-                    if (mismatchesAllowed < 0) {
+                    if (--mismatchesAllowed < 0) {
                         // too many mismatches
                         return seq;
                     }
@@ -743,6 +745,17 @@ public final class GraphUtils {
         }
         
         return connect(left, right, graph, bound, lookahead);
+    }
+    
+    public static String extendWithPairedKmers(String fragment, BloomFilterDeBruijnGraph graph, int lookahead) {
+        final int distance = graph.getPairedKmerDistance();
+        final int k = graph.getK();
+        
+        String transcript = fragment;
+        
+                
+        
+        return transcript;
     }
     
     public static String assembleTranscript(String fragment, BloomFilterDeBruijnGraph graph, int lookahead, float covGradient, KmerSet assembledKmers) {
