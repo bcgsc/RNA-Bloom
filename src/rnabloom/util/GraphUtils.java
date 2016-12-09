@@ -442,9 +442,7 @@ public final class GraphUtils {
         return extension;
     }
     
-    public static String correctMismatches2(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
-        /**@TODO */
-        
+    public static String correctErrors(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed, int maxIndelSize) {        
         int k = graph.getK();
         
         if (seq.length() > 2*k + 1) {
@@ -459,17 +457,55 @@ public final class GraphUtils {
                 }
             }        
 
+            String kmerSeq;
             Kmer kmer, nextKmer;
-            List<Kmer> neighbors;
             for (int i=0; i<numKmers; ++i) {
                 kmer = kmers.get(i);
+                kmerSeq = kmer.seq;
+                
                 nextKmer = kmers.get(i+1);
                 
-                neighbors = graph.getSuccessors(kmer);
+                ArrayList<Kmer> best = null;
+                Kmer bestConvergingKmer = null;
                 
-                /**@TODO */
+                for (Kmer n : graph.getSuccessors(kmer)) {
+                    if (!n.equals(nextKmer)) {
+                        int searchDepth = numKmers-i;
+                        ArrayList<Kmer> alt = greedyExtendRight(graph, n, lookahead, kmersSet, searchDepth);
+                        Kmer convergingKmer = alt.get(alt.size()-1);
+                        
+                        if (kmersSet.contains(convergingKmer.seq)) {
+                            ArrayList<Float> ori = new ArrayList<>(searchDepth);
+                            Kmer oriKmer;
+                            for (int j=i; j<numKmers; ++j) {
+                                oriKmer = kmers.get(j);
+                                ori.add(oriKmer.count);
+                                
+                                if (convergingKmer.equals(kmer)) {
+                                    break;
+                                }
+                            }
+                            
+                            if (Math.abs(ori.size() - alt.size()) <= maxIndelSize) {                          
+                                float oriCov = getMedian(ori);
+                                float altCov = getMedianKmerCoverage(alt);
+                                
+                                if (altCov > oriCov) {
+                                    best = alt;
+                                    bestConvergingKmer = convergingKmer;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (best != null) {
+                    /**@TODO Replace branch */
+                }
             }
         }
+        
+        /**@TODO */
         
         return seq;
     }
