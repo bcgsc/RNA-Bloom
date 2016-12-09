@@ -8,6 +8,7 @@ package rnabloom.util;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -17,6 +18,7 @@ import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
+import static rnabloom.util.SeqUtils.kmerize;
 import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 
@@ -406,6 +408,70 @@ public final class GraphUtils {
         }
         
         return getMedian(covs);
+    }
+    
+    public static ArrayList<Kmer> greedyExtendLeft(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead, HashSet<String> terminators, int bound) {
+        ArrayList<Kmer> extension = new ArrayList<>();
+        Kmer nextKmer;
+        
+        for (int i=0; i<bound; ++i) {
+            nextKmer = greedyExtendLeftOnce(graph, source, lookahead);
+            extension.add(nextKmer);
+            if (terminators.contains(nextKmer.seq)) {
+                break;
+            }
+        }
+        
+        Collections.reverse(extension);
+        
+        return extension;
+    }
+    
+    public static ArrayList<Kmer> greedyExtendRight(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead, HashSet<String> terminators, int bound) {
+        ArrayList<Kmer> extension = new ArrayList<>();
+        Kmer nextKmer;
+        
+        for (int i=0; i<bound; ++i) {
+            nextKmer = greedyExtendRightOnce(graph, source, lookahead);
+            extension.add(nextKmer);
+            if (terminators.contains(nextKmer.seq)) {
+                break;
+            }
+        }
+        
+        return extension;
+    }
+    
+    public static String correctMismatches2(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
+        /**@TODO */
+        
+        int k = graph.getK();
+        
+        if (seq.length() > 2*k + 1) {
+            ArrayList<Kmer> kmers = graph.getKmers(seq);
+            
+            int numKmers = kmers.size();
+            
+            HashSet<String> kmersSet = new HashSet<>(numKmers);
+            for (Kmer kmer : kmers){
+                if (kmer.count > 0) {
+                    kmersSet.add(kmer.seq);
+                }
+            }        
+
+            Kmer kmer, nextKmer;
+            List<Kmer> neighbors;
+            for (int i=0; i<numKmers; ++i) {
+                kmer = kmers.get(i);
+                nextKmer = kmers.get(i+1);
+                
+                neighbors = graph.getSuccessors(kmer);
+                
+                /**@TODO */
+            }
+        }
+        
+        return seq;
     }
     
     public static String correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {

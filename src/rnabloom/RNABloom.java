@@ -588,29 +588,29 @@ public class RNABloom {
         @Override
         public void run() {
             // connect segments of each read
-            String rawLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+1, lookahead);
-            String rawRight = connect(p.right, graph, k+p.numRightBasesTrimmed+1, lookahead);
-            
-            if (okToConnectPair(rawLeft, rawRight)) {
-                
+            String connectedLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+1, lookahead);
+            String connectedRight = connect(p.right, graph, k+p.numRightBasesTrimmed+1, lookahead);
+
+            if (okToConnectPair(connectedLeft, connectedRight)) {
+
                 // correct each read
-                String left = correctMismatches(rawLeft, graph, lookahead, mismatchesAllowed);
-                String right = correctMismatches(rawRight, graph, lookahead, mismatchesAllowed);
-                
+                String left = correctMismatches(connectedLeft, graph, lookahead, mismatchesAllowed);
+                String right = correctMismatches(connectedRight, graph, lookahead, mismatchesAllowed);
+
                 if (okToConnectPair(left, right)) {
-                    
+
                     // assemble fragment from read pair
                     String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
 
                     if (fragment.length() > k) {
                         fragment = naiveExtend(correctMismatches(fragment, graph, lookahead, mismatchesAllowed), graph, maxTipLen);
-                        
+
                         // mark fragment kmers as assembled
                         graph.addFragmentKmersFromSeq(fragment);
                         if (storeKmerPairs) {
                             graph.addPairedKmersFromSeq(fragment);
                         }
-                        
+
                         outList.add(fragment);
                     }
                 }
@@ -665,26 +665,35 @@ public class RNABloom {
         
         try {
             FastqReader lin, rin;
+            FastqPairReader fqpr;
+            
             FastaWriter out = new FastaWriter(outfile, true);
+            
+            ReadPair p;
             List<String> fragments = Collections.synchronizedList(new ArrayList<>(sampleSize));
             
             for (FastqPair fqPair: fastqs) {
                 lin = new FastqReader(fqPair.leftFastq, true);
                 rin = new FastqReader(fqPair.rightFastq, true);
 
-                FastqPairReader fqpr = new FastqPairReader(lin, rin, qualPatternFrag, fqPair.leftRevComp, fqPair.rightRevComp);
+                fqpr = new FastqPairReader(lin, rin, qualPatternFrag, fqPair.leftRevComp, fqPair.rightRevComp);
                 System.out.println("Parsing `" + fqPair.leftFastq + "` and `" + fqPair.rightFastq + "`...");
                 
                 if (!pairedKmerDistanceIsSet) {
                     // Assembled initial sample of fragments
                     while (fqpr.hasNext()) {
+                        p = fqpr.next();
                         ++readPairsParsed;
-
-                        // assign a read pair to each thread
-                        service.submit(new FragmentAssembler(fqpr.next(), fragments, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, false));
-
-                        if (fragments.size() >= sampleSize) {
-                            break;
+                        
+                        // ignore read pairs when more than half of raw read length were trimmed for each read
+                        if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
+                                p.originalRightLength > 2*p.numRightBasesTrimmed) {
+                            
+                            service.submit(new FragmentAssembler(p, fragments, mismatchesAllowed, bound, lookahead, minOverlap, maxTipLen, false));
+                            
+                            if (fragments.size() >= sampleSize) {
+                                break;
+                            }
                         }
                     }
 
@@ -720,22 +729,27 @@ public class RNABloom {
                 
                 // assemble the remaining fragments in multi-threaded mode
                 for (fragments = Collections.synchronizedList(new ArrayList<>(sampleSize)); fqpr.hasNext();) {
+                    p = fqpr.next();
                     ++readPairsParsed;
                     
-                    // assign a read pair to each thread
-                    service.submit(new FragmentAssembler(fqpr.next(), fragments, mismatchesAllowed, newBound, lookahead, minOverlap, maxTipLen, true));
-                    
-                    if (fragments.size() >= sampleSize) {
-                        service.terminate();
+                    // ignore read pairs when more than half of raw read length were trimmed for each read
+                    if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
+                            p.originalRightLength > 2*p.numRightBasesTrimmed) {
                         
-                        // write fragments to file
-                        for (String frag : fragments) {
-                            out.write(Long.toString(++fragmentId), frag);
+                        service.submit(new FragmentAssembler(p, fragments, mismatchesAllowed, newBound, lookahead, minOverlap, maxTipLen, true));
+
+                        if (fragments.size() >= sampleSize) {
+                            service.terminate();
+
+                            // write fragments to file
+                            for (String frag : fragments) {
+                                out.write(Long.toString(++fragmentId), frag);
+                            }
+
+                            // reset thread pool
+                            fragments = Collections.synchronizedList(new ArrayList<>(sampleSize));
+                            service = new MyExecutorService(numThreads, maxTasksQueueSize);
                         }
-                        
-                        // reset thread pool
-                        fragments = Collections.synchronizedList(new ArrayList<>(sampleSize));
-                        service = new MyExecutorService(numThreads, maxTasksQueueSize);
                     }
                 }
                 

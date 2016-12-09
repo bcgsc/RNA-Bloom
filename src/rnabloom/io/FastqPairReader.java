@@ -50,6 +50,8 @@ public class FastqPairReader implements Iterator<ReadPair> {
     public static final class ReadPair {
         public ArrayList<String> left;
         public ArrayList<String> right;
+        public int originalLeftLength;
+        public int originalRightLength;
         public int numLeftBasesTrimmed;
         public int numRightBasesTrimmed;
     }
@@ -77,6 +79,7 @@ public class FastqPairReader implements Iterator<ReadPair> {
         p.left = filterFastq(frLeft, qualPattern);
         
         int numBasesTrimmed = frLeft.seq.length();
+        p.originalLeftLength = numBasesTrimmed;
         for (String s : p.left) {
             numBasesTrimmed -= s.length();
         }
@@ -85,6 +88,7 @@ public class FastqPairReader implements Iterator<ReadPair> {
         p.right = filterFastq(frRight, qualPattern);
         
         numBasesTrimmed = frRight.seq.length();
+        p.originalRightLength = numBasesTrimmed;
         for (String s : p.right) {
             numBasesTrimmed -= s.length();
         }
