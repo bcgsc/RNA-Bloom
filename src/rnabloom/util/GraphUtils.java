@@ -416,10 +416,12 @@ public final class GraphUtils {
         
         for (int i=0; i<bound; ++i) {
             nextKmer = greedyExtendLeftOnce(graph, source, lookahead);
-            extension.add(nextKmer);
+            
             if (terminators.contains(nextKmer.seq)) {
                 break;
             }
+            
+            extension.add(nextKmer);
         }
         
         Collections.reverse(extension);
@@ -433,10 +435,12 @@ public final class GraphUtils {
         
         for (int i=0; i<bound; ++i) {
             nextKmer = greedyExtendRightOnce(graph, source, lookahead);
-            extension.add(nextKmer);
+            
             if (terminators.contains(nextKmer.seq)) {
                 break;
             }
+            
+            extension.add(nextKmer);
         }
         
         return extension;
@@ -444,68 +448,105 @@ public final class GraphUtils {
     
     public static String correctErrors(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed, int maxIndelSize) {        
         int k = graph.getK();
+        ArrayList<Kmer> kmers = graph.getKmers(seq);
+        int numKmers = kmers.size();
         
-        if (seq.length() > 2*k + 1) {
-            ArrayList<Kmer> kmers = graph.getKmers(seq);
-            
-            int numKmers = kmers.size();
+        if (numKmers > k) {
             
             HashSet<String> kmersSet = new HashSet<>(numKmers);
             for (Kmer kmer : kmers){
                 if (kmer.count > 0) {
                     kmersSet.add(kmer.seq);
                 }
-            }        
+            }
 
-            String kmerSeq;
-            Kmer kmer, nextKmer;
-            for (int i=0; i<numKmers; ++i) {
+            Kmer kmer;
+            for (int i=0; i<numKmers-k; ++i) {
                 kmer = kmers.get(i);
-                kmerSeq = kmer.seq;
                 
-                nextKmer = kmers.get(i+1);
+                ArrayList<Kmer> bestOri = null;
+                float bestOriCov = 0;
                 
                 ArrayList<Kmer> best = null;
+                float bestCov = 0;
                 Kmer bestConvergingKmer = null;
                 
-                for (Kmer n : graph.getSuccessors(kmer)) {
-                    if (!n.equals(nextKmer)) {
-                        int searchDepth = numKmers-i;
-                        ArrayList<Kmer> alt = greedyExtendRight(graph, n, lookahead, kmersSet, searchDepth);
-                        Kmer convergingKmer = alt.get(alt.size()-1);
+                for (Kmer n : graph.getRightVariants(kmer)) {
+                    int searchDepth = numKmers-i + maxIndelSize;
+
+                    // find alt path
+                    ArrayList<Kmer> alt = greedyExtendRight(graph, n, lookahead, kmersSet, searchDepth);
+                    Kmer altLastKmer = alt.get(alt.size()-1);
+
+                    if (kmersSet.contains(altLastKmer.seq)) {
+                        ArrayList<Kmer> ori = bestOri;
+                        float oriCov = bestOriCov;
                         
-                        if (kmersSet.contains(convergingKmer.seq)) {
-                            ArrayList<Float> ori = new ArrayList<>(searchDepth);
-                            Kmer oriKmer;
+                        if (bestConvergingKmer == null || !bestConvergingKmer.equals(altLastKmer)) {
+                            // calculate coverage for original branch
+                            ori = new ArrayList<>(searchDepth);
                             for (int j=i; j<numKmers; ++j) {
-                                oriKmer = kmers.get(j);
-                                ori.add(oriKmer.count);
-                                
-                                if (convergingKmer.equals(kmer)) {
+                                ori.add(kmers.get(j));
+
+                                if (kmer.equals(altLastKmer)) {
                                     break;
                                 }
                             }
+                            oriCov = getMedianKmerCoverage(ori);
+                        }
+                        
+                        if (Math.abs(ori.size() - alt.size()) <= maxIndelSize) {
                             
-                            if (Math.abs(ori.size() - alt.size()) <= maxIndelSize) {                          
-                                float oriCov = getMedian(ori);
-                                float altCov = getMedianKmerCoverage(alt);
+                            float altCov = getMedianKmerCoverage(alt);
+
+                            if (altCov > bestCov && altCov > oriCov) {
+                                best = alt;
+                                bestCov = altCov;
+                                bestConvergingKmer = altLastKmer;
                                 
-                                if (altCov > oriCov) {
-                                    best = alt;
-                                    bestConvergingKmer = convergingKmer;
-                                }
+                                bestOri = ori;
+                                bestOriCov = oriCov;
                             }
                         }
                     }
                 }
                 
                 if (best != null) {
-                    /**@TODO Replace branch */
+                    /** replace branch */
+                    
+                    for (Kmer n : bestOri) {
+                        kmersSet.remove(n.seq);
+                    }
+                    
+                    ArrayList<Kmer> newKmers = new ArrayList<>(numKmers);
+                    
+                    for (int j=0; j<i; ++j) {
+                        newKmers.add(kmers.get(j));
+                    }
+                    
+                    for (Kmer n : best) {
+                        newKmers.add(n);
+                        kmersSet.add(n.seq);
+                    }
+                    
+                    for (int j=i+bestOri.size()-1; j<numKmers; ++j) {
+                        newKmers.add(kmers.get(j));
+                    }
+                    
+                    kmers = newKmers;
+                    numKmers = kmers.size();
+                    
+                    if (--errorsAllowed < 0) {
+                        return assemble(kmers);
+                    }
                 }
             }
+            
+            seq = assemble(kmers);
         }
         
-        /**@TODO */
+        /**@TODO Correct flanking k-1 sequences */
+        
         
         return seq;
     }

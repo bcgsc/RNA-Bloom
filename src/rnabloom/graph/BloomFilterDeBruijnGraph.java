@@ -423,6 +423,23 @@ public class BloomFilterDeBruijnGraph {
         }
         return result;
     }
+
+    public LinkedList<Kmer> getLeftVariants(Kmer kmer) {
+        LinkedList<Kmer> result = new LinkedList<>();
+        
+        final String suffix = getSuffix(kmer.seq);
+        String v;
+        float count;
+        for (char c : NUCLEOTIDES) {
+            v = c + suffix;
+            count = getCount(v);
+            if (count > 0) {
+                result.add(new Kmer(v, count));
+            }
+        }
+        
+        return result;
+    }
     
     public LinkedList<String> getLeftVariants(String kmer) {
         LinkedList<String> result = new LinkedList<>();
@@ -437,6 +454,23 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
 
+    public LinkedList<Kmer> getRightVariants(Kmer kmer) {
+        LinkedList<Kmer> result = new LinkedList<>();
+        
+        final String prefix = getPrefix(kmer.seq);
+        String v;
+        float count;
+        for (char c : NUCLEOTIDES) {
+            v = prefix + c;
+            count = getCount(v);
+            if (count > 0) {
+                result.add(new Kmer(v, count));
+            }
+        }
+        
+        return result;
+    }
+    
     public LinkedList<String> getRightVariants(String kmer) {
         LinkedList<String> result = new LinkedList<>();
         final String prefix = getPrefix(kmer);
