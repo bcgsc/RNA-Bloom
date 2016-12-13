@@ -545,10 +545,74 @@ public final class GraphUtils {
             seq = assemble(kmers);
         }
         
-        /**@TODO Correct flanking k-1 sequences */
+        /** Correct flanking k-1 on both ends */
+        StringBuilder sb = new StringBuilder(seq);
+        int seqLen = seq.length();
         
+        float bestCov, cov;
+        String kmer, guide;
+        LinkedList<String> variants;
         
-        return seq;
+        // correct 3' end
+        for (int i=numKmers-k; i<numKmers; ++i) {
+            int end = i+k;
+            kmer = sb.substring(i, end);
+            variants = graph.getRightVariants(kmer);
+            if (!variants.isEmpty()) {
+                guide = sb.substring(end, Math.min(end+lookahead, seqLen));
+                bestCov = rightGuidedMedianCoverage(graph, kmer, guide);
+                
+                boolean corrected = false;
+                for (String v : variants) {
+                    cov = rightGuidedMedianCoverage(graph, v, guide);
+                    if (cov > bestCov) {
+                        bestCov = cov;
+                        sb.setCharAt(end-1, v.charAt(k-1));
+                        corrected = true;
+                    }
+                }
+                
+                if (corrected) {
+                    if (--errorsAllowed < 0) {
+                        return seq;
+                    }
+                }
+            }
+        }
+        
+        // correct 5' end
+        for (int i=k; i>=0; --i) {
+            kmer = sb.substring(i, i+k);
+            variants = graph.getLeftVariants(kmer);
+            if (!variants.isEmpty()) {
+                guide = sb.substring(Math.max(0, i-lookahead), i);
+                bestCov = leftGuidedMedianCoverage(graph, kmer, guide);
+                
+                boolean corrected = false;
+                for (String v : variants) {
+                    cov = leftGuidedMedianCoverage(graph, v, guide);
+                    if (cov > bestCov) {
+                        bestCov = cov;
+                        sb.setCharAt(i, v.charAt(0));
+                        corrected = true;
+                    }
+                }
+                
+                if (corrected) {
+                    if (--errorsAllowed < 0) {
+                        return seq;
+                    }
+                }
+            }
+        }
+        
+        String seq2 = sb.toString();
+        
+        if (!graph.isValidSeq(seq2)) {
+            return seq;
+        }
+        
+        return seq2;
     }
     
     public static String correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
