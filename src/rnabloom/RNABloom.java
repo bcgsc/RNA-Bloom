@@ -1128,9 +1128,13 @@ public class RNABloom {
     }
     
     public void test2() {
-        String seq = "CTGCTGACGCCCCCATGTTCGTCATGGGTGTGAACCATGAGAAGTATGACAACAGCCTCAAGATCATCAGCAATGCCTCCTGCACCACCAACTGCTTAGCACCCCTGGCCAAGGTCATCCATGACAACTTTGGTATCGTGGAAGGACTCATGACCACAGTCCATGCCATCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCAT";
+        String seq = "GAACATCATCCCTGCCTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGAC";
         
-        String corrected = correctMismatches(seq, graph, 5, 5);
+        int lookahead = 5;
+        int errorsallowed = 5;
+        int maxindelsize = 1;
+        
+        String corrected = correctErrors(seq, graph, lookahead, errorsallowed, maxindelsize);
         
         System.out.println(seq);
         System.out.println(corrected);
@@ -1479,6 +1483,7 @@ public class RNABloom {
             }
             
             /**@TODO */
+            //assembler.test2();
             //System.exit(0);
             
             FastqPair fqPair = new FastqPair(fastqLeft, fastqRight, revCompLeft, revCompRight);
