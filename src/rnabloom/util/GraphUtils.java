@@ -412,16 +412,16 @@ public final class GraphUtils {
     
     public static ArrayList<Kmer> greedyExtendLeft(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead, HashSet<String> terminators, int bound) {
         ArrayList<Kmer> extension = new ArrayList<>();
-        Kmer nextKmer;
+        Kmer nextKmer = source;
+        extension.add(nextKmer);
         
         for (int i=0; i<bound; ++i) {
-            nextKmer = greedyExtendLeftOnce(graph, source, lookahead);
+            nextKmer = greedyExtendLeftOnce(graph, nextKmer, lookahead);
+            extension.add(nextKmer);
             
-            if (terminators.contains(nextKmer.seq)) {
+            if (nextKmer == null || terminators.contains(nextKmer.seq)) {
                 break;
             }
-            
-            extension.add(nextKmer);
         }
         
         Collections.reverse(extension);
@@ -431,16 +431,16 @@ public final class GraphUtils {
     
     public static ArrayList<Kmer> greedyExtendRight(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead, HashSet<String> terminators, int bound) {
         ArrayList<Kmer> extension = new ArrayList<>();
-        Kmer nextKmer;
+        Kmer nextKmer = source;
+        extension.add(nextKmer);
         
         for (int i=0; i<bound; ++i) {
-            nextKmer = greedyExtendRightOnce(graph, source, lookahead);
+            nextKmer = greedyExtendRightOnce(graph, nextKmer, lookahead);
+            extension.add(nextKmer);
             
-            if (terminators.contains(nextKmer.seq)) {
+            if (nextKmer == null || terminators.contains(nextKmer.seq)) {
                 break;
             }
-            
-            extension.add(nextKmer);
         }
         
         return extension;
@@ -450,6 +450,7 @@ public final class GraphUtils {
         int k = graph.getK();
         ArrayList<Kmer> kmers = graph.getKmers(seq);
         int numKmers = kmers.size();
+        int minBranchLen = 1;
         
         if (numKmers > k) {
             
@@ -472,40 +473,45 @@ public final class GraphUtils {
                 Kmer bestConvergingKmer = null;
                 
                 for (Kmer n : graph.getRightVariants(kmer)) {
-                    int searchDepth = numKmers-i + maxIndelSize;
+                    int searchDepth = Math.max(2*k, numKmers-i + maxIndelSize);
 
                     // find alt path
                     ArrayList<Kmer> alt = greedyExtendRight(graph, n, lookahead, kmersSet, searchDepth);
-                    Kmer altLastKmer = alt.get(alt.size()-1);
+                    int altLen = alt.size();
+                    if (altLen > minBranchLen) {
+                        Kmer altLastKmer = alt.get(altLen-1);
 
-                    if (kmersSet.contains(altLastKmer.seq)) {
-                        ArrayList<Kmer> ori = bestOri;
-                        float oriCov = bestOriCov;
-                        
-                        if (bestConvergingKmer == null || !bestConvergingKmer.equals(altLastKmer)) {
-                            // calculate coverage for original branch
-                            ori = new ArrayList<>(searchDepth);
-                            for (int j=i; j<numKmers; ++j) {
-                                ori.add(kmers.get(j));
+                        if (kmersSet.contains(altLastKmer.seq)) {
+                            ArrayList<Kmer> ori = bestOri;
+                            float oriCov = bestOriCov;
 
-                                if (kmer.equals(altLastKmer)) {
-                                    break;
+                            if (bestConvergingKmer == null || !bestConvergingKmer.equals(altLastKmer)) {
+                                // calculate coverage for original branch
+                                ori = new ArrayList<>(searchDepth);
+                                Kmer _kmer;
+                                for (int j=i; j<numKmers; ++j) {
+                                    _kmer = kmers.get(j);
+                                    ori.add(_kmer);
+
+                                    if (_kmer.equals(altLastKmer)) {
+                                        break;
+                                    }
                                 }
+                                oriCov = getMedianKmerCoverage(ori);
                             }
-                            oriCov = getMedianKmerCoverage(ori);
-                        }
-                        
-                        if (Math.abs(ori.size() - alt.size()) <= maxIndelSize) {
-                            
-                            float altCov = getMedianKmerCoverage(alt);
 
-                            if (altCov > bestCov && altCov > oriCov) {
-                                best = alt;
-                                bestCov = altCov;
-                                bestConvergingKmer = altLastKmer;
-                                
-                                bestOri = ori;
-                                bestOriCov = oriCov;
+                            if (Math.abs(ori.size() - altLen) <= maxIndelSize) {
+
+                                float altCov = getMedianKmerCoverage(alt);
+
+                                if (altCov > bestCov && altCov > oriCov) {
+                                    best = alt;
+                                    bestCov = altCov;
+                                    bestConvergingKmer = altLastKmer;
+
+                                    bestOri = ori;
+                                    bestOriCov = oriCov;
+                                }
                             }
                         }
                     }
@@ -529,7 +535,7 @@ public final class GraphUtils {
                         kmersSet.add(n.seq);
                     }
                     
-                    for (int j=i+bestOri.size()-1; j<numKmers; ++j) {
+                    for (int j=i+bestOri.size(); j<numKmers; ++j) {
                         newKmers.add(kmers.get(j));
                     }
                     
