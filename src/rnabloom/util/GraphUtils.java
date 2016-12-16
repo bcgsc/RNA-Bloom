@@ -451,8 +451,10 @@ public final class GraphUtils {
         ArrayList<Kmer> kmers = graph.getKmers(seq);
         int numKmers = kmers.size();
         int minBranchLen = 1;
+        int maxBranchLen = k+maxIndelSize;
         
         if (numKmers > k) {
+            boolean corrected = false;
             
             HashSet<String> kmersSet = new HashSet<>(numKmers);
             for (Kmer kmer : kmers){
@@ -461,29 +463,26 @@ public final class GraphUtils {
                 }
             }
 
-            Kmer kmer;
+            Kmer kmer, bestConvergingKmer, altLastKmer;
             for (int i=0; i<numKmers-k; ++i) {
                 kmer = kmers.get(i);
                 
-                ArrayList<Kmer> bestOri = null;
-                float bestOriCov = 0;
-                
+                ArrayList<Kmer> bestOri = null;                
                 ArrayList<Kmer> best = null;
                 float bestCov = 0;
-                Kmer bestConvergingKmer = null;
+                bestConvergingKmer = null;
                 
                 for (Kmer n : graph.getRightVariants(kmer)) {
-                    int searchDepth = Math.max(2*k, numKmers-i + maxIndelSize);
+                    int searchDepth = Math.min(maxBranchLen, numKmers-i + maxIndelSize);
 
                     // find alt path
                     ArrayList<Kmer> alt = greedyExtendRight(graph, n, lookahead, kmersSet, searchDepth);
                     int altLen = alt.size();
                     if (altLen > minBranchLen) {
-                        Kmer altLastKmer = alt.get(altLen-1);
+                        altLastKmer = alt.get(altLen-1);
 
                         if (kmersSet.contains(altLastKmer.seq)) {
                             ArrayList<Kmer> ori = bestOri;
-                            float oriCov = bestOriCov;
 
                             if (bestConvergingKmer == null || !bestConvergingKmer.equals(altLastKmer)) {
                                 // calculate coverage for original branch
@@ -497,20 +496,19 @@ public final class GraphUtils {
                                         break;
                                     }
                                 }
-                                oriCov = getMedianKmerCoverage(ori);
                             }
 
                             if (Math.abs(ori.size() - altLen) <= maxIndelSize) {
 
+                                float oriCov = getMedianKmerCoverage(ori);
                                 float altCov = getMedianKmerCoverage(alt);
 
-                                if (altCov > bestCov && altCov > oriCov) {
+                                if (altCov > oriCov && altCov > bestCov) {
                                     best = alt;
                                     bestCov = altCov;
                                     bestConvergingKmer = altLastKmer;
 
                                     bestOri = ori;
-                                    bestOriCov = oriCov;
                                 }
                             }
                         }
@@ -539,6 +537,7 @@ public final class GraphUtils {
                         newKmers.add(kmers.get(j));
                     }
                     
+                    corrected = true;
                     kmers = newKmers;
                     numKmers = kmers.size();
                     
@@ -548,77 +547,12 @@ public final class GraphUtils {
                 }
             }
             
-            seq = assemble(kmers);
-        }
-        
-        /** Correct flanking k-1 on both ends */
-        StringBuilder sb = new StringBuilder(seq);
-        int seqLen = seq.length();
-        
-        float bestCov, cov;
-        String kmer, guide;
-        LinkedList<String> variants;
-        
-        // correct 3' end
-        for (int i=numKmers-k; i<numKmers; ++i) {
-            int end = i+k;
-            kmer = sb.substring(i, end);
-            variants = graph.getRightVariants(kmer);
-            if (!variants.isEmpty()) {
-                guide = sb.substring(end, Math.min(end+lookahead, seqLen));
-                bestCov = rightGuidedMedianCoverage(graph, kmer, guide);
-                
-                boolean corrected = false;
-                for (String v : variants) {
-                    cov = rightGuidedMedianCoverage(graph, v, guide);
-                    if (cov > bestCov) {
-                        bestCov = cov;
-                        sb.setCharAt(end-1, v.charAt(k-1));
-                        corrected = true;
-                    }
-                }
-                
-                if (corrected) {
-                    if (--errorsAllowed < 0) {
-                        return seq;
-                    }
-                }
+            if (corrected) {
+                seq = assemble(kmers);
             }
         }
         
-        // correct 5' end
-        for (int i=k; i>=0; --i) {
-            kmer = sb.substring(i, i+k);
-            variants = graph.getLeftVariants(kmer);
-            if (!variants.isEmpty()) {
-                guide = sb.substring(Math.max(0, i-lookahead), i);
-                bestCov = leftGuidedMedianCoverage(graph, kmer, guide);
-                
-                boolean corrected = false;
-                for (String v : variants) {
-                    cov = leftGuidedMedianCoverage(graph, v, guide);
-                    if (cov > bestCov) {
-                        bestCov = cov;
-                        sb.setCharAt(i, v.charAt(0));
-                        corrected = true;
-                    }
-                }
-                
-                if (corrected) {
-                    if (--errorsAllowed < 0) {
-                        return seq;
-                    }
-                }
-            }
-        }
-        
-        String seq2 = sb.toString();
-        
-        if (!graph.isValidSeq(seq2)) {
-            return seq;
-        }
-        
-        return seq2;
+        return seq;
     }
     
     public static String correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {

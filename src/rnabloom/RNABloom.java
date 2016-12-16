@@ -573,6 +573,7 @@ public class RNABloom {
         private int minOverlap;
         private int maxTipLen;
         private boolean storeKmerPairs;
+        private int maxIndelSize = 1;
         
         public FragmentAssembler(ReadPair p, List<String> outList, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, boolean storeKmerPairs) {
             this.p = p;
@@ -588,8 +589,8 @@ public class RNABloom {
         @Override
         public void run() {
             // connect segments of each read
-            String connectedLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+1, lookahead);
-            String connectedRight = connect(p.right, graph, k+p.numRightBasesTrimmed+1, lookahead);
+            String connectedLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+maxIndelSize, lookahead);
+            String connectedRight = connect(p.right, graph, k+p.numRightBasesTrimmed+maxIndelSize, lookahead);
 
             if (okToConnectPair(connectedLeft, connectedRight)) {
 
@@ -603,7 +604,7 @@ public class RNABloom {
                     String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
 
                     if (fragment.length() > k) {
-                        fragment = naiveExtend(correctMismatches(fragment, graph, lookahead, mismatchesAllowed), graph, maxTipLen);
+                        fragment = naiveExtend(correctErrors(fragment, graph, lookahead, mismatchesAllowed, maxIndelSize), graph, maxTipLen);
 
                         // mark fragment kmers as assembled
                         graph.addFragmentKmersFromSeq(fragment);
@@ -694,6 +695,10 @@ public class RNABloom {
                             if (fragments.size() >= sampleSize) {
                                 break;
                             }
+//                            else {
+//                                System.out.println(readPairsParsed + " read pairs parsed");
+//                                System.out.println(fragments.size() + " fragments assembled");
+//                            }
                         }
                     }
 
@@ -1128,7 +1133,7 @@ public class RNABloom {
     }
     
     public void test2() {
-        String seq = "GAACATCATCCCTGCCTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGAC";
+        String seq = "TGAAGCAGGCGTCGGAGGGCCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGAC";
         
         int lookahead = 5;
         int errorsallowed = 5;
