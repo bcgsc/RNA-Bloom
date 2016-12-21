@@ -145,6 +145,10 @@ public class BloomFilterDeBruijnGraph {
         }
     }
 
+    public HashFunction2 getHashFunction() {
+        return this.hashFunction;
+    }
+    
     public int getMaxNumHash() {
         return dbgbfCbfMaxNumHash;
     }

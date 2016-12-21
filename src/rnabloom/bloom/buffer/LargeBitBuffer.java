@@ -51,6 +51,21 @@ public class LargeBitBuffer extends AbstractLargeBitBuffer {
     }
     
     @Override
+    public boolean getAndSet(long index) {
+        long byteIndex = index / Byte.SIZE;
+        byte b = backingByteBuffer.get(byteIndex);
+        byte mask = (byte) (1 << (int) (byteIndex % Byte.SIZE));
+        boolean isSet = (b & mask) != 0;
+        
+        if (!isSet) {
+            b |= mask;
+            backingByteBuffer.set(byteIndex, b);
+        }
+        
+        return isSet;
+    }
+    
+    @Override
     public long size() {
         return size;
     }

@@ -38,6 +38,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Option.Builder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.hash.CanonicalNTHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
@@ -69,6 +70,7 @@ public class RNABloom {
     private Pattern qualPatternDBG;
     private Pattern qualPatternFrag;
     private BloomFilterDeBruijnGraph graph = null;
+    private BloomFilter screeningBf = null;
     
     private Random random;
     
@@ -157,7 +159,9 @@ public class RNABloom {
                 itr.start(record.seq.substring(m.start(), m.end()));
                 while (itr.hasNext()) {
                     itr.next();
-                    graph.add(hashVals);
+                    if (screeningBf.lookupThenAdd(hashVals)) {
+                        graph.add(hashVals);
+                    }
                 }
             }
         }
@@ -212,7 +216,9 @@ public class RNABloom {
                         itr.start(record.seq.substring(m.start(), m.end()));
                         while (itr.hasNext()) {
                             itr.next();
-                            graph.add(hashVals);
+                            if (screeningBf.lookupThenAdd(hashVals)) {
+                                graph.add(hashVals);
+                            }
                         }
                     }
                 }
@@ -242,9 +248,11 @@ public class RNABloom {
     public void createGraph(String[] forwardFastqs,
                             String[] reverseFastqs,
                             boolean strandSpecific,
+                            long sbfNumBits,
                             long dbgbfNumBits,
                             long cbfNumBytes,
                             long pkbfNumBits,
+                            int sbfNumHash,
                             int dbgbfNumHash,
                             int cbfNumHash,
                             int pkbfNumHash,
@@ -260,6 +268,8 @@ public class RNABloom {
                                             seed,
                                             k,
                                             strandSpecific);
+        
+        screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
         
         random = new Random(seed);
         
@@ -306,6 +316,9 @@ public class RNABloom {
             }
 
             System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads in total.");
+            
+            screeningBf.destroy();
+            
         } catch (InterruptedException ex) {
             Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -604,7 +617,7 @@ public class RNABloom {
                     String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
 
                     if (fragment.length() > k) {
-                        fragment = naiveExtend(correctErrors(fragment, graph, lookahead, mismatchesAllowed, maxIndelSize), graph, maxTipLen);
+                        fragment = naiveExtend(correctMismatches(fragment, graph, lookahead, mismatchesAllowed), graph, maxTipLen);
 
                         // mark fragment kmers as assembled
                         graph.addFragmentKmersFromSeq(fragment);
@@ -1298,6 +1311,14 @@ public class RNABloom {
         Option optSeed = builder.build();
         options.addOption(optSeed);
         
+        builder = Option.builder("sh");
+        builder.longOpt("sbf-hash");
+        builder.desc("number of hash functions for screening Bloom filter");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optSbfHash = builder.build();
+        options.addOption(optSbfHash); 
+        
         builder = Option.builder("dh");
         builder.longOpt("dbgbf-hash");
         builder.desc("number of hash functions for de Bruijn graph Bloom filter");
@@ -1322,6 +1343,14 @@ public class RNABloom {
         Option optPkbfHash = builder.build();
         options.addOption(optPkbfHash);        
 
+        builder = Option.builder("sm");
+        builder.longOpt("sbf-mem");
+        builder.desc("allocate DECIMAL-gigabyte for screening Bloom filter");
+        builder.hasArg(true);
+        builder.argName("DECIMAL");
+        Option optSbfMem = builder.build();
+        options.addOption(optSbfMem);
+        
         builder = Option.builder("dm");
         builder.longOpt("dbgbf-mem");
         builder.desc("allocate DECIMAL-gigabyte for de Bruijn graph Bloom filter");
@@ -1427,10 +1456,12 @@ public class RNABloom {
             int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "3"));
             int seed = Integer.parseInt(line.getOptionValue(optSeed.getOpt(), "689"));
             
+            long sbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), "1")));
             long dbgbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), "1")));
             long cbfSize = (long) (NUM_BYTES_1GB * Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), "1")));
             long pkbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), "1")));
             
+            int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), "1"));
             int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), "3"));
             int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), "4"));
             int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), "1"));
@@ -1471,7 +1502,12 @@ public class RNABloom {
                 
                 long startTime = System.nanoTime();
                 
-                assembler.createGraph(forwardFastqs, backwardFastqs, strandSpecific, dbgbfSize, cbfSize, pkbfSize, dbgbfNumHash, cbfNumHash, pkbfNumHash, seed, numThreads);
+                assembler.createGraph(forwardFastqs, backwardFastqs, 
+                        strandSpecific, 
+                        sbfSize, dbgbfSize, cbfSize, pkbfSize, 
+                        sbfNumHash, dbgbfNumHash, cbfNumHash, pkbfNumHash,
+                        seed,
+                        numThreads);
 
                 System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
                 

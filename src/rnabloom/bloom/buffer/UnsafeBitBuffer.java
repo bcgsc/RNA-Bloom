@@ -44,10 +44,23 @@ public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
 
     @Override
     public boolean get(long index) {
-        long byteIndex = index / Byte.SIZE;
-        return (backingByteBuffer.get(byteIndex) & (1 << (int) (index % Byte.SIZE))) != 0;
+        return (backingByteBuffer.get(index / Byte.SIZE) & (1 << (int) (index % Byte.SIZE))) != 0;
     }
+
+    @Override
+    public boolean getAndSet(long index) {
+        long byteIndex = index / Byte.SIZE;
+        byte mask = (byte) (1 << (int) (index % Byte.SIZE));
         
+        boolean isSet = (backingByteBuffer.get(byteIndex) & mask) != 0;
+        
+        if (!isSet) {
+            backingByteBuffer.or(byteIndex, mask);
+        }
+        
+        return isSet;
+    }
+    
     @Override
     public long size() {
         return size;

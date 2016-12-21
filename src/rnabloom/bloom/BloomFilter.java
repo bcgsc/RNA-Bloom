@@ -118,6 +118,16 @@ public class BloomFilter implements BloomFilterInterface {
         }
     }
     
+    public boolean lookupThenAdd(final long[] hashVals) {
+        boolean found = true;
+        
+        for (int h=0; h<numHash; ++h) {
+            found = bitArray.getAndSet(h) && found;
+        }
+        
+        return found;
+    }
+    
     public void addCAS(final long[] hashVals) {
         for (int h=0; h<numHash; ++h) {
             bitArray.setCAS(getIndex(hashVals[h]));
