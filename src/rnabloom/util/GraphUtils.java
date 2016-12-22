@@ -836,7 +836,6 @@ public final class GraphUtils {
         
         ArrayList<Kmer> result = new ArrayList<>(numKmers);
         ArrayList<Kmer> bestResult = null;
-        float bestCov = 0;
         
         NTHashIterator itr = graph.getHashIterator();
         itr.start(seq);
@@ -860,12 +859,9 @@ public final class GraphUtils {
                     if (path == null) {
                         if (bestResult == null) {
                             bestResult = result;
-                            bestCov = getMedianKmerCoverage(bestResult);
                         }
                         else {
-                            float cov = getMedianKmerCoverage(result);
-                            if (cov > bestCov) {
-                                bestCov = cov;
+                            if (result.size() > bestResult.size()) {
                                 bestResult = result;
                             }
                         }
@@ -888,15 +884,8 @@ public final class GraphUtils {
             }
         }
         
-        if (bestResult == null) {
-            bestResult = result;
-        }
-        else {
-            float cov = getMedianKmerCoverage(result);
-            if (cov > bestCov) {
-                bestCov = cov;
-                bestResult = result;
-            }
+        if (bestResult == null || result.size() > bestResult.size()) {
+            return result;
         }
         
         return bestResult;
@@ -912,7 +901,6 @@ public final class GraphUtils {
             default:
                 ArrayList<Kmer> current = getKmers(segments.get(0), graph, maxIndelSize, lookahead);
                 ArrayList<Kmer> best = null;
-                float bestCov = 0;
                 
                 ArrayList<Kmer> next;
                 for (int i=1; i<numSeqs; ++i) {
@@ -924,13 +912,10 @@ public final class GraphUtils {
                         if (path == null) {
                             if (best == null) {
                                 best = current;
-                                bestCov = getMedianKmerCoverage(best);
                             }
                             else {
-                                float cov = getMedianKmerCoverage(current);
-                                if (cov > bestCov) {
+                                if (current.size() > best.size()) {
                                     best = current;
-                                    bestCov = cov;
                                 }
                             }
                             
@@ -943,7 +928,7 @@ public final class GraphUtils {
                     }
                 }
                 
-                if (getMedianKmerCoverage(current) > bestCov) {
+                if (best == null || current.size() > best.size()) {
                     return current;
                 }
                 
