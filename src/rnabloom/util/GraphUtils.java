@@ -13,11 +13,14 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.PrimitiveIterator;
 import rnabloom.RNABloom.KmerSet;
+import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
+import static rnabloom.util.SeqUtils.getNumGC;
 import static rnabloom.util.SeqUtils.kmerize;
 import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.overlapMaximally;
@@ -809,6 +812,145 @@ public final class GraphUtils {
         return path;
     }
     
+    public static float getGCContent(ArrayList<Kmer> path, int k) {
+        
+        int pathLen = path.size();
+        
+        int numGC = getNumGC(path.get(0).seq);
+        
+        char c;
+        int lastCharIndex = k-1;
+        for (int i=1; i<pathLen; ++i) {
+            c = path.get(i).seq.charAt(lastCharIndex);
+            if (c == 'G' || c == 'C') {
+                ++numGC;
+            }
+        }
+        
+        return (float) numGC / (k + pathLen -1);
+    }
+    
+    public static ArrayList<Kmer> getKmers(String seq, BloomFilterDeBruijnGraph graph, int maxIndelSize, int lookahead) {
+        int k = graph.getK();
+        int numKmers = seq.length() - k + 1;
+        
+        ArrayList<Kmer> result = new ArrayList<>(numKmers);
+        ArrayList<Kmer> bestResult = null;
+        float bestCov = 0;
+        
+        NTHashIterator itr = graph.getHashIterator();
+        itr.start(seq);
+        long[] hVals = itr.hVals;
+        int i;
+        
+        float c;
+        int numMissingKmers = 0;
+        Kmer nextKmer;
+        while (itr.hasNext()) {
+            itr.next();
+            i = itr.getPos();
+            c = graph.getCount(hVals);
+            
+            if (c > 0) {
+                nextKmer = new Kmer(seq.substring(i, i+k), c);
+                
+                if (numMissingKmers > 0 && !result.isEmpty()) {
+                    ArrayList<Kmer> path = getMaxCoveragePath(graph, result.get(result.size()-1), nextKmer, maxIndelSize + numMissingKmers, lookahead);
+                    
+                    if (path == null) {
+                        if (bestResult == null) {
+                            bestResult = result;
+                            bestCov = getMedianKmerCoverage(bestResult);
+                        }
+                        else {
+                            float cov = getMedianKmerCoverage(result);
+                            if (cov > bestCov) {
+                                bestCov = cov;
+                                bestResult = result;
+                            }
+                        }
+                        
+                        result = new ArrayList<>(numKmers);
+                    }
+                    else {
+                        result.addAll(path);
+                        result.add(nextKmer);
+                        numMissingKmers = 0;
+                    }
+                }
+                else {
+                    result.add(nextKmer);
+                    numMissingKmers = 0;
+                }
+            }
+            else {
+                ++numMissingKmers;
+            }
+        }
+        
+        if (bestResult == null) {
+            bestResult = result;
+        }
+        else {
+            float cov = getMedianKmerCoverage(result);
+            if (cov > bestCov) {
+                bestCov = cov;
+                bestResult = result;
+            }
+        }
+        
+        return bestResult;
+    }
+    
+    public static ArrayList<Kmer> connectKmers(ArrayList<String> segments, BloomFilterDeBruijnGraph graph, int bound, int lookahead, int maxIndelSize) {
+        int numSeqs = segments.size();
+        switch (numSeqs) {
+            case 0:
+                return null;
+            case 1:
+                return getKmers(segments.get(0), graph, maxIndelSize, lookahead);
+            default:
+                ArrayList<Kmer> current = getKmers(segments.get(0), graph, maxIndelSize, lookahead);
+                ArrayList<Kmer> best = null;
+                float bestCov = 0;
+                
+                ArrayList<Kmer> next;
+                for (int i=1; i<numSeqs; ++i) {
+                    next = getKmers(segments.get(i), graph, maxIndelSize, lookahead);
+                    
+                    if (!next.isEmpty()) {                    
+                        ArrayList<Kmer> path = getMaxCoveragePath(graph, current.get(current.size()-1), next.get(0), bound, lookahead);
+
+                        if (path == null) {
+                            if (best == null) {
+                                best = current;
+                                bestCov = getMedianKmerCoverage(best);
+                            }
+                            else {
+                                float cov = getMedianKmerCoverage(current);
+                                if (cov > bestCov) {
+                                    best = current;
+                                    bestCov = cov;
+                                }
+                            }
+                            
+                            current = next;
+                        }
+                        else {
+                            current.addAll(path);
+                            current.addAll(next);
+                        }
+                    }
+                }
+                
+                if (getMedianKmerCoverage(current) > bestCov) {
+                    return current;
+                }
+                
+                return best;
+        }
+    }
+    
     public static String connect(ArrayList<String> segments, BloomFilterDeBruijnGraph graph, int bound, int lookahead) {
         int numSeqs = segments.size();
         switch (numSeqs) {
@@ -869,7 +1011,7 @@ public final class GraphUtils {
         
         return leftWing + assemble(pathKmers) + rightWing;
     }
-    
+        
     public static String overlapThenConnect(String left, String right, BloomFilterDeBruijnGraph graph, int bound, int lookahead, int minOverlap) {
         
         // overlap before finding path

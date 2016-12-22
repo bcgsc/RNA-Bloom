@@ -19,6 +19,31 @@ import rnabloom.io.FastqRecord;
  */
 public final class SeqUtils {
     
+    public static final int getNumGC(String seq) {
+        int numGC = 0;
+        
+        PrimitiveIterator.OfInt itr = seq.chars().iterator();
+        int c;
+        
+        while (itr.hasNext()) {
+            c = itr.nextInt();
+            switch(c) {
+                case CHAR_C_INT:
+                    ++numGC;
+                    break;
+                case CHAR_G_INT:
+                    ++numGC;
+                    break;
+            }
+        }
+        
+        return numGC;
+    }
+    
+    public static final float getGCContent(String seq) {
+        return (float) getNumGC(seq) / seq.length();
+    }
+    
     public static final int getNumKmers(String seq, int k) {
         return seq.length() - k + 1;
     }
