@@ -608,16 +608,21 @@ public class RNABloom {
             if (okToConnectPair(connectedLeft, connectedRight)) {
 
                 // correct each read
+                /*
                 String left = correctMismatches(connectedLeft, graph, lookahead, mismatchesAllowed);
                 String right = correctMismatches(connectedRight, graph, lookahead, mismatchesAllowed);
+                */
 
+                String left = correctErrors(connectedLeft, graph, lookahead, mismatchesAllowed, maxIndelSize);
+                String right = correctErrors(connectedRight, graph, lookahead, mismatchesAllowed, maxIndelSize);
+                
                 if (okToConnectPair(left, right)) {
 
                     // assemble fragment from read pair
                     String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
 
                     if (fragment.length() > k) {
-                        fragment = naiveExtend(correctMismatches(fragment, graph, lookahead, mismatchesAllowed), graph, maxTipLen);
+                        fragment = naiveExtend(correctMismatches(fragment, graph, lookahead, 2*mismatchesAllowed), graph, maxTipLen);
 
                         // mark fragment kmers as assembled
                         graph.addFragmentKmersFromSeq(fragment);
@@ -1470,7 +1475,7 @@ public class RNABloom {
             int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), "10"));
             int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
             int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
-            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "5"));
+            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "3"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
             
             boolean saveGraph = true;

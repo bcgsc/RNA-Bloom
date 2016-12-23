@@ -293,6 +293,16 @@ public final class GraphUtils {
         return null;
     }
     
+    public static float getMedianModifyInput(float[] arr) {
+        Arrays.sort(arr);
+        int halfLen = arr.length/2;
+        if (halfLen % 2 == 0) {
+            return (arr[halfLen-1] + arr[halfLen])/2.0f;
+        }
+        
+        return arr[halfLen];
+    }    
+    
     public static float getMedian(float[] arr) {
         float[] a = Arrays.copyOf(arr, arr.length);
         Arrays.sort(a);
@@ -356,8 +366,7 @@ public final class GraphUtils {
         return stats;
     }
     
-    private static float rightGuidedMedianCoverage(BloomFilterDeBruijnGraph graph, String source, String guide) {
-        int guideLen = guide.length();
+    private static float rightGuidedMedianCoverage(BloomFilterDeBruijnGraph graph, String source, String guide, int guideLen) {
         if (guideLen == 0) {
             return graph.getCount(source);
         }
@@ -381,17 +390,16 @@ public final class GraphUtils {
             }
         }
         
-        return getMedian(covs);
+        return getMedianModifyInput(covs);
     }
     
-    private static float leftGuidedMedianCoverage(BloomFilterDeBruijnGraph graph, String source, String guide) {
-        int guideLen = guide.length();
+    private static float leftGuidedMedianCoverage(BloomFilterDeBruijnGraph graph, String source, String guide, int guideLen) {
         if (guideLen == 0) {
             return graph.getCount(source);
         }
         
         float[] covs = new float[guideLen+1];
-        covs[0] = graph.getCount(source);
+        covs[guideLen] = graph.getCount(source);
         
         int kMinus1 = graph.getK()-1;
         String prefix = source.substring(0,kMinus1);
@@ -410,7 +418,7 @@ public final class GraphUtils {
             }
         }
         
-        return getMedian(covs);
+        return getMedianModifyInput(covs);
     }
     
     public static ArrayList<Kmer> greedyExtendLeft(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead, int bound) {
@@ -447,6 +455,56 @@ public final class GraphUtils {
         }
         
         return extension;
+    }
+    
+    public static String correctErrors2(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed, int maxIndelSize) {
+        ArrayList<Kmer> kmers = graph.getKmers(seq);
+        
+        int numKmers = kmers.size();
+        
+        // calculate local coverage threshold
+        
+        float[] covs = new float[numKmers];
+        for (int i=0; i<numKmers; ++i) {
+            covs[i] = kmers.get(i).count;
+        }
+        Arrays.sort(covs);
+        
+        float threshold = covs[numKmers-1];
+        float c;
+        for (int i=numKmers-2; i>=0; --i) {
+            c = covs[i];
+            if (threshold > 2*c) {
+                break;
+            }
+            threshold = c;
+        }
+        
+        // scan for low coverage kmers
+        Kmer kmer = kmers.get(0);
+        boolean lastKmerAboveThreshold = kmer.count >= threshold;
+        Kmer leftGoodKmer = null;
+        if (lastKmerAboveThreshold) {
+            leftGoodKmer = kmer;
+        }
+        
+        for (int i=1; i<numKmers; ++i) {
+            kmer = kmers.get(i);
+            
+            if (kmer.count >= threshold) {
+                //todo
+                
+                lastKmerAboveThreshold = true;
+            }
+            else {
+                //todo
+                
+                lastKmerAboveThreshold = false;
+            }
+        }
+        
+        //todo
+        return null;
     }
     
     public static String correctErrors(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed, int maxIndelSize) {
@@ -546,6 +604,7 @@ public final class GraphUtils {
     }
     
     public static String correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
+        int numCorrected = 0;
         int seqLen = seq.length();
         int k = graph.getK();
         
@@ -560,31 +619,45 @@ public final class GraphUtils {
         float bestCov, cov;
         String kmer, guide;
         LinkedList<String> variants;
+        char bestBase = 'N';
+        int guideEnd = -1;
+        int guideLen = -1;
         
         // correct from start
         for (int i=0; i<numKmers; ++i) {
-            int end = i+k;
-            kmer = sb.substring(i, end);
+            int j = i+k;
+            kmer = sb.substring(i, j);
             variants = graph.getRightVariants(kmer);
             if (!variants.isEmpty()) {
-                guide = sb.substring(end, Math.min(end+lookahead, seqLen));
-                bestCov = rightGuidedMedianCoverage(graph, kmer, guide);
+                guideEnd = Math.min(j+lookahead, seqLen);
+                guide = sb.substring(j, guideEnd);
+                guideLen = guideEnd - j;
+                bestCov = 0;
+                
+                if (graph.contains(kmer)) {
+                    bestCov = rightGuidedMedianCoverage(graph, kmer, guide, guideLen);
+                }
                 
                 boolean corrected = false;
                 for (String v : variants) {
-                    cov = rightGuidedMedianCoverage(graph, v, guide);
+                    cov = rightGuidedMedianCoverage(graph, v, guide, guideLen);
                     if (cov > bestCov) {
                         bestCov = cov;
-                        sb.setCharAt(end-1, v.charAt(k-1));
+                        bestBase = v.charAt(k-1);
                         corrected = true;
                     }
                 }
                 
                 if (corrected) {
-                    if (--mismatchesAllowed < 0) {
+                    if (++numCorrected > mismatchesAllowed) {
                         // too many mismatches
                         return seq;
                     }
+                    else {
+                        sb.setCharAt(j-1, bestBase);
+                    }
+                    
+                    //i += lookahead;
                 }
             }
         }
@@ -594,35 +667,49 @@ public final class GraphUtils {
             kmer = sb.substring(i, i+k);
             variants = graph.getLeftVariants(kmer);
             if (!variants.isEmpty()) {
-                guide = sb.substring(Math.max(0, i-lookahead), i);
-                bestCov = leftGuidedMedianCoverage(graph, kmer, guide);
+                guideEnd = Math.max(0, i-lookahead);
+                guideLen = i - guideEnd;
+                guide = sb.substring(guideEnd, i);
+                bestCov = 0;
+                
+                if (graph.contains(kmer)) {
+                    bestCov = leftGuidedMedianCoverage(graph, kmer, guide, guideLen);
+                }
                 
                 boolean corrected = false;
                 for (String v : variants) {
-                    cov = leftGuidedMedianCoverage(graph, v, guide);
+                    cov = leftGuidedMedianCoverage(graph, v, guide, guideLen);
                     if (cov > bestCov) {
                         bestCov = cov;
-                        sb.setCharAt(i, v.charAt(0));
+                        bestBase = v.charAt(0);
                         corrected = true;
                     }
                 }
                 
-                if (corrected) {
-                    if (--mismatchesAllowed < 0) {
+                if (corrected) {                    
+                    if (++numCorrected > mismatchesAllowed) {
                         // too many mismatches
                         return seq;
                     }
+                    else {
+                        sb.setCharAt(i, bestBase);
+                    }
+                    
+                    //i -= lookahead;
                 }
             }
         }
         
-        String seq2 = sb.toString();
-        
-        if (!graph.isValidSeq(seq2)) {
+        if (numCorrected == 0) {
             return seq;
         }
         
-        return seq2;
+        String seq2 = sb.toString();
+        if (graph.isValidSeq(seq2)) {
+            return seq2;
+        }
+        
+        return seq;
     }
     
     public static float[] coverageGradients(String seq, BloomFilterDeBruijnGraph graph, int lookahead) {
