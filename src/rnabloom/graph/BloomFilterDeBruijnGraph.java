@@ -338,11 +338,11 @@ public class BloomFilterDeBruijnGraph {
         }
     }
     
-    private String getPrefix(String kmer) {
+    public String getPrefix(String kmer) {
         return kmer.substring(0, overlap);
     }
     
-    private String getSuffix(String kmer) {
+    public String getSuffix(String kmer) {
         return kmer.substring(1, k);
     }
     

@@ -491,15 +491,19 @@ public final class GraphUtils {
         for (int i=1; i<numKmers; ++i) {
             kmer = kmers.get(i);
             
-            if (kmer.count >= threshold) {
+            if (kmer.count < threshold) {
                 //todo
                 
-                lastKmerAboveThreshold = true;
+                
+                
+                lastKmerAboveThreshold = false;
             }
             else {
                 //todo
                 
-                lastKmerAboveThreshold = false;
+                
+                
+                lastKmerAboveThreshold = true;
             }
         }
         
@@ -696,6 +700,210 @@ public final class GraphUtils {
                     }
                     
                     //i -= lookahead;
+                }
+            }
+        }
+        
+        if (numCorrected == 0) {
+            return seq;
+        }
+        
+        String seq2 = sb.toString();
+        if (graph.isValidSeq(seq2)) {
+            return seq2;
+        }
+        
+        return seq;
+    }
+    
+    public static String correctMismatches2(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed) {
+        int numCorrected = 0;
+        int seqLen = seq.length();
+        int k = graph.getK();
+        
+        if (seqLen < k) {
+            // no correction
+            return seq;
+        }
+        
+        int numKmers = seqLen-k+1;
+        StringBuilder sb = new StringBuilder(seq);
+        
+        float bestCov, cov;
+        String kmer, guide;
+        LinkedList<String> variants;
+        
+        // correct from start
+        for (int i=0; i<numKmers; ++i) {
+            int j = i+k;
+            kmer = sb.substring(i, j);
+            variants = graph.getRightVariants(kmer);
+            if (!variants.isEmpty()) {
+                guide = sb.substring(j, Math.min(j+lookahead, seqLen));
+                int guideLen = guide.length();
+                bestCov = 0;
+                
+                if (graph.contains(kmer)) {
+                    bestCov = rightGuidedMedianCoverage(graph, kmer, guide, guideLen);
+                }
+                
+                // test for mismatch
+                boolean correctedMismatch = false;
+                char bestBase = 'N';
+                for (String v : variants) {
+                    cov = rightGuidedMedianCoverage(graph, v, guide, guideLen);
+                                        
+                    if (cov > bestCov) {
+                        bestCov = cov;
+                        bestBase = v.charAt(k-1);
+                        correctedMismatch = true;
+                    }
+                }
+                
+                // test for insertion in the sequence, ie. last base of kmer is the inserted base
+                boolean correctedInsertion = false;
+                if (j < seqLen-2) {
+                    String a = graph.getPrefix(kmer) + sb.charAt(j);
+                    if (graph.contains(a)) {
+                        String guideIns = sb.substring(j+1, Math.min(j+1+lookahead, seqLen));
+
+                        cov = rightGuidedMedianCoverage(graph, a, guideIns, guideIns.length());
+                        if (cov > bestCov) {
+                            correctedMismatch = false;
+                            correctedInsertion = true;
+
+                            bestCov = cov;
+                        }
+                    }
+                }
+                
+                // test for deletion in the sequence
+                boolean correctedDeletion = false;
+                String guideDel = sb.substring(j-1, Math.min(j-1+lookahead, seqLen));
+                int guideDelLen = guideDel.length();
+                char bestInsBase = 'N';
+                for (String v : variants) {
+                    cov = rightGuidedMedianCoverage(graph, v, guideDel, guideDelLen);
+                                        
+                    if (cov > bestCov) {
+                        correctedMismatch = false;
+                        correctedInsertion = false;
+                        correctedDeletion = true;
+                        
+                        bestCov = cov;
+                        bestInsBase = v.charAt(k-1);
+                    }
+                }
+                
+                if (correctedMismatch || correctedInsertion || correctedDeletion) {
+                    if (++numCorrected > errorsAllowed) {
+                        // too many errors; do not apply corrections
+                        return seq;
+                    }
+
+                    if (correctedMismatch) {
+                        // replace the mismatch base
+                        sb.setCharAt(j-1, bestBase);
+                    }
+                    else if (correctedInsertion) {
+                        // remove the inserted base
+                        sb.deleteCharAt(j-1);
+                        --seqLen;
+                        --numKmers;
+                    }
+                    else if (correctedDeletion) {
+                        // insert the deleted base
+                        sb.insert(j-1, bestInsBase);
+                        ++seqLen;
+                        ++numKmers;
+                    }
+                }
+            }
+        }
+        
+        // correct from end
+        for (int i=seqLen-k; i>=0; --i) {
+            kmer = sb.substring(i, i+k);
+            variants = graph.getLeftVariants(kmer);
+            if (!variants.isEmpty()) {
+                guide = sb.substring(Math.max(0, i-lookahead), i);
+                int guideLen = guide.length();
+                bestCov = 0;
+                
+                if (graph.contains(kmer)) {
+                    bestCov = leftGuidedMedianCoverage(graph, kmer, guide, guideLen);
+                }
+                                
+                // test for mismatch
+                boolean correctedMismatch = false;
+                char bestBase = 'N';
+                for (String v : variants) {
+                    cov = leftGuidedMedianCoverage(graph, v, guide, guideLen);
+                                        
+                    if (cov > bestCov) {
+                        bestCov = cov;
+                        bestBase = v.charAt(0);
+                        correctedMismatch = true;
+                    }
+                }
+                
+                // test for insertion in the sequence; ie. first base of kmer is the inserted base
+                boolean correctedInsertion = false;
+                if (i > 0) {
+                    String a = sb.charAt(i-1) + graph.getSuffix(kmer);
+                    if (graph.contains(a)) {
+                        String guideIns = sb.substring(Math.max(0, i-1-lookahead), i-1);
+
+                        cov = leftGuidedMedianCoverage(graph, a, guideIns, guideIns.length());
+                        if (cov > bestCov) {
+                            correctedMismatch = false;
+                            correctedInsertion = true;
+
+                            bestCov = cov;
+                        }
+                    }
+                }
+                
+                // test for deletion in the sequence
+                boolean correctedDeletion = false;
+                String guideDel = sb.substring(Math.max(0, i+1-lookahead), i+1);
+                int guideDelLen = guideDel.length();
+                char bestInsBase = 'N';
+                for (String v : variants) {
+                    cov = leftGuidedMedianCoverage(graph, v, guideDel, guideDelLen);
+                                        
+                    if (cov > bestCov) {
+                        correctedMismatch = false;
+                        correctedInsertion = false;
+                        correctedDeletion = true;
+                        
+                        bestCov = cov;
+                        bestInsBase = v.charAt(0);
+                    }
+                }
+                
+                if (correctedMismatch || correctedInsertion || correctedDeletion) {
+                    if (++numCorrected > errorsAllowed) {
+                        // too many errors; do not apply corrections
+                        return seq;
+                    }
+
+                    if (correctedMismatch) {
+                        // replace the mismatch base
+                        sb.setCharAt(i, bestBase);
+                    }
+                    else if (correctedInsertion) {
+                        // remove the inserted base
+                        sb.deleteCharAt(i);
+                        --seqLen;
+                        --numKmers;
+                    }
+                    else if (correctedDeletion) {
+                        // insert the deleted base
+                        sb.insert(i, bestInsBase);
+                        ++seqLen;
+                        ++numKmers;
+                    }
                 }
             }
         }

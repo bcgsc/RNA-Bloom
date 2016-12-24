@@ -608,13 +608,8 @@ public class RNABloom {
             if (okToConnectPair(connectedLeft, connectedRight)) {
 
                 // correct each read
-                /*
-                String left = correctMismatches(connectedLeft, graph, lookahead, mismatchesAllowed);
-                String right = correctMismatches(connectedRight, graph, lookahead, mismatchesAllowed);
-                */
-
-                String left = correctErrors(connectedLeft, graph, lookahead, mismatchesAllowed, maxIndelSize);
-                String right = correctErrors(connectedRight, graph, lookahead, mismatchesAllowed, maxIndelSize);
+                String left = correctMismatches2(connectedLeft, graph, lookahead, mismatchesAllowed);
+                String right = correctMismatches2(connectedRight, graph, lookahead, mismatchesAllowed);
                 
                 if (okToConnectPair(left, right)) {
 
@@ -622,7 +617,7 @@ public class RNABloom {
                     String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
 
                     if (fragment.length() > k) {
-                        fragment = naiveExtend(correctMismatches(fragment, graph, lookahead, 2*mismatchesAllowed), graph, maxTipLen);
+                        fragment = naiveExtend(fragment, graph, maxTipLen);
 
                         // mark fragment kmers as assembled
                         graph.addFragmentKmersFromSeq(fragment);
@@ -1150,16 +1145,32 @@ public class RNABloom {
         System.out.println(sb.toString());
     }
     
-    public void test2() {
-        String seq = "TGAAGCAGGCGTCGGAGGGCCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGAC";
+    public void testInsertionCorrection() {
+        String seq =  "TGAAGCAGGCGTCGGAGGGCCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGAC";
+        String note = "                        ^                                                           ";
         
         int lookahead = 5;
         int errorsallowed = 5;
-        int maxindelsize = 1;
         
-        String corrected = correctErrors(seq, graph, lookahead, errorsallowed, maxindelsize);
+        String corrected = correctMismatches2(seq, graph, lookahead, errorsallowed);
         
         System.out.println(seq);
+        System.out.println(note);
+        System.out.println(corrected);
+    }
+
+    
+    public void testMismatchCorrection() {
+        String seq =  "GGAGTAAGACCCCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTCACTGCTGGGGAGTCCGTGCCACACTCA";
+        String note = "                                                                           ^           ";
+        
+        int lookahead = 5;
+        int errorsallowed = 5;
+        
+        String corrected = correctMismatches2(seq, graph, lookahead, errorsallowed);
+        
+        System.out.println(seq);
+        System.out.println(note);
         System.out.println(corrected);
     }
     
@@ -1529,7 +1540,7 @@ public class RNABloom {
             }
             
             /**@TODO */
-            //assembler.test2();
+            //assembler.testMismatchCorrection();
             //System.exit(0);
             
             FastqPair fqPair = new FastqPair(fastqLeft, fastqRight, revCompLeft, revCompRight);
