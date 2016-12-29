@@ -457,156 +457,6 @@ public final class GraphUtils {
         return extension;
     }
     
-    public static String correctErrors2(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed, int maxIndelSize) {
-        ArrayList<Kmer> kmers = graph.getKmers(seq);
-        
-        int numKmers = kmers.size();
-        
-        // calculate local coverage threshold
-        
-        float[] covs = new float[numKmers];
-        for (int i=0; i<numKmers; ++i) {
-            covs[i] = kmers.get(i).count;
-        }
-        Arrays.sort(covs);
-        
-        float threshold = covs[numKmers-1];
-        float c;
-        for (int i=numKmers-2; i>=0; --i) {
-            c = covs[i];
-            if (threshold > 2*c) {
-                break;
-            }
-            threshold = c;
-        }
-        
-        // scan for low coverage kmers
-        Kmer kmer = kmers.get(0);
-        boolean lastKmerAboveThreshold = kmer.count >= threshold;
-        Kmer leftGoodKmer = null;
-        if (lastKmerAboveThreshold) {
-            leftGoodKmer = kmer;
-        }
-        
-        for (int i=1; i<numKmers; ++i) {
-            kmer = kmers.get(i);
-            
-            if (kmer.count < threshold) {
-                //todo
-                
-                
-                
-                lastKmerAboveThreshold = false;
-            }
-            else {
-                //todo
-                
-                
-                
-                lastKmerAboveThreshold = true;
-            }
-        }
-        
-        //todo
-        return null;
-    }
-    
-    public static String correctErrors(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed, int maxIndelSize) {
-        /**@TODO not working */
-        
-        int k = graph.getK();
-        ArrayList<Kmer> kmers = graph.getKmers(seq);
-        int numKmers = kmers.size();
-        int minBranchLen = k-maxIndelSize;
-        int maxBranchLen = k+maxIndelSize;
-        
-        if (numKmers > k) {
-            boolean corrected = false;
-
-            Kmer kmer, bestConvergingKmer, altLastKmer;
-            for (int i=0; i<numKmers-maxBranchLen; ++i) {
-                kmer = kmers.get(i);
-                
-                ArrayList<Kmer> bestOri = null;                
-                ArrayList<Kmer> best = null;
-                float bestCov = 0;
-                bestConvergingKmer = null;
-                
-                for (Kmer n : graph.getRightVariants(kmer)) {
-
-                    // find alt path
-                    ArrayList<Kmer> alt = greedyExtendRight(graph, n, lookahead, maxBranchLen);
-                    int altLen = alt.size();
-                    if (altLen > minBranchLen) {
-                        altLastKmer = alt.get(altLen-1);
-
-                        ArrayList<Kmer> ori = bestOri;
-
-                        if (bestConvergingKmer == null || !bestConvergingKmer.equals(altLastKmer)) {
-                            // calculate coverage for original branch
-                            ori = new ArrayList<>(maxBranchLen);
-                            Kmer _kmer;
-                            for (int j=i; j<numKmers; ++j) {
-                                _kmer = kmers.get(j);
-                                ori.add(_kmer);
-
-                                if (_kmer.equals(altLastKmer)) {
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (Math.abs(ori.size() - altLen) <= maxIndelSize) {
-
-                            float oriCov = getMedianKmerCoverage(ori);
-                            float altCov = getMedianKmerCoverage(alt);
-
-                            if (altCov > oriCov && altCov > bestCov) {
-                                best = alt;
-                                bestCov = altCov;
-                                bestConvergingKmer = altLastKmer;
-
-                                bestOri = ori;
-                            }
-                        }
-                    }
-                }
-                
-                if (best != null) {
-                    /** replace branch */
-                                        
-                    ArrayList<Kmer> newKmers = new ArrayList<>(numKmers);
-                    
-                    for (int j=0; j<i; ++j) {
-                        newKmers.add(kmers.get(j));
-                    }
-                    
-                    for (Kmer n : best) {
-                        newKmers.add(n);
-                    }
-                    
-                    for (int j=i+bestOri.size(); j<numKmers; ++j) {
-                        newKmers.add(kmers.get(j));
-                    }
-                    
-                    corrected = true;
-                    kmers = newKmers;
-                    numKmers = kmers.size();
-                    
-                    if (--errorsAllowed < 0) {
-                        return assemble(kmers);
-                    }
-                }
-            }
-            
-            if (corrected) {
-                seq = assemble(kmers);
-            }
-        }
-        
-        return seq;
-    }
-    
     public static String correctMismatches(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int mismatchesAllowed) {
         int numCorrected = 0;
         int seqLen = seq.length();
@@ -716,7 +566,7 @@ public final class GraphUtils {
         return seq;
     }
     
-    public static String correctMismatches2(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed) {
+    public static String correctErrors(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed) {
         int numCorrected = 0;
         int seqLen = seq.length();
         int k = graph.getK();
@@ -795,28 +645,37 @@ public final class GraphUtils {
                     }
                 }
                 
-                if (correctedMismatch || correctedInsertion || correctedDeletion) {
+
+                if (correctedMismatch) {
                     if (++numCorrected > errorsAllowed) {
                         // too many errors; do not apply corrections
                         return seq;
                     }
 
-                    if (correctedMismatch) {
-                        // replace the mismatch base
-                        sb.setCharAt(j-1, bestBase);
+                    // replace the mismatch base
+                    sb.setCharAt(j-1, bestBase);
+                }
+                else if (correctedInsertion) {
+                    if (++numCorrected > errorsAllowed) {
+                        // too many errors; do not apply corrections
+                        return seq;
                     }
-                    else if (correctedInsertion) {
-                        // remove the inserted base
-                        sb.deleteCharAt(j-1);
-                        --seqLen;
-                        --numKmers;
+
+                    // remove the inserted base
+                    sb.deleteCharAt(j-1);
+                    --seqLen;
+                    --numKmers;
+                }
+                else if (correctedDeletion) {
+                    if (++numCorrected > errorsAllowed) {
+                        // too many errors; do not apply corrections
+                        return seq;
                     }
-                    else if (correctedDeletion) {
-                        // insert the deleted base
-                        sb.insert(j-1, bestInsBase);
-                        ++seqLen;
-                        ++numKmers;
-                    }
+
+                    // insert the deleted base
+                    sb.insert(j-1, bestInsBase);
+                    ++seqLen;
+                    ++numKmers;
                 }
             }
         }
@@ -882,28 +741,36 @@ public final class GraphUtils {
                     }
                 }
                 
-                if (correctedMismatch || correctedInsertion || correctedDeletion) {
+                if (correctedMismatch) {
                     if (++numCorrected > errorsAllowed) {
                         // too many errors; do not apply corrections
                         return seq;
                     }
 
-                    if (correctedMismatch) {
-                        // replace the mismatch base
-                        sb.setCharAt(i, bestBase);
+                    // replace the mismatch base
+                    sb.setCharAt(i, bestBase);
+                }
+                else if (correctedInsertion) {
+                    if (++numCorrected > errorsAllowed) {
+                        // too many errors; do not apply corrections
+                        return seq;
                     }
-                    else if (correctedInsertion) {
-                        // remove the inserted base
-                        sb.deleteCharAt(i);
-                        --seqLen;
-                        --numKmers;
+
+                    // remove the inserted base
+                    sb.deleteCharAt(i);
+                    --seqLen;
+                    --numKmers;
+                }
+                else if (correctedDeletion) {
+                    if (++numCorrected > errorsAllowed) {
+                        // too many errors; do not apply corrections
+                        return seq;
                     }
-                    else if (correctedDeletion) {
-                        // insert the deleted base
-                        sb.insert(i, bestInsBase);
-                        ++seqLen;
-                        ++numKmers;
-                    }
+
+                    // insert the deleted base
+                    sb.insert(i, bestInsBase);
+                    ++seqLen;
+                    ++numKmers;
                 }
             }
         }

@@ -47,7 +47,7 @@ public class FastqPairReader implements Iterator<ReadPair> {
         }
     }
     
-    public static final class ReadPair {
+    public final class ReadPair {
         public ArrayList<String> left;
         public ArrayList<String> right;
         public int originalLeftLength;

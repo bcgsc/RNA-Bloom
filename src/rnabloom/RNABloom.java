@@ -607,9 +607,13 @@ public class RNABloom {
 
             if (okToConnectPair(connectedLeft, connectedRight)) {
 
+//                if (connectedRight.endsWith("GGAGCGAGATCCCTCA")) {
+//                    System.out.println("alert");
+//                }
+                
                 // correct each read
-                String left = correctMismatches2(connectedLeft, graph, lookahead, mismatchesAllowed);
-                String right = correctMismatches2(connectedRight, graph, lookahead, mismatchesAllowed);
+                String left = correctErrors(connectedLeft, graph, lookahead, mismatchesAllowed);
+                String right = correctErrors(connectedRight, graph, lookahead, mismatchesAllowed);
                 
                 if (okToConnectPair(left, right)) {
 
@@ -617,8 +621,13 @@ public class RNABloom {
                     String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
 
                     if (fragment.length() > k) {
+                        //fragment = naiveExtend(correctErrors(fragment, graph, lookahead, mismatchesAllowed), graph, maxTipLen);
                         fragment = naiveExtend(fragment, graph, maxTipLen);
 
+//                        if (fragment.equals("TACGTCGTGGAGTCCACTGGCGTCTTCACCACCATGGAGAAGGCTGGGGCTCATTTGCAGGGGGGAGCCAAAGGGGTCATCATCTCTGCCCCCTCTGCTGATGCCCCCATGTTCGTCATGGGTGTGAACCATGAGAAGTATGACAACAGCCTCAAGATCATCAGCAATGCCTCCTGCAC")) {
+//                            System.out.println("alert");
+//                        }
+                        
                         // mark fragment kmers as assembled
                         graph.addFragmentKmersFromSeq(fragment);
                         if (storeKmerPairs) {
@@ -1152,7 +1161,7 @@ public class RNABloom {
         int lookahead = 5;
         int errorsallowed = 5;
         
-        String corrected = correctMismatches2(seq, graph, lookahead, errorsallowed);
+        String corrected = correctErrors(seq, graph, lookahead, errorsallowed);
         
         System.out.println(seq);
         System.out.println(note);
@@ -1161,13 +1170,13 @@ public class RNABloom {
 
     
     public void testMismatchCorrection() {
-        String seq =  "GGAGTAAGACCCCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTCACTGCTGGGGAGTCCGTGCCACACTCA";
-        String note = "                                                                           ^           ";
+        String seq =  "CCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTCACTGCTGGGGAGTCCCTGCCACACTCAGTCCCCCACCACACTGAATCTCCCCTCCTCACAGTTGCCATGTAGACCCCTTGAAGAGGGGAGGGGCCTAGGGAGCCGCCCCTTGTCATGTACCATCAATAAAGTACCCTGTGCTCAACCAAAAAAAAAA";
+        String note = "                                     ";
         
-        int lookahead = 5;
+        int lookahead = 10;
         int errorsallowed = 5;
         
-        String corrected = correctMismatches2(seq, graph, lookahead, errorsallowed);
+        String corrected = correctErrors(seq, graph, lookahead, errorsallowed);
         
         System.out.println(seq);
         System.out.println(note);
@@ -1486,7 +1495,7 @@ public class RNABloom {
             int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), "10"));
             int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
             int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
-            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "3"));
+            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "10"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
             
             boolean saveGraph = true;
@@ -1540,8 +1549,8 @@ public class RNABloom {
             }
             
             /**@TODO */
-            //assembler.testMismatchCorrection();
-            //System.exit(0);
+//            assembler.testMismatchCorrection();
+//            System.exit(0);
             
             FastqPair fqPair = new FastqPair(fastqLeft, fastqRight, revCompLeft, revCompRight);
             FastqPair[] fqPairs = new FastqPair[]{fqPair};        
