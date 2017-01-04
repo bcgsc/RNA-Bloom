@@ -337,22 +337,36 @@ public class RNABloom {
             NTHashIterator itr = graph.getHashIterator();
             itr.start(left);
             long[] hVals = itr.hVals;
+            int numKmersNotSeen = 0;
             
             while (itr.hasNext()) {
                 itr.next();
                 
+                if (graph.getCount(hVals) == 0) {
+                    return false;
+                }
+                
                 if (!graph.lookupFragmentKmer(hVals)) {
-                    return true;
+                    if (++numKmersNotSeen > k) {
+                        return true;
+                    }
                 }
             }
             
             itr.start(right);
+            numKmersNotSeen = 0; // reset count for right
             
             while (itr.hasNext()) {
                 itr.next();
                 
+                if (graph.getCount(hVals) == 0) {
+                    return false;
+                }
+                
                 if (!graph.lookupFragmentKmer(hVals)) {
-                    return true;
+                    if (++numKmersNotSeen > k) {
+                        return true;
+                    }
                 }
             }
         }
@@ -621,8 +635,8 @@ public class RNABloom {
                     String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
 
                     if (fragment.length() > k) {
-                        //fragment = naiveExtend(correctErrors(fragment, graph, lookahead, mismatchesAllowed), graph, maxTipLen);
-                        fragment = naiveExtend(fragment, graph, maxTipLen);
+                        fragment = naiveExtend(correctErrors(fragment, graph, lookahead, mismatchesAllowed), graph, maxTipLen);
+                        //fragment = naiveExtend(fragment, graph, maxTipLen);
 
 //                        if (fragment.equals("TACGTCGTGGAGTCCACTGGCGTCTTCACCACCATGGAGAAGGCTGGGGCTCATTTGCAGGGGGGAGCCAAAGGGGTCATCATCTCTGCCCCCTCTGCTGATGCCCCCATGTTCGTCATGGGTGTGAACCATGAGAAGTATGACAACAGCCTCAAGATCATCAGCAATGCCTCCTGCAC")) {
 //                            System.out.println("alert");
@@ -1588,7 +1602,7 @@ public class RNABloom {
                 long startTime = System.nanoTime();
                 
                 /**@TODO*/
-                //assembler.assembleTranscripts(fragmentsFasta, transcriptsFasta, 10, 0.1f);
+                assembler.assembleTranscripts(fragmentsFasta, transcriptsFasta, 10, 0.1f);
 
                 System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
                 

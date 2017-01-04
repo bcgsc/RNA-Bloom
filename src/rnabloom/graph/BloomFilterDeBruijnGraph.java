@@ -294,6 +294,10 @@ public class BloomFilterDeBruijnGraph {
     public boolean contains(String kmer) {
         return dbgbf.lookup(kmer);
     }
+    
+    public boolean contains(final long[] hashVals) {
+        return dbgbf.lookup(hashVals);
+    }
 
     public void increment(String kmer) {
         cbf.increment(kmer);
