@@ -366,7 +366,7 @@ public class RNABloom {
                 }
             }
             
-            if (numKmersNotSeenLeft > k || numKmersNotSeenRight > k) {
+            if (numKmersNotSeenLeft >= k || numKmersNotSeenRight >= k) {
                 return true;
             }
         }
@@ -1147,6 +1147,7 @@ public class RNABloom {
             
             long cid = 0;
             long tmpCid = 0;
+            float minPercentIdentity = 0.95f;
 
             while (fin.hasNext()) {
                 if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
@@ -1169,6 +1170,7 @@ public class RNABloom {
                     }
                 }
                 
+                //if (numAssembledKmers >= minPercentIdentity * numFragKmers) {
                 if (numAssembledKmers == numFragKmers) {
                     // too many kmers were assembled
                     continue;
@@ -1198,7 +1200,7 @@ public class RNABloom {
                 
                 int numKmers = getNumKmers(transcript, k);
                 
-                int errorsAllowed = Math.round(numKmers*0.05f);
+                int errorsAllowed = Math.round(numKmers*(1.0f - minPercentIdentity));
                 if (errorsAllowed  > 0) {
                     transcript = correctErrors(transcript, graph, lookAhead, errorsAllowed);
                 }
