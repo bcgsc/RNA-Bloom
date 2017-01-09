@@ -332,7 +332,7 @@ public class RNABloom {
         return right.endsWith("AAAA") || (!graph.isStranded() && left.startsWith("TTTT"));
     }
     
-    private boolean okToConnectPair(String left, String right) {
+    private boolean okToConnectPair(String left, String right, int minNumKmersPerReadNotAssembled) {
         if (left.length() >= k && right.length() >= k) {
             NTHashIterator itr = graph.getHashIterator();
             itr.start(left);
@@ -366,7 +366,7 @@ public class RNABloom {
                 }
             }
             
-            if (numKmersNotSeenLeft >= k || numKmersNotSeenRight >= k) {
+            if (numKmersNotSeenLeft > minNumKmersPerReadNotAssembled || numKmersNotSeenRight > minNumKmersPerReadNotAssembled) {
                 return true;
             }
         }
@@ -594,18 +594,19 @@ public class RNABloom {
     public class FragmentAssembler implements Runnable {
         private ReadPair p;
         private List<String> outList;
-        private int mismatchesAllowed;
+        private int maxCorrectionsAllowed;
         private int bound;
         private int lookahead;
         private int minOverlap;
         private int maxTipLen;
         private boolean storeKmerPairs;
         private int maxIndelSize = 1;
+        private int minNumKmersPerReadNotAssembled = k; /** @TODO turn this into an option */
         
-        public FragmentAssembler(ReadPair p, List<String> outList, int mismatchesAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, boolean storeKmerPairs) {
+        public FragmentAssembler(ReadPair p, List<String> outList, int maxCorrectionsAllowed, int bound, int lookahead, int minOverlap, int maxTipLen, boolean storeKmerPairs) {
             this.p = p;
             this.outList = outList;
-            this.mismatchesAllowed = mismatchesAllowed;
+            this.maxCorrectionsAllowed = maxCorrectionsAllowed;
             this.bound = bound;
             this.lookahead = lookahead;
             this.maxTipLen = maxTipLen;
@@ -619,24 +620,24 @@ public class RNABloom {
             String connectedLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+maxIndelSize, lookahead);
             String connectedRight = connect(p.right, graph, k+p.numRightBasesTrimmed+maxIndelSize, lookahead);
 
-            if (okToConnectPair(connectedLeft, connectedRight)) {
+            if (okToConnectPair(connectedLeft, connectedRight, minNumKmersPerReadNotAssembled)) {
 
 //                if (connectedRight.endsWith("GGAGCGAGATCCCTCA")) {
 //                    System.out.println("alert");
 //                }
                 
                 // correct each read
-                String left = correctErrors(connectedLeft, graph, lookahead, mismatchesAllowed);
-                String right = correctErrors(connectedRight, graph, lookahead, mismatchesAllowed);
+                String left = correctErrors(connectedLeft, graph, lookahead, maxCorrectionsAllowed);
+                String right = correctErrors(connectedRight, graph, lookahead, maxCorrectionsAllowed);
                 
-                if (okToConnectPair(left, right)) {
+                if (okToConnectPair(left, right, minNumKmersPerReadNotAssembled)) {
 
                     // assemble fragment from read pair
                     String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
 
                     int fraglen = fragment.length();
                     if (fraglen > k) {
-                        fragment = naiveExtend(correctErrors(fragment, graph, lookahead, Math.max(Math.round(fraglen*0.05f), mismatchesAllowed)), graph, maxTipLen);
+                        fragment = naiveExtend(correctErrors(fragment, graph, lookahead, Math.max(Math.round(fraglen*0.05f), maxCorrectionsAllowed)), graph, maxTipLen);
                         //fragment = naiveExtend(fragment, graph, maxTipLen);
 
 //                        if (fragment.contains("GCCTGATCACCAGGGCTGCTTGTAACTCTGGGAAAGTGGATAT")) {

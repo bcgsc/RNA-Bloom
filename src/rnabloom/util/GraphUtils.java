@@ -612,6 +612,121 @@ public final class GraphUtils {
         return seq;
     }
     
+    public static String correctAndConnect(String left, String right, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowedPerRead, int maxCovGradient, int bound, int maxIndelSize, float covFPR) {
+        //int k = graph.getK();
+        
+        //int leftLen = left.length();
+        //int rightLen = right.length();
+        
+        ArrayList<Kmer> leftKmers = graph.getKmers(left);
+        ArrayList<Kmer> rightKmers = graph.getKmers(right);
+        
+        int numLeftKmers = leftKmers.size();
+        int numRightKmers = rightKmers.size();
+        
+        int numFalsePositivesAllowed = (int) Math.ceil(Math.max(numLeftKmers, numRightKmers) * covFPR);
+        
+        
+        float[] covs = new float[numLeftKmers];
+        for (int i=0; i<numLeftKmers; ++i) {
+            covs[i] = leftKmers.get(i).count;
+        }
+        Arrays.sort(covs);
+        
+        float c = covs[0];
+        float leftCovThreshold = -1;
+        for (int i=1; i<numLeftKmers; ++i) {
+            leftCovThreshold = covs[i];
+            if (leftCovThreshold * maxCovGradient > c) {
+                break;
+            }
+            c = leftCovThreshold;
+        }
+        
+        covs = new float[numRightKmers];
+        for (int i=0; i<numRightKmers; ++i) {
+            covs[i] = rightKmers.get(i).count;
+        }
+        Arrays.sort(covs);
+        
+        c = covs[0];
+        float rightCovThreshold = -1; 
+        for (int i=1; i<numRightKmers; ++i) {
+            rightCovThreshold = covs[i];
+            if (rightCovThreshold * maxCovGradient > c) {
+                break;
+            }
+            c = rightCovThreshold;
+        }
+        
+        float covThreshold = Math.min(leftCovThreshold, rightCovThreshold);
+        
+        if (covThreshold > 0) {
+            // correct left read
+            ArrayList<Kmer> leftKmers2 = new ArrayList<>(numLeftKmers);
+            int numBadKmersSince = 0;
+            Kmer kmer;
+            for (int i=0; i<numLeftKmers; ++i) {
+                kmer = leftKmers.get(i);
+                if (kmer.count >= covThreshold) {                    
+                    if (numBadKmersSince > 0) {
+                        if (!leftKmers2.isEmpty()) {
+                            ArrayList<Kmer> path = getMaxCoveragePath(graph, leftKmers2.get(leftKmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
+                            if (path == null) {
+                                for (int j=i-numBadKmersSince; j<i; ++j) {
+                                    leftKmers2.add(leftKmers.get(j));
+                                }
+                            }
+                            else {
+                                leftKmers2.addAll(path);
+                            }
+                        }
+                                
+                        numBadKmersSince = 0;
+                    }
+                    
+                    leftKmers2.add(kmer);
+                }
+                else {
+                    ++numBadKmersSince;
+                }
+            }
+            
+            // correct right read
+            ArrayList<Kmer> rightKmers2 = new ArrayList<>(numRightKmers);
+            numBadKmersSince = 0;
+            for (int i=0; i<numRightKmers; ++i) {
+                kmer = rightKmers.get(i);
+                if (kmer.count >= covThreshold) {                    
+                    if (numBadKmersSince > 0) {
+                        if (!rightKmers2.isEmpty()) {
+                            ArrayList<Kmer> path = getMaxCoveragePath(graph, rightKmers2.get(rightKmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
+                            if (path == null) {
+                                for (int j=i-numBadKmersSince; j<i; ++j) {
+                                    rightKmers2.add(rightKmers.get(j));
+                                }
+                            }
+                            else {
+                                rightKmers2.addAll(path);
+                            }
+                        }
+                                
+                        numBadKmersSince = 0;
+                    }
+                    
+                    rightKmers2.add(kmer);
+                }
+                else {
+                    ++numBadKmersSince;
+                }
+            }
+        }
+        
+        // overlap or connect pairs
+        
+        return null;
+    }
+    
     public static String correctErrors(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed) {
         int numCorrected = 0;
         int seqLen = seq.length();
