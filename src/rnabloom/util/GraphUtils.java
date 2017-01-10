@@ -612,56 +612,67 @@ public final class GraphUtils {
         return seq;
     }
     
-    public static String correctAndConnect(String left, String right, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowedPerRead, int maxCovGradient, int bound, int maxIndelSize, float covFPR) {
-        //int k = graph.getK();
-        
-        //int leftLen = left.length();
-        //int rightLen = right.length();
-        
-        ArrayList<Kmer> leftKmers = graph.getKmers(left);
-        ArrayList<Kmer> rightKmers = graph.getKmers(right);
-        
+    public static String correctAndConnect(ArrayList<Kmer> leftKmers, 
+                                            ArrayList<Kmer> rightKmers, 
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int lookahead,
+                                            int bound, 
+                                            int maxIndelSize, 
+                                            float maxCovGradient, 
+                                            float covFPR, 
+                                            int minOverlap) {
+                
         int numLeftKmers = leftKmers.size();
         int numRightKmers = rightKmers.size();
         
         int numFalsePositivesAllowed = (int) Math.ceil(Math.max(numLeftKmers, numRightKmers) * covFPR);
         
-        
+        // sort coverage of left kmers in ascending order
         float[] covs = new float[numLeftKmers];
         for (int i=0; i<numLeftKmers; ++i) {
             covs[i] = leftKmers.get(i).count;
         }
         Arrays.sort(covs);
         
-        float c = covs[0];
-        float leftCovThreshold = -1;
-        for (int i=1; i<numLeftKmers; ++i) {
-            leftCovThreshold = covs[i];
+        // find cov threshold in left kmers
+        boolean leftThresholdFound = false;
+        int startIndex = numLeftKmers - 1 - numFalsePositivesAllowed;
+        float leftCovThreshold = covs[startIndex];
+        float c = -1;
+        for (int i=startIndex-1; i>=0; --i) {
+            c = covs[i];
             if (leftCovThreshold * maxCovGradient > c) {
+                leftThresholdFound = true;
                 break;
             }
-            c = leftCovThreshold;
+            leftCovThreshold = c;
         }
         
+        // sort coverage of right kmers in ascending order
         covs = new float[numRightKmers];
         for (int i=0; i<numRightKmers; ++i) {
             covs[i] = rightKmers.get(i).count;
         }
         Arrays.sort(covs);
         
-        c = covs[0];
-        float rightCovThreshold = -1; 
-        for (int i=1; i<numRightKmers; ++i) {
-            rightCovThreshold = covs[i];
+        // find cov threshold in right kmers
+        boolean rightThresholdFound = false;
+        startIndex = numRightKmers - 1 - numFalsePositivesAllowed;
+        float rightCovThreshold = covs[startIndex];
+        c = -1;
+        for (int i=startIndex-1; i>=0; --i) {
+            c = covs[i];
             if (rightCovThreshold * maxCovGradient > c) {
+                rightThresholdFound = true;
                 break;
             }
-            c = rightCovThreshold;
+            rightCovThreshold = c;
         }
         
-        float covThreshold = Math.min(leftCovThreshold, rightCovThreshold);
+        // kmers with coverage lower than theshold will be replaced
+        if (leftThresholdFound || rightThresholdFound) {
+            float covThreshold = Math.min(leftCovThreshold, rightCovThreshold);
         
-        if (covThreshold > 0) {
             // correct left read
             ArrayList<Kmer> leftKmers2 = new ArrayList<>(numLeftKmers);
             int numBadKmersSince = 0;
@@ -681,17 +692,22 @@ public final class GraphUtils {
                                 leftKmers2.addAll(path);
                             }
                         }
-                                
+
                         numBadKmersSince = 0;
                     }
-                    
+
                     leftKmers2.add(kmer);
                 }
                 else {
                     ++numBadKmersSince;
                 }
             }
-            
+
+            if (!leftKmers2.isEmpty()) {
+                leftKmers = leftKmers2;
+                //numLeftKmers = leftKmers2.size();
+            }
+
             // correct right read
             ArrayList<Kmer> rightKmers2 = new ArrayList<>(numRightKmers);
             numBadKmersSince = 0;
@@ -710,21 +726,24 @@ public final class GraphUtils {
                                 rightKmers2.addAll(path);
                             }
                         }
-                                
+
                         numBadKmersSince = 0;
                     }
-                    
+
                     rightKmers2.add(kmer);
                 }
                 else {
                     ++numBadKmersSince;
                 }
             }
+
+            if (!rightKmers2.isEmpty()) {
+                rightKmers = rightKmers2;
+                //numRightKmers = rightKmers2.size();
+            }
         }
         
-        // overlap or connect pairs
-        
-        return null;
+        return overlapThenConnect(assemble(leftKmers), assemble(rightKmers), graph, bound, lookahead, minOverlap);
     }
     
     public static String correctErrors(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed) {
