@@ -605,49 +605,52 @@ public class RNABloom {
         private float maxCovGradient;
         private float covFPR;
         
-        public FragmentAssembler(ReadPair p, List<String> outList,
-                int bound, 
-                int lookahead, 
-                int minOverlap, 
-                int maxTipLen, 
-                boolean storeKmerPairs, 
-                float maxCovGradient, 
-                float covFPR) {
+        public FragmentAssembler(ReadPair p,
+                                List<String> outList,
+                                int bound, 
+                                int lookahead, 
+                                int minOverlap, 
+                                int maxTipLen, 
+                                boolean storeKmerPairs, 
+                                float maxCovGradient, 
+                                float covFPR) {
             
             this.p = p;
             this.outList = outList;
             this.bound = bound;
             this.lookahead = lookahead;
-            this.maxTipLen = maxTipLen;
             this.minOverlap = minOverlap;
+            this.maxTipLen = maxTipLen;
             this.storeKmerPairs = storeKmerPairs;
+            this.maxCovGradient = maxCovGradient;
+            this.covFPR = covFPR;
         }
         
         @Override
         public void run() {
             // connect segments of each read
-            String connectedLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+maxIndelSize, lookahead);
-            String connectedRight = connect(p.right, graph, k+p.numRightBasesTrimmed+maxIndelSize, lookahead);
+            String connectedLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+this.maxIndelSize, this.lookahead);
+            String connectedRight = connect(p.right, graph, k+p.numRightBasesTrimmed+this.maxIndelSize, this.lookahead);
 
-            if (okToConnectPair(connectedLeft, connectedRight, minNumKmersPerReadNotAssembled)) {
-                
-                String fragment = correctAndConnect(graph.getKmers(connectedLeft), 
-                                                    graph.getKmers(connectedRight), 
+            if (okToConnectPair(connectedLeft, connectedRight, this.minNumKmersPerReadNotAssembled)) {
+                                
+                String fragment = correctAndConnect(connectedLeft,
+                                                    connectedRight,
                                                     graph, 
-                                                    lookahead, 
-                                                    bound, 
-                                                    maxIndelSize, 
-                                                    maxCovGradient, 
-                                                    covFPR, 
-                                                    minOverlap);
+                                                    this.lookahead, 
+                                                    this.bound, 
+                                                    this.maxIndelSize, 
+                                                    this.maxCovGradient, 
+                                                    this.covFPR, 
+                                                    this.minOverlap);
                 
                 int fraglen = fragment.length();
                 if (fraglen > k) {
-                    fragment = naiveExtend(fragment, graph, maxTipLen);
-
+                    fragment = naiveExtend(fragment, graph, this.maxTipLen);
+                    
                     // mark fragment kmers as assembled
                     graph.addFragmentKmersFromSeq(fragment);
-                    if (storeKmerPairs) {
+                    if (this.storeKmerPairs) {
                         graph.addPairedKmersFromSeq(fragment);
                     }
 
@@ -1285,14 +1288,14 @@ public class RNABloom {
     
     public void testErrorCorrection() {
         int lookahead = 5;
-        float maxCovGradient = 0.1f;
+        float maxCovGradient = 0.5f;
         int bound = 500; 
         int maxIndelSize = 1; 
         float covFPR = graph.getCbf().getFPR();
         int minOverlap = 10;
 
-        String leftRead =  "TCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCATCCCTGCCTC";
-        String rightRead = "AACCTGCCAAATATGATGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCC";
+        String leftRead =  "TGGTGGACCTCATGGCCCACATGGCCTCCAAGGAGTAAGACCCCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTCACTGCT";
+        String rightRead = "TGCTGGGGAGTCCCTGCCACACTCAGTCCTCCACCACACTGAATCTCCCCTCCTCACAGTTTCCATGTAGACCCCTTGAAGA";
         
 //        String leftRead =  "CAGTCAGCCGCATCTTCTTTTGCGTCGCCAGCCGAGCCACATCGCTCAGACACCATGGGGAAGGTGAAGGTCGGAGTCAACGGGTGAGTTCGCGGGTGGC";
 //        String rightRead = "CTGGGGGGCCCTGGGCTGCGACCGCCCCCGAACCGCGTCTACGAGCCTTGCGGGCTCCGGGTCTTTGCAGTCGTATGGGGGCAGGGTAGCTGTTCCCCGC";
@@ -1300,8 +1303,8 @@ public class RNABloom {
         System.out.println(leftRead);
         System.out.println(rightRead);
         
-        String connected = correctAndConnect(graph.getKmers(leftRead), 
-                                            graph.getKmers(rightRead), 
+        String connected = correctAndConnect(leftRead,
+                                            rightRead,
                                             graph, 
                                             lookahead, 
                                             bound, 
@@ -1655,7 +1658,7 @@ public class RNABloom {
             int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
             int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "10"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
-            float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.1"));
+            float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
             
             boolean saveGraph = true;
             boolean saveKmerPairs = true;

@@ -612,8 +612,8 @@ public final class GraphUtils {
         return seq;
     }
     
-    public static String correctAndConnect(ArrayList<Kmer> leftKmers, 
-                                            ArrayList<Kmer> rightKmers, 
+    public static String correctAndConnect(String leftSeq, 
+                                            String rightSeq, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int lookahead,
                                             int bound, 
@@ -621,7 +621,10 @@ public final class GraphUtils {
                                             float maxCovGradient, 
                                             float covFPR, 
                                             int minOverlap) {
-                
+        
+        ArrayList<Kmer> leftKmers = graph.getKmers(leftSeq);
+        ArrayList<Kmer> rightKmers = graph.getKmers(rightSeq);
+        
         int numLeftKmers = leftKmers.size();
         int numRightKmers = rightKmers.size();
         
