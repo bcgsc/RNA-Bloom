@@ -1181,7 +1181,7 @@ public class RNABloom {
             
             long cid = 0;
             long tmpCid = 0;
-            float minPercentIdentity = 0.95f;
+            int maxGapSize = k;
 
             while (fin.hasNext()) {
                 if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
@@ -1193,62 +1193,54 @@ public class RNABloom {
                 /** count assembled kmers */
                 int numFragKmers = getNumKmers(fragment, k);
                 float[] covs = new float[numFragKmers];
-                int numAssembledKmers = 0;
                 fragHashItr.start(fragment);
+                
+                boolean assembleTranscript = false;
+                int numNonAssembledKmersSince = 0;
                 for (int i=0; i<numFragKmers; ++i) {
                     covs[i] = graph.getCount(fragHvals);
                     
                     fragHashItr.next();
                     if (screeningBf.lookup(fragHvals)) {
-                        ++numAssembledKmers;
+                        if (numNonAssembledKmersSince > maxGapSize) {
+                            assembleTranscript = true;
+                        }
+                        numNonAssembledKmersSince = 0;
+                    }
+                    else {
+                        ++numNonAssembledKmersSince;
                     }
                 }
-                
-                //if (numAssembledKmers >= minPercentIdentity * numFragKmers) {
-                if (numAssembledKmers == numFragKmers) {
-                    // too many kmers were assembled
-                    continue;
+                if (numNonAssembledKmersSince > maxGapSize || numNonAssembledKmersSince == numFragKmers) {
+                    assembleTranscript = true;
                 }
                 
-                /** check whether sequence-wide coverage differences are too large */
-                boolean covDiffTooLarge = false;
-                Arrays.sort(covs);
-                float covLow = covs[0];
-                float covHigh;
-                for (int i=1; i<numFragKmers; ++i) {
-                    covHigh = covs[i];
-                    if (covHigh * maxCovGradient > covLow) {
-                        covDiffTooLarge = true;
-                        break;
+                if (assembleTranscript) {
+                
+                    /** check whether sequence-wide coverage differences are too large */
+                    boolean covDiffTooLarge = false;
+                    Arrays.sort(covs);
+                    float covLow = covs[0];
+                    float covHigh;
+                    for (int i=1; i<numFragKmers; ++i) {
+                        covHigh = covs[i];
+                        if (covHigh * maxCovGradient > covLow) {
+                            covDiffTooLarge = true;
+                            break;
+                        }
+                        covLow = covHigh;
                     }
-                    covLow = covHigh;
-                }
-                
-                if (covDiffTooLarge) {
-                    // postpone extension to next round
-                    tmpFout.write(Long.toString(++tmpCid), fragment);
-                    continue;
-                }
-                
-                String transcript = extendWithPairedKmers(fragment, graph, lookAhead, maxCovGradient);
-                
-                int numKmers = getNumKmers(transcript, k);
-                
-                int errorsAllowed = Math.round(numKmers*(1.0f - minPercentIdentity));
-                if (errorsAllowed  > 0) {
-                    transcript = correctErrors(transcript, graph, lookAhead, errorsAllowed);
-                }
-                
-                numAssembledKmers = 0;
-                txptHashItr.start(transcript);
-                while (txptHashItr.hasNext()) {
-                    txptHashItr.next();
-                    if (screeningBf.lookup(txptHvals)) {
-                        ++numAssembledKmers;
+
+                    if (covDiffTooLarge) {
+                        // postpone extension to next round
+                        tmpFout.write(Long.toString(++tmpCid), fragment);
+                        continue;
                     }
-                }
-                
-                if (numKmers - numAssembledKmers >= errorsAllowed) {
+
+                    String transcript = extendWithPairedKmers(fragment, graph, lookAhead, maxCovGradient);
+
+    //                System.out.println(">f\n" + fragment + "\n>t\n" + transcript);
+
                     /** store assembled kmers */
                     txptHashItr.start(transcript);
                     while (txptHashItr.hasNext()) {
@@ -1294,8 +1286,8 @@ public class RNABloom {
         float covFPR = graph.getCbf().getFPR();
         int minOverlap = 10;
 
-        String leftRead =  "TGGTGGACCTCATGGCCCACATGGCCTCCAAGGAGTAAGACCCCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTCACTGCT";
-        String rightRead = "TGCTGGGGAGTCCCTGCCACACTCAGTCCTCCACCACACTGAATCTCCCCTCCTCACAGTTTCCATGTAGACCCCTTGAAGA";
+        String leftRead =  "CACTCCTCCACCTTCGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTTGTCAAGCTCATTTCCTGGTATGACAACGAATTTGGCTACAGCAACAGGGTGGTGG";
+        String rightRead = "AGTCCCTGCCACACTCAGTCCCCCACCACACTGAATCTCCCCTCCTCACAGTTGCCATGTAGACCCCTTGAAGAGGGGAGGGGCCTAGGGAGCCGCACCTTGTCAT";
         
 //        String leftRead =  "CAGTCAGCCGCATCTTCTTTTGCGTCGCCAGCCGAGCCACATCGCTCAGACACCATGGGGAAGGTGAAGGTCGGAGTCAACGGGTGAGTTCGCGGGTGGC";
 //        String rightRead = "CTGGGGGGCCCTGGGCTGCGACCGCCCCCGAACCGCGTCTACGAGCCTTGCGGGCTCCGGGTCTTTGCAGTCGTATGGGGGCAGGGTAGCTGTTCCCCGC";
