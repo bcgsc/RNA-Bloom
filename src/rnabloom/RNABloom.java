@@ -604,6 +604,7 @@ public class RNABloom {
         private int minNumKmersPerReadNotAssembled = k; /** @TODO turn this into an option */
         private float maxCovGradient;
         private float covFPR;
+        private int errorCorrectionIterations;
         
         public FragmentAssembler(ReadPair p,
                                 List<String> outList,
@@ -613,7 +614,8 @@ public class RNABloom {
                                 int maxTipLen, 
                                 boolean storeKmerPairs, 
                                 float maxCovGradient, 
-                                float covFPR) {
+                                float covFPR,
+                                int errorCorrectionIterations) {
             
             this.p = p;
             this.outList = outList;
@@ -624,6 +626,7 @@ public class RNABloom {
             this.storeKmerPairs = storeKmerPairs;
             this.maxCovGradient = maxCovGradient;
             this.covFPR = covFPR;
+            this.errorCorrectionIterations = errorCorrectionIterations;
         }
         
         @Override
@@ -642,7 +645,8 @@ public class RNABloom {
                                                     this.maxIndelSize, 
                                                     this.maxCovGradient, 
                                                     this.covFPR, 
-                                                    this.minOverlap);
+                                                    this.minOverlap,
+                                                    this.errorCorrectionIterations);
                 
                 int fraglen = fragment.length();
                 if (fraglen > k) {
@@ -715,7 +719,17 @@ public class RNABloom {
         }
     }
     
-    public void assembleFragmentsMultiThreaded(FastqPair[] fastqs, String outfile, int bound, int lookahead, float maxCovGradient, int minOverlap, int maxTipLen, int sampleSize, int numThreads) {
+    public void assembleFragmentsMultiThreaded(FastqPair[] fastqs, 
+                                                String outfile, 
+                                                int bound,
+                                                int lookahead, 
+                                                float maxCovGradient, 
+                                                int minOverlap, 
+                                                int maxTipLen, 
+                                                int sampleSize, 
+                                                int numThreads, 
+                                                int maxErrCorrItr) {
+        
         float covFPR = graph.getCbf().getFPR();
         System.out.println("Counting Bloom filter FPR: " + covFPR * 100 + " %");
         
@@ -761,7 +775,7 @@ public class RNABloom {
                         if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
                                 p.originalRightLength > 2*p.numRightBasesTrimmed) {
                             
-                            service.submit(new FragmentAssembler(p, fragments, bound, lookahead, minOverlap, maxTipLen, false, maxCovGradient, covFPR));
+                            service.submit(new FragmentAssembler(p, fragments, bound, lookahead, minOverlap, maxTipLen, false, maxCovGradient, covFPR, maxErrCorrItr));
                             
                             if (fragments.size() >= sampleSize) {
                                 break;
@@ -815,7 +829,7 @@ public class RNABloom {
                     if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
                             p.originalRightLength > 2*p.numRightBasesTrimmed) {
                         
-                        service.submit(new FragmentAssembler(p, fragments, newBound, lookahead, minOverlap, maxTipLen, true, maxCovGradient, covFPR));
+                        service.submit(new FragmentAssembler(p, fragments, newBound, lookahead, minOverlap, maxTipLen, true, maxCovGradient, covFPR, maxErrCorrItr));
 
                         if (fragments.size() >= sampleSize) {
                             service.terminate();
@@ -1285,9 +1299,10 @@ public class RNABloom {
         int maxIndelSize = 1; 
         float covFPR = graph.getCbf().getFPR();
         int minOverlap = 10;
+        int errorCorrectionIterations = 2;
 
-        String leftRead =  "CACTCCTCCACCTTCGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTTGTCAAGCTCATTTCCTGGTATGACAACGAATTTGGCTACAGCAACAGGGTGGTGG";
-        String rightRead = "AGTCCCTGCCACACTCAGTCCCCCACCACACTGAATCTCCCCTCCTCACAGTTGCCATGTAGACCCCTTGAAGAGGGGAGGGGCCTAGGGAGCCGCACCTTGTCAT";
+        String leftRead =  "GGTGGTCTCCTCTGACTTCAACAGCGACACCCACTCCTCCACCTTCGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTTGTCAAGCTCATTTCCTGG";
+        String rightRead = "AGCAAGAGCACAAGAGGAAGAGGGAGCCCCTCCCTGCTGGGGAGTCCCTGCCACACTAAGTCCCCCACCACACTGAATCTCCC";
         
 //        String leftRead =  "CAGTCAGCCGCATCTTCTTTTGCGTCGCCAGCCGAGCCACATCGCTCAGACACCATGGGGAAGGTGAAGGTCGGAGTCAACGGGTGAGTTCGCGGGTGGC";
 //        String rightRead = "CTGGGGGGCCCTGGGCTGCGACCGCCCCCGAACCGCGTCTACGAGCCTTGCGGGCTCCGGGTCTTTGCAGTCGTATGGGGGCAGGGTAGCTGTTCCCCGC";
@@ -1303,7 +1318,8 @@ public class RNABloom {
                                             maxIndelSize, 
                                             maxCovGradient, 
                                             covFPR, 
-                                            minOverlap);
+                                            minOverlap,
+                                            errorCorrectionIterations);
                                             
         System.out.println(connected);
     }
@@ -1598,6 +1614,13 @@ public class RNABloom {
         Option optMaxCovGrad = builder.build();
         options.addOption(optMaxCovGrad);
         
+        builder = Option.builder("e");
+        builder.longOpt("errcorritr");
+        builder.desc("max number of iterations of read error correction");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optErrCorrItr = builder.build();
+        options.addOption(optErrCorrItr);        
         
 
         try {
@@ -1651,6 +1674,7 @@ public class RNABloom {
             int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "10"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
+            int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
             
             boolean saveGraph = true;
             boolean saveKmerPairs = true;
@@ -1721,7 +1745,7 @@ public class RNABloom {
                 
                 long startTime = System.nanoTime();
                 
-                assembler.assembleFragmentsMultiThreaded(fqPairs, fragmentsFasta, bound, lookahead, maxCovGradient, minOverlap, maxTipLen, sampleSize, numThreads);
+                assembler.assembleFragmentsMultiThreaded(fqPairs, fragmentsFasta, bound, lookahead, maxCovGradient, minOverlap, maxTipLen, sampleSize, numThreads, maxErrCorrItr);
 
                 System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
                 

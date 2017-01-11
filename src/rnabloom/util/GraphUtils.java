@@ -620,129 +620,144 @@ public final class GraphUtils {
                                             int maxIndelSize, 
                                             float maxCovGradient, 
                                             float covFPR, 
-                                            int minOverlap) {
+                                            int minOverlap,
+                                            int errorCorrectionIterations) {
         
         ArrayList<Kmer> leftKmers = graph.getKmers(leftSeq);
         ArrayList<Kmer> rightKmers = graph.getKmers(rightSeq);
         
-        int numLeftKmers = leftKmers.size();
-        int numRightKmers = rightKmers.size();
+        boolean leftCorrected = false;
+        boolean rightCorrected = false;
         
-        int numFalsePositivesAllowed = (int) Math.ceil(Math.max(numLeftKmers, numRightKmers) * covFPR);
+        for (int round=0; round<errorCorrectionIterations; ++round) {
         
-        // sort coverage of left kmers in ascending order
-        float[] covs = new float[numLeftKmers];
-        for (int i=0; i<numLeftKmers; ++i) {
-            covs[i] = leftKmers.get(i).count;
-        }
-        Arrays.sort(covs);
-        
-        // find cov threshold in left kmers
-        boolean leftThresholdFound = false;
-        int startIndex = numLeftKmers - 1 - numFalsePositivesAllowed;
-        float leftCovThreshold = covs[startIndex];
-        float c = -1;
-        for (int i=startIndex-1; i>=0; --i) {
-            c = covs[i];
-            if (leftCovThreshold * maxCovGradient > c) {
-                leftThresholdFound = true;
-                break;
-            }
-            leftCovThreshold = c;
-        }
-        
-        // sort coverage of right kmers in ascending order
-        covs = new float[numRightKmers];
-        for (int i=0; i<numRightKmers; ++i) {
-            covs[i] = rightKmers.get(i).count;
-        }
-        Arrays.sort(covs);
-        
-        // find cov threshold in right kmers
-        boolean rightThresholdFound = false;
-        startIndex = numRightKmers - 1 - numFalsePositivesAllowed;
-        float rightCovThreshold = covs[startIndex];
-        c = -1;
-        for (int i=startIndex-1; i>=0; --i) {
-            c = covs[i];
-            if (rightCovThreshold * maxCovGradient > c) {
-                rightThresholdFound = true;
-                break;
-            }
-            rightCovThreshold = c;
-        }
-        
-        // kmers with coverage lower than theshold will be replaced
-        if (leftThresholdFound || rightThresholdFound) {
-            float covThreshold = Math.min(leftCovThreshold, rightCovThreshold);
-        
-            // correct left read
-            ArrayList<Kmer> leftKmers2 = new ArrayList<>(numLeftKmers);
-            int numBadKmersSince = 0;
-            Kmer kmer;
+            int numLeftKmers = leftKmers.size();
+            int numRightKmers = rightKmers.size();
+
+            int numFalsePositivesAllowed = (int) Math.round(Math.max(numLeftKmers, numRightKmers) * covFPR);
+
+            // sort coverage of left kmers in ascending order
+            float[] covs = new float[numLeftKmers];
             for (int i=0; i<numLeftKmers; ++i) {
-                kmer = leftKmers.get(i);
-                if (kmer.count >= covThreshold) {                    
-                    if (numBadKmersSince > 0) {
-                        if (!leftKmers2.isEmpty()) {
-                            ArrayList<Kmer> path = getMaxCoveragePath(graph, leftKmers2.get(leftKmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
-                            if (path == null) {
-                                for (int j=i-numBadKmersSince; j<i; ++j) {
-                                    leftKmers2.add(leftKmers.get(j));
-                                }
-                            }
-                            else {
-                                leftKmers2.addAll(path);
-                            }
-                        }
+                covs[i] = leftKmers.get(i).count;
+            }
+            Arrays.sort(covs);
 
-                        numBadKmersSince = 0;
-                    }
-
-                    leftKmers2.add(kmer);
+            // find cov threshold in left kmers
+            boolean leftThresholdFound = false;
+            int startIndex = numLeftKmers - 1 - numFalsePositivesAllowed;
+            float leftCovThreshold = covs[startIndex];
+            float c = -1;
+            for (int i=startIndex-1; i>=0; --i) {
+                c = covs[i];
+                if (leftCovThreshold * maxCovGradient > c) {
+                    leftThresholdFound = true;
+                    break;
                 }
-                else {
-                    ++numBadKmersSince;
-                }
+                leftCovThreshold = c;
             }
 
-            if (!leftKmers2.isEmpty()) {
-                leftKmers = leftKmers2;
-                //numLeftKmers = leftKmers2.size();
-            }
-
-            // correct right read
-            ArrayList<Kmer> rightKmers2 = new ArrayList<>(numRightKmers);
-            numBadKmersSince = 0;
+            // sort coverage of right kmers in ascending order
+            covs = new float[numRightKmers];
             for (int i=0; i<numRightKmers; ++i) {
-                kmer = rightKmers.get(i);
-                if (kmer.count >= covThreshold) {                    
-                    if (numBadKmersSince > 0) {
-                        if (!rightKmers2.isEmpty()) {
-                            ArrayList<Kmer> path = getMaxCoveragePath(graph, rightKmers2.get(rightKmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
-                            if (path == null) {
-                                for (int j=i-numBadKmersSince; j<i; ++j) {
-                                    rightKmers2.add(rightKmers.get(j));
-                                }
-                            }
-                            else {
-                                rightKmers2.addAll(path);
-                            }
-                        }
+                covs[i] = rightKmers.get(i).count;
+            }
+            Arrays.sort(covs);
 
-                        numBadKmersSince = 0;
-                    }
-
-                    rightKmers2.add(kmer);
+            // find cov threshold in right kmers
+            boolean rightThresholdFound = false;
+            startIndex = numRightKmers - 1 - numFalsePositivesAllowed;
+            float rightCovThreshold = covs[startIndex];
+            c = -1;
+            for (int i=startIndex-1; i>=0; --i) {
+                c = covs[i];
+                if (rightCovThreshold * maxCovGradient > c) {
+                    rightThresholdFound = true;
+                    break;
                 }
-                else {
-                    ++numBadKmersSince;
-                }
+                rightCovThreshold = c;
             }
 
-            if (!rightKmers2.isEmpty()) {
-                rightKmers = rightKmers2;
-                //numRightKmers = rightKmers2.size();
+            // kmers with coverage lower than theshold will be replaced
+            if (leftThresholdFound || rightThresholdFound) {
+                float covThreshold = Math.min(leftCovThreshold, rightCovThreshold);
+
+                // correct left read
+                leftCorrected = false;
+                ArrayList<Kmer> leftKmers2 = new ArrayList<>(numLeftKmers);
+                int numBadKmersSince = 0;
+                Kmer kmer;
+                for (int i=0; i<numLeftKmers; ++i) {
+                    kmer = leftKmers.get(i);
+                    if (kmer.count >= covThreshold) {                    
+                        if (numBadKmersSince > 0) {
+                            if (!leftKmers2.isEmpty()) {
+                                ArrayList<Kmer> path = getMaxCoveragePath(graph, leftKmers2.get(leftKmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
+                                if (path == null) {
+                                    for (int j=i-numBadKmersSince; j<i; ++j) {
+                                        leftKmers2.add(leftKmers.get(j));
+                                    }
+                                }
+                                else {
+                                    leftKmers2.addAll(path);
+                                    leftCorrected = true;
+                                }
+                            }
+
+                            numBadKmersSince = 0;
+                        }
+
+                        leftKmers2.add(kmer);
+                    }
+                    else {
+                        ++numBadKmersSince;
+                    }
+                }
+
+                if (leftCorrected || leftKmers2.size() != numLeftKmers) {
+                    leftKmers = leftKmers2;
+                    leftCorrected = true;
+                }
+
+                // correct right read
+                rightCorrected = false;
+                ArrayList<Kmer> rightKmers2 = new ArrayList<>(numRightKmers);
+                numBadKmersSince = 0;
+                for (int i=0; i<numRightKmers; ++i) {
+                    kmer = rightKmers.get(i);
+                    if (kmer.count >= covThreshold) {                    
+                        if (numBadKmersSince > 0) {
+                            if (!rightKmers2.isEmpty()) {
+                                ArrayList<Kmer> path = getMaxCoveragePath(graph, rightKmers2.get(rightKmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
+                                if (path == null) {
+                                    for (int j=i-numBadKmersSince; j<i; ++j) {
+                                        rightKmers2.add(rightKmers.get(j));
+                                    }
+                                }
+                                else {
+                                    rightKmers2.addAll(path);
+                                    rightCorrected = true;
+                                }
+                            }
+
+                            numBadKmersSince = 0;
+                        }
+
+                        rightKmers2.add(kmer);
+                    }
+                    else {
+                        ++numBadKmersSince;
+                    }
+                }
+
+                if (rightCorrected || rightKmers2.size() != numRightKmers) {
+                    rightKmers = rightKmers2;
+                    rightCorrected = true;
+                }
+                
+                if (!leftCorrected && !rightCorrected) {
+                    break;
+                }
             }
         }
         
