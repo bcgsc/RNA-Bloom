@@ -1367,8 +1367,199 @@ public final class GraphUtils {
         
         return connect(left, right, graph, bound, lookahead);
     }
+
+    public static String extendWithPairedKmersNonGreedily(String fragment, BloomFilterDeBruijnGraph graph, int lookahead) {
+        final int distance = graph.getPairedKmerDistance();
+        final int k = graph.getK();
         
-    public static String extendWithPairedKmers(String fragment, BloomFilterDeBruijnGraph graph, int lookahead, float maxCovGradient) {
+        // transcript kmers list
+        final ArrayList<String> kmers = new ArrayList<>(2*(fragment.length()-k+1));
+        kmerizeToCollection(fragment, k, kmers);
+        
+        // transcript kmers set
+        final HashSet<String> transcriptKmers = new HashSet<>(kmers);
+        
+        // kmer pairs used in the extension of this transcript
+        final HashSet<String> usedPairs = new HashSet<>();
+        
+        /*
+        float fragMinCov = Float.POSITIVE_INFINITY;
+        for (String kmer : kmers) {
+            float c = graph.getCount(kmer);
+            if (c < fragMinCov) {
+                fragMinCov = c;
+            }
+        }
+        //System.out.println(fragMinCov);
+        */
+        
+        /** extend right*/
+        String best = kmers.get(kmers.size()-1);
+        LinkedList<String> neighbors = graph.getSuccessors(best);
+        while (!neighbors.isEmpty()) {
+            best = null;
+            String partner = null;
+            
+            if (neighbors.size() == 1) {
+                // 1 successor
+                best = neighbors.peek();
+            }
+            else {
+                // >1 successors
+                
+                LinkedList<String> fragmentNeighbors = new LinkedList<>();
+                for (String n : neighbors) {
+                    if (graph.lookupFragmentKmer(n)) {
+                        fragmentNeighbors.add(n);
+                    }
+                }
+                
+                if (fragmentNeighbors.isEmpty()) {
+                    // 0 fragment successors
+                    break;
+                }
+                else if (fragmentNeighbors.size() == 1) {
+                    // 1 fragment successor
+                    best = fragmentNeighbors.peek();
+                }
+                else {
+                    // >1 fragment successors
+                    int numKmers = kmers.size();
+                    
+                    if (numKmers >= distance) {
+                        LinkedList<String> pairedNeighbors = new LinkedList<>();
+                        
+                        partner = kmers.get(numKmers-distance);
+                        for (String n : fragmentNeighbors) {
+                            if (graph.lookupPairedKmers(partner, n)) {
+                                pairedNeighbors.add(n);
+                            }
+                        }
+                        
+                        if (pairedNeighbors.size() == 1) {
+                            best = pairedNeighbors.peek();
+                        }
+                    }
+                }
+            }
+            
+            if (best == null) {
+                break;
+            }
+            else {
+                int numKmers = kmers.size();
+                
+                if (numKmers >= distance) {
+                    if (partner == null) {
+                        partner = kmers.get(numKmers-distance);
+                    }
+                    
+                    if (transcriptKmers.contains(best)) {
+                        if (partner != null) {
+                            String pairedKmersStr = partner + best;
+                            if (!graph.lookupPairedKmers(partner, best) || usedPairs.contains(pairedKmersStr)) {
+                                break;
+                            }
+                            else {
+                                usedPairs.add(pairedKmersStr);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            kmers.add(best);
+            transcriptKmers.add(best);
+            neighbors = graph.getSuccessors(best);
+        }
+        
+        Collections.reverse(kmers);
+        
+        /** extend left*/
+        best = kmers.get(kmers.size()-1);
+        neighbors = graph.getPredecessors(best);
+        while (!neighbors.isEmpty()) {
+            best = null;
+            String partner = null;
+            
+            if (neighbors.size() == 1) {
+                best = neighbors.peek();
+            }
+            else {
+                // >1 neighbors
+                
+                LinkedList<String> fragmentNeighbors = new LinkedList<>();
+                for (String n : neighbors) {
+                    if (graph.lookupFragmentKmer(n)) {
+                        fragmentNeighbors.add(n);
+                    }
+                }
+                
+                if (fragmentNeighbors.isEmpty()) {
+                    // 0 fragment successors
+                    break;
+                }
+                else if (fragmentNeighbors.size() == 1) {
+                    // 1 fragment successor
+                    best = fragmentNeighbors.peek();
+                }
+                else {
+                    // >1 fragment successors
+                    int numKmers = kmers.size();
+                    
+                    if (numKmers >= distance) {
+                        LinkedList<String> pairedNeighbors = new LinkedList<>();
+                        
+                        partner = kmers.get(numKmers - distance);
+                        for (String n : fragmentNeighbors) {
+                            if (graph.lookupPairedKmers(n, partner)) {
+                                pairedNeighbors.add(n);
+                            }
+                        }
+                        
+                        if (pairedNeighbors.size() == 1) {
+                            best = pairedNeighbors.peek();
+                        }
+                    }
+                }
+            }
+            
+            if (best == null) {
+                break;
+            }
+            else {
+                int numKmers = kmers.size();
+                
+                if (numKmers >= distance) {
+                    if (partner == null) {
+                        partner = kmers.get(numKmers - distance);
+                    }
+                    
+                    if (transcriptKmers.contains(best)) {
+                        if (partner != null) {
+                            String pairedKmersStr = best + partner;
+                            if (!graph.lookupPairedKmers(best, partner) || usedPairs.contains(pairedKmersStr)) {
+                                break;
+                            }
+                            else {
+                                usedPairs.add(pairedKmersStr);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            kmers.add(best);
+            transcriptKmers.add(best);
+            neighbors = graph.getPredecessors(best);
+        }
+        
+        Collections.reverse(kmers);
+        
+        return assembleString(kmers);
+    }
+    
+    public static String extendWithPairedKmersGreedily(String fragment, BloomFilterDeBruijnGraph graph, int lookahead) {
         final int distance = graph.getPairedKmerDistance();
         final int k = graph.getK();
         
