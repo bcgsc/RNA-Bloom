@@ -332,8 +332,8 @@ public class RNABloom {
         return right.endsWith("AAAA") || (!graph.isStranded() && left.startsWith("TTTT"));
     }
     
-    private boolean okToConnectPair(String left, String right, int minNumKmersPerReadNotAssembled) {
-        if (left.length() >= k && right.length() >= k) {
+    private boolean okToConnectPair(String left, String right, int minNumKmersPerReadNotAssembled, int leftLenThreshold, int rightLenThreshold) {
+        if (left.length() >= leftLenThreshold && right.length() >= rightLenThreshold) {
             NTHashIterator itr = graph.getHashIterator();
             itr.start(left);
             long[] hVals = itr.hVals;
@@ -366,7 +366,7 @@ public class RNABloom {
                 }
             }
             
-            if (numKmersNotSeenLeft > minNumKmersPerReadNotAssembled || numKmersNotSeenRight > minNumKmersPerReadNotAssembled) {
+            if (numKmersNotSeenLeft >= minNumKmersPerReadNotAssembled || numKmersNotSeenRight >= minNumKmersPerReadNotAssembled) {
                 return true;
             }
         }
@@ -591,9 +591,21 @@ public class RNABloom {
         return id;
     }
     
+    public class Fragment {
+        String left;
+        String right;
+        String seq;
+        
+        public Fragment(String left, String right, String seq) {
+            this.left = left;
+            this.right = right;
+            this.seq = seq;
+        }
+    }
+    
     public class FragmentAssembler implements Runnable {
         private ReadPair p;
-        private List<String> outList;
+        private List<Fragment> outList;
         //private int maxCorrectionsAllowed;
         private int bound;
         private int lookahead;
@@ -605,9 +617,11 @@ public class RNABloom {
         private float maxCovGradient;
         private float covFPR;
         private int errorCorrectionIterations;
+        private int leftReadLengthThreshold;
+        private int rightReadLengthThreshold;
         
         public FragmentAssembler(ReadPair p,
-                                List<String> outList,
+                                List<Fragment> outList,
                                 int bound, 
                                 int lookahead, 
                                 int minOverlap, 
@@ -615,7 +629,9 @@ public class RNABloom {
                                 boolean storeKmerPairs, 
                                 float maxCovGradient, 
                                 float covFPR,
-                                int errorCorrectionIterations) {
+                                int errorCorrectionIterations,
+                                int leftReadLengthThreshold,
+                                int rightReadLengthThreshold) {
             
             this.p = p;
             this.outList = outList;
@@ -627,38 +643,44 @@ public class RNABloom {
             this.maxCovGradient = maxCovGradient;
             this.covFPR = covFPR;
             this.errorCorrectionIterations = errorCorrectionIterations;
+            this.leftReadLengthThreshold = leftReadLengthThreshold;
+            this.rightReadLengthThreshold = rightReadLengthThreshold;
         }
         
         @Override
         public void run() {
             // connect segments of each read
-            String connectedLeft = connect(p.left, graph, k+p.numLeftBasesTrimmed+this.maxIndelSize, this.lookahead);
-            String connectedRight = connect(p.right, graph, k+p.numRightBasesTrimmed+this.maxIndelSize, this.lookahead);
+            String left = connect(p.left, graph, k+p.numLeftBasesTrimmed+this.maxIndelSize, this.lookahead);
+            String right = connect(p.right, graph, k+p.numRightBasesTrimmed+this.maxIndelSize, this.lookahead);
 
-            if (okToConnectPair(connectedLeft, connectedRight, this.minNumKmersPerReadNotAssembled)) {
+            if (okToConnectPair(left, right, this.minNumKmersPerReadNotAssembled, this.leftReadLengthThreshold, this.rightReadLengthThreshold)) {
                                 
-                String fragment = correctAndConnect(connectedLeft,
-                                                    connectedRight,
+                String[] readPair = correctErrors2(left,
+                                                    right,
                                                     graph, 
                                                     this.lookahead, 
-                                                    this.bound, 
                                                     this.maxIndelSize, 
                                                     this.maxCovGradient, 
-                                                    this.covFPR, 
-                                                    this.minOverlap,
+                                                    this.covFPR,
                                                     this.errorCorrectionIterations);
                 
-                int fraglen = fragment.length();
-                if (fraglen > k) {
-                    fragment = naiveExtend(fragment, graph, this.maxTipLen);
-                    
-                    // mark fragment kmers as assembled
-                    graph.addFragmentKmersFromSeq(fragment);
-                    if (this.storeKmerPairs) {
-                        graph.addPairedKmersFromSeq(fragment);
-                    }
+                String leftCorrected = readPair[0];
+                String rightCorrected = readPair[1];
+                
+                if (okToConnectPair(leftCorrected, rightCorrected, this.minNumKmersPerReadNotAssembled, this.leftReadLengthThreshold, this.rightReadLengthThreshold)) {
+                    String fragment = overlapThenConnect(leftCorrected, rightCorrected, graph, this.bound, this.lookahead, this.minOverlap);
+                    int fraglen = fragment.length();
+                    if (fraglen > k) {
+                        fragment = naiveExtend(fragment, graph, this.maxTipLen);
 
-                    outList.add(fragment);
+                        // mark fragment kmers as assembled
+                        graph.addFragmentKmersFromSeq(fragment);
+                        if (this.storeKmerPairs) {
+                            graph.addPairedKmersFromSeq(fragment);
+                        }
+
+                        outList.add(new Fragment(leftCorrected, rightCorrected, fragment));
+                    }
                 }
                 
                 /*
@@ -719,6 +741,35 @@ public class RNABloom {
         }
     }
     
+    public int[] getMinQ1MedianQ3Max(ArrayList<Integer> a) {
+        Collections.sort(a);
+        
+        int arrLen = a.size();
+        int halfLen = arrLen/2;
+        int q1Index = arrLen/4;
+        int q3Index = halfLen+q1Index;
+        
+        int min, q1, median, q3, max;
+        
+        if (arrLen % 2 == 0) {
+            median = (a.get(halfLen-1) + a.get(halfLen))/2;
+        }
+        else {
+            median = a.get(halfLen);
+        }
+        
+        if (arrLen % 4 == 0) {
+            q1 = (a.get(q1Index-1) + a.get(q1Index))/2;
+            q3 = (a.get(q3Index-1) + a.get(q3Index))/2;
+        }
+        else {
+            q1 = a.get(q1Index);
+            q3 = a.get(q3Index);
+        }
+        
+        return new int[]{a.get(0), q1, median, q3, a.get(arrLen-1)};
+    }
+    
     public void assembleFragmentsMultiThreaded(FastqPair[] fastqs, 
                                                 String outfile, 
                                                 int bound,
@@ -756,7 +807,7 @@ public class RNABloom {
             FastaWriter out = new FastaWriter(outfile, true);
             
             ReadPair p;
-            List<String> fragments = Collections.synchronizedList(new ArrayList<>(sampleSize));
+            List<Fragment> fragments = Collections.synchronizedList(new ArrayList<>(sampleSize));
             
             for (FastqPair fqPair: fastqs) {
                 lin = new FastqReader(fqPair.leftFastq, true);
@@ -764,18 +815,44 @@ public class RNABloom {
 
                 fqpr = new FastqPairReader(lin, rin, qualPatternFrag, fqPair.leftRevComp, fqPair.rightRevComp);
                 System.out.println("Parsing `" + fqPair.leftFastq + "` and `" + fqPair.rightFastq + "`...");
+
+                int leftReadLengthThreshold = k;
+                int rightReadLengthThreshold = k;
                 
                 if (!pairedKmerDistanceIsSet) {
+                    ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
+                    ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
+                    boolean readLenThresholdIsSet = false;
+                    
                     // Assembled initial sample of fragments
                     while (fqpr.hasNext()) {
                         p = fqpr.next();
                         ++readPairsParsed;
+
+                        if (!readLenThresholdIsSet) {
+                            if (readPairsParsed < sampleSize) {
+                                leftReadLengths.add(p.originalLeftLength - p.numLeftBasesTrimmed);
+                                rightReadLengths.add(p.originalRightLength - p.numRightBasesTrimmed);
+                            }
+                            else {
+                                int[] leftReadLengthsStats = getMinQ1MedianQ3Max(leftReadLengths);
+                                int[] rightReadLengthsStats = getMinQ1MedianQ3Max(rightReadLengths);
+                                
+                                leftReadLengthThreshold = Math.max(k, leftReadLengthsStats[2] - (leftReadLengthsStats[3] - leftReadLengthsStats[1]) * 3/2);
+                                rightReadLengthThreshold = Math.max(k, rightReadLengthsStats[2] - (rightReadLengthsStats[3] - rightReadLengthsStats[1]) * 3/2);
+                                
+                                System.out.println("Left read length threshold:  " + leftReadLengthThreshold);
+                                System.out.println("Right read length threshold: " + rightReadLengthThreshold);
+                                
+                                readLenThresholdIsSet = true;
+                            }
+                        }
                         
                         // ignore read pairs when more than half of raw read length were trimmed for each read
                         if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
                                 p.originalRightLength > 2*p.numRightBasesTrimmed) {
                             
-                            service.submit(new FragmentAssembler(p, fragments, bound, lookahead, minOverlap, maxTipLen, false, maxCovGradient, covFPR, maxErrCorrItr));
+                            service.submit(new FragmentAssembler(p, fragments, bound, lookahead, minOverlap, maxTipLen, false, maxCovGradient, covFPR, maxErrCorrItr, leftReadLengthThreshold, rightReadLengthThreshold));
                             
                             if (fragments.size() >= sampleSize) {
                                 break;
@@ -789,30 +866,31 @@ public class RNABloom {
 
                     service.terminate();
 
-                    // Calculate median fragment length
+                    
+                    // Calculate fragment length stats
                     int numFragments = fragments.size();
-                    ArrayList<Integer> fragmentLengths = new ArrayList<>(numFragments);
-                    for (String frag : fragments) {
-                        fragmentLengths.add(frag.length());
+                    ArrayList<Integer> fragLengths = new ArrayList<>(numFragments);
+                    for (Fragment frag : fragments) {
+                        fragLengths.add(frag.seq.length());
                     }
-                    Collections.sort(fragmentLengths);
-                    int half = numFragments/2;
-                    int medianFragLen = (fragmentLengths.get(half) + fragmentLengths.get(half - 1))/2;
+                    
+                    int[] fragLengthsStats = getMinQ1MedianQ3Max(fragLengths);
+                    
+                    int medianFragLen = fragLengthsStats[2];
                     System.out.println("Median fragment length: " + medianFragLen);
-
-                    int iqr = fragmentLengths.get(numFragments*3/4) - fragmentLengths.get(numFragments/4);
                     
                     graph.setPairedKmerDistance(medianFragLen - k);
-                    //graph.setPairedKmerDistance(medianFragLen - iqr/2);
 
                     // adjust bound to be based on 1.5*IQR
-                    newBound = medianFragLen + iqr * 3/2;
+                    newBound = medianFragLen + (fragLengthsStats[3] - fragLengthsStats[1]) * 3 / 2;
                     System.out.println("Max graph traversal depth: " + newBound);
 
                     // store kmer pairs and write fragments to file
-                    for (String frag : fragments) {
-                        graph.addPairedKmersFromSeq(frag);
-                        out.write(Long.toString(++fragmentId), frag);
+                    for (Fragment frag : fragments) {
+                        if (frag.left.length() >= leftReadLengthThreshold && frag.right.length() >= rightReadLengthThreshold) {
+                            graph.addPairedKmersFromSeq(frag.seq);
+                            out.write(Long.toString(++fragmentId), frag.seq);
+                        }
                     }                    
                     
                     pairedKmerDistanceIsSet = true;
@@ -829,14 +907,14 @@ public class RNABloom {
                     if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
                             p.originalRightLength > 2*p.numRightBasesTrimmed) {
                         
-                        service.submit(new FragmentAssembler(p, fragments, newBound, lookahead, minOverlap, maxTipLen, true, maxCovGradient, covFPR, maxErrCorrItr));
+                        service.submit(new FragmentAssembler(p, fragments, newBound, lookahead, minOverlap, maxTipLen, true, maxCovGradient, covFPR, maxErrCorrItr, leftReadLengthThreshold, rightReadLengthThreshold));
 
                         if (fragments.size() >= sampleSize) {
                             service.terminate();
 
                             // write fragments to file
-                            for (String frag : fragments) {
-                                out.write(Long.toString(++fragmentId), frag);
+                            for (Fragment frag : fragments) {
+                                out.write(Long.toString(++fragmentId), frag.seq);
                             }
 
                             // reset thread pool
@@ -849,8 +927,8 @@ public class RNABloom {
                 service.terminate();
 
                 // write fragments to file
-                for (String frag : fragments) {
-                    out.write(Long.toString(++fragmentId), frag);
+                for (Fragment frag : fragments) {
+                    out.write(Long.toString(++fragmentId), frag.seq);
                 }
                                 
                 lin.close();
@@ -860,8 +938,8 @@ public class RNABloom {
             service.terminate();
             
             // store kmer pairs and write fragments to file
-            for (String frag : fragments) {
-                out.write(Long.toString(++fragmentId), frag);
+            for (Fragment frag : fragments) {
+                out.write(Long.toString(++fragmentId), frag.seq);
             }
             
             out.close();
@@ -1067,105 +1145,6 @@ public class RNABloom {
             graph.restorePkbf(graphFile);
         } catch (IOException ex) {
             Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-
-    public class Fragment {
-        public String seq;
-        public float minCov;
-        public float medCov;
-        public float maxCov;
-        
-        public Fragment(String seq) {
-            this.seq = seq;
-            float[] c = graph.getMinMedianMaxKmerCoverage(seq);
-            this.minCov = c[0];
-            this.medCov = c[1];
-            this.maxCov = c[2];
-        }
-    }
-
-    public class FragmentComparator implements Comparator<Fragment> {
-        @Override
-        public int compare(Fragment f1, Fragment f2) {
-            int compareMin = Float.compare(f1.minCov, f2.minCov);
-            
-            if (compareMin < 0) {
-                return 1;
-            }
-            else if (compareMin == 0) {
-                int compareMed = Float.compare(f1.medCov, f2.medCov);
-                
-                if (compareMed < 0) {
-                    return 1;
-                }
-                else if (compareMed == 0) {
-                    int compareMax = Float.compare(f1.maxCov, f2.maxCov);
-                    
-                    if (compareMax < 0) {
-                        return 1;
-                    }
-                    else if (compareMax == 0) {
-                        return 0;
-                    }
-                    else {
-                        return -1;
-                    }
-                }
-                else {
-                    return -1;
-                }
-            }
-            else {
-                return -1;
-            }
-        }
-    }    
-    
-    public class KmerSet {
-        private final HashSet<String> set;
-        private final Consumer<String> addFunction;
-        private final Function<String, Boolean> containsFunction;
-        
-        public KmerSet(boolean stranded) {
-            set = new HashSet<>();
-            
-            if (stranded) {
-                this.addFunction = this::addStranded;
-                this.containsFunction = this::containsStranded;
-            }
-            else {
-                this.addFunction = this::addNonStranded;
-                this.containsFunction = this::containsNonStranded;
-            }
-        }
-
-        public void add(String s) {
-            addFunction.accept(s);
-        }
-        
-        private void addStranded(String s) {
-            set.add(s);
-        }
-
-        private void addNonStranded(String s) {
-            set.add(smallestStrand(s));
-        }
-        
-        public boolean contains(String s) {
-            return containsFunction.apply(s);
-        }
-        
-        private boolean containsStranded(String s) {
-            return set.contains(s);
-        }
-        
-        private boolean containsNonStranded(String s) {
-            return set.contains(smallestStrand(s));
-        }
-        
-        public void clear() {
-            set.clear();
         }
     }
         
@@ -1374,18 +1353,16 @@ public class RNABloom {
         System.out.println(leftRead);
         System.out.println(rightRead);
         
-        String connected = correctAndConnect(leftRead,
+        String[] readPair = correctErrors2(leftRead,
                                             rightRead,
                                             graph, 
                                             lookahead, 
-                                            bound, 
                                             maxIndelSize, 
                                             maxCovGradient, 
                                             covFPR, 
-                                            minOverlap,
                                             errorCorrectionIterations);
                                             
-        System.out.println(connected);
+        System.out.println(overlapThenConnect(readPair[0], readPair[1], graph, bound, lookahead, minOverlap));
     }
     
     public void testInsertionCorrection() {
@@ -1735,7 +1712,7 @@ public class RNABloom {
             int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), "10"));
             int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
             int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
-            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "10"));
+            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "7"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));

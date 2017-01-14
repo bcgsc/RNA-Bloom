@@ -8,20 +8,16 @@ package rnabloom.util;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.PrimitiveIterator;
-import rnabloom.RNABloom.KmerSet;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
 import static rnabloom.util.SeqUtils.getNumGC;
-import static rnabloom.util.SeqUtils.kmerize;
 import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 
@@ -612,15 +608,13 @@ public final class GraphUtils {
         return seq;
     }
     
-    public static String correctAndConnect(String leftSeq, 
+    public static String[] correctErrors2(String leftSeq, 
                                             String rightSeq, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int lookahead,
-                                            int bound, 
                                             int maxIndelSize, 
                                             float maxCovGradient, 
-                                            float covFPR, 
-                                            int minOverlap,
+                                            float covFPR,
                                             int errorCorrectionIterations) {
         
         ArrayList<Kmer> leftKmers = graph.getKmers(leftSeq);
@@ -761,7 +755,8 @@ public final class GraphUtils {
             }
         }
         
-        return overlapThenConnect(assemble(leftKmers), assemble(rightKmers), graph, bound, lookahead, minOverlap);
+        //return overlapThenConnect(assemble(leftKmers), assemble(rightKmers), graph, bound, lookahead, minOverlap);
+        return new String[]{assemble(leftKmers), assemble(rightKmers)};
     }
     
     public static String correctErrors(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed) {

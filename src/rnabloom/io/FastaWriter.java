@@ -31,7 +31,7 @@ public class FastaWriter {
         */
     }
     
-    public void write(String header, String seq) throws IOException {
+    public synchronized void write(String header, String seq) throws IOException {
         out.write(">");
         out.write(header);
         out.newLine();
