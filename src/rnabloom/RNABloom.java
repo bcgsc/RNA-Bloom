@@ -83,7 +83,10 @@ public class RNABloom {
     private int currentBackboneId = 0;
     private ConcurrentHashMap<String, Integer> kmerToBackboneID = new ConcurrentHashMap<>(10);
     private final int backboneHashKmerDistance = 100;
-        
+
+    private float dbgFPR = -1;
+    private float covFPR = -1;
+    
     public RNABloom(int k, int qDBG, int qFrag) {
         this.k = k;
         this.qualPatternDBG = getPhred33Pattern(qDBG, k);
@@ -110,6 +113,9 @@ public class RNABloom {
 
             this.strandSpecific = graph.isStranded();
 
+            dbgFPR = graph.getDbgbf().getFPR();
+            covFPR = graph.getCbf().getFPR();
+            
             /*
             if (strandSpecific) {
                 findBackboneId = this::findBackboneIdStranded;
@@ -322,6 +328,9 @@ public class RNABloom {
         } catch (InterruptedException ex) {
             Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         }
+        
+        dbgFPR = graph.getDbgbf().getFPR();
+        covFPR = graph.getCbf().getFPR();
     }
 
     public BloomFilterDeBruijnGraph getGraph() {
@@ -331,44 +340,42 @@ public class RNABloom {
     private boolean isPolyA(String left, String right) {
         return right.endsWith("AAAA") || (!graph.isStranded() && left.startsWith("TTTT"));
     }
-    
-    private boolean okToConnectPair(String left, String right, int minNumKmersPerReadNotAssembled, int leftLenThreshold, int rightLenThreshold) {
-        if (left.length() >= leftLenThreshold && right.length() >= rightLenThreshold) {
-            NTHashIterator itr = graph.getHashIterator();
-            itr.start(left);
-            long[] hVals = itr.hVals;
-            int numKmersNotSeenLeft = 0;
-            
-            while (itr.hasNext()) {
-                itr.next();
-                
-                if (graph.getCount(hVals) == 0) {
-                    return false;
-                }
-                
-                if (!graph.lookupFragmentKmer(hVals)) {
-                    ++numKmersNotSeenLeft;
-                }
+        
+    private boolean okToConnectPair(String left, String right, int minNumKmersPerReadNotAssembled) {
+        NTHashIterator itr = graph.getHashIterator();
+        itr.start(left);
+        long[] hVals = itr.hVals;
+        int numKmersNotSeenLeft = 0;
+
+        while (itr.hasNext()) {
+            itr.next();
+
+            if (graph.getCount(hVals) == 0) {
+                return false;
             }
-            
-            itr.start(right);
-            int numKmersNotSeenRight = 0;
-            
-            while (itr.hasNext()) {
-                itr.next();
-                
-                if (graph.getCount(hVals) == 0) {
-                    return false;
-                }
-                
-                if (!graph.lookupFragmentKmer(hVals)) {
-                    ++numKmersNotSeenRight;
-                }
+
+            if (!graph.lookupFragmentKmer(hVals)) {
+                ++numKmersNotSeenLeft;
             }
-            
-            if (numKmersNotSeenLeft >= minNumKmersPerReadNotAssembled || numKmersNotSeenRight >= minNumKmersPerReadNotAssembled) {
-                return true;
+        }
+
+        itr.start(right);
+        int numKmersNotSeenRight = 0;
+
+        while (itr.hasNext()) {
+            itr.next();
+
+            if (graph.getCount(hVals) == 0) {
+                return false;
             }
+
+            if (!graph.lookupFragmentKmer(hVals)) {
+                ++numKmersNotSeenRight;
+            }
+        }
+
+        if (numKmersNotSeenLeft >= minNumKmersPerReadNotAssembled || numKmersNotSeenRight >= minNumKmersPerReadNotAssembled) {
+            return true;
         }
 
         return false;        
@@ -613,7 +620,7 @@ public class RNABloom {
         private int maxTipLen;
         private boolean storeKmerPairs;
         private int maxIndelSize = 1; /** @TODO turn this into an option */
-        private int minNumKmersPerReadNotAssembled = k; /** @TODO turn this into an option */
+        private int minNumKmersPerReadNotAssembled; /** @TODO turn this into an option */
         private float maxCovGradient;
         private float covFPR;
         private int errorCorrectionIterations;
@@ -631,7 +638,8 @@ public class RNABloom {
                                 float covFPR,
                                 int errorCorrectionIterations,
                                 int leftReadLengthThreshold,
-                                int rightReadLengthThreshold) {
+                                int rightReadLengthThreshold,
+                                int minNumKmersPerReadNotAssembled) {
             
             this.p = p;
             this.outList = outList;
@@ -645,6 +653,7 @@ public class RNABloom {
             this.errorCorrectionIterations = errorCorrectionIterations;
             this.leftReadLengthThreshold = leftReadLengthThreshold;
             this.rightReadLengthThreshold = rightReadLengthThreshold;
+            this.minNumKmersPerReadNotAssembled = minNumKmersPerReadNotAssembled;
         }
         
         @Override
@@ -653,7 +662,9 @@ public class RNABloom {
             String left = connect(p.left, graph, k+p.numLeftBasesTrimmed+this.maxIndelSize, this.lookahead);
             String right = connect(p.right, graph, k+p.numRightBasesTrimmed+this.maxIndelSize, this.lookahead);
 
-            if (okToConnectPair(left, right, this.minNumKmersPerReadNotAssembled, this.leftReadLengthThreshold, this.rightReadLengthThreshold)) {
+            if (left.length() >= this.leftReadLengthThreshold 
+                    && right.length() >= this.rightReadLengthThreshold 
+                    && okToConnectPair(left, right, this.minNumKmersPerReadNotAssembled)) {
                                 
                 String[] readPair = correctErrors2(left,
                                                     right,
@@ -667,7 +678,7 @@ public class RNABloom {
                 String leftCorrected = readPair[0];
                 String rightCorrected = readPair[1];
                 
-                if (okToConnectPair(leftCorrected, rightCorrected, this.minNumKmersPerReadNotAssembled, this.leftReadLengthThreshold, this.rightReadLengthThreshold)) {
+                if (okToConnectPair(leftCorrected, rightCorrected, this.minNumKmersPerReadNotAssembled)) {
                     String fragment = overlapThenConnect(leftCorrected, rightCorrected, graph, this.bound, this.lookahead, this.minOverlap);
                     int fraglen = fragment.length();
                     if (fraglen > k) {
@@ -779,9 +790,17 @@ public class RNABloom {
                                                 int maxTipLen, 
                                                 int sampleSize, 
                                                 int numThreads, 
-                                                int maxErrCorrItr) {
+                                                int maxErrCorrIterations) {
         
-        float covFPR = graph.getCbf().getFPR();
+        if (dbgFPR <= 0) {
+            dbgFPR = graph.getDbgbf().getFPR();
+        }
+        
+        if (covFPR <= 0) {
+            covFPR = graph.getCbf().getFPR();
+        }
+        
+        System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
         System.out.println("Counting Bloom filter FPR: " + covFPR * 100 + " %");
         
         
@@ -809,6 +828,12 @@ public class RNABloom {
             ReadPair p;
             List<Fragment> fragments = Collections.synchronizedList(new ArrayList<>(sampleSize));
             
+            boolean readLengthThresholdIsSet = false;
+            ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
+            ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
+            
+            int minNumKmersNotAssembled = k;
+            
             for (FastqPair fqPair: fastqs) {
                 lin = new FastqReader(fqPair.leftFastq, true);
                 rin = new FastqReader(fqPair.rightFastq, true);
@@ -820,39 +845,63 @@ public class RNABloom {
                 int rightReadLengthThreshold = k;
                 
                 if (!pairedKmerDistanceIsSet) {
-                    ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
-                    ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
-                    boolean readLenThresholdIsSet = false;
-                    
+                                        
                     // Assembled initial sample of fragments
                     while (fqpr.hasNext()) {
                         p = fqpr.next();
                         ++readPairsParsed;
-
-                        if (!readLenThresholdIsSet) {
-                            if (readPairsParsed < sampleSize) {
-                                leftReadLengths.add(p.originalLeftLength - p.numLeftBasesTrimmed);
-                                rightReadLengths.add(p.originalRightLength - p.numRightBasesTrimmed);
-                            }
-                            else {
-                                int[] leftReadLengthsStats = getMinQ1MedianQ3Max(leftReadLengths);
-                                int[] rightReadLengthsStats = getMinQ1MedianQ3Max(rightReadLengths);
-                                
-                                leftReadLengthThreshold = Math.max(k, leftReadLengthsStats[2] - (leftReadLengthsStats[3] - leftReadLengthsStats[1]) * 3/2);
-                                rightReadLengthThreshold = Math.max(k, rightReadLengthsStats[2] - (rightReadLengthsStats[3] - rightReadLengthsStats[1]) * 3/2);
-                                
-                                System.out.println("Left read length threshold:  " + leftReadLengthThreshold);
-                                System.out.println("Right read length threshold: " + rightReadLengthThreshold);
-                                
-                                readLenThresholdIsSet = true;
-                            }
-                        }
                         
                         // ignore read pairs when more than half of raw read length were trimmed for each read
                         if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
                                 p.originalRightLength > 2*p.numRightBasesTrimmed) {
                             
-                            service.submit(new FragmentAssembler(p, fragments, bound, lookahead, minOverlap, maxTipLen, false, maxCovGradient, covFPR, maxErrCorrItr, leftReadLengthThreshold, rightReadLengthThreshold));
+                            if (!readLengthThresholdIsSet) {
+                                int best = 0;
+                                for (String s : p.left) {
+                                    if (s.length() > best) {
+                                        best = s.length();
+                                    }
+                                }
+                                leftReadLengths.add(best);
+
+                                best = 0;
+                                for (String s : p.right) {
+                                    if (s.length() > best) {
+                                        best = s.length();
+                                    }
+                                }
+                                rightReadLengths.add(best);
+                                    
+                                if (leftReadLengths.size() >= sampleSize) {
+                                    int[] leftReadLengthsStats = getMinQ1MedianQ3Max(leftReadLengths);
+                                    int[] rightReadLengthsStats = getMinQ1MedianQ3Max(rightReadLengths);
+                                    
+                                    leftReadLengthThreshold = Math.max(k, leftReadLengthsStats[2] - (leftReadLengthsStats[3] - leftReadLengthsStats[1]) * 3/2);
+                                    rightReadLengthThreshold = Math.max(k, rightReadLengthsStats[2] - (rightReadLengthsStats[3] - rightReadLengthsStats[1]) * 3/2);
+                                    
+                                    System.out.println("Left read length threshold:  " + leftReadLengthThreshold);
+                                    System.out.println("Right read length threshold: " + rightReadLengthThreshold);
+                                    
+                                    readLengthThresholdIsSet = true;
+                                    
+                                    leftReadLengths = null;
+                                    rightReadLengths = null;
+                                }
+                            }
+                            
+                            service.submit(new FragmentAssembler(p,
+                                                                fragments,
+                                                                bound,
+                                                                lookahead,
+                                                                minOverlap, 
+                                                                maxTipLen, 
+                                                                false, 
+                                                                maxCovGradient, 
+                                                                covFPR, 
+                                                                maxErrCorrIterations, 
+                                                                leftReadLengthThreshold,
+                                                                rightReadLengthThreshold,
+                                                                minNumKmersNotAssembled));
                             
                             if (fragments.size() >= sampleSize) {
                                 break;
@@ -867,25 +916,25 @@ public class RNABloom {
                     service.terminate();
 
                     
-                    // Calculate fragment length stats
+                    // Calculate length stats
                     int numFragments = fragments.size();
                     ArrayList<Integer> fragLengths = new ArrayList<>(numFragments);
+                    
                     for (Fragment frag : fragments) {
                         fragLengths.add(frag.seq.length());
                     }
                     
                     int[] fragLengthsStats = getMinQ1MedianQ3Max(fragLengths);
                     
+                    // Set new bound for graph search
                     int medianFragLen = fragLengthsStats[2];
-                    System.out.println("Median fragment length: " + medianFragLen);
-                    
                     graph.setPairedKmerDistance(medianFragLen - k);
+                    newBound = medianFragLen + (fragLengthsStats[3] - fragLengthsStats[1]) * 3 / 2; // 1.5*IQR
+                    
+                    System.out.println("Median fragment length:      " + medianFragLen);
+                    System.out.println("Max graph traversal depth:   " + newBound);
 
-                    // adjust bound to be based on 1.5*IQR
-                    newBound = medianFragLen + (fragLengthsStats[3] - fragLengthsStats[1]) * 3 / 2;
-                    System.out.println("Max graph traversal depth: " + newBound);
-
-                    // store kmer pairs and write fragments to file
+                    // Store kmer pairs and write fragments to file
                     for (Fragment frag : fragments) {
                         if (frag.left.length() >= leftReadLengthThreshold && frag.right.length() >= rightReadLengthThreshold) {
                             graph.addPairedKmersFromSeq(frag.seq);
@@ -907,7 +956,19 @@ public class RNABloom {
                     if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
                             p.originalRightLength > 2*p.numRightBasesTrimmed) {
                         
-                        service.submit(new FragmentAssembler(p, fragments, newBound, lookahead, minOverlap, maxTipLen, true, maxCovGradient, covFPR, maxErrCorrItr, leftReadLengthThreshold, rightReadLengthThreshold));
+                        service.submit(new FragmentAssembler(p,
+                                                            fragments,
+                                                            newBound, 
+                                                            lookahead, 
+                                                            minOverlap, 
+                                                            maxTipLen, 
+                                                            true, 
+                                                            maxCovGradient, 
+                                                            covFPR, 
+                                                            maxErrCorrIterations, 
+                                                            leftReadLengthThreshold, 
+                                                            rightReadLengthThreshold,
+                                                            minNumKmersNotAssembled));
 
                         if (fragments.size() >= sampleSize) {
                             service.terminate();
@@ -1149,6 +1210,14 @@ public class RNABloom {
     }
         
     public void assembleTranscripts(String fragmentsFasta, String outFasta, String tmpFasta, int lookAhead, float maxCovGradient, long sbfNumBits, int sbfNumHash) {
+        if (dbgFPR <= 0) {
+            dbgFPR = graph.getDbgbf().getFPR();
+        }
+        
+        if (covFPR <= 0) {
+            covFPR = graph.getCbf().getFPR();
+        }
+        
         System.out.println("Assembling transcripts...");
         long numFragmentsParsed = 0;
         boolean append = false;
@@ -1174,7 +1243,7 @@ public class RNABloom {
             
             long cid = 0;
             long tmpCid = 0;
-            int maxGapSize = k;
+            int minNumKmersNotAssembled = k;
 
             while (fin.hasNext()) {
                 if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
@@ -1188,27 +1257,16 @@ public class RNABloom {
                 float[] covs = new float[numFragKmers];
                 fragHashItr.start(fragment);
                 
-                boolean assembleTranscript = false;
-                int numNonAssembledKmersSince = 0;
+                int numKmersNotAssembled = 0;
                 for (int i=0; i<numFragKmers; ++i) {
                     covs[i] = graph.getCount(fragHvals);
-                    
                     fragHashItr.next();
-                    if (screeningBf.lookup(fragHvals)) {
-                        if (numNonAssembledKmersSince > maxGapSize) {
-                            assembleTranscript = true;
-                        }
-                        numNonAssembledKmersSince = 0;
+                    if (!screeningBf.lookup(fragHvals)) {
+                        ++numKmersNotAssembled;
                     }
-                    else {
-                        ++numNonAssembledKmersSince;
-                    }
-                }
-                if (numNonAssembledKmersSince > maxGapSize || numNonAssembledKmersSince == numFragKmers) {
-                    assembleTranscript = true;
                 }
                 
-                if (assembleTranscript) {
+                if (numKmersNotAssembled >= minNumKmersNotAssembled) {
                 
                     /** check whether sequence-wide coverage differences are too large */
                     boolean covDiffTooLarge = false;
@@ -1261,37 +1319,31 @@ public class RNABloom {
                 String fragment = fin.next();
                 
                 /** count assembled kmers */
-                boolean assembleTranscript = false;
                 int numFragKmers = getNumKmers(fragment, k);
                 fragHashItr.start(fragment);
-                int numNonAssembledKmersSince = 0;
-                for (int i=0; i<numFragKmers; ++i) {                    
+
+                boolean notAssembledEnough = false;
+                int numKmersNotAssembled = 0;
+                for (int i=0; i<numFragKmers; ++i) {
                     fragHashItr.next();
-                    if (screeningBf.lookup(fragHvals)) {
-                        if (numNonAssembledKmersSince > maxGapSize) {
-                            assembleTranscript = true;
+                    if (!screeningBf.lookup(fragHvals)) {
+                        if (++numKmersNotAssembled >= minNumKmersNotAssembled) {
+                            notAssembledEnough = true;
                             break;
                         }
-                        numNonAssembledKmersSince = 0;
                     }
-                    else {
-                        ++numNonAssembledKmersSince;
-                    }
-                }
-                if (numNonAssembledKmersSince > maxGapSize || numNonAssembledKmersSince == numFragKmers) {
-                    assembleTranscript = true;
                 }
                 
-                if (assembleTranscript) {
+                if (notAssembledEnough) {
                     String bestAltPath = correctMismatches(fragment, graph, lookAhead, (int) Math.ceil(0.05 * fragment.length()));
                     
                     boolean bestAltPathAssembled = true;
-                    int numKmersNotAssembled = 0;
+                    numKmersNotAssembled = 0;
                     fragHashItr.start(bestAltPath);
                     for (int i=0; i<getNumKmers(bestAltPath, k); ++i) {                    
                         fragHashItr.next();
                         if (!screeningBf.lookup(fragHvals)) {
-                            if (++numKmersNotAssembled > maxGapSize){
+                            if (++numKmersNotAssembled >= minNumKmersNotAssembled){
                                 bestAltPathAssembled = false;
                                 break;
                             }
