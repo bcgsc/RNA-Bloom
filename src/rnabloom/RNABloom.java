@@ -374,11 +374,7 @@ public class RNABloom {
             }
         }
 
-        if (numKmersNotSeenLeft >= minNumKmersPerReadNotAssembled || numKmersNotSeenRight >= minNumKmersPerReadNotAssembled) {
-            return true;
-        }
-
-        return false;        
+        return numKmersNotSeenLeft >= minNumKmersPerReadNotAssembled || numKmersNotSeenRight >= minNumKmersPerReadNotAssembled;
     }
     
     private int findBackboneIdNonStranded(String fragment) {
@@ -832,7 +828,7 @@ public class RNABloom {
             ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
             ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
             
-            int minNumKmersNotAssembled = k;
+            int minNumKmersNotAssembled = 2;
             
             for (FastqPair fqPair: fastqs) {
                 lin = new FastqReader(fqPair.leftFastq, true);
@@ -1243,7 +1239,7 @@ public class RNABloom {
             
             long cid = 0;
             long tmpCid = 0;
-            int minNumKmersNotAssembled = k;
+            int minNumKmersNotAssembled = 2;
 
             while (fin.hasNext()) {
                 if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
