@@ -524,6 +524,32 @@ public class BloomFilterDeBruijnGraph {
         
         return counts;
     }
+    
+    public float getMinCount(String seq) {
+        final int numKmers = getNumKmers(seq, k);
+        
+        NTHashIterator itr = getHashIterator();
+        itr.start(seq);
+        long[] hVals = itr.hVals;
+        
+        float minCount = 0;
+        
+        if (numKmers > 0) {
+            itr.next();
+            minCount = getCount(hVals);
+
+            float c;
+            for (int i=1; i<numKmers; ++i) {
+                itr.next();
+                c = getCount(hVals);
+                if (c < minCount) {
+                    minCount = c;
+                }
+            }
+        }
+        
+        return minCount;
+    }
         
     public float[] getMinMedianMaxKmerCoverage(String seq) {
         float[] minMedianMax = new float[3];
