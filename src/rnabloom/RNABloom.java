@@ -1311,6 +1311,7 @@ public class RNABloom {
                 fin = new FastaReader(fragmentsFasta);
                 
                 String fragment;
+                float minCoverageThreshold = (float) Math.pow(10, mag);
                 
                 while (fin.hasNext()) {
                     if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
@@ -1354,19 +1355,37 @@ public class RNABloom {
                             tmpFout.write(Long.toString(++tmpCid), fragment);
                             continue;
                         }
+                        
+                        String bestAltPath = correctMismatches(fragment, graph, lookAhead, (int) Math.ceil(0.05 * fragment.length()));
 
-                        String transcript = extendWithPairedKmersGreedily(fragment, graph, lookAhead);
-
-        //                System.out.println(">f\n" + fragment + "\n>t\n" + transcript);
-
-                        /** store assembled kmers */
-                        txptHashItr.start(transcript);
-                        while (txptHashItr.hasNext()) {
-                            txptHashItr.next();
-                            screeningBf.add(txptHvals);
+                        boolean bestAltPathAssembled = true;
+                        numKmersNotAssembled = 0;
+                        fragHashItr.start(bestAltPath);
+                        for (int i=0; i<getNumKmers(bestAltPath, k); ++i) {                    
+                            fragHashItr.next();
+                            if (!screeningBf.lookup(fragHvals)) {
+                                if (++numKmersNotAssembled >= minNumKmersNotAssembled){
+                                    bestAltPathAssembled = false;
+                                    break;
+                                }
+                            }
                         }
 
-                        fout.write(Long.toString(++cid) + " " + transcript.length() + " " + fragment, transcript);
+                        if (!bestAltPathAssembled) {
+
+                            String transcript = extendWithPairedKmersGreedily(fragment, graph, lookAhead, minCoverageThreshold);
+
+            //                System.out.println(">f\n" + fragment + "\n>t\n" + transcript);
+
+                            /** store assembled kmers */
+                            txptHashItr.start(transcript);
+                            while (txptHashItr.hasNext()) {
+                                txptHashItr.next();
+                                screeningBf.add(txptHvals);
+                            }
+
+                            fout.write(Long.toString(++cid) + " " + transcript.length() + " " + fragment, transcript);
+                        }
                     }
                 }
 
