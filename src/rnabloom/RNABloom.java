@@ -112,8 +112,8 @@ public class RNABloom {
 
             this.strandSpecific = graph.isStranded();
 
-            dbgFPR = graph.getDbgbf().getFPR();
-            covFPR = graph.getCbf().getFPR();
+            dbgFPR = graph.getDbgbfFPR();
+            covFPR = graph.getCbfFPR();
             
             /*
             if (strandSpecific) {
@@ -321,6 +321,7 @@ public class RNABloom {
             }
 
             System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads in total.");
+            System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
             
             screeningBf.destroy();
             
@@ -328,8 +329,8 @@ public class RNABloom {
             Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         }
         
-        dbgFPR = graph.getDbgbf().getFPR();
-        covFPR = graph.getCbf().getFPR();
+        dbgFPR = graph.getDbgbfFPR();
+        covFPR = graph.getCbfFPR();
     }
 
     public BloomFilterDeBruijnGraph getGraph() {
@@ -1060,6 +1061,8 @@ public class RNABloom {
             Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
+            
+            System.out.println("Paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100 + " %");
         }        
     }
     

@@ -179,6 +179,10 @@ public class BloomFilterDeBruijnGraph {
         return cbf;
     }
 
+    public PairedKeysBloomFilter getPkbf() {
+        return pkbf;
+    }
+    
     public boolean isStranded() {
         return stranded;
     }    
@@ -318,6 +322,18 @@ public class BloomFilterDeBruijnGraph {
         }        
     }
 
+    public float getDbgbfFPR() {
+        return dbgbf.getFPR();
+    }
+
+    public float getCbfFPR() {
+        return cbf.getFPR();
+    }
+    
+    public float getPkbfFPR() {
+        return pkbf.getFPR();
+    }
+    
     public float getFPR() {
         return dbgbf.getFPR() * cbf.getFPR();
     }
