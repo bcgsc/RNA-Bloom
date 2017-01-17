@@ -13,7 +13,6 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.buffer.LargeBitBuffer;
 import rnabloom.bloom.buffer.UnsafeBitBuffer;
 import rnabloom.bloom.buffer.AbstractLargeBitBuffer;

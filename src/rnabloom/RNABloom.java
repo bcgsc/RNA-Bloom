@@ -83,7 +83,7 @@ public class RNABloom {
 
     private float dbgFPR = -1;
     private float covFPR = -1;
-    
+    private int medianFragmentLength = -1;
     private static String[] COVERAGE_ORDER = {"e0", "e1", "e2", "e3", "e4", "e5"};
     
     public RNABloom(int k, int qDBG, int qFrag) {
@@ -359,6 +359,10 @@ public class RNABloom {
             }
         }
 
+        if (numKmersNotSeenLeft >= minNumKmersPerReadNotAssembled) {
+            return true;
+        }
+        
         itr.start(right);
         int numKmersNotSeenRight = 0;
 
@@ -374,7 +378,7 @@ public class RNABloom {
             }
         }
 
-        return numKmersNotSeenLeft >= minNumKmersPerReadNotAssembled || numKmersNotSeenRight >= minNumKmersPerReadNotAssembled;
+        return numKmersNotSeenRight >= minNumKmersPerReadNotAssembled;
     }
     
     private int findBackboneIdNonStranded(String fragment) {
@@ -598,11 +602,13 @@ public class RNABloom {
         String left;
         String right;
         String seq;
+        int length;
         
-        public Fragment(String left, String right, String seq) {
+        public Fragment(String left, String right, String seq, int length) {
             this.left = left;
             this.right = right;
             this.seq = seq;
+            this.length = length;
         }
     }
     
@@ -661,7 +667,11 @@ public class RNABloom {
             if (left.length() >= this.leftReadLengthThreshold 
                     && right.length() >= this.rightReadLengthThreshold 
                     && okToConnectPair(left, right, this.minNumKmersPerReadNotAssembled)) {
-                                
+                
+//                if (left.contains("X")) {
+//                    System.out.println("L:" + left + "\nR:" + right);
+//                }
+                
                 String[] readPair = correctErrors2(left,
                                                     right,
                                                     graph, 
@@ -680,13 +690,14 @@ public class RNABloom {
                     if (fraglen > k) {
                         fragment = naiveExtend(fragment, graph, this.maxTipLen);
 
-                        // mark fragment kmers as assembled
-                        graph.addFragmentKmersFromSeq(fragment);
                         if (this.storeKmerPairs) {
-                            graph.addPairedKmersFromSeq(fragment);
+                            graph.addFragmentKmersAndPairedKmersFromSeq(fragment);
+                        }
+                        else {
+                            graph.addFragmentKmersFromSeq(fragment);
                         }
 
-                        outList.add(new Fragment(leftCorrected, rightCorrected, fragment));
+                        outList.add(new Fragment(leftCorrected, rightCorrected, fragment, fraglen));
                     }
                 }
                 
@@ -948,15 +959,16 @@ public class RNABloom {
                     ArrayList<Integer> fragLengths = new ArrayList<>(numFragments);
                     
                     for (Fragment frag : fragments) {
-                        fragLengths.add(frag.seq.length());
+                        fragLengths.add(frag.length);
                     }
                     
                     int[] fragLengthsStats = getMinQ1MedianQ3Max(fragLengths);
                     
                     // Set new bound for graph search
+                    int q1FragLen = fragLengthsStats[1];
                     int medianFragLen = fragLengthsStats[2];
-                    graph.setPairedKmerDistance(medianFragLen - k);
-                    newBound = medianFragLen + (fragLengthsStats[3] - fragLengthsStats[1]) * 3 / 2; // 1.5*IQR
+                    graph.setPairedKmerDistance(q1FragLen - k);
+                    newBound = medianFragLen + (fragLengthsStats[3] - q1FragLen) * 3 / 2; // 1.5*IQR
                     
                     System.out.println("Median fragment length:      " + medianFragLen);
                     System.out.println("Max graph traversal depth:   " + newBound);
@@ -965,7 +977,7 @@ public class RNABloom {
                     int m;
                     for (Fragment frag : fragments) {
                         if (frag.left.length() >= leftReadLengthThreshold && frag.right.length() >= rightReadLengthThreshold) {
-                            graph.addPairedKmersFromSeq(frag.seq);
+                            graph.addFragmentKmersAndPairedKmersFromSeq(frag.seq);
                             
                             m = getMinCoverageOrderOfMagnitude(frag.seq);
                             

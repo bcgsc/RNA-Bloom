@@ -1333,7 +1333,7 @@ public final class GraphUtils {
         
         ArrayList<Kmer> pathKmers = getMaxCoveragePath(graph, graph.getKmer(getLastKmer(left, k)), graph.getKmer(getFirstKmer(right, k)), bound, lookahead);
         
-        if (pathKmers == null || pathKmers.isEmpty()) {
+        if (pathKmers == null || pathKmers.isEmpty() || pathKmers.size() > bound) {
             return "";
         }
         

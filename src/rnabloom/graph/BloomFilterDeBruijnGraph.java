@@ -262,20 +262,27 @@ public class BloomFilterDeBruijnGraph {
     
     public void addFragmentKmersFromSeq(String seq) {
         final int numKmers = getNumKmers(seq, k);
-        
         for (int i=0; i<numKmers; ++i) {
             pkbf.add(seq.substring(i, i+k));
         }
+
+//        NTHashIterator itr = getHashIterator(pkbfNumHash);
+//        itr.start(seq);
+//        long[] hVals = itr.hVals;
+//        while (itr.hasNext()) {
+//            itr.next();
+//            pkbf.add(hVals);
+//        }
     }
     
-    public void addPairedKmersFromSeq(String seq) {
+    public void addFragmentKmersAndPairedKmersFromSeq(String seq) {
         final int numKmers = getNumKmers(seq, k);
         
         // add kmers
         for (int i=0; i<numKmers; ++i) {
             pkbf.add(seq.substring(i, i+k));
         }
-        
+
         // add paired kmers
         final int upperBound = numKmers-pairedKmersDistance;
         for (int i=0; i<upperBound; ++i) {
@@ -611,6 +618,10 @@ public class BloomFilterDeBruijnGraph {
     
     public NTHashIterator getHashIterator() {
         return hashFunction.getHashIterator(this.dbgbfCbfMaxNumHash);
+    }
+    
+    public NTHashIterator getHashIterator(int numHash) {
+        return hashFunction.getHashIterator(numHash);
     }
     
     public ArrayList<Kmer> getKmers(String seq) {        
