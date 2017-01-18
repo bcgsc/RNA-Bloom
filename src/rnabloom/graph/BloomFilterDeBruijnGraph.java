@@ -42,7 +42,6 @@ public class BloomFilterDeBruijnGraph {
     private int k;
     private int overlap;
     private boolean stranded;
-    private int seed;
     private int pairedKmersDistance = -1;
     private long pkbfNumBits;
     private int pkbfNumHash;
@@ -67,13 +66,11 @@ public class BloomFilterDeBruijnGraph {
                                     int dbgbfNumHash,
                                     int cbfNumHash,
                                     int pkbfNumHash,
-                                    int seed,
                                     int k,
                                     boolean stranded) {
         this.k = k;
         this.overlap = k-1;
         this.stranded = stranded;
-        this.seed = seed;
         this.dbgbfCbfMaxNumHash = Math.max(dbgbfNumHash, cbfNumHash);
         if (stranded) {
             this.hashFunction = new HashFunction2(k);
@@ -104,9 +101,6 @@ public class BloomFilterDeBruijnGraph {
                     break;
                 case LABEL_STRANDED:
                     stranded = Boolean.parseBoolean(val);
-                    break;
-                case LABEL_SEED:
-                    seed = Integer.parseInt(val);
                     break;
                 case LABEL_PAIRED_KMER_DIST:
                     pairedKmersDistance = Integer.parseInt(val);
@@ -167,10 +161,6 @@ public class BloomFilterDeBruijnGraph {
         }
     }
     
-    public int getSeed() {
-        return seed;
-    }
-    
     public BloomFilter getDbgbf() {
         return dbgbf;
     }
@@ -191,7 +181,6 @@ public class BloomFilterDeBruijnGraph {
         FileWriter writer = new FileWriter(graphFile);
         writer.write(LABEL_DBGBF_CBF_NUM_HASH + LABEL_SEPARATOR + dbgbfCbfMaxNumHash + "\n" +
                     LABEL_STRANDED + LABEL_SEPARATOR + stranded + "\n" +
-                    LABEL_SEED + LABEL_SEPARATOR + seed + "\n" +
                     LABEL_K + LABEL_SEPARATOR + k + "\n" +
                     LABEL_PAIRED_KMER_DIST + LABEL_SEPARATOR + pairedKmersDistance + "\n" +
                     LABEL_PKBF_NUM_BITS + LABEL_SEPARATOR + pkbfNumBits + "\n" +

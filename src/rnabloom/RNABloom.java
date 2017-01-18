@@ -40,8 +40,6 @@ import rnabloom.bloom.hash.CanonicalNTHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
-import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
-import rnabloom.graph.BloomFilterDeBruijnGraph.KmerIterator;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.FastqPair;
@@ -63,28 +61,27 @@ public class RNABloom {
     public final static long NUM_BYTES_1GB = (long) pow(1024, 3);
     
     private int k;
-    private boolean strandSpecific;
+//    private boolean strandSpecific;
     private Pattern qualPatternDBG;
     private Pattern qualPatternFrag;
     private BloomFilterDeBruijnGraph graph = null;
     private BloomFilter screeningBf = null;
     
-    private Random random;
+//    private Random random;
     
-    private final int bbLookahead = 5;
-    private final int bbWindowSize = 10;
-    private final int bbMaxIteration = 2;
-    //private Function<String, Integer> findBackboneId;
+//    private final int bbLookahead = 5;
+//    private final int bbWindowSize = 10;
+//    private final int bbMaxIteration = 2;
+//    private Function<String, Integer> findBackboneId;
     
-    //private ArrayList<String> backbones = new ArrayList<>(10000);
-    private int currentBackboneId = 0;
-    private ConcurrentHashMap<String, Integer> kmerToBackboneID = new ConcurrentHashMap<>(10);
-    private final int backboneHashKmerDistance = 100;
+//    private ArrayList<String> backbones = new ArrayList<>(10000);
+//    private int currentBackboneId = 0;
+//    private ConcurrentHashMap<String, Integer> kmerToBackboneID = new ConcurrentHashMap<>(10);
+//    private final int backboneHashKmerDistance = 100;
 
     private float dbgFPR = -1;
     private float covFPR = -1;
-    private int medianFragmentLength = -1;
-    private static String[] COVERAGE_ORDER = {"e0", "e1", "e2", "e3", "e4", "e5"};
+    private final static String[] COVERAGE_ORDER = {"e0", "e1", "e2", "e3", "e4", "e5"};
     
     public RNABloom(int k, int qDBG, int qFrag) {
         this.k = k;
@@ -107,22 +104,9 @@ public class RNABloom {
             }
             
             graph = new BloomFilterDeBruijnGraph(f);
-            
-            random = new Random(graph.getSeed());
-
-            this.strandSpecific = graph.isStranded();
 
             dbgFPR = graph.getDbgbfFPR();
             covFPR = graph.getCbfFPR();
-            
-            /*
-            if (strandSpecific) {
-                findBackboneId = this::findBackboneIdStranded;
-            }
-            else {
-                findBackboneId = this::findBackboneIdNonStranded;
-            }
-            */
             
             //BloomFilterDeBruijnGraph graph2 = new BloomFilterDeBruijnGraph(f);
             //System.out.println(graph2.getDbgbf().equivalent(graph.getDbgbf()));
@@ -261,7 +245,6 @@ public class RNABloom {
                             int dbgbfNumHash,
                             int cbfNumHash,
                             int pkbfNumHash,
-                            int seed,
                             int numThreads) {        
         
         graph = new BloomFilterDeBruijnGraph(dbgbfNumBits,
@@ -270,24 +253,10 @@ public class RNABloom {
                                             dbgbfNumHash,
                                             cbfNumHash,
                                             pkbfNumHash,
-                                            seed,
                                             k,
                                             strandSpecific);
         
         screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
-        
-        random = new Random(seed);
-        
-        this.strandSpecific = strandSpecific;
-        
-        /*
-        if (strandSpecific) {
-            findBackboneId = this::findBackboneIdStranded;
-        }
-        else {
-            findBackboneId = this::findBackboneIdNonStranded;
-        }
-        */
         
         /** parse the reads */
         
@@ -381,222 +350,224 @@ public class RNABloom {
         return false;
     }
     
-    private int findBackboneIdNonStranded(String fragment) {
-        KmerIterator itr = graph.new KmerIterator(fragment);
-        Kmer seed = itr.next();
-        Kmer kmer;
-        String seq;
-        
-        while (itr.hasNext()) {
-            kmer = itr.next();
-            
-            seq = smallestStrand(kmer.seq);
-            
-            if (kmerToBackboneID.containsKey(seq)) {
-                return kmerToBackboneID.get(seq);
-            }
-            
-            if (kmer.count > seed.count) {
-                seed = kmer;
-            }
-        }
-        
-        ArrayList<Kmer> path = null;
-        boolean randomSeed = false;
-        for (int i=0; i<bbMaxIteration; ++i) {
-            if (i>0) {
-                if (randomSeed) {
-                    seed = path.get(random.nextInt(path.size()));
-                    randomSeed = false;
-                }
-                else {
-                    seed = findMaxCoverageWindowKmer(path, graph, bbWindowSize);
-                    randomSeed = true;
-                }
-            }
+//    
+//    private int findBackboneIdNonStranded(String fragment) {
+//        KmerIterator itr = graph.new KmerIterator(fragment);
+//        Kmer seed = itr.next();
+//        Kmer kmer;
+//        String seq;
+//        
+//        while (itr.hasNext()) {
+//            kmer = itr.next();
+//            
+//            seq = smallestStrand(kmer.seq);
+//            
+//            if (kmerToBackboneID.containsKey(seq)) {
+//                return kmerToBackboneID.get(seq);
+//            }
+//            
+//            if (kmer.count > seed.count) {
+//                seed = kmer;
+//            }
+//        }
+//        
+//        ArrayList<Kmer> path = null;
+//        boolean randomSeed = false;
+//        for (int i=0; i<bbMaxIteration; ++i) {
+//            if (i>0) {
+//                if (randomSeed) {
+//                    seed = path.get(random.nextInt(path.size()));
+//                    randomSeed = false;
+//                }
+//                else {
+//                    seed = findMaxCoverageWindowKmer(path, graph, bbWindowSize);
+//                    randomSeed = true;
+//                }
+//            }
+//
+//            /* greedy extend on both sides */
+//            HashSet<String> pathKmerStr = new HashSet<>(1000);
+//            pathKmerStr.add(smallestStrand(seed.seq));
+//            
+//            /* extend on right side */
+//            ArrayList<Kmer> rightPath = new ArrayList<>(1000);
+//            Kmer best = seed;
+//            while (true) {
+//                best = greedyExtendRightOnce(graph, best, bbLookahead);
+//                if (best != null) {
+//                    seq = smallestStrand(best.seq);
+//                    
+//                    if (kmerToBackboneID.containsKey(seq)) {
+//                        return kmerToBackboneID.get(seq);
+//                    }
+//                    
+//                    if (pathKmerStr.contains(seq)) {
+//                        break;
+//                    }
+//                    
+//                    pathKmerStr.add(seq);
+//                    rightPath.add(best);
+//                }
+//                else {
+//                    break;
+//                }
+//            }
+//
+//            /* extend on left side */
+//            ArrayList<Kmer> leftPath = new ArrayList<>(1000);
+//            best = seed;
+//            while (true) {
+//                best = greedyExtendLeftOnce(graph, best, bbLookahead);
+//                if (best != null) {
+//                    seq = smallestStrand(best.seq);
+//                    
+//                    if (kmerToBackboneID.containsKey(seq)) {
+//                        return kmerToBackboneID.get(seq);
+//                    }
+//                    
+//                    if (pathKmerStr.contains(seq)) {
+//                        break;
+//                    }
+//                    
+//                    pathKmerStr.add(seq);
+//                    leftPath.add(best);
+//                }
+//                else {
+//                    break;
+//                }
+//            }
+//
+//            Collections.reverse(leftPath);
+//            leftPath.add(seed);
+//            leftPath.addAll(rightPath);
+//
+//            path = leftPath;
+//        }
+//        
+//        /* new backbone */
+//        //backbones.add(assemble(path));
+//        int id = ++currentBackboneId;
+//        
+//        /* store kmers in path */
+//        int numKmers = path.size();
+//        for (int i=0; i<numKmers; ++i) {
+//            if (i % backboneHashKmerDistance == 0) {
+//                kmerToBackboneID.put(smallestStrand(path.get(i).seq), i);
+//            }
+//        }
+//        
+//        return id;
+//    }
+//    
+//    private int findBackboneIdStranded(String fragment) {
+//        KmerIterator itr = graph.new KmerIterator(fragment);
+//        Kmer seed = itr.next();
+//        Kmer kmer;
+//        while (itr.hasNext()) {
+//            kmer = itr.next();
+//            
+//            if (kmerToBackboneID.containsKey(kmer.seq)) {
+//                return kmerToBackboneID.get(kmer.seq);
+//            }
+//            
+//            if (kmer.count > seed.count) {
+//                seed = kmer;
+//            }
+//        }
+//        
+//        ArrayList<Kmer> path = null;
+//        boolean randomSeed = false;
+//        for (int i=0; i<bbMaxIteration; ++i) {
+//            if (i>0) {
+//                if (randomSeed) {
+//                    seed = path.get(random.nextInt(path.size()));
+//                    randomSeed = false;
+//                }
+//                else {
+//                    seed = findMaxCoverageWindowKmer(path, graph, bbWindowSize);
+//                    randomSeed = true;
+//                }
+//            }
+//
+//            /* greedy extend on both sides */
+//            HashSet<String> pathKmerStr = new HashSet<>(1000);
+//            pathKmerStr.add(seed.seq);
+//            
+//            /* extend on right side */
+//            ArrayList<Kmer> rightPath = new ArrayList<>(1000);
+//            Kmer best = seed;
+//            while (true) {
+//                best = greedyExtendRightOnce(graph, best, bbLookahead);
+//                if (best != null) {
+//                    String seq = best.seq;
+//                    
+//                    if (kmerToBackboneID.containsKey(seq)) {
+//                        return kmerToBackboneID.get(seq);
+//                    }
+//                    
+//                    if (pathKmerStr.contains(seq)) {
+//                        break;
+//                    }
+//                    
+//                    pathKmerStr.add(seq);
+//                    rightPath.add(best);
+//                }
+//                else {
+//                    break;
+//                }
+//            }
+//
+//            /* extend on left side */
+//            ArrayList<Kmer> leftPath = new ArrayList<>(1000);
+//            best = seed;
+//            while (true) {
+//                best = greedyExtendLeftOnce(graph, best, bbLookahead);
+//                if (best != null) {
+//                    String seq = best.seq;
+//                    
+//                    if (kmerToBackboneID.containsKey(seq)) {
+//                        return kmerToBackboneID.get(seq);
+//                    }
+//                    
+//                    if (pathKmerStr.contains(seq)) {
+//                        break;
+//                    }
+//                    
+//                    pathKmerStr.add(seq);
+//                    leftPath.add(best);
+//                }
+//                else {
+//                    break;
+//                }
+//            }
+//
+//            Collections.reverse(leftPath);
+//            leftPath.add(seed);
+//            leftPath.addAll(rightPath);
+//
+//            path = leftPath;
+//            
+//            //System.out.println(">" + i + "\n" + assemble(path));
+//        }
+//        
+//        /* new backbone */
+//        //backbones.add(assemble(path));
+//        int id = ++currentBackboneId;;
+//        
+//        /* store kmers in path */
+//        
+//        //System.out.println(">bb\n" + assemble(path));
+//        
+//        int numKmers = path.size();
+//        for (int i=0; i<numKmers; ++i) {
+//            if (i % backboneHashKmerDistance == 0) {
+//                kmerToBackboneID.put(path.get(i).seq, id);
+//            }
+//        }
+//        
+//        return id;
+//    }
 
-            /* greedy extend on both sides */
-            HashSet<String> pathKmerStr = new HashSet<>(1000);
-            pathKmerStr.add(smallestStrand(seed.seq));
-            
-            /* extend on right side */
-            ArrayList<Kmer> rightPath = new ArrayList<>(1000);
-            Kmer best = seed;
-            while (true) {
-                best = greedyExtendRightOnce(graph, best, bbLookahead);
-                if (best != null) {
-                    seq = smallestStrand(best.seq);
-                    
-                    if (kmerToBackboneID.containsKey(seq)) {
-                        return kmerToBackboneID.get(seq);
-                    }
-                    
-                    if (pathKmerStr.contains(seq)) {
-                        break;
-                    }
-                    
-                    pathKmerStr.add(seq);
-                    rightPath.add(best);
-                }
-                else {
-                    break;
-                }
-            }
-
-            /* extend on left side */
-            ArrayList<Kmer> leftPath = new ArrayList<>(1000);
-            best = seed;
-            while (true) {
-                best = greedyExtendLeftOnce(graph, best, bbLookahead);
-                if (best != null) {
-                    seq = smallestStrand(best.seq);
-                    
-                    if (kmerToBackboneID.containsKey(seq)) {
-                        return kmerToBackboneID.get(seq);
-                    }
-                    
-                    if (pathKmerStr.contains(seq)) {
-                        break;
-                    }
-                    
-                    pathKmerStr.add(seq);
-                    leftPath.add(best);
-                }
-                else {
-                    break;
-                }
-            }
-
-            Collections.reverse(leftPath);
-            leftPath.add(seed);
-            leftPath.addAll(rightPath);
-
-            path = leftPath;
-        }
-        
-        /* new backbone */
-        //backbones.add(assemble(path));
-        int id = ++currentBackboneId;
-        
-        /* store kmers in path */
-        int numKmers = path.size();
-        for (int i=0; i<numKmers; ++i) {
-            if (i % backboneHashKmerDistance == 0) {
-                kmerToBackboneID.put(smallestStrand(path.get(i).seq), i);
-            }
-        }
-        
-        return id;
-    }
-    
-    private int findBackboneIdStranded(String fragment) {
-        KmerIterator itr = graph.new KmerIterator(fragment);
-        Kmer seed = itr.next();
-        Kmer kmer;
-        while (itr.hasNext()) {
-            kmer = itr.next();
-            
-            if (kmerToBackboneID.containsKey(kmer.seq)) {
-                return kmerToBackboneID.get(kmer.seq);
-            }
-            
-            if (kmer.count > seed.count) {
-                seed = kmer;
-            }
-        }
-        
-        ArrayList<Kmer> path = null;
-        boolean randomSeed = false;
-        for (int i=0; i<bbMaxIteration; ++i) {
-            if (i>0) {
-                if (randomSeed) {
-                    seed = path.get(random.nextInt(path.size()));
-                    randomSeed = false;
-                }
-                else {
-                    seed = findMaxCoverageWindowKmer(path, graph, bbWindowSize);
-                    randomSeed = true;
-                }
-            }
-
-            /* greedy extend on both sides */
-            HashSet<String> pathKmerStr = new HashSet<>(1000);
-            pathKmerStr.add(seed.seq);
-            
-            /* extend on right side */
-            ArrayList<Kmer> rightPath = new ArrayList<>(1000);
-            Kmer best = seed;
-            while (true) {
-                best = greedyExtendRightOnce(graph, best, bbLookahead);
-                if (best != null) {
-                    String seq = best.seq;
-                    
-                    if (kmerToBackboneID.containsKey(seq)) {
-                        return kmerToBackboneID.get(seq);
-                    }
-                    
-                    if (pathKmerStr.contains(seq)) {
-                        break;
-                    }
-                    
-                    pathKmerStr.add(seq);
-                    rightPath.add(best);
-                }
-                else {
-                    break;
-                }
-            }
-
-            /* extend on left side */
-            ArrayList<Kmer> leftPath = new ArrayList<>(1000);
-            best = seed;
-            while (true) {
-                best = greedyExtendLeftOnce(graph, best, bbLookahead);
-                if (best != null) {
-                    String seq = best.seq;
-                    
-                    if (kmerToBackboneID.containsKey(seq)) {
-                        return kmerToBackboneID.get(seq);
-                    }
-                    
-                    if (pathKmerStr.contains(seq)) {
-                        break;
-                    }
-                    
-                    pathKmerStr.add(seq);
-                    leftPath.add(best);
-                }
-                else {
-                    break;
-                }
-            }
-
-            Collections.reverse(leftPath);
-            leftPath.add(seed);
-            leftPath.addAll(rightPath);
-
-            path = leftPath;
-            
-            //System.out.println(">" + i + "\n" + assemble(path));
-        }
-        
-        /* new backbone */
-        //backbones.add(assemble(path));
-        int id = ++currentBackboneId;;
-        
-        /* store kmers in path */
-        
-        //System.out.println(">bb\n" + assemble(path));
-        
-        int numKmers = path.size();
-        for (int i=0; i<numKmers; ++i) {
-            if (i % backboneHashKmerDistance == 0) {
-                kmerToBackboneID.put(path.get(i).seq, id);
-            }
-        }
-        
-        return id;
-    }
     
     public class Fragment {
         String left;
@@ -1664,15 +1635,7 @@ public class RNABloom {
         builder.argName("INT");
         Option optBaseQualFrag = builder.build();
         options.addOption(optBaseQualFrag);        
-        
-        builder = Option.builder("s");
-        builder.longOpt("seed");
-        builder.desc("seed for random number generator and hash function");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optSeed = builder.build();
-        options.addOption(optSeed);
-        
+                
         builder = Option.builder("sh");
         builder.longOpt("sbf-hash");
         builder.desc("number of hash functions for screening Bloom filter");
@@ -1832,7 +1795,6 @@ public class RNABloom {
             int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "25"));
             int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
             int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "3"));
-            int seed = Integer.parseInt(line.getOptionValue(optSeed.getOpt(), "689"));
             
             long sbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), "1")));
             long dbgbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), "1")));
@@ -1888,7 +1850,6 @@ public class RNABloom {
                         strandSpecific, 
                         sbfSize, dbgbfSize, cbfSize, pkbfSize, 
                         sbfNumHash, dbgbfNumHash, cbfNumHash, pkbfNumHash,
-                        seed,
                         numThreads);
 
                 System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
