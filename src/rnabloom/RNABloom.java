@@ -355,12 +355,10 @@ public class RNABloom {
             }
 
             if (!graph.lookupFragmentKmer(hVals)) {
-                ++numKmersNotSeenLeft;
+                if (++numKmersNotSeenLeft >= minNumKmersPerReadNotAssembled) {
+                    return true;
+                }
             }
-        }
-
-        if (numKmersNotSeenLeft >= minNumKmersPerReadNotAssembled) {
-            return true;
         }
         
         itr.start(right);
@@ -374,11 +372,13 @@ public class RNABloom {
             }
 
             if (!graph.lookupFragmentKmer(hVals)) {
-                ++numKmersNotSeenRight;
+                if (++numKmersNotSeenRight >= minNumKmersPerReadNotAssembled) {
+                    return true;
+                }
             }
         }
 
-        return numKmersNotSeenRight >= minNumKmersPerReadNotAssembled;
+        return false;
     }
     
     private int findBackboneIdNonStranded(String fragment) {
@@ -870,7 +870,7 @@ public class RNABloom {
             ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
             ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
             
-            int minNumKmersNotAssembled = 2;
+            int minNumKmersNotAssembled = 1;
             
             for (FastqPair fqPair: fastqs) {
                 lin = new FastqReader(fqPair.leftFastq, true);
@@ -976,14 +976,12 @@ public class RNABloom {
                     // Store kmer pairs and write fragments to file
                     int m;
                     for (Fragment frag : fragments) {
-                        if (frag.left.length() >= leftReadLengthThreshold && frag.right.length() >= rightReadLengthThreshold) {
-                            graph.addFragmentKmersAndPairedKmersFromSeq(frag.seq);
-                            
-                            m = getMinCoverageOrderOfMagnitude(frag.seq);
-                            
-                            if (m > 0) {
-                                outs[m].write(Long.toString(++fragmentId), frag.seq);
-                            }
+                        graph.addPairedKmersFromSeq(frag.seq);
+
+                        m = getMinCoverageOrderOfMagnitude(frag.seq);
+
+                        if (m > 0) {
+                            outs[m].write(Long.toString(++fragmentId), frag.seq);
                         }
                     }                    
                     
