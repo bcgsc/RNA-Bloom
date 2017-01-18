@@ -310,44 +310,60 @@ public class RNABloom {
         return right.endsWith("AAAA") || (!graph.isStranded() && left.startsWith("TTTT"));
     }
         
-    private boolean okToConnectPair(String left, String right, int minNumKmersPerReadNotAssembled) {
+    private boolean okToConnectPair(String left, String right) {
         NTHashIterator itr = graph.getHashIterator();
         itr.start(left);
         long[] hVals = itr.hVals;
+        float c;
+        
         int numKmersNotSeenLeft = 0;
-
+        float minCovLeft = Float.MAX_VALUE;
+        
+        // scan the entire read for c=0 kmers
         while (itr.hasNext()) {
             itr.next();
 
-            if (graph.getCount(hVals) == 0) {
+            c = graph.getCount(hVals);
+            
+            if (c == 0) {
                 return false;
             }
-
+            
             if (!graph.lookupFragmentKmer(hVals)) {
-                if (++numKmersNotSeenLeft >= minNumKmersPerReadNotAssembled) {
-                    return true;
+                ++numKmersNotSeenLeft;
+                
+                if (c < minCovLeft) {
+                    minCovLeft = c;
                 }
             }
         }
         
         itr.start(right);
+        
         int numKmersNotSeenRight = 0;
-
+        float minCovRight = Float.MAX_VALUE;
+        
+        // scan the entire read for c=0 kmers
         while (itr.hasNext()) {
             itr.next();
 
-            if (graph.getCount(hVals) == 0) {
+            c = graph.getCount(hVals);
+            
+            if (c == 0) {
                 return false;
             }
-
+            
             if (!graph.lookupFragmentKmer(hVals)) {
-                if (++numKmersNotSeenRight >= minNumKmersPerReadNotAssembled) {
-                    return true;
+                ++numKmersNotSeenRight;
+                
+                if (c < minCovRight) {
+                    minCovRight = c;
                 }
             }
         }
 
-        return false;
+        return numKmersNotSeenLeft >= k || numKmersNotSeenLeft >= minCovLeft || numKmersNotSeenLeft == getNumKmers(left, k ) ||
+                numKmersNotSeenRight >= k || numKmersNotSeenRight >= minCovRight || numKmersNotSeenRight == getNumKmers(right, k);
     }
     
 //    
@@ -593,7 +609,6 @@ public class RNABloom {
         private int maxTipLen;
         private boolean storeKmerPairs;
         private int maxIndelSize = 1; /** @TODO turn this into an option */
-        private int minNumKmersPerReadNotAssembled; /** @TODO turn this into an option */
         private float maxCovGradient;
         private float covFPR;
         private int errorCorrectionIterations;
@@ -611,8 +626,7 @@ public class RNABloom {
                                 float covFPR,
                                 int errorCorrectionIterations,
                                 int leftReadLengthThreshold,
-                                int rightReadLengthThreshold,
-                                int minNumKmersPerReadNotAssembled) {
+                                int rightReadLengthThreshold) {
             
             this.p = p;
             this.outList = outList;
@@ -626,7 +640,6 @@ public class RNABloom {
             this.errorCorrectionIterations = errorCorrectionIterations;
             this.leftReadLengthThreshold = leftReadLengthThreshold;
             this.rightReadLengthThreshold = rightReadLengthThreshold;
-            this.minNumKmersPerReadNotAssembled = minNumKmersPerReadNotAssembled;
         }
         
         @Override
@@ -637,7 +650,7 @@ public class RNABloom {
 
             if (left.length() >= this.leftReadLengthThreshold 
                     && right.length() >= this.rightReadLengthThreshold 
-                    && okToConnectPair(left, right, this.minNumKmersPerReadNotAssembled)) {
+                    && okToConnectPair(left, right)) {
                 
 //                if (left.contains("X")) {
 //                    System.out.println("L:" + left + "\nR:" + right);
@@ -655,7 +668,7 @@ public class RNABloom {
                 String leftCorrected = readPair[0];
                 String rightCorrected = readPair[1];
                 
-                if (okToConnectPair(leftCorrected, rightCorrected, this.minNumKmersPerReadNotAssembled)) {
+                if (okToConnectPair(leftCorrected, rightCorrected)) {
                     String fragment = overlapThenConnect(leftCorrected, rightCorrected, graph, this.bound, this.lookahead, this.minOverlap);
                     int fraglen = fragment.length();
                     if (fraglen > k) {
@@ -841,7 +854,7 @@ public class RNABloom {
 //            ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
 //            ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
             
-            int minNumKmersNotAssembled = 1;
+//            int minNumKmersNotAssembled = 1;
             
             for (FastqPair fqPair: fastqs) {
                 lin = new FastqReader(fqPair.leftFastq, true);
@@ -911,8 +924,7 @@ public class RNABloom {
                                                                 covFPR, 
                                                                 maxErrCorrIterations, 
                                                                 leftReadLengthThreshold,
-                                                                rightReadLengthThreshold,
-                                                                minNumKmersNotAssembled));
+                                                                rightReadLengthThreshold));
                             
                             if (fragments.size() >= sampleSize) {
                                 break;
@@ -983,8 +995,7 @@ public class RNABloom {
                                                             covFPR, 
                                                             maxErrCorrIterations, 
                                                             leftReadLengthThreshold, 
-                                                            rightReadLengthThreshold,
-                                                            minNumKmersNotAssembled));
+                                                            rightReadLengthThreshold));
 
                         if (fragments.size() >= sampleSize) {
                             service.terminate();
