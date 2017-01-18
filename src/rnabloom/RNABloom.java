@@ -570,14 +570,14 @@ public class RNABloom {
 
     
     public class Fragment {
-        String left;
-        String right;
+//        String left;
+//        String right;
         String seq;
         int length;
         
-        public Fragment(String left, String right, String seq, int length) {
-            this.left = left;
-            this.right = right;
+        public Fragment(String seq, int length) {
+//            this.left = left;
+//            this.right = right;
             this.seq = seq;
             this.length = length;
         }
@@ -668,7 +668,7 @@ public class RNABloom {
                             graph.addFragmentKmersFromSeq(fragment);
                         }
 
-                        outList.add(new Fragment(leftCorrected, rightCorrected, fragment, fraglen));
+                        outList.add(new Fragment(fragment, fraglen));
                     }
                 }
                 
@@ -837,9 +837,9 @@ public class RNABloom {
             ReadPair p;
             List<Fragment> fragments = Collections.synchronizedList(new ArrayList<>(sampleSize));
             
-            boolean readLengthThresholdIsSet = false;
-            ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
-            ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
+//            boolean readLengthThresholdIsSet = false;
+//            ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
+//            ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
             
             int minNumKmersNotAssembled = 1;
             
@@ -864,6 +864,7 @@ public class RNABloom {
                         if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
                                 p.originalRightLength > 2*p.numRightBasesTrimmed) {
                             
+                            /*
                             if (!readLengthThresholdIsSet) {
                                 int best = 0;
                                 for (String s : p.left) {
@@ -897,6 +898,7 @@ public class RNABloom {
                                     rightReadLengths = null;
                                 }
                             }
+                            */
                             
                             service.submit(new FragmentAssembler(p,
                                                                 fragments,
