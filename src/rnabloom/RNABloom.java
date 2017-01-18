@@ -1798,6 +1798,24 @@ public class RNABloom {
             File fragsDoneStamp = new File(outdir + File.separator + FRAGMENTS_DONE);
             File txptsDoneStamp = new File(outdir + File.separator + TRANSCRIPTS_DONE);
             
+            if (forceOverwrite) {
+                if (startedStamp.exists()) {
+                    startedStamp.delete();
+                }
+                
+                if (dbgDoneStamp.exists()) {
+                    dbgDoneStamp.delete();
+                }
+                
+                if (fragsDoneStamp.exists()) {
+                    fragsDoneStamp.delete();
+                }
+                
+                if (txptsDoneStamp.exists()) {
+                    txptsDoneStamp.delete();
+                }
+            }
+            
             String fastqLeft = line.getOptionValue(optLeftReads.getOpt());
             String fastqRight = line.getOptionValue(optRightReads.getOpt());
             
