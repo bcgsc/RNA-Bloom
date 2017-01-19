@@ -11,7 +11,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
-import rnabloom.io.FastqPairReader.ReadPair;
+import rnabloom.io.FastqPairReader.FastqReadPair;
 import static rnabloom.util.SeqUtils.filterFastq;
 import static rnabloom.util.SeqUtils.reverseComplement;
 
@@ -19,11 +19,11 @@ import static rnabloom.util.SeqUtils.reverseComplement;
  *
  * @author kmnip
  */
-public class FastqPairReader implements Iterator<ReadPair> {
+public class FastqPairReader implements Iterator<FastqReadPair> {
     private final FastqReader leftReader;
     private final FastqReader rightReader;
     private final Pattern qualPattern;
-    private final Supplier<ReadPair> nextFunction;
+    private final Supplier<FastqReadPair> nextFunction;
                 
     public FastqPairReader(FastqReader leftReader, FastqReader rightReader, Pattern qualPattern, boolean revCompLeft, boolean revCompRight) {
         this.qualPattern = qualPattern;
@@ -47,9 +47,9 @@ public class FastqPairReader implements Iterator<ReadPair> {
         }
     }
     
-    public final class ReadPair {
-        public ArrayList<String> left;
-        public ArrayList<String> right;
+    public final class FastqReadPair {
+        public ArrayList<String> left; // left segments
+        public ArrayList<String> right; // right segments
         public int originalLeftLength;
         public int originalRightLength;
         public int numLeftBasesTrimmed;
@@ -62,12 +62,12 @@ public class FastqPairReader implements Iterator<ReadPair> {
     }
 
     @Override
-    public ReadPair next() {
+    public FastqReadPair next() {
         return nextFunction.get();
     }
 
-    private ReadPair nextFF() {
-        ReadPair p = new ReadPair();
+    private FastqReadPair nextFF() {
+        FastqReadPair p = new FastqReadPair();
 
         FastqRecord frLeft = leftReader.next();
         FastqRecord frRight = rightReader.next();
@@ -97,8 +97,8 @@ public class FastqPairReader implements Iterator<ReadPair> {
         return p;
     }
 
-    private ReadPair nextFR() {
-        ReadPair p = nextFF();
+    private FastqReadPair nextFR() {
+        FastqReadPair p = nextFF();
         
         ArrayList<String> right = p.right;
         int numRightSegments = right.size();
@@ -116,8 +116,8 @@ public class FastqPairReader implements Iterator<ReadPair> {
         return p;
     }
 
-    private ReadPair nextRF() {
-        ReadPair p = nextFF();
+    private FastqReadPair nextRF() {
+        FastqReadPair p = nextFF();
 
         ArrayList<String> left = p.left;
         int numLeftSegments = left.size();
@@ -135,8 +135,8 @@ public class FastqPairReader implements Iterator<ReadPair> {
         return p;
     }
 
-    private ReadPair nextRR() {
-        ReadPair p = nextFF();
+    private FastqReadPair nextRR() {
+        FastqReadPair p = nextFF();
         
         ArrayList<String> left = p.left;
         int numLeftSegments = left.size();

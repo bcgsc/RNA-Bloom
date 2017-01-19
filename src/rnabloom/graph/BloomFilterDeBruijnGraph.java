@@ -12,6 +12,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -254,14 +255,12 @@ public class BloomFilterDeBruijnGraph {
         for (int i=0; i<numKmers; ++i) {
             pkbf.add(seq.substring(i, i+k));
         }
-
-//        NTHashIterator itr = getHashIterator(pkbfNumHash);
-//        itr.start(seq);
-//        long[] hVals = itr.hVals;
-//        while (itr.hasNext()) {
-//            itr.next();
-//            pkbf.add(hVals);
-//        }
+    }
+    
+    public void addFragmentKmers(ArrayList<Kmer> kmers) {
+        for (Kmer kmer : kmers) {
+            pkbf.add(kmer.hashVals);
+        }
     }
     
     public void addPairedKmersFromSeq(String seq) {
@@ -269,6 +268,14 @@ public class BloomFilterDeBruijnGraph {
         final int upperBound = getNumKmers(seq, k) - pairedKmersDistance;
         for (int i=0; i<upperBound; ++i) {
             pkbf.addPair(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
+        }
+    }
+    
+    public void addPairedKmers(ArrayList<Kmer> kmers) {
+        // add paired kmers
+        final int upperBound = kmers.size() - pairedKmersDistance;
+        for (int i=0; i<upperBound; ++i) {
+            pkbf.addPair(kmers.get(i).hashVals, kmers.get(i+pairedKmersDistance).hashVals);
         }
     }
     
@@ -285,6 +292,11 @@ public class BloomFilterDeBruijnGraph {
         for (int i=0; i<upperBound; ++i) {
             pkbf.addPair(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
         }
+    }
+    
+    public void addFragmentKmersAndPairedKmers(ArrayList<Kmer> kmers) {
+        addFragmentKmers(kmers);
+        addPairedKmers(kmers);
     }
     
     public boolean lookupFragmentKmer(String kmer) {
@@ -343,18 +355,22 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public Kmer getKmer(String kmer) {
-        return new Kmer(kmer, this.getCount(kmer));
+        final long[] hashVals = new long[dbgbfCbfMaxNumHash];
+        hashFunction.getHashValues(kmer, dbgbfCbfMaxNumHash, hashVals);
+        return new Kmer(kmer, this.getCount(hashVals), hashVals);
     }
     
     public static class Kmer {
         public String seq;
         public float count;
+        public long[] hashVals;
         public LinkedList<Kmer> predecessors = null;
         public LinkedList<Kmer> successors = null;
-        
-        public Kmer(String seq, float count) {
+                
+        public Kmer(String seq, float count, long[] hashVals) {
             this.seq = seq;
             this.count = count;
+            this.hashVals = Arrays.copyOf(hashVals, hashVals.length);
         }
         
         public boolean equals(Kmer other) {
@@ -384,7 +400,7 @@ public class BloomFilterDeBruijnGraph {
             if (dbgbf.lookup(hashVals)) {
                 float count = cbf.getCount(hashVals);
                 if (count > 0) {
-                    result.add(new Kmer(v, count));
+                    result.add(new Kmer(v, count, hashVals));
                 }
             }
         }
@@ -425,7 +441,7 @@ public class BloomFilterDeBruijnGraph {
             if (dbgbf.lookup(hashVals)) {
                 float count = cbf.getCount(hashVals);
                 if (count > 0) {
-                    result.add(new Kmer(v, count));
+                    result.add(new Kmer(v, count, hashVals));
                 }
             }
         }
@@ -458,11 +474,16 @@ public class BloomFilterDeBruijnGraph {
         final String suffix = getSuffix(kmer.seq);
         String v;
         float count;
+        
+        final long[] hashVals = new long[dbgbfCbfMaxNumHash];
         for (char c : NUCLEOTIDES) {
             v = c + suffix;
-            count = getCount(v);
+            
+            hashFunction.getHashValues(v, dbgbfCbfMaxNumHash, hashVals);
+            
+            count = getCount(hashVals);
             if (count > 0) {
-                result.add(new Kmer(v, count));
+                result.add(new Kmer(v, count, hashVals));
             }
         }
         
@@ -475,6 +496,7 @@ public class BloomFilterDeBruijnGraph {
         String v;
         for (char c : NUCLEOTIDES) {
             v = c + suffix;
+            
             if (contains(v)) {
                 result.add(v);
             }
@@ -488,11 +510,16 @@ public class BloomFilterDeBruijnGraph {
         final String prefix = getPrefix(kmer.seq);
         String v;
         float count;
+        
+        final long[] hashVals = new long[dbgbfCbfMaxNumHash];
         for (char c : NUCLEOTIDES) {
             v = prefix + c;
-            count = getCount(v);
+            
+            hashFunction.getHashValues(v, dbgbfCbfMaxNumHash, hashVals);
+            
+            count = getCount(hashVals);
             if (count > 0) {
-                result.add(new Kmer(v, count));
+                result.add(new Kmer(v, count, hashVals));
             }
         }
         
@@ -632,10 +659,10 @@ public class BloomFilterDeBruijnGraph {
             itr.next();
             i = itr.getPos();
             if (dbgbf.lookup(hVals)) {
-                result.add(new Kmer(seq.substring(i, i+k), cbf.getCount(hVals)));
+                result.add(new Kmer(seq.substring(i, i+k), cbf.getCount(hVals), hVals));
             }
             else {
-                result.add(new Kmer(seq.substring(i, i+k), 0f));
+                result.add(new Kmer(seq.substring(i, i+k), 0f, hVals));
             }
         }
         
@@ -669,10 +696,10 @@ public class BloomFilterDeBruijnGraph {
             i = itr.getPos();
             
             if (dbgbf.lookup(hVals)) {
-                return new Kmer(seq.substring(i, i+k), cbf.getCount(hVals));
+                return new Kmer(seq.substring(i, i+k), cbf.getCount(hVals), hVals);
             }
             
-            return new Kmer(seq.substring(i, i+k), 0);
+            return new Kmer(seq.substring(i, i+k), 0, hVals);
         }
     }
 }

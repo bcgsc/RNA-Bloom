@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import rnabloom.RNABloom.ReadPair;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
@@ -322,9 +323,12 @@ public final class GraphUtils {
                             break;
                         }
                     }
-                    Collections.reverse(rightPath);
-                    path.addAll(rightPath);
-                    return path;
+                    
+                    if (path.size() + rightPath.size() <= bound) {
+                        Collections.reverse(rightPath);
+                        path.addAll(rightPath);
+                        return path;
+                    }
                 }
                 else {
                     rightPath.add(best);
@@ -608,17 +612,14 @@ public final class GraphUtils {
         return seq;
     }
     
-    public static String[] correctErrors2(String leftSeq, 
-                                            String rightSeq, 
+    public static ReadPair correctErrors2(ArrayList<Kmer> leftKmers, 
+                                            ArrayList<Kmer> rightKmers, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int lookahead,
                                             int maxIndelSize, 
                                             float maxCovGradient, 
                                             float covFPR,
                                             int errorCorrectionIterations) {
-        
-        ArrayList<Kmer> leftKmers = graph.getKmers(leftSeq);
-        ArrayList<Kmer> rightKmers = graph.getKmers(rightSeq);
         
         boolean leftCorrected = false;
         boolean rightCorrected = false;
@@ -755,8 +756,7 @@ public final class GraphUtils {
             }
         }
         
-        //return overlapThenConnect(assemble(leftKmers), assemble(rightKmers), graph, bound, lookahead, minOverlap);
-        return new String[]{assemble(leftKmers), assemble(rightKmers)};
+        return new ReadPair(leftKmers, rightKmers, leftCorrected || rightCorrected);
     }
     
     public static String correctErrors(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed) {
@@ -1206,7 +1206,7 @@ public final class GraphUtils {
             c = graph.getCount(hVals);
             
             if (c > 0) {
-                nextKmer = new Kmer(seq.substring(i, i+k), c);
+                nextKmer = new Kmer(seq.substring(i, i+k), c, hVals);
                 
                 if (numMissingKmers > 0 && !result.isEmpty()) {
                     ArrayList<Kmer> path = getMaxCoveragePath(graph, result.get(result.size()-1), nextKmer, maxIndelSize + numMissingKmers, lookahead);
@@ -1351,7 +1351,27 @@ public final class GraphUtils {
         
         return leftWing + assemble(pathKmers) + rightWing;
     }
+    
+    public static ArrayList<Kmer> overlap(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, BloomFilterDeBruijnGraph graph, int minOverlap) {
+        String left = assemble(leftKmers);
+        String right = assemble(rightKmers);
         
+        String overlapped = overlapMaximally(left, right, minOverlap);
+        
+        if (overlapped != null) {
+            ArrayList<Kmer> overlappedKmers = graph.getKmers(overlapped);
+            for (Kmer kmer : overlappedKmers) {
+                if (kmer.count <= 0) {
+                    return null;
+                }
+            }
+            
+            return overlappedKmers;
+        }
+        
+        return null;
+    }
+    
     public static String overlapThenConnect(String left, String right, BloomFilterDeBruijnGraph graph, int bound, int lookahead, int minOverlap) {
         
         // overlap before finding path
@@ -1886,9 +1906,53 @@ public final class GraphUtils {
         return false;
     }
     
+    private static boolean hasDepthRight(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
+        LinkedList<LinkedList> frontier = new LinkedList<>();
+        LinkedList<Kmer> alts = graph.getSuccessors(source);
+        frontier.add(alts);
+        
+        while (!frontier.isEmpty()) {
+            alts = frontier.peekLast();
+            if (alts.isEmpty()) {
+                frontier.removeLast();
+            }
+            else {
+                frontier.add(graph.getSuccessors(alts.pop()));
+            }
+
+            if (frontier.size() >= depth) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
     private static boolean hasDepthLeft(String source, BloomFilterDeBruijnGraph graph, int depth) {
         LinkedList<LinkedList> frontier = new LinkedList<>();
         LinkedList<String> alts = graph.getPredecessors(source);
+        frontier.add(alts);
+        
+        while (!frontier.isEmpty()) {
+            alts = frontier.peekLast();
+            if (alts.isEmpty()) {
+                frontier.removeLast();
+            }
+            else {
+                frontier.add(graph.getPredecessors(alts.pop()));
+            }
+
+            if (frontier.size() >= depth) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    private static boolean hasDepthLeft(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
+        LinkedList<LinkedList> frontier = new LinkedList<>();
+        LinkedList<Kmer> alts = graph.getPredecessors(source);
         frontier.add(alts);
         
         while (!frontier.isEmpty()) {
@@ -2088,7 +2152,57 @@ public final class GraphUtils {
         return sb.toString();
     }
     
-    private static String naiveExtendLeft(String kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
+    public static ArrayList<Kmer> naiveExtendRight(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
+        ArrayList<Kmer> result = new ArrayList<>();
+        
+        LinkedList<Kmer> neighbors = graph.getSuccessors(kmer);
+        Kmer best = kmer;
+        while (!neighbors.isEmpty()) {
+            Kmer prev = best;
+            
+            if (neighbors.size() == 1) {
+                best = neighbors.peek();
+            }
+            else {
+                best = null;
+                for (Kmer n : neighbors) {
+                    if (hasDepthRight(n, graph, maxTipLength)) {
+                        if (best == null) {
+                            best = n;
+                        }
+                        else {
+                            // too many good branches
+                            best = null;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (best == null || terminators.contains(best.seq)) {
+                break;
+            }
+            
+            /** look for back branches*/
+            boolean hasBackBranch = false;
+            for (Kmer s : graph.getPredecessors(kmer)) {
+                if (!s.equals(prev) && hasDepthLeft(s, graph, maxTipLength)) {
+                    hasBackBranch = true;
+                    break;
+                }
+            }
+            if (hasBackBranch) {
+                break;
+            }
+
+            result.add(best);
+            terminators.add(best.seq);
+        }
+        
+        return result;
+    }
+    
+    public static String naiveExtendLeft(String kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
         StringBuilder sb = new StringBuilder(100);
         
         LinkedList<String> neighbors = graph.getPredecessors(kmer);
@@ -2138,5 +2252,57 @@ public final class GraphUtils {
         sb.reverse();
         
         return sb.toString();
+    }
+    
+    public static ArrayList<Kmer> naiveExtendLeft(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
+        ArrayList<Kmer> result = new ArrayList<>();
+        
+        LinkedList<Kmer> neighbors = graph.getPredecessors(kmer);
+        Kmer best = kmer;
+        while (!neighbors.isEmpty()) {
+            Kmer prev = best;
+            
+            if (neighbors.size() == 1) {
+                best = neighbors.peek();
+            }
+            else {
+                best = null;
+                for (Kmer n : neighbors) {
+                    if (hasDepthLeft(n, graph, maxTipLength)) {
+                        if (best == null) {
+                            best = n;
+                        }
+                        else {
+                            // too many good branches
+                            best = null;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (best == null || terminators.contains(best.seq)) {
+                break;
+            }
+            
+            /** look for back branches*/
+            boolean hasBackBranch = false;
+            for (Kmer s : graph.getSuccessors(kmer)) {
+                if (!s.equals(prev) && hasDepthRight(s, graph, maxTipLength)) {
+                    hasBackBranch = true;
+                    break;
+                }
+            }
+            if (hasBackBranch) {
+                break;
+            }
+
+            result.add(best);
+            terminators.add(best.seq);
+        }
+        
+        Collections.reverse(result);
+        
+        return result;
     }
 }

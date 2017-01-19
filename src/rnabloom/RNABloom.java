@@ -15,10 +15,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -40,11 +38,12 @@ import rnabloom.bloom.hash.CanonicalNTHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
+import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.FastqPair;
 import rnabloom.io.FastqPairReader;
-import rnabloom.io.FastqPairReader.ReadPair;
+import rnabloom.io.FastqPairReader.FastqReadPair;
 import rnabloom.io.FastqReader;
 import rnabloom.io.FastqRecord;
 import static rnabloom.util.GraphUtils.*;
@@ -309,7 +308,7 @@ public class RNABloom {
     private boolean isPolyA(String left, String right) {
         return right.endsWith("AAAA") || (!graph.isStranded() && left.startsWith("TTTT"));
     }
-        
+    
     private boolean okToConnectPair(String left, String right) {
         NTHashIterator itr = graph.getHashIterator();
         itr.start(left);
@@ -364,6 +363,51 @@ public class RNABloom {
 
         return numKmersNotSeenLeft >= k || numKmersNotSeenLeft >= minCovLeft || numKmersNotSeenLeft == getNumKmers(left, k ) ||
                 numKmersNotSeenRight >= k || numKmersNotSeenRight >= minCovRight || numKmersNotSeenRight == getNumKmers(right, k);
+    }
+    
+    private boolean okToConnectPair(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers) {
+        int numKmersNotSeenLeft = 0;
+        float minCovLeft = Float.MAX_VALUE;
+        
+        float c;
+        for (Kmer kmer : leftKmers) {
+            c = kmer.count;
+            
+            if (c <= 0) {
+                return false;
+            }
+            
+            if (!graph.lookupFragmentKmer(kmer.hashVals)) {
+                ++numKmersNotSeenLeft;
+                
+                if (c < minCovLeft) {
+                    minCovLeft = c;
+                }
+            }
+        }
+        
+        int numKmersNotSeenRight = 0;
+        float minCovRight = Float.MAX_VALUE;
+        
+        for (Kmer kmer : rightKmers) {
+            c = kmer.count;
+            
+            if (c <= 0) {
+                return false;
+            }
+            
+            if (!graph.lookupFragmentKmer(kmer.hashVals)) {
+                ++numKmersNotSeenRight;
+                
+                if (c < minCovRight) {
+                    minCovRight = c;
+                }
+            }
+        }
+        
+        return numKmersNotSeenLeft >= k || numKmersNotSeenLeft >= minCovLeft ||
+                numKmersNotSeenRight >= k || numKmersNotSeenRight >= minCovRight ||
+                numKmersNotSeenLeft == leftKmers.size() || numKmersNotSeenRight == rightKmers.size();
     }
     
 //    
@@ -583,7 +627,18 @@ public class RNABloom {
 //        
 //        return id;
 //    }
-
+    
+    public static class ReadPair {
+        ArrayList<Kmer> leftKmers;
+        ArrayList<Kmer> rightKmers;
+        boolean corrected = false;
+        
+        public ReadPair(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, boolean corrected) {
+            this.leftKmers = leftKmers;
+            this.rightKmers = rightKmers;
+            this.corrected = corrected;
+        }
+    }
     
     public class Fragment {
 //        String left;
@@ -600,9 +655,8 @@ public class RNABloom {
     }
     
     public class FragmentAssembler implements Runnable {
-        private ReadPair p;
+        private FastqReadPair p;
         private List<Fragment> outList;
-        //private int maxCorrectionsAllowed;
         private int bound;
         private int lookahead;
         private int minOverlap;
@@ -615,7 +669,7 @@ public class RNABloom {
         private int leftReadLengthThreshold;
         private int rightReadLengthThreshold;
         
-        public FragmentAssembler(ReadPair p,
+        public FragmentAssembler(FastqReadPair p,
                                 List<Fragment> outList,
                                 int bound, 
                                 int lookahead, 
@@ -649,13 +703,9 @@ public class RNABloom {
             String right = connect(p.right, graph, k+p.numRightBasesTrimmed+this.maxIndelSize, this.lookahead);
 
             if (left.length() >= this.leftReadLengthThreshold 
-                    && right.length() >= this.rightReadLengthThreshold 
-                    && okToConnectPair(left, right)) {
+                    && right.length() >= this.rightReadLengthThreshold) { 
                 
-//                if (left.contains("X")) {
-//                    System.out.println("L:" + left + "\nR:" + right);
-//                }
-                
+                /*
                 String[] readPair = correctErrors2(left,
                                                     right,
                                                     graph, 
@@ -683,33 +733,85 @@ public class RNABloom {
 
                         outList.add(new Fragment(fragment, fraglen));
                     }
-                }
+}
+                */
                 
-                /*
-                // correct each read
-                String left = correctErrors(connectedLeft, graph, lookahead, maxCorrectionsAllowed);
-                String right = correctErrors(connectedRight, graph, lookahead, maxCorrectionsAllowed);
+                ArrayList<Kmer> leftKmers = graph.getKmers(left);
+                ArrayList<Kmer> rightKmers = graph.getKmers(right);
                 
-                if (okToConnectPair(left, right, minNumKmersPerReadNotAssembled)) {
+                if (okToConnectPair(leftKmers, rightKmers)) {
 
-                    // assemble fragment from read pair
-                    String fragment = overlapThenConnect(left, right, graph, bound, lookahead, minOverlap);
+                    ReadPair correctedReadPair = correctErrors2(leftKmers,
+                                                        rightKmers,
+                                                        graph, 
+                                                        this.lookahead, 
+                                                        this.maxIndelSize, 
+                                                        this.maxCovGradient, 
+                                                        this.covFPR,
+                                                        this.errorCorrectionIterations);
 
-                    int fraglen = fragment.length();
-                    if (fraglen > k) {
-                        fragment = naiveExtend(correctErrors(fragment, graph, lookahead, Math.max(Math.round(fraglen*0.05f), maxCorrectionsAllowed)), graph, maxTipLen);
-                        //fragment = naiveExtend(fragment, graph, maxTipLen);
+                    leftKmers = correctedReadPair.leftKmers;
+                    rightKmers = correctedReadPair.rightKmers;
+                    
+                    if (!correctedReadPair.corrected || okToConnectPair(leftKmers, rightKmers)) {
+                        ArrayList<Kmer> fragmentKmers = overlap(leftKmers, rightKmers, graph, minOverlap);
                         
-                        // mark fragment kmers as assembled
-                        graph.addFragmentKmersFromSeq(fragment);
-                        if (storeKmerPairs) {
-                            graph.addPairedKmersFromSeq(fragment);
-                        }
+                        if (fragmentKmers == null) {
+                            ArrayList<Kmer> connectedPath = getMaxCoveragePath(graph, leftKmers.get(leftKmers.size()-1), rightKmers.get(0), bound, lookahead);
+                            
+                            if (connectedPath != null) {
+                                int fragLength = leftKmers.size() + connectedPath.size() + rightKmers.size() + k - 1;
 
-                        outList.add(fragment);
+                                HashSet<String> terminators = new HashSet<>(fragLength + 2 * k);
+
+                                ArrayList<Kmer> rightExtension = naiveExtendRight(rightKmers.get(rightKmers.size()-1), graph, maxTipLen, terminators);
+
+                                ArrayList<Kmer> leftExtension = naiveExtendLeft(leftKmers.get(0), graph, maxTipLen, terminators);
+                                
+                                fragmentKmers = new ArrayList<>(leftExtension.size() + leftKmers.size() + connectedPath.size() + rightKmers.size() + rightExtension.size());
+                                fragmentKmers.addAll(leftExtension);
+                                fragmentKmers.addAll(leftKmers);
+                                fragmentKmers.addAll(connectedPath);
+                                fragmentKmers.addAll(rightKmers);
+                                fragmentKmers.addAll(rightExtension);
+                                
+                            if (this.storeKmerPairs) {
+                                graph.addFragmentKmersAndPairedKmers(fragmentKmers);
+                            }
+                            else {
+                                graph.addFragmentKmers(fragmentKmers);
+                            }
+                                
+                                outList.add(new Fragment(assemble(fragmentKmers), fragLength));
+                            }
+                        }
+                        else {
+                            int fragLength = fragmentKmers.size() + k - 1;
+                            
+                            HashSet<String> terminators = new HashSet<>(fragLength + 2 * k);
+                            
+                            ArrayList<Kmer> rightExtension = naiveExtendRight(fragmentKmers.get(fragmentKmers.size()-1), graph, maxTipLen, terminators);
+                        
+                            ArrayList<Kmer> leftExtension = naiveExtendLeft(fragmentKmers.get(0), graph, maxTipLen, terminators);
+                            
+                            if (!leftExtension.isEmpty()) {
+                                fragmentKmers.addAll(0, leftExtension);
+                            }
+                            if (!rightExtension.isEmpty()) {
+                                fragmentKmers.addAll(rightExtension);
+                            }
+                            
+                            if (this.storeKmerPairs) {
+                                graph.addFragmentKmersAndPairedKmers(fragmentKmers);
+                            }
+                            else {
+                                graph.addFragmentKmers(fragmentKmers);
+                            }
+                            
+                            outList.add(new Fragment(assemble(fragmentKmers), fragLength));
+                        }
                     }
                 }
-                */
             }
         }
     }
@@ -847,7 +949,7 @@ public class RNABloom {
                                 new FastaWriter(outfile[4], true),
                                 new FastaWriter(outfile[5], true)};
             
-            ReadPair p;
+            FastqReadPair p;
             List<Fragment> fragments = Collections.synchronizedList(new ArrayList<>(sampleSize));
             
 //            boolean readLengthThresholdIsSet = false;
@@ -1475,16 +1577,6 @@ public class RNABloom {
         System.out.println(leftRead);
         System.out.println(rightRead);
         
-        String[] readPair = correctErrors2(leftRead,
-                                            rightRead,
-                                            graph, 
-                                            lookahead, 
-                                            maxIndelSize, 
-                                            maxCovGradient, 
-                                            covFPR, 
-                                            errorCorrectionIterations);
-                                            
-        System.out.println(overlapThenConnect(readPair[0], readPair[1], graph, bound, lookahead, minOverlap));
     }
     
     public void testInsertionCorrection() {

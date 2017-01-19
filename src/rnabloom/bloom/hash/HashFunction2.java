@@ -47,6 +47,17 @@ public class HashFunction2 {
         return hashVal;
     }
     
+    public long[] getHashValues(final long[] hashVals1,
+                                final long[] hashVals2,
+                                final int numHash) {
+        final long[] hashVal = new long[numHash];
+        for (int i=0; i<numHash; ++i) {
+            hashVal[i] = combineHashValues(hashVals1[i], hashVals2[i]);
+        }
+        
+        return hashVal;
+    }
+    
     public static long combineHashValues(long a, long b) {
         // See: http://stackoverflow.com/a/27952689
         a ^= b + 0x9e3779b9 + (a << 6) + (b >> 2);
