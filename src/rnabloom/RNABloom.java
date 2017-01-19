@@ -645,12 +645,14 @@ public class RNABloom {
 //        String right;
         String seq;
         int length;
+        float minCov;
         
-        public Fragment(String seq, int length) {
+        public Fragment(String seq, int length, float minCov) {
 //            this.left = left;
 //            this.right = right;
             this.seq = seq;
             this.length = length;
+            this.minCov = minCov;
         }
     }
     
@@ -775,14 +777,21 @@ public class RNABloom {
                                 fragmentKmers.addAll(rightKmers);
                                 fragmentKmers.addAll(rightExtension);
                                 
-                            if (this.storeKmerPairs) {
-                                graph.addFragmentKmersAndPairedKmers(fragmentKmers);
-                            }
-                            else {
-                                graph.addFragmentKmers(fragmentKmers);
-                            }
+                                if (this.storeKmerPairs) {
+                                    graph.addFragmentKmersAndPairedKmers(fragmentKmers);
+                                }
+                                else {
+                                    graph.addFragmentKmers(fragmentKmers);
+                                }
                                 
-                                outList.add(new Fragment(assemble(fragmentKmers), fragLength));
+                                float minCov = Float.MAX_VALUE;
+                                for (Kmer kmer : fragmentKmers) {
+                                    if (kmer.count < minCov) {
+                                        minCov = kmer.count;
+                                    }
+                                }
+                                
+                                outList.add(new Fragment(assemble(fragmentKmers), fragLength, minCov));
                             }
                         }
                         else {
@@ -808,7 +817,14 @@ public class RNABloom {
                                 graph.addFragmentKmers(fragmentKmers);
                             }
                             
-                            outList.add(new Fragment(assemble(fragmentKmers), fragLength));
+                            float minCov = Float.MAX_VALUE;
+                            for (Kmer kmer : fragmentKmers) {
+                                if (kmer.count < minCov) {
+                                    minCov = kmer.count;
+                                }
+                            }
+                            
+                            outList.add(new Fragment(assemble(fragmentKmers), fragLength, minCov));
                         }
                     }
                 }
@@ -844,7 +860,7 @@ public class RNABloom {
             service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
         }
     }
-    
+        
     public int[] getMinQ1MedianQ3Max(ArrayList<Integer> a) {
         Collections.sort(a);
         
@@ -853,7 +869,7 @@ public class RNABloom {
         int q1Index = arrLen/4;
         int q3Index = halfLen+q1Index;
         
-        int min, q1, median, q3, max;
+        int q1, median, q3;
         
         if (arrLen % 2 == 0) {
             median = (a.get(halfLen-1) + a.get(halfLen))/2;
@@ -874,9 +890,7 @@ public class RNABloom {
         return new int[]{a.get(0), q1, median, q3, a.get(arrLen-1)};
     }
     
-    public int getMinCoverageOrderOfMagnitude(String seq) {
-        float c = graph.getMinCount(seq);
-        
+    public int getMinCoverageOrderOfMagnitude(float c) {
         if (c >= 1e5) {
             return 5;
         }
@@ -942,19 +956,19 @@ public class RNABloom {
             FastqReader lin, rin;
             FastqPairReader fqpr;
             
-            FastaWriter[] outs = {new FastaWriter(outfile[0], true),
-                                new FastaWriter(outfile[1], true),
-                                new FastaWriter(outfile[2], true),
-                                new FastaWriter(outfile[3], true),
-                                new FastaWriter(outfile[4], true),
-                                new FastaWriter(outfile[5], true)};
+            FastaWriter[] outs = new FastaWriter[]{new FastaWriter(outfile[0], true),
+                                                    new FastaWriter(outfile[1], true),
+                                                    new FastaWriter(outfile[2], true),
+                                                    new FastaWriter(outfile[3], true),
+                                                    new FastaWriter(outfile[4], true),
+                                                    new FastaWriter(outfile[5], true)};
             
             FastqReadPair p;
             List<Fragment> fragments = Collections.synchronizedList(new ArrayList<>(sampleSize));
             
-//            boolean readLengthThresholdIsSet = false;
-//            ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
-//            ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
+            boolean readLengthThresholdIsSet = false;
+            ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
+            ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
             
 //            int minNumKmersNotAssembled = 1;
             
@@ -979,7 +993,6 @@ public class RNABloom {
                         if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
                                 p.originalRightLength > 2*p.numRightBasesTrimmed) {
                             
-                            /*
                             if (!readLengthThresholdIsSet) {
                                 int best = 0;
                                 for (String s : p.left) {
@@ -1013,7 +1026,6 @@ public class RNABloom {
                                     rightReadLengths = null;
                                 }
                             }
-                            */
                             
                             service.submit(new FragmentAssembler(p,
                                                                 fragments,
@@ -1065,9 +1077,9 @@ public class RNABloom {
                     for (Fragment frag : fragments) {
                         graph.addPairedKmersFromSeq(frag.seq);
 
-                        m = getMinCoverageOrderOfMagnitude(frag.seq);
+                        m = getMinCoverageOrderOfMagnitude(frag.minCov);
 
-                        if (m > 0) {
+                        if (m >= 0) {
                             outs[m].write(Long.toString(++fragmentId), frag.seq);
                         }
                     }                    
@@ -1105,9 +1117,9 @@ public class RNABloom {
                             // write fragments to file
                             int m;
                             for (Fragment frag : fragments) {
-                                m = getMinCoverageOrderOfMagnitude(frag.seq);
+                                m = getMinCoverageOrderOfMagnitude(frag.minCov);
                                 
-                                if (m > 0) {
+                                if (m >= 0) {
                                     outs[m].write(Long.toString(++fragmentId), frag.seq);
                                 }
                             }
@@ -1124,9 +1136,9 @@ public class RNABloom {
                 // write fragments to file
                 int m;
                 for (Fragment frag : fragments) {
-                    m = getMinCoverageOrderOfMagnitude(frag.seq);
+                    m = getMinCoverageOrderOfMagnitude(frag.minCov);
                     
-                    if (m > 0) { 
+                    if (m >= 0) { 
                         outs[m].write(Long.toString(++fragmentId), frag.seq);
                     }
                 }
@@ -1140,9 +1152,9 @@ public class RNABloom {
             // store kmer pairs and write fragments to file
             int m;
             for (Fragment frag : fragments) {
-                m = getMinCoverageOrderOfMagnitude(frag.seq);
+                m = getMinCoverageOrderOfMagnitude(frag.minCov);
                 
-                if (m > 0) {
+                if (m >= 0) {
                     outs[m].write(Long.toString(++fragmentId), frag.seq);
                 }
             }
