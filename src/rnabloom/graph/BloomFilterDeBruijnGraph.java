@@ -267,7 +267,7 @@ public class BloomFilterDeBruijnGraph {
         // add paired kmers
         final int upperBound = getNumKmers(seq, k) - pairedKmersDistance;
         for (int i=0; i<upperBound; ++i) {
-            pkbf.addPair(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
+            pkbf.addSingleAndPair(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
         }
     }
     
@@ -275,7 +275,7 @@ public class BloomFilterDeBruijnGraph {
         // add paired kmers
         final int upperBound = kmers.size() - pairedKmersDistance;
         for (int i=0; i<upperBound; ++i) {
-            pkbf.addPair(kmers.get(i).hashVals, kmers.get(i+pairedKmersDistance).hashVals);
+            pkbf.addSingleAndPair(kmers.get(i).hashVals, kmers.get(i+pairedKmersDistance).hashVals);
         }
     }
     

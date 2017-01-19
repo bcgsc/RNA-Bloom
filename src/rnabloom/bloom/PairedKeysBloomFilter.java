@@ -51,6 +51,16 @@ public class PairedKeysBloomFilter extends BloomFilter {
             bitArray.set(getIndex(hash3[h]));
         }
     }
+
+    public void addSingleAndPair(long[] hvals1, long[] hvals2) {
+        long[] hash3 = hashFunction.getHashValues(hvals1, hvals2, numHash);
+        
+        for (int h=0; h<numHash; ++h) {
+            bitArray.set(getIndex(hvals1[h]));
+            bitArray.set(getIndex(hvals2[h]));
+            bitArray.set(getIndex(hash3[h]));
+        }
+    }
         
     public boolean lookupPair(String key1, String key2) {
         long[] hash = hashFunction.getHashValues(key1, key2, numHash);
