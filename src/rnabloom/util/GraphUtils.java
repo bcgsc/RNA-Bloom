@@ -13,6 +13,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import rnabloom.RNABloom.ReadPair;
+import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
@@ -1574,241 +1575,287 @@ public final class GraphUtils {
         return assembleString(kmers);
     }
     
-    public static String extendWithPairedKmersGreedily(String fragment, BloomFilterDeBruijnGraph graph, int lookahead, float minCoverageThreshold) {
+    private static LinkedList<Kmer> getSuccessorsRanked(Kmer source, BloomFilterDeBruijnGraph graph, int lookahead) {
+        LinkedList<Kmer> results = new LinkedList<>();
+        
+        LinkedList<Float> values = new LinkedList<>();
+        
+        for (Kmer n : graph.getSuccessors(source)) {
+            float c = getMaxMedianCoverageRight(graph, n, lookahead);
+            
+            if (results.isEmpty()) {
+                results.add(n);
+                values.add(c);
+            }
+            else {
+                for (int i=0; i<values.size(); ++i) {
+                    if (c >= values.get(i)) {
+                        results.add(i, n);
+                        values.add(i, c);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        return results;
+    }
+    
+    private static LinkedList<Kmer> getPredecessorsRanked(Kmer source, BloomFilterDeBruijnGraph graph, int lookahead) {
+        LinkedList<Kmer> results = new LinkedList<>();
+        
+        LinkedList<Float> values = new LinkedList<>();
+        
+        for (Kmer n : graph.getPredecessors(source)) {
+            float c = getMaxMedianCoverageLeft(graph, n, lookahead);
+            
+            if (results.isEmpty()) {
+                results.add(n);
+                values.add(c);
+            }
+            else {
+                for (int i=0; i<values.size(); ++i) {
+                    if (c >= values.get(i)) {
+                        results.add(i, n);
+                        values.add(i, c);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        return results;
+    }
+    
+    public static String extendWithPairedKmers(String fragment, BloomFilterDeBruijnGraph graph, int lookahead, boolean greedy, BloomFilter assembledKmersBloomFilter) {
         final int distance = graph.getPairedKmerDistance();
         final int k = graph.getK();
+        final int searchBound = distance - 1;
         
         // transcript kmers list
         final ArrayList<Kmer> kmers = graph.getKmers(fragment);
-        
-        // transcript kmers set
-        final HashSet<String> transcriptKmers = new HashSet<>();
-        
+                
         // kmer pairs used in the extension of this transcript
         final HashSet<String> usedPairs = new HashSet<>();
         
-        /** extend right*/
-        Kmer best = kmers.get(kmers.size()-1);
-        LinkedList<Kmer> neighbors = graph.getSuccessors(best);
-        while (!neighbors.isEmpty()) {
-            best = null;
-            Kmer partner = null;
+        // extend right
+  
+        Kmer n, partner;
+        String mergedSeq;
+        
+        LinkedList<Kmer> extension = new LinkedList<>();
+        
+        LinkedList<LinkedList<Kmer>> branchesStack = new LinkedList<>();
+        LinkedList<Kmer> neighbors = getSuccessorsRanked(kmers.get(kmers.size()-1), graph, lookahead);
+        branchesStack.add(neighbors);
+        boolean stop = false;
+        int depth, numKmers;
+        
+        HashSet<String> visitedKmers = new HashSet<>();
+        
+        while (!branchesStack.isEmpty() && !stop) {
+            neighbors = branchesStack.getLast();
+            depth = extension.size();
             
-            if (neighbors.size() == 1) {
-                // 1 successor
-                best = neighbors.peek();
+            if (neighbors.isEmpty()) {
+                branchesStack.removeLast();
+                if (!extension.isEmpty()) {
+                    extension.removeLast();
+                }
             }
-            else {
-                // >1 successors
-                LinkedList<Kmer> neighborsAboveCoverageThreshold = new LinkedList<>();
-                for (Kmer n : neighbors) {
-                    if (getMaxMedianCoverageRight(graph, n, lookahead) >= minCoverageThreshold) {
-                        neighborsAboveCoverageThreshold.add(n);
-                    }
-                }
-                
-                if (neighborsAboveCoverageThreshold.size() == 1) {
-                    best = neighborsAboveCoverageThreshold.peek();
-                }
-                else {
-                    LinkedList<Kmer> fragmentNeighbors = new LinkedList<>();
+            else if (depth >= searchBound) {
+                partner = kmers.get(kmers.size() - distance + depth);
+
+                boolean found = false;
+                while (!neighbors.isEmpty()) {
+                    n = neighbors.removeFirst();
                     
-                    if (!neighborsAboveCoverageThreshold.isEmpty()) {
-                        for (Kmer n : neighborsAboveCoverageThreshold) {
-                            if (graph.lookupFragmentKmer(n.seq)) {
-                                fragmentNeighbors.add(n);
-                            }
+                    if (graph.lookupPairedKmers(partner.hashVals, n.hashVals)) {
+                        if (!greedy && assembledKmersBloomFilter.lookup(n.hashVals) && assembledKmersBloomFilter.lookup(partner.hashVals)) {
+                            stop = true;
+                            break;
                         }
-                    }
-                    
-                    if (fragmentNeighbors.isEmpty()) {
-                        for (Kmer n : neighbors) {
-                            if (graph.lookupFragmentKmer(n.seq)) {
-                                fragmentNeighbors.add(n);
-                            }
-                        }
-                    }
-
-                    if (fragmentNeighbors.isEmpty()) {
-                        // 0 fragment successors
-                        best = greedyExtendRightOnce(graph, neighbors, lookahead);
-                    }
-                    else if (fragmentNeighbors.size() == 1) {
-                        // 1 fragment successor
-                        best = fragmentNeighbors.peek();
-                    }
-                    else {
-                        // >1 fragment successors
-                        int numKmers = kmers.size();
-
-                        if (numKmers >= distance) {
-                            LinkedList<Kmer> pairedNeighbors = new LinkedList<>();
-
-                            partner = kmers.get(numKmers-distance);
-                            for (Kmer n : fragmentNeighbors) {
-                                if (graph.lookupPairedKmers(partner.seq, n.seq)) {
-                                    pairedNeighbors.add(n);
-                                }
-                            }
-
-                            if (pairedNeighbors.isEmpty()) {
-                                best = greedyExtendRightOnce(graph, fragmentNeighbors, lookahead);
-                            }
-                            else if (pairedNeighbors.size() == 1) {
-                                best = pairedNeighbors.peek();
-                            }
-                            else {
-                                best = greedyExtendRightOnce(graph, pairedNeighbors, lookahead);
-                            }
+                        
+                        branchesStack.clear();
+                        
+                        kmers.addAll(extension);
+                        kmers.add(n);
+                        extension.clear();
+                        visitedKmers.clear();
+                        
+                        mergedSeq = partner.seq + n.seq;
+                        
+                        if (usedPairs.contains(mergedSeq)) {
+                            stop = true;
+                            break;
                         }
                         else {
-                            best = greedyExtendRightOnce(graph, fragmentNeighbors, lookahead);
+                            usedPairs.add(mergedSeq);
                         }
+                        
+                        branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
+                        
+                        found = true;
+                        break;
                     }
                 }
-            }
-            
-            if (best == null) {
-                break;
-            }
-            else {
-                int numKmers = kmers.size();
                 
-                if (numKmers >= distance) {
-                    if (partner == null) {
-                        partner = kmers.get(numKmers-distance);
-                    }
+                if (!found) {
+                    neighbors.clear();
+                }
+            }
+            else {                
+                n = neighbors.removeFirst();
+                numKmers = kmers.size();
+                
+                if (numKmers + depth >= distance) {
+                    partner = kmers.get(numKmers - distance + depth);
+                    mergedSeq = partner.seq + n.seq;
                     
-                    if (transcriptKmers.contains(best.seq)) {
-                        if (partner != null) {
-                            String pairedKmersStr = partner.seq + best.seq;
-                            if (!graph.lookupPairedKmers(partner.seq, best.seq) || usedPairs.contains(pairedKmersStr)) {
+                    if (!visitedKmers.contains(mergedSeq)) {
+
+                        if (graph.lookupPairedKmers(partner.hashVals, n.hashVals)) {
+                            if (!greedy && assembledKmersBloomFilter.lookup(n.hashVals) && assembledKmersBloomFilter.lookup(partner.hashVals)) {
+                                stop = true;
+                                break;
+                            }
+
+                            branchesStack.clear();
+                            branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
+
+                            kmers.addAll(extension);
+                            kmers.add(n);
+                            
+                            extension.clear();
+                            visitedKmers.clear();
+
+                            if (usedPairs.contains(mergedSeq)) {
+                                stop = true;
                                 break;
                             }
                             else {
-                                usedPairs.add(pairedKmersStr);
+                                usedPairs.add(mergedSeq);
                             }
+                        }
+                        else {
+                            extension.add(n);
+                            branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
+                            visitedKmers.add(mergedSeq);
                         }
                     }
                 }
+                else {
+                    extension.add(n);
+                    branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
+                }
             }
-            
-            kmers.add(best);
-            transcriptKmers.add(best.seq);
-            neighbors = graph.getSuccessors(best);
         }
+        
+        // extend left
         
         Collections.reverse(kmers);
         
-        /** extend left*/
-        best = kmers.get(kmers.size()-1);
-        neighbors = graph.getPredecessors(best);
-        while (!neighbors.isEmpty()) {
-            best = null;
-            Kmer partner = null;
+        visitedKmers.clear();
+        extension.clear();
+        branchesStack.clear();
+        neighbors = getPredecessorsRanked(kmers.get(kmers.size()-1), graph, lookahead);
+        branchesStack.add(neighbors);
+        
+        while (!branchesStack.isEmpty() && !stop) {
+            neighbors = branchesStack.getLast();
+            depth = extension.size();
             
-            if (neighbors.size() == 1) {
-                best = neighbors.peek();
+            if (neighbors.isEmpty()) {
+                branchesStack.removeLast();
+                if (!extension.isEmpty()) {
+                    extension.removeLast();
+                }
+            }
+            else if (depth >= searchBound) {
+                partner = kmers.get(kmers.size() - distance + depth);
+                
+                boolean found = false;
+                while (!neighbors.isEmpty()) {
+                    n = neighbors.removeFirst();
+                    
+                    if (graph.lookupPairedKmers(n.hashVals, partner.hashVals)) {
+                        if (!greedy && assembledKmersBloomFilter.lookup(n.hashVals) && assembledKmersBloomFilter.lookup(partner.hashVals)) {
+                            stop = true;
+                            break;
+                        }
+                        
+                        branchesStack.clear();
+                        
+                        kmers.addAll(extension);
+                        kmers.add(n);
+                        extension.clear();
+                        visitedKmers.clear();
+                        
+                        mergedSeq = n.seq + partner.seq;
+                        
+                        if (usedPairs.contains(mergedSeq)) {
+                            stop = true;
+                            break;
+                        }
+                        else {
+                            usedPairs.add(mergedSeq);
+                        }
+                        
+                        branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
+                        
+                        found = true;
+                        break;
+                    }
+                }
+                
+                if (!found) {
+                    neighbors.clear();
+                }
             }
             else {
-                // >1 neighbors
+                n = neighbors.removeFirst();
+                numKmers = kmers.size();
                 
-                LinkedList<Kmer> neighborsAboveCoverageThreshold = new LinkedList<>();
-                for (Kmer n : neighbors) {
-                    if (getMaxMedianCoverageLeft(graph, n, lookahead) >= minCoverageThreshold) {
-                        neighborsAboveCoverageThreshold.add(n);
-                    }
-                }
-                
-                if (neighborsAboveCoverageThreshold.size() == 1) {
-                    best = neighborsAboveCoverageThreshold.peek();
-                }
-                else {
-                    LinkedList<Kmer> fragmentNeighbors = new LinkedList<>();
-                    
-                    if (!neighborsAboveCoverageThreshold.isEmpty()) {
-                        for (Kmer n : neighborsAboveCoverageThreshold) {
-                            if (graph.lookupFragmentKmer(n.seq)) {
-                                fragmentNeighbors.add(n);
-                            }
-                        }
-                    }
-                    
-                    if (fragmentNeighbors.isEmpty()) {
-                        for (Kmer n : neighbors) {
-                            if (graph.lookupFragmentKmer(n.seq)) {
-                                fragmentNeighbors.add(n);
-                            }
-                        }
-                    }
-                
-                    if (fragmentNeighbors.isEmpty()) {
-                        // 0 fragment successors
-                        best = greedyExtendLeftOnce(graph, neighbors, lookahead);
-                    }
-                    else if (fragmentNeighbors.size() == 1) {
-                        // 1 fragment successor
-                        best = fragmentNeighbors.peek();
-                    }
-                    else {
-                        // >1 fragment successors
-                        int numKmers = kmers.size();
+                if (numKmers + depth >= distance) {
+                    partner = kmers.get(numKmers - distance + depth);
+                    mergedSeq = n.seq + partner.seq;
 
-                        if (numKmers >= distance) {
-                            LinkedList<Kmer> pairedNeighbors = new LinkedList<>();
-
-                            partner = kmers.get(numKmers - distance);
-                            for (Kmer n : fragmentNeighbors) {
-                                if (graph.lookupPairedKmers(n.seq, partner.seq)) {
-                                    pairedNeighbors.add(n);
-                                }
+                    if (!visitedKmers.contains(mergedSeq)) {
+                        
+                        if (graph.lookupPairedKmers(n.hashVals, partner.hashVals)) {
+                            if (!greedy && assembledKmersBloomFilter.lookup(n.hashVals) && assembledKmersBloomFilter.lookup(partner.hashVals)) {
+                                stop = true;
+                                break;
                             }
 
-                            if (pairedNeighbors.isEmpty()) {
-                                best = greedyExtendLeftOnce(graph, fragmentNeighbors, lookahead);
-                            }
-                            else if (pairedNeighbors.size() == 1) {
-                                best = pairedNeighbors.peek();
+                            branchesStack.clear();
+                            branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
+
+                            kmers.addAll(extension);
+                            kmers.add(n);
+                            
+                            extension.clear();
+                            visitedKmers.clear();
+
+                            if (usedPairs.contains(mergedSeq)) {
+                                stop = true;
                             }
                             else {
-                                best = greedyExtendLeftOnce(graph, pairedNeighbors, lookahead);
+                                usedPairs.add(mergedSeq);
                             }
                         }
                         else {
-                            best = greedyExtendLeftOnce(graph, fragmentNeighbors, lookahead);
+                            extension.add(n);
+                            branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
+                            visitedKmers.add(mergedSeq);
                         }
                     }
                 }
-            }
-            
-            if (best == null) {
-                break;
-            }
-            else {
-                int numKmers = kmers.size();
-                
-                if (numKmers >= distance) {
-                    if (partner == null) {
-                        partner = kmers.get(numKmers - distance);
-                    }
-                    
-                    if (transcriptKmers.contains(best.seq)) {
-                        if (partner != null) {
-                            String pairedKmersStr = best.seq + partner.seq;
-                            if (!graph.lookupPairedKmers(best.seq, partner.seq) || usedPairs.contains(pairedKmersStr)) {
-                                break;
-                            }
-                            else {
-                                usedPairs.add(pairedKmersStr);
-                            }
-                        }
-                    }
+                else {
+                    extension.add(n);
+                    branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
                 }
             }
-            
-            kmers.add(best);
-            transcriptKmers.add(best.seq);
-            neighbors = graph.getPredecessors(best);
         }
         
         Collections.reverse(kmers);
