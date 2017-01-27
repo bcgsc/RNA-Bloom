@@ -91,5 +91,18 @@ public class PairedKeysBloomFilter extends BloomFilter {
         
         return true;
     }
+    
+    public boolean lookupSingleAndPair(long[] hash1, long[] hash2) {
+        long[] hash3 = hashFunction.getHashValues(hash1, hash2, numHash);
         
+        for (int h=0; h<numHash; ++h) {
+            if (!bitArray.get(getIndex(hash1[h])) ||
+                    !bitArray.get(getIndex(hash2[h])) ||
+                    !bitArray.get(getIndex(hash3[h]))) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
 }
