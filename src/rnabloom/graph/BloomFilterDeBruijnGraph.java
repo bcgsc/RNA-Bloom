@@ -24,7 +24,6 @@ import rnabloom.bloom.hash.HashFunction2;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.util.SeqUtils.KmerSeqIterator;
 import static rnabloom.util.SeqUtils.getNumKmers;
-import static rnabloom.util.SeqUtils.kmerize;
 
 /**
  *
@@ -311,6 +310,10 @@ public class BloomFilterDeBruijnGraph {
         return pkbf.lookupSingleAndPair(kmer1, kmer2);
     }
     
+    public boolean lookupPairedKmers(long[] hashVals1, long[] hashVals2) {
+        return pkbf.lookupSingleAndPair(hashVals1, hashVals2);
+    }
+    
     public boolean contains(String kmer) {
         return dbgbf.lookup(kmer);
     }
@@ -364,8 +367,8 @@ public class BloomFilterDeBruijnGraph {
         public String seq;
         public float count;
         public long[] hashVals;
-        public LinkedList<Kmer> predecessors = null;
-        public LinkedList<Kmer> successors = null;
+//        public LinkedList<Kmer> predecessors = null;
+//        public LinkedList<Kmer> successors = null;
                 
         public Kmer(String seq, float count, long[] hashVals) {
             this.seq = seq;
@@ -387,9 +390,9 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public LinkedList<Kmer> getPredecessors(Kmer kmer) {
-        if (kmer.predecessors != null) {
-            return kmer.predecessors;
-        }
+//        if (kmer.predecessors != null) {
+//            return kmer.predecessors;
+//        }
         
         LinkedList<Kmer> result = new LinkedList<>();
         final String prefix = getPrefix(kmer.seq);
@@ -405,7 +408,7 @@ public class BloomFilterDeBruijnGraph {
             }
         }
         
-        kmer.predecessors = result;
+//        kmer.predecessors = result;
         
         return result;
     }
@@ -428,9 +431,9 @@ public class BloomFilterDeBruijnGraph {
     }
 
     public LinkedList<Kmer> getSuccessors(Kmer kmer) {
-        if (kmer.successors != null) {
-            return kmer.successors;
-        }
+//        if (kmer.successors != null) {
+//            return kmer.successors;
+//        }
         
         LinkedList<Kmer> result = new LinkedList<>();
         final String suffix = getSuffix(kmer.seq);
@@ -446,7 +449,7 @@ public class BloomFilterDeBruijnGraph {
             }
         }
         
-        kmer.successors = result;
+//        kmer.successors = result;
         
         return result;
     }
