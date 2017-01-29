@@ -1627,9 +1627,9 @@ public final class GraphUtils {
         return results;
     }
     
-    public static String extendWithPairedKmers(String fragment, BloomFilterDeBruijnGraph graph, int lookahead, boolean greedy, BloomFilter assembledKmersBloomFilter) {
+    public static String extendWithPairedKmers(String fragment, BloomFilterDeBruijnGraph graph, int lookahead, int maxTipLength, boolean greedy, BloomFilter assembledKmersBloomFilter) {
         final int distance = graph.getPairedKmerDistance();
-        final int k = graph.getK();
+//        final int k = graph.getK();
         final int searchBound = distance - 1;
         
         // transcript kmers list
@@ -1693,7 +1693,14 @@ public final class GraphUtils {
                             usedPairs.add(mergedSeq);
                         }
                         
-                        branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
+                        ArrayList<Kmer> naiveExtension = naiveExtendRight(n, graph, maxTipLength, new HashSet<>());
+                        if (!naiveExtension.isEmpty()) {
+                            kmers.addAll(naiveExtension);
+                            branchesStack.add(getSuccessorsRanked(naiveExtension.get(naiveExtension.size()-1), graph, lookahead));
+                        }
+                        else {
+                            branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
+                        }
                         
                         found = true;
                         break;
@@ -1721,7 +1728,6 @@ public final class GraphUtils {
                             }
 
                             branchesStack.clear();
-                            branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
 
                             kmers.addAll(extension);
                             kmers.add(n);
@@ -1735,6 +1741,15 @@ public final class GraphUtils {
                             }
                             else {
                                 usedPairs.add(mergedSeq);
+                            }
+                            
+                            ArrayList<Kmer> naiveExtension = naiveExtendRight(n, graph, maxTipLength, new HashSet<>());
+                            if (!naiveExtension.isEmpty()) {
+                                kmers.addAll(naiveExtension);
+                                branchesStack.add(getSuccessorsRanked(naiveExtension.get(naiveExtension.size()-1), graph, lookahead));
+                            }
+                            else {
+                                branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
                             }
                         }
                         else {
@@ -1755,6 +1770,7 @@ public final class GraphUtils {
         
         Collections.reverse(kmers);
         
+        stop = false;
         visitedKmers.clear();
         extension.clear();
         branchesStack.clear();
@@ -1801,7 +1817,14 @@ public final class GraphUtils {
                             usedPairs.add(mergedSeq);
                         }
                         
-                        branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
+                        ArrayList<Kmer> naiveExtension = naiveExtendLeft(n, graph, maxTipLength, new HashSet<>(), false);
+                        if (!naiveExtension.isEmpty()) {
+                            kmers.addAll(naiveExtension);
+                            branchesStack.add(getPredecessorsRanked(naiveExtension.get(naiveExtension.size()-1), graph, lookahead));
+                        }
+                        else {
+                            branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
+                        }
                         
                         found = true;
                         break;
@@ -1829,7 +1852,6 @@ public final class GraphUtils {
                             }
 
                             branchesStack.clear();
-                            branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
 
                             kmers.addAll(extension);
                             kmers.add(n);
@@ -1842,6 +1864,15 @@ public final class GraphUtils {
                             }
                             else {
                                 usedPairs.add(mergedSeq);
+                            }
+                            
+                            ArrayList<Kmer> naiveExtension = naiveExtendLeft(n, graph, maxTipLength, new HashSet<>(), false);
+                            if (!naiveExtension.isEmpty()) {
+                                kmers.addAll(naiveExtension);
+                                branchesStack.add(getPredecessorsRanked(naiveExtension.get(naiveExtension.size()-1), graph, lookahead));
+                            }
+                            else {
+                                branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
                             }
                         }
                         else {
@@ -2301,7 +2332,7 @@ public final class GraphUtils {
         return sb.toString();
     }
     
-    public static ArrayList<Kmer> naiveExtendLeft(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
+    public static ArrayList<Kmer> naiveExtendLeft(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators, boolean reverseResult) {        
         ArrayList<Kmer> result = new ArrayList<>();
         
         LinkedList<Kmer> neighbors = graph.getPredecessors(kmer);
