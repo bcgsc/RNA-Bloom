@@ -366,6 +366,10 @@ public class RNABloom {
     }
     
     private boolean okToConnectPair(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers) {
+        if (leftKmers.isEmpty() || rightKmers.isEmpty()) {
+            return false;
+        }
+        
         int numKmersNotSeenLeft = 0;
         float minCovLeft = Float.MAX_VALUE;
         
@@ -758,7 +762,7 @@ public class RNABloom {
                     if (!correctedReadPair.corrected || okToConnectPair(leftKmers, rightKmers)) {
                         ArrayList<Kmer> fragmentKmers = overlap(leftKmers, rightKmers, graph, minOverlap);
                         
-                        if (fragmentKmers == null) {
+                        if (fragmentKmers == null || fragmentKmers.isEmpty()) {
                             ArrayList<Kmer> connectedPath = getMaxCoveragePath(graph, leftKmers.get(leftKmers.size()-1), rightKmers.get(0), bound, lookahead);
                             
                             if (connectedPath != null) {
@@ -1461,69 +1465,73 @@ public class RNABloom {
 
                         /** count assembled kmers */
                         int numFragKmers = getNumKmers(fragment, k);
-                        float[] covs = new float[numFragKmers];
-                        fragHashItr.start(fragment);
+                        
+                        if (numFragKmers > 0) {
+                        
+                            float[] covs = new float[numFragKmers];
+                            fragHashItr.start(fragment);
 
-                        int numKmersNotAssembled = 0;
-                        for (int i=0; i<numFragKmers; ++i) {
-                            covs[i] = graph.getCount(fragHvals);
-                            fragHashItr.next();
-                            if (!screeningBf.lookup(fragHvals)) {
-                                ++numKmersNotAssembled;
-                            }
-                        }
-
-                        if (numKmersNotAssembled >= minNumKmersNotAssembled) {
-
-                            /** check whether sequence-wide coverage differences are too large */
-                            boolean covDiffTooLarge = false;
-                            Arrays.sort(covs);
-                            float covLow = covs[0];
-                            float covHigh;
-                            for (int i=1; i<numFragKmers; ++i) {
-                                covHigh = covs[i];
-                                if (covHigh * maxCovGradient > covLow) {
-                                    covDiffTooLarge = true;
-                                    break;
-                                }
-                                covLow = covHigh;
-                            }
-
-                            if (covDiffTooLarge) {
-                                // postpone extension to next round
-                                tmpFout.write(Long.toString(++tmpCid), fragment);
-                                continue;
-                            }
-
-                            String bestAltPath = correctMismatches(fragment, graph, lookAhead, (int) Math.ceil(0.05 * fragment.length()));
-
-                            boolean bestAltPathAssembled = true;
-                            numKmersNotAssembled = 0;
-                            fragHashItr.start(bestAltPath);
-                            for (int i=0; i<getNumKmers(bestAltPath, k); ++i) {                    
+                            int numKmersNotAssembled = 0;
+                            for (int i=0; i<numFragKmers; ++i) {
+                                covs[i] = graph.getCount(fragHvals);
                                 fragHashItr.next();
                                 if (!screeningBf.lookup(fragHvals)) {
-                                    if (++numKmersNotAssembled >= minNumKmersNotAssembled){
-                                        bestAltPathAssembled = false;
-                                        break;
-                                    }
+                                    ++numKmersNotAssembled;
                                 }
                             }
 
-                            if (!bestAltPathAssembled) {
+                            if (numKmersNotAssembled >= minNumKmersNotAssembled) {
 
-                                String transcript = extendWithPairedKmers(fragment, graph, lookAhead, maxTipLength, beGreedy, screeningBf);
-
-                //                System.out.println(">f\n" + fragment + "\n>t\n" + transcript);
-
-                                /** store assembled kmers */
-                                txptHashItr.start(transcript);
-                                while (txptHashItr.hasNext()) {
-                                    txptHashItr.next();
-                                    screeningBf.add(txptHvals);
+                                /** check whether sequence-wide coverage differences are too large */
+                                boolean covDiffTooLarge = false;
+                                Arrays.sort(covs);
+                                float covLow = covs[0];
+                                float covHigh;
+                                for (int i=1; i<numFragKmers; ++i) {
+                                    covHigh = covs[i];
+                                    if (covHigh * maxCovGradient > covLow) {
+                                        covDiffTooLarge = true;
+                                        break;
+                                    }
+                                    covLow = covHigh;
                                 }
 
-                                fout.write(Long.toString(++cid) + " " + transcript.length() + " " + fragment, transcript);
+                                if (covDiffTooLarge) {
+                                    // postpone extension to next round
+                                    tmpFout.write(Long.toString(++tmpCid), fragment);
+                                    continue;
+                                }
+
+                                String bestAltPath = correctMismatches(fragment, graph, lookAhead, (int) Math.ceil(0.05 * fragment.length()));
+
+                                boolean bestAltPathAssembled = true;
+                                numKmersNotAssembled = 0;
+                                fragHashItr.start(bestAltPath);
+                                for (int i=0; i<getNumKmers(bestAltPath, k); ++i) {                    
+                                    fragHashItr.next();
+                                    if (!screeningBf.lookup(fragHvals)) {
+                                        if (++numKmersNotAssembled >= minNumKmersNotAssembled){
+                                            bestAltPathAssembled = false;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (!bestAltPathAssembled) {
+
+                                    String transcript = extendWithPairedKmers(fragment, graph, lookAhead, maxTipLength, beGreedy, screeningBf);
+
+                    //                System.out.println(">f\n" + fragment + "\n>t\n" + transcript);
+
+                                    /** store assembled kmers */
+                                    txptHashItr.start(transcript);
+                                    while (txptHashItr.hasNext()) {
+                                        txptHashItr.next();
+                                        screeningBf.add(txptHvals);
+                                    }
+
+                                    fout.write(Long.toString(++cid) + " " + transcript.length() + " " + fragment, transcript);
+                                }
                             }
                         }
                     }
@@ -1687,9 +1695,11 @@ public class RNABloom {
         
         System.out.println("args: " + Arrays.toString(args));
         
-        // -left /projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/gapdh
         // -left /home/gengar/test_data/GAPDH/GAPDH_2.fq.gz -right /home/gengar/test_data/GAPDH/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /home/gengar/test_assemblies/GAPDH
+        // -dm 1 -cm 2.5 -pm 0.5 -left /home/gengar/test_data/SRR1360926/SRR1360926_2.fastq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926_1.fastq.gz -revcomp-right -stranded -name SRR1360926 -outdir /home/gengar/test_assemblies/SRR1360926
 
+        
+        // -left /projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/gapdh
         // -dm 1 -cm 2.5 -pm 0.5 -left /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_2.fq -right /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_1.fq -revcomp-right -stranded -name SRR1360926 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1360926
         // -dm 3 -cm 7.5 -pm 1.5 -left /projects/btl2/kmnip/ENCODE/MCF-7_nucleus_all_2.fq.gz -right /projects/btl2/kmnip/ENCODE/MCF-7_nucleus_all_1.fq.gz -revcomp-right -stranded -name mcf7 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/mcf7
         
@@ -1991,7 +2001,7 @@ public class RNABloom {
             int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), "10"));
             int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
             int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
-            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "7"));
+            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "5"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
