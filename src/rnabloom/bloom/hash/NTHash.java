@@ -469,8 +469,8 @@ public class NTHash {
     
     /**
      * Multihash ntHash for sliding k-mers
-     * @param charOut   nucleotide to remove
-     * @param charIn    nucleotide to add
+     * @param charOut   nucleotide to remove from the left
+     * @param charIn    nucleotide to add to the right
      * @param k         length of kmer
      * @param m         number of hash values to generate
      * @param hVal      array to store hash values
@@ -484,6 +484,36 @@ public class NTHash {
             tVal ^= tVal >> multiShift;
             hVal[i] = tVal;
         }
+    }
+    
+    /**
+     * Multihash ntHash for sliding k-mers
+     * @param charOut   nucleotide to remove from the left
+     * @param charIns    nucleotides to add to the right
+     * @param k         length of kmer
+     * @param m         number of hash values to generate
+     * @param hVal      array to store hash values
+     * @return hash values for each nucleotide added
+     */
+    public static long[][] NTM64(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal) {
+        long bVal, tVal;
+        
+        final long roLeft = Long.rotateLeft(hVal[0], 1);
+        
+        int numIns = charIns.length;
+        final long[][] results = new long[numIns][m];
+        
+        for (int c=0; c<numIns; ++c) {
+            bVal = roLeft ^ msTab[charOut][k%64] ^ msTab[charIns[c]][0];
+            results[c][0] = bVal;
+            for(int i=1; i<m; ++i) {
+                tVal = bVal * (i ^ k * multiSeed);
+                tVal ^= tVal >> multiShift;
+                results[c][i] = tVal;
+            }
+        }
+        
+        return results;
     }
     
     /**
@@ -507,8 +537,8 @@ public class NTHash {
     
     /**
      * Multihash ntHash for backward-sliding k-mers
-     * @param charOut   nucleotide to remove
-     * @param charIn    nucleotide to add
+     * @param charOut   nucleotide to remove from the right
+     * @param charIn    nucleotide to add to the left
      * @param k         length of kmer
      * @param m         number of hash values to generate
      * @param hVal      array to store hash values
@@ -522,6 +552,36 @@ public class NTHash {
             tVal ^= tVal >> multiShift;
             hVal[i] = tVal;
         }
+    }
+    
+    /**
+     * Multihash ntHash for backward-sliding k-mers
+     * @param charOut   nucleotide to remove from the right
+     * @param charIns    nucleotides to add to the left
+     * @param k         length of kmer
+     * @param m         number of hash values to generate
+     * @param hVal      array to store hash values
+     * @return hash values for each nucleotide added
+     */
+    public static long[][] NTM64B(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal) {
+        long bVal, tVal;
+        
+        final long roRight = Long.rotateRight(hVal[0], 1);
+        
+        int numIns = charIns.length;
+        final long[][] results = new long[numIns][m];
+        
+        for (int c=0; c<numIns; ++c) {
+            bVal = roRight ^ msTab[charOut][0] ^ msTab[charIns[c]][k%64];
+            results[c][0] = bVal;
+            for(int i=1; i<m; ++i) {
+                tVal = bVal * (i ^ k * multiSeed);
+                tVal ^= tVal >> multiShift;
+                results[c][i] = tVal;
+            }
+        }
+        
+        return results;
     }
     
     /**

@@ -6,6 +6,8 @@
 package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.NTHash.NTM64;
+import static rnabloom.bloom.hash.NTHash.NTM64B;
+
 
 /**
  *
@@ -13,6 +15,7 @@ import static rnabloom.bloom.hash.NTHash.NTM64;
  */
 public class HashFunction2 {
     protected final int k;
+    public final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
     
     public HashFunction2(int k) {
         this.k = k;
@@ -23,6 +26,14 @@ public class HashFunction2 {
                               final long[] out) {
         NTM64(kmer, k, numHash, out);
     }
+    
+    public long[][] getSuccessorsHashValues(final int numHash, final long[] hVals, final char leftMostNucleotide) {
+        return NTM64(leftMostNucleotide, NUCLEOTIDES, k, numHash, hVals);
+    }
+
+    public long[][] getPredecessorsHashValues(final int numHash, final long[] hVals, final char rightMostNucleotide) {
+        return NTM64B(rightMostNucleotide, NUCLEOTIDES, k, numHash, hVals);
+    }    
     
     public NTHashIterator getHashIterator(final int numHash) {
         return new NTHashIterator(k, numHash);
