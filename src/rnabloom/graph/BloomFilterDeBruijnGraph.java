@@ -21,6 +21,7 @@ import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction2;
 import rnabloom.bloom.hash.HashFunction2;
+import static rnabloom.bloom.hash.HashFunction2.NUCLEOTIDES;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.util.SeqUtils.KmerSeqIterator;
 import static rnabloom.util.SeqUtils.getNumKmers;
@@ -30,8 +31,6 @@ import static rnabloom.util.SeqUtils.getNumKmers;
  * @author kmnip
  */
 public class BloomFilterDeBruijnGraph {
-    
-    private final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
     
     private final BloomFilter dbgbf;
     private final CountingBloomFilter cbf;
@@ -367,8 +366,8 @@ public class BloomFilterDeBruijnGraph {
         public String seq;
         public float count;
         public long[] hashVals;
-//        public LinkedList<Kmer> predecessors = null;
-//        public LinkedList<Kmer> successors = null;
+        public LinkedList<Kmer> predecessors = null;
+        public LinkedList<Kmer> successors = null;
                 
         public Kmer(String seq, float count, long[] hashVals) {
             this.seq = seq;
@@ -389,26 +388,50 @@ public class BloomFilterDeBruijnGraph {
         return kmer.substring(1, k);
     }
     
+    public CharSequence getPrefixCharSeq(String kmer) {
+        return kmer.subSequence(0, overlap);
+    }
+    
+    public CharSequence getSuffixCharSeq(String kmer) {
+        return kmer.subSequence(1, k);
+    }
+    
     public LinkedList<Kmer> getPredecessors(Kmer kmer) {
-//        if (kmer.predecessors != null) {
-//            return kmer.predecessors;
-//        }
+        if (kmer.predecessors != null) {
+            return kmer.predecessors;
+        }
         
         LinkedList<Kmer> result = new LinkedList<>();
-        final String prefix = getPrefix(kmer.seq);
-        long[] hashVals = new long[dbgbfCbfMaxNumHash];
-        for (char c : NUCLEOTIDES) {
-            String v = c + prefix;
-            hashFunction.getHashValues(v, dbgbfCbfMaxNumHash, hashVals);
-            if (dbgbf.lookup(hashVals)) {
-                float count = cbf.getCount(hashVals);
+        
+        final StringBuilder buffer = new StringBuilder(k);
+        buffer.append('A');
+        buffer.append(getPrefix(kmer.seq));
+               
+        long[][] allHashVals = hashFunction.getPredecessorsHashValues(dbgbfCbfMaxNumHash, kmer.hashVals, kmer.seq.charAt(k-1));
+        
+        for (int i=0; i<4; ++i) {
+            if (dbgbf.lookup(allHashVals[i])) {
+                float count = cbf.getCount(allHashVals[i]);
                 if (count > 0) {
-                    result.add(new Kmer(v, count, hashVals));
+                    buffer.setCharAt(0, NUCLEOTIDES[i]);
+                    result.add(new Kmer(buffer.toString(), count, allHashVals[i]));
                 }
             }
         }
         
-//        kmer.predecessors = result;
+//        long[] hashVals = new long[dbgbfCbfMaxNumHash];
+//        for (char c : NUCLEOTIDES) {
+//            String v = c + prefix;
+//            hashFunction.getHashValues(v, dbgbfCbfMaxNumHash, hashVals);
+//            if (dbgbf.lookup(hashVals)) {
+//                float count = cbf.getCount(hashVals);
+//                if (count > 0) {
+//                    result.add(new Kmer(v, count, hashVals));
+//                }
+//            }
+//        }
+        
+        kmer.predecessors = result;
         
         return result;
     }
@@ -431,25 +454,43 @@ public class BloomFilterDeBruijnGraph {
     }
 
     public LinkedList<Kmer> getSuccessors(Kmer kmer) {
-//        if (kmer.successors != null) {
-//            return kmer.successors;
-//        }
+        if (kmer.successors != null) {
+            return kmer.successors;
+        }
         
         LinkedList<Kmer> result = new LinkedList<>();
-        final String suffix = getSuffix(kmer.seq);
-        long[] hashVals = new long[dbgbfCbfMaxNumHash];
-        for (char c : NUCLEOTIDES) {
-            String v = suffix + c;
-            hashFunction.getHashValues(v, dbgbfCbfMaxNumHash, hashVals);
-            if (dbgbf.lookup(hashVals)) {
-                float count = cbf.getCount(hashVals);
+        
+        final StringBuilder buffer = new StringBuilder(k);
+        buffer.append(getSuffix(kmer.seq));
+        buffer.append('A');
+               
+        long[][] allHashVals = hashFunction.getSuccessorsHashValues(dbgbfCbfMaxNumHash, kmer.hashVals, kmer.seq.charAt(0));
+        
+        int lastIndex = k-1;
+        for (int i=0; i<4; ++i) {
+            if (dbgbf.lookup(allHashVals[i])) {
+                float count = cbf.getCount(allHashVals[i]);
                 if (count > 0) {
-                    result.add(new Kmer(v, count, hashVals));
+                    buffer.setCharAt(lastIndex, NUCLEOTIDES[i]);
+                    result.add(new Kmer(buffer.toString(), count, allHashVals[i]));
                 }
             }
         }
         
-//        kmer.successors = result;
+//        final String suffix = getSuffix(kmer.seq);
+//        long[] hashVals = new long[dbgbfCbfMaxNumHash];
+//        for (char c : NUCLEOTIDES) {
+//            String v = suffix + c;
+//            hashFunction.getHashValues(v, dbgbfCbfMaxNumHash, hashVals);
+//            if (dbgbf.lookup(hashVals)) {
+//                float count = cbf.getCount(hashVals);
+//                if (count > 0) {
+//                    result.add(new Kmer(v, count, hashVals));
+//                }
+//            }
+//        }
+        
+        kmer.successors = result;
         
         return result;
     }
