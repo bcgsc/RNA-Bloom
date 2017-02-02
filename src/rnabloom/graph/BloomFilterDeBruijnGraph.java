@@ -419,6 +419,7 @@ public class BloomFilterDeBruijnGraph {
             }
         }
         
+//        String prefix = getPrefix(kmer.seq);
 //        long[] hashVals = new long[dbgbfCbfMaxNumHash];
 //        for (char c : NUCLEOTIDES) {
 //            String v = c + prefix;

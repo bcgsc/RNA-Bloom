@@ -2001,7 +2001,7 @@ public class RNABloom {
             int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), "10"));
             int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
             int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
-            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "5"));
+            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "7"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
