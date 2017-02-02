@@ -5,10 +5,6 @@
  */
 package rnabloom.bloom.hash;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import static rnabloom.util.SeqUtils.kmerizeToCollection;
-import static rnabloom.util.SeqUtils.reverseComplement;
 
 /**
  *
@@ -20,10 +16,10 @@ public class NTHash {
     // offset for the complement base in the random seeds table
     private static final int cpOff = 0x07;
 
-    // shift for gerenerating multiple hash values
+    // shift for generating multiple hash values
     private static final int multiShift = 27;
 
-    // seed for gerenerating multiple hash values
+    // seed for generating multiple hash values
     private final static long multiSeed = 0x90b45d39fb6da1faL;
 
     // 64-bit random seeds corresponding to bases and their complements
@@ -158,6 +154,15 @@ public class NTHash {
         seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN  // 248..255
     };
 
+//    // rotate "v" to the left by "s" positions
+//    public static long rol(final long v, final int s) {
+//        return (v << s) | (v >>> (64 - s));
+//    }
+//
+//    // rotate "v" to the right by "s" positions
+//    public static long ror(final long v, final int s) {
+//        return (v >>> s) | (v << (64 - s));
+//    }
 
     /** 
      * Forward-strand hash value of the base kmer, i.e. fhval(kmer_0)
@@ -205,7 +210,7 @@ public class NTHash {
     public static long NT64(final CharSequence kmerSeq, final int k, final int seed) {
         long hVal = getFhval(kmerSeq, k);
         hVal *= seed ^ k * multiSeed;
-        hVal ^= hVal >> multiShift;
+        hVal ^= hVal >>> multiShift;
         return hVal;
     }
     
@@ -283,7 +288,7 @@ public class NTHash {
     public static long NTC64(final CharSequence kmerSeq, final int k, final int seed) {
         long hVal = NTC64(kmerSeq,k);
         hVal *= seed ^ k * multiSeed;
-        hVal ^= hVal >> multiShift;
+        hVal ^= hVal >>> multiShift;
         return hVal;
     }
 
@@ -328,7 +333,7 @@ public class NTHash {
     public static long NTP64(final CharSequence kmerSeq, final int k, final int seed) {
         long hVal = NTP64(kmerSeq, k);
         hVal *= seed ^ k * multiSeed;
-        hVal ^= hVal >> multiShift;
+        hVal ^= hVal >>> multiShift;
         return hVal;
     }
     
@@ -353,7 +358,7 @@ public class NTHash {
      * @return          hash value
      */
     public static long NTP64B(final long fhVal, final char charOut, final char charIn, final int k) {
-        return(Long.rotateRight(fhVal, 1) ^ msTab[charOut][0] ^ msTab[charIn][k%64]);
+        return(Long.rotateRight(fhVal, 1) ^ msTab[charOut][63] ^ msTab[charIn][(k-1)%64]);
     }
     
     /**
@@ -381,7 +386,7 @@ public class NTHash {
     public static long NTPC64(final CharSequence kmerSeq, final int k, final int seed) {
         long hVal = NTPC64(kmerSeq, k);
         hVal *= seed ^ k * multiSeed;
-        hVal ^= hVal >> multiShift;
+        hVal ^= hVal >>> multiShift;
         return hVal;
     }
     
@@ -444,7 +449,7 @@ public class NTHash {
         hVal[0] = bVal;
         for(int i=1; i<m; ++i) {
             tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >> multiShift;
+            tVal ^= tVal >>> multiShift;
             hVal[i] = tVal;
         }
     }
@@ -462,7 +467,7 @@ public class NTHash {
         hVal[0] = bVal;
         for(int i=1; i<m; ++i) {
             tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >> multiShift;
+            tVal ^= tVal >>> multiShift;
             hVal[i] = tVal;
         }
     }
@@ -481,7 +486,7 @@ public class NTHash {
         hVal[0] = bVal;
         for(int i=1; i<m; ++i) {
             tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >> multiShift;
+            tVal ^= tVal >>> multiShift;
             hVal[i] = tVal;
         }
     }
@@ -498,17 +503,17 @@ public class NTHash {
     public static long[][] NTM64(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal) {
         long bVal, tVal;
         
-        final long roLeft = Long.rotateLeft(hVal[0], 1);
+        final long tmpVal = Long.rotateLeft(hVal[0], 1) ^ msTab[charOut][k%64];
         
         int numIns = charIns.length;
         final long[][] results = new long[numIns][m];
         
         for (int c=0; c<numIns; ++c) {
-            bVal = roLeft ^ msTab[charOut][k%64] ^ msTab[charIns[c]][0];
+            bVal = tmpVal ^ msTab[charIns[c]][0];
             results[c][0] = bVal;
             for(int i=1; i<m; ++i) {
                 tVal = bVal * (i ^ k * multiSeed);
-                tVal ^= tVal >> multiShift;
+                tVal ^= tVal >>> multiShift;
                 results[c][i] = tVal;
             }
         }
@@ -530,7 +535,7 @@ public class NTHash {
         hVal[0] = bVal;
         for(int i=1; i<m; ++i) {
             tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >> multiShift;
+            tVal ^= tVal >>> multiShift;
             hVal[i] = tVal;
         }
     }
@@ -545,11 +550,11 @@ public class NTHash {
      */
     public static void NTM64B(final char charOut, final char charIn, final int k, final int m, final long[] hVal) {
         long bVal, tVal;
-        bVal = Long.rotateRight(hVal[0], 1) ^ msTab[charOut][0] ^ msTab[charIn][k%64];
+        bVal = Long.rotateRight(hVal[0], 1) ^ msTab[charOut][63] ^ msTab[charIn][(k-1)%64];
         hVal[0] = bVal;
         for(int i=1; i<m; ++i) {
             tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >> multiShift;
+            tVal ^= tVal >>> multiShift;
             hVal[i] = tVal;
         }
     }
@@ -566,17 +571,17 @@ public class NTHash {
     public static long[][] NTM64B(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal) {
         long bVal, tVal;
         
-        final long roRight = Long.rotateRight(hVal[0], 1);
+        final long tmpVal = Long.rotateRight(hVal[0], 1) ^ msTab[charOut][63];
         
         int numIns = charIns.length;
         final long[][] results = new long[numIns][m];
         
         for (int c=0; c<numIns; ++c) {
-            bVal = roRight ^ msTab[charOut][0] ^ msTab[charIns[c]][k%64];
+            bVal = tmpVal ^ msTab[charIns[c]][(k-1)%64];
             results[c][0] = bVal;
             for(int i=1; i<m; ++i) {
                 tVal = bVal * (i ^ k * multiSeed);
-                tVal ^= tVal >> multiShift;
+                tVal ^= tVal >>> multiShift;
                 results[c][i] = tVal;
             }
         }
@@ -597,7 +602,7 @@ public class NTHash {
         hVal[0] = bVal;
         for(int i=1; i<m; ++i) {
             tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >> multiShift;
+            tVal ^= tVal >>> multiShift;
             hVal[i] = tVal;
         }
     }
@@ -616,7 +621,7 @@ public class NTHash {
         hVal[0] = bVal;
         for(int i=1; i<m; ++i) {
             tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >> multiShift;
+            tVal ^= tVal >>> multiShift;
             hVal[i] = tVal;
         }
     }
@@ -636,7 +641,7 @@ public class NTHash {
         hVal[0] = bVal;
         for(int i=1; i<m; ++i) {
             tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >> multiShift;
+            tVal ^= tVal >>> multiShift;
             hVal[i] = tVal;
         }
     }
@@ -656,37 +661,34 @@ public class NTHash {
         hVal[0] = bVal;
         for(int i=1; i<m; ++i) {
             tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >> multiShift;
+            tVal ^= tVal >>> multiShift;
             hVal[i] = tVal;
         }
     }
             
     public static void main(String[] args) {
-        String seq = "ACTGCGGCTGCTCGTGCTGCTCCCCGCACACAC";
+        long h = Long.MIN_VALUE;
+        
+        System.out.println(Long.toBinaryString(h));
+                
+        System.out.println(Long.toBinaryString(Long.rotateLeft(h, 1)));
+//        System.out.println(Long.toBinaryString(rol(h, 1)));
+        
+        System.out.println(Long.toBinaryString(Long.rotateRight(h, 1)));
+//        System.out.println(Long.toBinaryString(ror(h, 1)));
+        
         int k = 25;
-        int h = 3;
+        int m = 2;
+
+        //            "123456789012345678901234567890"
+        String seq =  "AAAAAAAAAAAAAAAAAAAAAAAAA";
+        long hVal = NTP64(seq, k);
+        System.out.println(hVal);
         
-        ArrayList<String> kmers = new ArrayList<>();
-        kmerizeToCollection(reverseComplement(seq), k, kmers);
-        Collections.reverse(kmers);
-        
-        long[] hVals = new long[h];
-        
-        //NTHashIterator itr = new NTHashIterator(seq, k, h);
-        ReverseComplementNTHashIterator itr = new ReverseComplementNTHashIterator(k, h);
-        itr.start(seq);
-        long[] itrHVals = itr.hVals;
-        
-        for (String kmer : kmers) {
-            NTM64(kmer, k, h, hVals);
-            itr.next();
-            
-            for (int i=0; i<h; ++i) {
-                if (hVals[i] != itrHVals[i]) {
-                    System.out.println("uhoh");
-                    return;
-                }
-            }
-        }
+        String seq0 = "CAAAAAAAAAAAAAAAAAAAAAAAA";
+        System.out.println(NTP64(seq0, k));
+
+
+        System.out.println(NTP64B(hVal, 'A', 'C', k));
     }
 }
