@@ -1542,6 +1542,10 @@ public class RNABloom {
             
             tmpFout.close();
             
+            System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments.");
+            
+            numFragmentsParsed = 0;
+            
             System.out.println("Parsing fragments in `" + tmpFasta + "`...");
             
             /** evaluate and extend postponed fragments */
@@ -2129,6 +2133,7 @@ public class RNABloom {
                 
                 assembler.assembleTranscripts(longFragmentsFastaPaths, shortFragmentsFastaPaths, transcriptsFasta, tmpFasta, lookahead, maxTipLen, maxCovGradient, sbfSize, sbfNumHash);
 
+                System.out.println("Transcripts assembled in `" + transcriptsFasta + "`");
                 System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
                 
                 try {
