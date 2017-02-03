@@ -73,6 +73,18 @@ public class PairedKeysBloomFilter extends BloomFilter {
         
         return true;
     }
+    
+    public boolean lookupPair(long[] hash1, long[] hash2) {
+        long[] hash = hashFunction.getHashValues(hash1, hash2, numHash);
+        
+        for (int h=0; h<numHash; ++h) {
+            if (!bitArray.get(getIndex(hash[h]))) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
 
     public boolean lookupSingleAndPair(String key1, String key2) {
         long[] hash1 = new long[numHash];
@@ -93,16 +105,6 @@ public class PairedKeysBloomFilter extends BloomFilter {
     }
     
     public boolean lookupSingleAndPair(long[] hash1, long[] hash2) {
-        long[] hash3 = hashFunction.getHashValues(hash1, hash2, numHash);
-        
-        for (int h=0; h<numHash; ++h) {
-            if (!bitArray.get(getIndex(hash1[h])) ||
-                    !bitArray.get(getIndex(hash2[h])) ||
-                    !bitArray.get(getIndex(hash3[h]))) {
-                return false;
-            }
-        }
-        
-        return true;
+        return lookup(hash1) && lookup(hash2) && lookupPair(hash1, hash2);
     }
 }

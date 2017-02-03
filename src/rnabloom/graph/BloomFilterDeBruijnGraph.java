@@ -313,6 +313,10 @@ public class BloomFilterDeBruijnGraph {
         return pkbf.lookupSingleAndPair(hashVals1, hashVals2);
     }
     
+    public boolean lookupKmerPairing(long[] hashVals1, long[] hashVals2) {
+        return pkbf.lookupPair(hashVals1, hashVals2);
+    }
+    
     public boolean contains(String kmer) {
         return dbgbf.lookup(kmer);
     }
