@@ -1653,6 +1653,11 @@ public final class GraphUtils {
         // kmer pairs used in the extension of this transcript
         final HashSet<String> usedPairs = new HashSet<>();
         
+        final HashSet<String> usedKmers = new HashSet<>();
+        for (Kmer kmer : kmers) {
+            usedKmers.add(kmer.seq);
+        }
+        
         // extend right
   
         Kmer n, partner;
@@ -1678,6 +1683,13 @@ public final class GraphUtils {
                     extension.removeLast().successors = null; // prune the cached successors
                 }
             }
+            else if (depth == 0 && neighbors.size() == 1 && !usedKmers.contains(neighbors.peek().seq)) {
+                // naive extension
+                n = neighbors.removeFirst();
+                kmers.add(n);
+                usedKmers.add(n.seq);
+                branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
+            }
             else if (depth >= maxDepth) {
                 partner = kmers.get(kmers.size() - distance + depth);
 
@@ -1698,6 +1710,12 @@ public final class GraphUtils {
 
                                 kmers.addAll(extension);
                                 kmers.add(n);
+                                
+                                for (Kmer kmer : extension) {
+                                    usedKmers.add(kmer.seq);
+                                }
+                                usedKmers.add(n.seq);
+                                
                                 extension.clear();
                                 visitedKmers.clear();
 
@@ -1745,6 +1763,11 @@ public final class GraphUtils {
 
                             kmers.addAll(extension);
                             kmers.add(n);
+                            
+                            for (Kmer kmer : extension) {
+                                usedKmers.add(kmer.seq);
+                            }
+                            usedKmers.add(n.seq);
                             
                             extension.clear();
                             visitedKmers.clear();
@@ -1796,6 +1819,13 @@ public final class GraphUtils {
                     extension.removeLast().predecessors = null; // prune the cached predecessors
                 }
             }
+            else if (depth == 0 && neighbors.size() == 1 && !usedKmers.contains(neighbors.peek().seq)) {
+                // naive extension
+                n = neighbors.removeFirst();
+                kmers.add(n);
+                usedKmers.add(n.seq);
+                branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
+            }
             else if (depth >= maxDepth) {
                 partner = kmers.get(kmers.size() - distance + depth);
                 
@@ -1816,6 +1846,12 @@ public final class GraphUtils {
 
                                 kmers.addAll(extension);
                                 kmers.add(n);
+                                
+                                for (Kmer kmer : extension) {
+                                    usedKmers.add(kmer.seq);
+                                }
+                                usedKmers.add(n.seq);
+                                
                                 extension.clear();
                                 visitedKmers.clear();
 
@@ -1863,7 +1899,10 @@ public final class GraphUtils {
 
                             kmers.addAll(extension);
                             kmers.add(n);
-                            
+                            for (Kmer kmer : extension) {
+                                usedKmers.add(kmer.seq);
+                            }
+                            usedKmers.add(n.seq);
                             extension.clear();
                             visitedKmers.clear();
 
