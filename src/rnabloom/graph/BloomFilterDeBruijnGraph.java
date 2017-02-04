@@ -363,7 +363,7 @@ public class BloomFilterDeBruijnGraph {
     public Kmer getKmer(String kmer) {
         final long[] hashVals = new long[dbgbfCbfMaxNumHash];
         hashFunction.getHashValues(kmer, dbgbfCbfMaxNumHash, hashVals);
-        return new Kmer(kmer, this.getCount(hashVals), hashVals);
+        return new Kmer(kmer, this.getCount(hashVals), hashVals, false);
     }
     
     public static class Kmer {
@@ -377,6 +377,17 @@ public class BloomFilterDeBruijnGraph {
             this.seq = seq;
             this.count = count;
             this.hashVals = Arrays.copyOf(hashVals, hashVals.length);
+        }
+        
+        public Kmer(String seq, float count, long[] hashVals, boolean copyHashVals) {
+            this.seq = seq;
+            this.count = count;
+            if (copyHashVals) {
+                this.hashVals = Arrays.copyOf(hashVals, hashVals.length);
+            }
+            else {
+                this.hashVals = hashVals;
+            }
         }
         
         public boolean equals(Kmer other) {
@@ -418,7 +429,7 @@ public class BloomFilterDeBruijnGraph {
                 float count = cbf.getCount(allHashVals[i]);
                 if (count > 0) {
                     buffer.setCharAt(0, NUCLEOTIDES[i]);
-                    result.add(new Kmer(buffer.toString(), count, allHashVals[i]));
+                    result.add(new Kmer(buffer.toString(), count, allHashVals[i], false));
                 }
             }
         }
@@ -477,7 +488,7 @@ public class BloomFilterDeBruijnGraph {
                 float count = cbf.getCount(allHashVals[i]);
                 if (count > 0) {
                     buffer.setCharAt(lastIndex, NUCLEOTIDES[i]);
-                    result.add(new Kmer(buffer.toString(), count, allHashVals[i]));
+                    result.add(new Kmer(buffer.toString(), count, allHashVals[i], false));
                 }
             }
         }
