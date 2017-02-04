@@ -1397,7 +1397,7 @@ public class RNABloom {
                     numMismatchBases += numKmersNotSeen;
                 }
                 else if (numKmersNotSeen > 0) {
-                    if (hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
+                    if (numKmersNotSeen < k+maxIndelSize && hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
                         numMismatchBases += numKmersNotSeen - k + 1;
                     }
                     else {
