@@ -1172,6 +1172,10 @@ public class RNABloom {
                 out.close();
             }
             
+            for (FastaWriter out : shortFragmentsOut) {
+                out.close();
+            }
+            
         } catch (IOException ex) {
             Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
         } catch (InterruptedException ex) {
