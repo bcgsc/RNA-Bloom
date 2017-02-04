@@ -249,6 +249,69 @@ public final class GraphUtils {
         }
     }
     
+    public static boolean hasValidPath(BloomFilterDeBruijnGraph graph, Kmer left, Kmer right, BloomFilter bf, int lowerBound, int upperBound) {
+        LinkedList<Kmer> frontier = new LinkedList<>();
+        frontier.addAll(graph.getSuccessors(left));
+        
+        HashSet<String> kmersInFrontier = new HashSet<>();
+        LinkedList<Kmer> newFrontier;
+        for (int i=1; i<lowerBound; ++i) {
+            kmersInFrontier.clear();
+            newFrontier = new LinkedList<>();
+            for (Kmer kmer : frontier) {
+                if (bf.lookup(kmer.hashVals)) {
+                    for (Kmer s : graph.getSuccessors(kmer)) {
+                        if (!kmersInFrontier.contains(s.seq)) { 
+                            newFrontier.add(s);
+                            kmersInFrontier.add(s.seq);
+                        }
+                    }
+                }
+            }
+            
+            if (newFrontier.isEmpty()) {
+                return false;
+            }
+            
+            frontier = newFrontier;
+        }
+        
+        for (int i=lowerBound; i<upperBound; ++i) {
+            kmersInFrontier.clear();
+            newFrontier = new LinkedList<>();
+            for (Kmer kmer : frontier) {
+                if (bf.lookup(kmer.hashVals)) {
+                    if (kmer.equals(right)) {
+                        return true;
+                    }
+                    newFrontier.add(kmer);
+                    for (Kmer s : graph.getSuccessors(kmer)) {
+                        if (!kmersInFrontier.contains(s.seq)) { 
+                            newFrontier.add(s);
+                            kmersInFrontier.add(s.seq);
+                        }
+                    }
+                }
+            }
+            
+            if (newFrontier.isEmpty()) {
+                return false;
+            }
+            
+            frontier = newFrontier;
+        }
+        
+        for (Kmer kmer : frontier) {
+            if (bf.lookup(kmer.hashVals)) {
+                if (kmer.equals(right)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
     /**
      * 
      * @param graph
@@ -1015,19 +1078,30 @@ public final class GraphUtils {
         return gradients;
     }
 
-    public static String assemble(ArrayList<Kmer> kmers) {
-        
-        String first = kmers.get(0).seq;
-        int k = first.length();
-        int lastIndex = k - 1;
-        
-        StringBuilder sb = new StringBuilder(k + kmers.size() - 1);
-        sb.append(first.substring(0, lastIndex));
-        
+    public static String assemble(ArrayList<Kmer> kmers, int k) {
+        StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+
+        int lastIndex = k - 1;        
+        sb.append(kmers.get(0).seq.substring(0, lastIndex));        
         for (Kmer kmer : kmers) {
             sb.append(kmer.seq.charAt(lastIndex));
         }
-        
+
+        // surprisingly slower!
+//        int numKmers = kmers.size();
+//        int length = numKmers + k - 1;
+//        StringBuilder sb = new StringBuilder(length);
+//        int numNonOverlappingKmers = length/k;
+//
+//        for (int i=0; i<numNonOverlappingKmers; ++i) {
+//            sb.append(kmers.get(i*k).seq);
+//        }
+//
+//        int remainder = length % k;
+//        if (remainder > 0) {
+//            sb.append(kmers.get(numKmers-1).seq.substring(k-remainder));
+//        }
+                
         return sb.toString();
     }
 
@@ -1350,24 +1424,29 @@ public final class GraphUtils {
         
         rightWing = right.substring(k-1);
         
-        return leftWing + assemble(pathKmers) + rightWing;
+        return leftWing + assemble(pathKmers, k) + rightWing;
     }
     
     public static ArrayList<Kmer> overlap(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, BloomFilterDeBruijnGraph graph, int minOverlap) {
-        String left = assemble(leftKmers);
-        String right = assemble(rightKmers);
+        int k = graph.getK();
+        
+        String left = assemble(leftKmers, k);
+        String right = assemble(rightKmers, k);
         
         String overlapped = overlapMaximally(left, right, minOverlap);
         
         if (overlapped != null) {
-            ArrayList<Kmer> overlappedKmers = graph.getKmers(overlapped);
-            for (Kmer kmer : overlappedKmers) {
-                if (kmer.count <= 0) {
-                    return null;
+            int overlappedLength = overlapped.length();
+            if (overlappedLength >= left.length() && overlappedLength >= right.length()) {
+                ArrayList<Kmer> overlappedKmers = graph.getKmers(overlapped);
+                for (Kmer kmer : overlappedKmers) {
+                    if (kmer.count <= 0) {
+                        return null;
+                    }
                 }
+
+                return overlappedKmers;
             }
-            
-            return overlappedKmers;
         }
         
         return null;
@@ -1932,7 +2011,7 @@ public final class GraphUtils {
         
         Collections.reverse(kmers);
         
-        return assemble(kmers);
+        return assemble(kmers, k);
     }
     
     private static boolean hasFragmentDepthRight(String source, BloomFilterDeBruijnGraph graph, int depth) {
@@ -2424,4 +2503,21 @@ public final class GraphUtils {
         
         return result;
     }
+    
+//    public static void main(String[] args) {
+////        String seq = "AAAAAAAAAAA";
+//        String seq = "AAAAAAAAAAACCC";
+////        String seq = "AAAAAAAAAAACCCCCCCCCCCGGGGGGGGGGG";
+////        String seq = "AAAAAAAAAAACCCCCCCCCCCGGGGGGGGGGGTTT";
+//        System.out.println(seq);
+//        
+//        int k = 11;
+//        
+//        ArrayList<Kmer> kmers = new ArrayList<>();
+//        for (String kmer : SeqUtils.kmerize(seq, k)) {
+//             kmers.add(new Kmer(kmer, 1, new long[0]));
+//        }
+//
+//        System.out.println(assemble(kmers, k));
+//    }
 }
