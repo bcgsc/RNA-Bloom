@@ -1415,6 +1415,9 @@ public class RNABloom {
             }
             else {
                 ++numKmersNotSeen;
+                if (numKmersNotSeen > maxMismatchesAllowed) {
+                    return true;
+                }
             }
         }
         
