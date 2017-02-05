@@ -1830,7 +1830,7 @@ public final class GraphUtils {
                 }
             }
             else {
-                if (depth == 0 && greedy) {
+                if (depth == 0) {
                     Kmer best = null;
                     for (Kmer neighbor : neighbors) {
                         if (neighbor.count >= minCoverageThreshold) {
@@ -1988,7 +1988,7 @@ public final class GraphUtils {
                 }
             }
             else {
-                if (depth == 0 && greedy) {
+                if (depth == 0) {
                     Kmer best = null;
                     for (Kmer neighbor : neighbors) {
                         if (neighbor.count >= minCoverageThreshold) {
