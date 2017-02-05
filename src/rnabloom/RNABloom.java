@@ -361,8 +361,9 @@ public class RNABloom {
             }
         }
 
-        return numKmersNotSeenLeft >= k || numKmersNotSeenLeft >= minCovLeft || numKmersNotSeenLeft == getNumKmers(left, k ) ||
-                numKmersNotSeenRight >= k || numKmersNotSeenRight >= minCovRight || numKmersNotSeenRight == getNumKmers(right, k);
+        return numKmersNotSeenLeft > 0 || numKmersNotSeenRight > 0;
+//        return numKmersNotSeenLeft >= k || numKmersNotSeenLeft >= minCovLeft || numKmersNotSeenLeft == getNumKmers(left, k ) ||
+//                numKmersNotSeenRight >= k || numKmersNotSeenRight >= minCovRight || numKmersNotSeenRight == getNumKmers(right, k);
     }
     
     private boolean okToConnectPair(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers) {
@@ -1382,10 +1383,10 @@ public class RNABloom {
         }
     }
     
-    private boolean hasNotYetAssembled(ArrayList<Kmer> kmers, BloomFilter screeningBf, int maxIndelSize, float maxPercentBasesAssembled) {
+    private boolean hasNotYetAssembled(ArrayList<Kmer> kmers, BloomFilter screeningBf, int maxIndelSize, float perecentIdentity) {
         int length = kmers.size() + k - 1;
         
-        int maxMismatchesAllowed = (int) (length * (1.0f - maxPercentBasesAssembled));
+        int maxMismatchesAllowed = (int) (length * (1.0f - perecentIdentity));
         int numMismatchBases = 0;
         
         Kmer lastGoodKmer = null;
@@ -1426,7 +1427,7 @@ public class RNABloom {
         return numMismatchBases > maxMismatchesAllowed;
     }
     
-    public void assembleTranscripts(String[] longFragmentsFastas, String[] shortFragmentsFastas, String outFasta, String tmpFasta, int lookAhead, int maxTipLength, float maxCovGradient, long sbfNumBits, int sbfNumHash) {
+    public void assembleTranscripts(String[] longFragmentsFastas, String[] shortFragmentsFastas, String outFasta, int lookAhead, int maxTipLength, float maxCovGradient, long sbfNumBits, int sbfNumHash) {
         if (dbgFPR <= 0) {
             dbgFPR = graph.getDbgbf().getFPR();
         }
@@ -1436,7 +1437,7 @@ public class RNABloom {
         }
         
         int maxIndelSize = 1;
-        float maxPercentBasesAssembled = 0.95f;
+        float percentIdentity = 0.95f;
         
         System.out.println("Assembling transcripts...");
         long numFragmentsParsed = 0;
@@ -1454,14 +1455,16 @@ public class RNABloom {
             for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
                 boolean beGreedy = mag > 0;
                 
-                for (String fragmentsFasta : new String[]{longFragmentsFastas[mag], shortFragmentsFastas[mag]}) {
+                String prefix = "L" + mag + ".";
                 
+                for (String fragmentsFasta : new String[]{longFragmentsFastas[mag], shortFragmentsFastas[mag]}) {
+                    
                     System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
 
                     fin = new FastaReader(fragmentsFasta);
 
                     String fragment;
-    //                float minCoverageThreshold = (float) Math.pow(10, mag);
+                    float minCoverageThreshold = (float) Math.pow(10, mag);
 
                     while (fin.hasNext()) {
                         if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
@@ -1473,104 +1476,49 @@ public class RNABloom {
                         int numFragKmers = getNumKmers(fragment, k);
                         
                         if (numFragKmers > 0) {
-                        
-//                            float[] covs = new float[numFragKmers];
-//                            fragHashItr.start(fragment);
-//
-//                            /** count assembled kmers */
-//                            int numKmersNotAssembled = 0;
-//                            for (int i=0; i<numFragKmers; ++i) {
-//                                covs[i] = graph.getCount(fragHvals);
-//                                fragHashItr.next();
-//                                if (!screeningBf.lookup(fragHvals)) {
-//                                    ++numKmersNotAssembled;
-//                                }
-//                            }
-//
-//                            if (numKmersNotAssembled >= minNumKmersNotAssembled) {
-//
-//                                /** check whether sequence-wide coverage differences are too large */
-//                                boolean covDiffTooLarge = false;
-//                                Arrays.sort(covs);
-//                                float covLow = covs[0];
-//                                float covHigh;
-//                                for (int i=1; i<numFragKmers; ++i) {
-//                                    covHigh = covs[i];
-//                                    if (covHigh * maxCovGradient > covLow) {
-//                                        covDiffTooLarge = true;
-//                                        break;
-//                                    }
-//                                    covLow = covHigh;
-//                                }
-//
-//                                if (covDiffTooLarge) {
-//                                    // postpone extension to next round
-//                                    tmpFout.write(Long.toString(++tmpCid), fragment);
-//                                    continue;
-//                                }
+                            
+                            String fragmentScrubbed = correctMismatches(fragment, graph, lookAhead, (int) Math.ceil((1.0f - percentIdentity) * fragment.length()));
+                            
+                            if (hasNotYetAssembled(graph.getKmers(fragmentScrubbed), screeningBf, maxIndelSize, percentIdentity)) {
 
-//                                boolean bestAltPathAssembled = true;
-//                                String bestAltPath = correctMismatches(fragment, graph, lookAhead, (int) Math.ceil(0.05 * fragment.length()));
-//                                numKmersNotAssembled = 0;
-//                                fragHashItr.start(bestAltPath);
-//                                for (int i=0; i<getNumKmers(bestAltPath, k); ++i) {                    
-//                                    fragHashItr.next();
-//                                    if (!screeningBf.lookup(fragHvals)) {
-//                                        if (++numKmersNotAssembled >= minNumKmersNotAssembled){
-//                                            bestAltPathAssembled = false;
-//                                            break;
-//                                        }
-//                                    }
-//                                }
+                                /** check whether sequence-wide coverage differences are too large */
+                                int numFalsePositivesAllowed = (int) Math.round(numFragKmers * covFPR);
+                                float[] covs = graph.getCounts(fragmentScrubbed);
 
-                                ArrayList<Kmer> fragmentKmers = graph.getKmers(fragment);
-
-                                if (hasNotYetAssembled(fragmentKmers, screeningBf, maxIndelSize, maxPercentBasesAssembled)) {
-                                    
-                                    /** check whether sequence-wide coverage differences are too large */
-                                    
-                                    float[] covs = new float[numFragKmers];
-                                    for (int i=0; i<numFragKmers; ++i) {
-                                        covs[i] = fragmentKmers.get(i).count;
+                                boolean covDiffTooLarge = false;
+                                Arrays.sort(covs);
+                                float covLow = covs[0];
+                                float covHigh;
+                                for (int i=1; i<numFragKmers-numFalsePositivesAllowed; ++i) {
+                                    covHigh = covs[i];
+                                    if (covHigh * maxCovGradient > covLow) {
+                                        covDiffTooLarge = true;
+                                        break;
                                     }
-                                    
-                                    fragmentKmers.clear();
-                                    
-                                    boolean covDiffTooLarge = false;
-                                    Arrays.sort(covs);
-                                    float covLow = covs[0];
-                                    float covHigh;
-                                    for (int i=1; i<numFragKmers; ++i) {
-                                        covHigh = covs[i];
-                                        if (covHigh * maxCovGradient > covLow) {
-                                            covDiffTooLarge = true;
-                                            break;
-                                        }
-                                        covLow = covHigh;
-                                    }
-                                    
-                                    covs = null;
-
-                                    String transcript = extendWithPairedKmers(fragment, graph, lookAhead, maxTipLength, !covDiffTooLarge && beGreedy, screeningBf);
-                                    
-                                    String transcriptScrubbed = correctMismatches(transcript, graph, k, (int) Math.ceil(0.01 * transcript.length()));
-                                    
-                                    ArrayList<Kmer> transcriptKmers = graph.getKmers(transcriptScrubbed);
-                                    
-                                    if (hasNotYetAssembled(transcriptKmers, screeningBf, maxIndelSize, maxPercentBasesAssembled)) {
-                                    
-                                        for (Kmer kmer : transcriptKmers) {
-                                            screeningBf.add(kmer.hashVals);
-                                        }
-
-                                        fout.write(Long.toString(++cid) + " l=" + transcript.length() + " F=[" + fragment + "]", transcript);
-                                    }
+                                    covLow = covHigh;
                                 }
-//                            }
+
+                                String transcript = extendWithPairedKmers(fragmentScrubbed, graph, lookAhead, maxTipLength, !covDiffTooLarge && beGreedy, screeningBf, minCoverageThreshold);
+
+                                String transcriptScrubbed = correctMismatches(transcript, graph, lookAhead, (int) Math.ceil((1.0f - percentIdentity) * transcript.length()));
+
+                                ArrayList<Kmer> transcriptKmers = graph.getKmers(transcriptScrubbed);
+
+                                if (hasNotYetAssembled(transcriptKmers, screeningBf, maxIndelSize, percentIdentity)) {
+
+                                    for (Kmer kmer : transcriptKmers) {
+                                        screeningBf.add(kmer.hashVals);
+                                    }
+
+                                    fout.write(prefix +  Long.toString(++cid) + " l=" + transcript.length() + " F=[" + fragment + "]", transcript);
+                                }
+                            }
                         }
                     }
 
                     fin.close();
+                    
+                    prefix = "S" + mag + ".";
                 }
             }
             
@@ -1631,12 +1579,13 @@ public class RNABloom {
 
     
     public void testMismatchCorrection() {
-        String seq =  "GCCTGATCACCAGGGCTGCTTGTAACTCTGGGAAAGTGGATATTGTTGCCATCAATGACCCCTTCATTAACCTCAACTACATGGTTTACATGTTCCAATATGATTCCACCCATGGCAAATTCCATGGCACCGTCAAGGCTGAGAACGGGAAGCTTGTCATCAATGGAAATCCCATCACCATCTTCCAGGAGCGAGATCCCTCCAAAATCAAGTGGGGCGATGCTGGCGCTGAGTACGTCGTGGAGTCCACTGGCGTCTTCACCACCATGGAGAAGGCTGGGGCTCAT";
+        String seq =  "AGAGGGGTGATGTGGGGAGTACGCTGCAGGGCCTCACTCCTTTTGCAGACCACAGTCCATGCCATCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCATCCCTGCCTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCTTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCGTCTAGAAAAAC";
         
-        int lookahead = 10;
-        int errorsallowed = 5;
+        int lookahead = 7;
+        float pid = 0.95f;
         
-        String corrected = correctErrors(seq, graph, lookahead, errorsallowed);
+        String corrected = correctMismatches(seq, graph, lookahead, (int) Math.ceil((1.0f - pid) * seq.length()));
+
         
         System.out.println(seq);
         System.out.println(corrected);
@@ -1921,7 +1870,7 @@ public class RNABloom {
             String longFragmentsFastaPrefix = outdir + File.separator + name + ".fragments.long.";
             String shortFragmentsFastaPrefix = outdir + File.separator + name + ".fragments.short.";
             String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
-            String tmpFasta = outdir + File.separator + name + ".tmp.fa";
+//            String tmpFasta = outdir + File.separator + name + ".tmp.fa";
             String graphFile = outdir + File.separator + name + ".graph";
             
             File startedStamp = new File(outdir + File.separator + STARTED);
@@ -2028,8 +1977,8 @@ public class RNABloom {
                 }
             }
             
-            /**@TODO */
-//            assembler.testErrorCorrection();
+//            /**@TODO */
+//            assembler.testMismatchCorrection();
 //            System.exit(0);
             
             FastqPair fqPair = new FastqPair(fastqLeft, fastqRight, revCompLeft, revCompRight);
@@ -2093,14 +2042,10 @@ public class RNABloom {
                     transcriptsFile.delete();
                 }
                 
-                File tmpFile = new File(tmpFasta);
-                if (tmpFile.exists()) {
-                    tmpFile.delete();
-                }
                 
                 long startTime = System.nanoTime();
                 
-                assembler.assembleTranscripts(longFragmentsFastaPaths, shortFragmentsFastaPaths, transcriptsFasta, tmpFasta, lookahead, maxTipLen, maxCovGradient, sbfSize, sbfNumHash);
+                assembler.assembleTranscripts(longFragmentsFastaPaths, shortFragmentsFastaPaths, transcriptsFasta, lookahead, maxTipLen, maxCovGradient, sbfSize, sbfNumHash);
 
                 System.out.println("Transcripts assembled in `" + transcriptsFasta + "`");
                 System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");

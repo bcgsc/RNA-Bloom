@@ -1721,7 +1721,14 @@ public final class GraphUtils {
         return 0;
     }
     
-    public static String extendWithPairedKmers(String fragment, BloomFilterDeBruijnGraph graph, int lookahead, int maxTipLength, boolean greedy, BloomFilter assembledKmersBloomFilter) {
+    public static String extendWithPairedKmers(String fragment, 
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int lookahead, 
+                                            int maxTipLength, 
+                                            boolean greedy, 
+                                            BloomFilter assembledKmersBloomFilter,
+                                            float minCoverageThreshold) {
+        
         final int distance = graph.getPairedKmerDistance();
         final int k = graph.getK();
         
@@ -1763,7 +1770,7 @@ public final class GraphUtils {
                 }
             }
             else if (depth == 0 && neighbors.size() == 1 && !usedKmers.contains(neighbors.peek().seq)) {
-                // naive extension
+                // naive extension                
                 n = neighbors.removeFirst();
                 kmers.add(n);
                 usedKmers.add(n.seq);
@@ -1822,7 +1829,29 @@ public final class GraphUtils {
                     neighbors.clear();
                 }
             }
-            else {                
+            else {
+                if (depth == 0 && greedy) {
+                    Kmer best = null;
+                    for (Kmer neighbor : neighbors) {
+                        if (neighbor.count >= minCoverageThreshold) {
+                            if (best == null) {
+                                best = neighbor;
+                            }
+                            else {
+                                best = null;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (best != null && !usedKmers.contains(best.seq)) {
+                        kmers.add(best);
+                        usedKmers.add(best.seq);
+                        branchesStack.add(getSuccessorsRanked(best, graph, lookahead));
+                        continue;
+                    }
+                }
+                
                 n = neighbors.removeFirst();
                 numKmers = kmers.size();
                 
@@ -1959,6 +1988,28 @@ public final class GraphUtils {
                 }
             }
             else {
+                if (depth == 0 && greedy) {
+                    Kmer best = null;
+                    for (Kmer neighbor : neighbors) {
+                        if (neighbor.count >= minCoverageThreshold) {
+                            if (best == null) {
+                                best = neighbor;
+                            }
+                            else {
+                                best = null;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (best != null && !usedKmers.contains(best.seq)) {
+                        kmers.add(best);
+                        usedKmers.add(best.seq);
+                        branchesStack.add(getPredecessorsRanked(best, graph, lookahead));
+                        continue;
+                    }
+                }
+                
                 n = neighbors.removeFirst();
                 numKmers = kmers.size();
                 
