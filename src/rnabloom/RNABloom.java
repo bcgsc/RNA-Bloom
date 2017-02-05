@@ -1513,7 +1513,7 @@ public class RNABloom {
                                         screeningBf.add(kmer.hashVals);
                                     }
 
-                                    fout.write(prefix +  Long.toString(++cid) + " l=" + transcript.length() + " F=[" + fragment + "]", transcript);
+                                    fout.write(prefix +  Long.toString(++cid) + " l=" + transcriptScrubbed.length() + " F=[" + fragment + "]", transcriptScrubbed);
                                 }
                             }
                         }
