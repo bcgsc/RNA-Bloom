@@ -1844,7 +1844,7 @@ public final class GraphUtils {
                         }
                     }
                     
-                    if (best != null && !usedKmers.contains(best.seq)) {
+                    if (best != null && !usedKmers.contains(best.seq) && graph.lookupFragmentKmer(best.hashVals)) {
                         kmers.add(best);
                         usedKmers.add(best.seq);
                         branchesStack.add(getSuccessorsRanked(best, graph, lookahead));
@@ -2002,7 +2002,7 @@ public final class GraphUtils {
                         }
                     }
                     
-                    if (best != null && !usedKmers.contains(best.seq)) {
+                    if (best != null && !usedKmers.contains(best.seq) && graph.lookupFragmentKmer(best.hashVals)) {
                         kmers.add(best);
                         usedKmers.add(best.seq);
                         branchesStack.add(getPredecessorsRanked(best, graph, lookahead));
