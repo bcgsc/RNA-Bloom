@@ -716,20 +716,25 @@ public class RNABloom {
                 ArrayList<Kmer> rightKmers = graph.getKmers(right);
                 
                 if (okToConnectPair(leftKmers, rightKmers)) {
-
-                    ReadPair correctedReadPair = correctErrors2(leftKmers,
-                                                        rightKmers,
-                                                        graph, 
-                                                        this.lookahead, 
-                                                        this.maxIndelSize, 
-                                                        this.maxCovGradient, 
-                                                        this.covFPR,
-                                                        this.errorCorrectionIterations);
-
-                    leftKmers = correctedReadPair.leftKmers;
-                    rightKmers = correctedReadPair.rightKmers;
+                    boolean corrected = false;
+                    if (this.errorCorrectionIterations > 0) {
+                        ReadPair correctedReadPair = correctErrors2(leftKmers,
+                                                            rightKmers,
+                                                            graph, 
+                                                            this.lookahead, 
+                                                            this.maxIndelSize, 
+                                                            this.maxCovGradient, 
+                                                            this.covFPR,
+                                                            this.errorCorrectionIterations);
+                        
+                        if (correctedReadPair.corrected) {
+                            corrected = true;
+                            leftKmers = correctedReadPair.leftKmers;
+                            rightKmers = correctedReadPair.rightKmers;
+                        }
+                    }
                     
-                    if (!correctedReadPair.corrected || okToConnectPair(leftKmers, rightKmers)) {
+                    if (!corrected || okToConnectPair(leftKmers, rightKmers)) {
                         ArrayList<Kmer> fragmentKmers = overlap(leftKmers, rightKmers, graph, minOverlap);
                         
                         if (fragmentKmers == null || fragmentKmers.isEmpty()) {
@@ -1941,7 +1946,7 @@ public class RNABloom {
             int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "7"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
-            int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
+            int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
             
             boolean saveGraph = true;
             boolean saveKmerPairs = true;
