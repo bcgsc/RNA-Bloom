@@ -1383,8 +1383,9 @@ public class RNABloom {
         }
     }
     
-    private boolean hasNotYetAssembled(ArrayList<Kmer> kmers, BloomFilter screeningBf, int maxIndelSize, float perecentIdentity) {
-        int length = kmers.size() + k - 1;
+    private boolean hasNotYetAssembled(ArrayList<Kmer> kmers, BloomFilter screeningBf, int maxIndelSize, float perecentIdentity, int maxTipLength) {
+        int numKmers = kmers.size();
+        int length = numKmers + k - 1;
         
         int maxMismatchesAllowed = (int) (length * (1.0f - perecentIdentity));
         int numMismatchBases = 0;
@@ -1392,14 +1393,22 @@ public class RNABloom {
         Kmer lastGoodKmer = null;
         
         int numKmersNotSeen = 0;
-        for (Kmer kmer : kmers) {
+        
+        Kmer kmer;
+        for (int i=0; i<numKmers; ++i) {
+            kmer = kmers.get(i);
+            
             if (screeningBf.lookup(kmer.hashVals)) {
                 if (lastGoodKmer == null) {
-                    numMismatchBases += numKmersNotSeen;
+                    if (i > maxTipLength) {
+                        numMismatchBases += numKmersNotSeen;
+                    }
                 }
                 else if (numKmersNotSeen > 0) {
                     if (numKmersNotSeen <= k+maxIndelSize && hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
-                        numMismatchBases += numKmersNotSeen - k + 1;
+                        if (i > maxTipLength) {
+                            numMismatchBases += numKmersNotSeen - k + 1;
+                        }
                     }
                     else {
                         return true;
@@ -1425,7 +1434,9 @@ public class RNABloom {
             return true;
         }
         
-        numMismatchBases += numKmersNotSeen;
+        if (numKmersNotSeen > maxTipLength) {
+            numMismatchBases += numKmersNotSeen;
+        }
         
         return numMismatchBases > maxMismatchesAllowed;
     }
@@ -1458,7 +1469,7 @@ public class RNABloom {
             for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
                 boolean beGreedy = mag > 0;
                 
-                String prefix = "L" + mag + ".";
+                String prefix = "E" + mag + ".L.";
                 
                 for (String fragmentsFasta : new String[]{longFragmentsFastas[mag], shortFragmentsFastas[mag]}) {
                     
@@ -1480,13 +1491,16 @@ public class RNABloom {
                         
                         if (numFragKmers > 0) {
                             
-                            String fragmentScrubbed = correctMismatches(fragment, graph, lookAhead, (int) Math.ceil((1.0f - percentIdentity) * fragment.length()));
+                            ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
                             
-                            if (hasNotYetAssembled(graph.getKmers(fragmentScrubbed), screeningBf, maxIndelSize, percentIdentity)) {
+                            if (hasNotYetAssembled(fragKmers, screeningBf, maxIndelSize, percentIdentity, 0)) {
 
                                 /** check whether sequence-wide coverage differences are too large */
                                 int numFalsePositivesAllowed = (int) Math.round(numFragKmers * covFPR);
-                                float[] covs = graph.getCounts(fragmentScrubbed);
+                                float[] covs = new float[numFragKmers];
+                                for (int i=0; i<numFragKmers; ++i) {
+                                    covs[i] = fragKmers.get(i).count;
+                                }
 
                                 boolean covDiffTooLarge = false;
                                 Arrays.sort(covs);
@@ -1501,19 +1515,17 @@ public class RNABloom {
                                     covLow = covHigh;
                                 }
 
-                                String transcript = extendWithPairedKmers(fragmentScrubbed, graph, lookAhead, maxTipLength, !covDiffTooLarge && beGreedy, screeningBf, minCoverageThreshold);
+                                extendWithPairedKmers(fragKmers, graph, lookAhead, maxTipLength, !covDiffTooLarge && beGreedy, screeningBf, minCoverageThreshold);
 
-                                String transcriptScrubbed = correctMismatches(transcript, graph, lookAhead, (int) Math.ceil((1.0f - percentIdentity) * transcript.length()));
+                                if (hasNotYetAssembled(fragKmers, screeningBf, maxIndelSize, percentIdentity, maxTipLength)) {
 
-                                ArrayList<Kmer> transcriptKmers = graph.getKmers(transcriptScrubbed);
-
-                                if (hasNotYetAssembled(transcriptKmers, screeningBf, maxIndelSize, percentIdentity)) {
-
-                                    for (Kmer kmer : transcriptKmers) {
+                                    for (Kmer kmer : fragKmers) {
                                         screeningBf.add(kmer.hashVals);
                                     }
 
-                                    fout.write(prefix +  Long.toString(++cid) + " l=" + transcriptScrubbed.length() + " F=[" + fragment + "]", transcriptScrubbed);
+                                    String transcript = assemble(fragKmers, k);
+                                    
+                                    fout.write(prefix +  Long.toString(++cid) + " l=" + transcript.length() + " F=[" + fragment + "]", transcript);
                                 }
                             }
                         }
@@ -1521,7 +1533,7 @@ public class RNABloom {
 
                     fin.close();
                     
-                    prefix = "S" + mag + ".";
+                    prefix = "E" + mag + ".S.";
                 }
             }
             

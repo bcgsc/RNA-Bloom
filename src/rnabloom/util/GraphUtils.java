@@ -1721,7 +1721,7 @@ public final class GraphUtils {
         return 0;
     }
     
-    public static String extendWithPairedKmers(String fragment, 
+    public static void extendWithPairedKmers(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int lookahead, 
                                             int maxTipLength, 
@@ -1732,8 +1732,6 @@ public final class GraphUtils {
         final int distance = graph.getPairedKmerDistance();
         final int k = graph.getK();
         
-        // transcript kmers list
-        final ArrayList<Kmer> kmers = graph.getKmers(fragment);
         int maxDepth = maxPairedPartnerSearchDepth(kmers, graph, distance);
                 
         // kmer pairs used in the extension of this transcript
@@ -2002,7 +2000,7 @@ public final class GraphUtils {
                         }
                     }
                     
-                    if (best != null && !usedKmers.contains(best.seq) && graph.lookupFragmentKmer(best.hashVals)) {
+                    if (best != null && !usedKmers.contains(best.seq) && graph.lookupFragmentKmer(best.hashVals) ) {
                         kmers.add(best);
                         usedKmers.add(best.seq);
                         branchesStack.add(getPredecessorsRanked(best, graph, lookahead));
@@ -2062,7 +2060,7 @@ public final class GraphUtils {
         
         Collections.reverse(kmers);
         
-        return assemble(kmers, k);
+        //return assemble(kmers, k);
     }
     
     private static boolean hasFragmentDepthRight(String source, BloomFilterDeBruijnGraph graph, int depth) {
