@@ -1756,7 +1756,7 @@ public final class GraphUtils {
         int depth, numKmers;
         
         HashSet<String> visitedKmers = new HashSet<>();
-        
+
         while (!branchesStack.isEmpty() && !stop && maxDepth > 0) {
             neighbors = branchesStack.getLast();
             depth = extension.size();
@@ -1775,6 +1775,7 @@ public final class GraphUtils {
                 branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
             }
             else if (depth >= maxDepth) {
+                
                 partner = kmers.get(kmers.size() - distance + depth);
 
                 boolean found = false;
@@ -1783,42 +1784,41 @@ public final class GraphUtils {
                     while (!neighbors.isEmpty()) {
                         n = neighbors.removeFirst();
 
-                        if (graph.lookupFragmentKmer(n.hashVals)) {
-                            if (graph.lookupKmerPairing(partner.hashVals, n.hashVals)) {
-                                if (!greedy && assembledKmersBloomFilter.lookup(n.hashVals) && assembledKmersBloomFilter.lookup(partner.hashVals)) {
-                                    stop = true;
-                                    break;
-                                }
-
-                                branchesStack.clear();
-
-                                kmers.addAll(extension);
-                                kmers.add(n);
-                                
-                                for (Kmer kmer : extension) {
-                                    usedKmers.add(kmer.seq);
-                                }
-                                usedKmers.add(n.seq);
-                                
-                                extension.clear();
-                                visitedKmers.clear();
-
-                                mergedSeq = partner.seq + n.seq;
-
-                                if (usedPairs.contains(mergedSeq)) {
-                                    stop = true;
-                                    break;
-                                }
-                                else {
-                                    usedPairs.add(mergedSeq);
-                                }
-
-                                maxDepth = maxPairedPartnerSearchDepth(kmers, graph, distance);
-                                branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
-
-                                found = true;
+                        if (graph.lookupFragmentKmer(n.hashVals) && graph.lookupKmerPairing(partner.hashVals, n.hashVals)) {
+                            
+                            if (!greedy && assembledKmersBloomFilter.lookup(n.hashVals) && assembledKmersBloomFilter.lookup(partner.hashVals)) {
+                                stop = true;
                                 break;
                             }
+
+                            branchesStack.clear();
+
+                            kmers.addAll(extension);
+                            kmers.add(n);
+
+                            for (Kmer kmer : extension) {
+                                usedKmers.add(kmer.seq);
+                            }
+                            usedKmers.add(n.seq);
+
+                            extension.clear();
+                            visitedKmers.clear();
+
+                            mergedSeq = partner.seq + n.seq;
+
+                            if (usedPairs.contains(mergedSeq)) {
+                                stop = true;
+                                break;
+                            }
+                            else {
+                                usedPairs.add(mergedSeq);
+                            }
+
+                            maxDepth = maxPairedPartnerSearchDepth(kmers, graph, distance);
+                            branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
+
+                            found = true;
+                            break;
                         }
                     }
                 }
@@ -1828,27 +1828,6 @@ public final class GraphUtils {
                 }
             }
             else {
-                if (depth == 0) {
-                    Kmer best = null;
-                    for (Kmer neighbor : neighbors) {
-                        if (neighbor.count >= minCoverageThreshold) {
-                            if (best == null) {
-                                best = neighbor;
-                            }
-                            else {
-                                best = null;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    if (best != null && !usedKmers.contains(best.seq) && graph.lookupFragmentKmer(best.hashVals)) {
-                        kmers.add(best);
-                        usedKmers.add(best.seq);
-                        branchesStack.add(getSuccessorsRanked(best, graph, lookahead));
-                        continue;
-                    }
-                }
                 
                 n = neighbors.removeFirst();
                 numKmers = kmers.size();
@@ -1941,42 +1920,41 @@ public final class GraphUtils {
                     while (!neighbors.isEmpty()) {
                         n = neighbors.removeFirst();
 
-                        if (graph.lookupFragmentKmer(n.hashVals)) {
-                            if (graph.lookupKmerPairing(n.hashVals, partner.hashVals)) {
-                                if (!greedy && assembledKmersBloomFilter.lookup(n.hashVals) && assembledKmersBloomFilter.lookup(partner.hashVals)) {
-                                    stop = true;
-                                    break;
-                                }
-
-                                branchesStack.clear();
-
-                                kmers.addAll(extension);
-                                kmers.add(n);
-                                
-                                for (Kmer kmer : extension) {
-                                    usedKmers.add(kmer.seq);
-                                }
-                                usedKmers.add(n.seq);
-                                
-                                extension.clear();
-                                visitedKmers.clear();
-
-                                mergedSeq = n.seq + partner.seq;
-
-                                if (usedPairs.contains(mergedSeq)) {
-                                    stop = true;
-                                    break;
-                                }
-                                else {
-                                    usedPairs.add(mergedSeq);
-                                }
-
-                                maxDepth = maxPairedPartnerSearchDepth(kmers, graph, distance);
-                                branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
-
-                                found = true;
+                        if (graph.lookupFragmentKmer(n.hashVals) && graph.lookupKmerPairing(n.hashVals, partner.hashVals)) {
+                            
+                            if (!greedy && assembledKmersBloomFilter.lookup(n.hashVals) && assembledKmersBloomFilter.lookup(partner.hashVals)) {
+                                stop = true;
                                 break;
                             }
+
+                            branchesStack.clear();
+
+                            kmers.addAll(extension);
+                            kmers.add(n);
+
+                            for (Kmer kmer : extension) {
+                                usedKmers.add(kmer.seq);
+                            }
+                            usedKmers.add(n.seq);
+
+                            extension.clear();
+                            visitedKmers.clear();
+
+                            mergedSeq = n.seq + partner.seq;
+
+                            if (usedPairs.contains(mergedSeq)) {
+                                stop = true;
+                                break;
+                            }
+                            else {
+                                usedPairs.add(mergedSeq);
+                            }
+
+                            maxDepth = maxPairedPartnerSearchDepth(kmers, graph, distance);
+                            branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
+
+                            found = true;
+                            break;
                         }
                     }
                 }
@@ -1986,27 +1964,6 @@ public final class GraphUtils {
                 }
             }
             else {
-                if (depth == 0) {
-                    Kmer best = null;
-                    for (Kmer neighbor : neighbors) {
-                        if (neighbor.count >= minCoverageThreshold) {
-                            if (best == null) {
-                                best = neighbor;
-                            }
-                            else {
-                                best = null;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    if (best != null && !usedKmers.contains(best.seq) && graph.lookupFragmentKmer(best.hashVals) ) {
-                        kmers.add(best);
-                        usedKmers.add(best.seq);
-                        branchesStack.add(getPredecessorsRanked(best, graph, lookahead));
-                        continue;
-                    }
-                }
                 
                 n = neighbors.removeFirst();
                 numKmers = kmers.size();
