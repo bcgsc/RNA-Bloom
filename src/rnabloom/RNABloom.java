@@ -1083,7 +1083,7 @@ public class RNABloom {
                     System.out.println("\tmin\tQ1\tM\tQ3\tmax");
                     System.out.println("\t" + fragLengthsStats[0] + "\t" + fragLengthsStats[1] + "\t" + fragLengthsStats[2] + "\t" + fragLengthsStats[3] + "\t" + fragLengthsStats[4]);
 
-                    longFragmentLengthThreshold = fragLengthsStats[2];
+                    longFragmentLengthThreshold = fragLengthsStats[1];
                     graph.setPairedKmerDistance(longFragmentLengthThreshold - k);
                     
                     // Set new bound for graph search
@@ -1960,10 +1960,10 @@ public class RNABloom {
             long cbfSize = (long) (NUM_BYTES_1GB * Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), "1")));
             long pkbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), "1")));
             
-            int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), "1"));
+            int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), "2"));
             int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), "3"));
             int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), "4"));
-            int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), "1"));
+            int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), "2"));
             
             /**@TODO ensure that sbfNumHash and pkbfNumHash <= max(dbgbfNumHash, cbfNumHash) */
                         
