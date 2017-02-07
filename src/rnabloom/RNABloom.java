@@ -29,8 +29,10 @@ import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Option.Builder;
+import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import rnabloom.bloom.BloomFilter;
@@ -1654,6 +1656,19 @@ public class RNABloom {
                 file.delete();
     }    
 
+    public static void printHelp(Options options, boolean error) {
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.setOptionComparator(null);
+        formatter.printHelp( "java -jar RNA-Bloom.jar", options, true);
+        
+        if (error) {
+            System.exit(1);
+        }
+        else {
+            System.exit(0);
+        }
+    }
+    
     /**
      * @param args the command line arguments
      */
@@ -1682,6 +1697,45 @@ public class RNABloom {
 
         Builder builder;
                 
+        builder = Option.builder("l");
+        builder.longOpt("left");
+        builder.desc("left reads file");
+        builder.hasArg(true);
+        builder.argName("FILE");
+//        builder.required(true);
+        Option optLeftReads = builder.build();
+        options.addOption(optLeftReads);
+        
+        builder = Option.builder("r");
+        builder.longOpt("right");
+        builder.desc("right reads file");
+        builder.hasArg(true);
+        builder.argName("FILE");
+//        builder.required(true);
+        Option optRightReads = builder.build();
+        options.addOption(optRightReads);
+        
+        builder = Option.builder("rcl");
+        builder.longOpt("revcomp-left");
+        builder.desc("reverse-complement left reads");
+        builder.hasArg(false);
+        Option optRevCompLeft = builder.build();
+        options.addOption(optRevCompLeft);
+
+        builder = Option.builder("rcr");
+        builder.longOpt("revcomp-right");
+        builder.desc("reverse-complement right reads");
+        builder.hasArg(false);
+        Option optRevCompRight = builder.build();
+        options.addOption(optRevCompRight);
+        
+        builder = Option.builder("ss");
+        builder.longOpt("stranded");
+        builder.desc("strand specific");
+        builder.hasArg(false);
+        Option optStranded = builder.build();
+        options.addOption(optStranded);
+        
         builder = Option.builder("n");
         builder.longOpt("name");
         builder.desc("assembly name");
@@ -1714,45 +1768,6 @@ public class RNABloom {
         builder.hasArg(false);
         Option optForce = builder.build();
         options.addOption(optForce);
-        
-        builder = Option.builder("l");
-        builder.longOpt("left");
-        builder.desc("left reads file");
-        builder.hasArg(true);
-        builder.argName("FILE");
-        builder.required(true);
-        Option optLeftReads = builder.build();
-        options.addOption(optLeftReads);
-        
-        builder = Option.builder("r");
-        builder.longOpt("right");
-        builder.desc("right reads file");
-        builder.hasArg(true);
-        builder.argName("FILE");
-        builder.required(true);
-        Option optRightReads = builder.build();
-        options.addOption(optRightReads);
-        
-        builder = Option.builder("rcl");
-        builder.longOpt("revcomp-left");
-        builder.desc("reverse-complement left reads");
-        builder.hasArg(false);
-        Option optRevCompLeft = builder.build();
-        options.addOption(optRevCompLeft);
-
-        builder = Option.builder("rcr");
-        builder.longOpt("revcomp-right");
-        builder.desc("reverse-complement right reads");
-        builder.hasArg(false);
-        Option optRevCompRight = builder.build();
-        options.addOption(optRevCompRight);
-        
-        builder = Option.builder("ss");
-        builder.longOpt("stranded");
-        builder.desc("strand specific");
-        builder.hasArg(false);
-        Option optStranded = builder.build();
-        options.addOption(optStranded);
         
         builder = Option.builder("k");
         builder.longOpt("kmer");
@@ -1842,6 +1857,14 @@ public class RNABloom {
         Option optPkbfMem = builder.build();
         options.addOption(optPkbfMem);
         
+//        builder = Option.builder("fpr");
+//        builder.longOpt("max-fpr");
+//        builder.desc("maximum FPR (%) allowed for Bloom filters");
+//        builder.hasArg(true);
+//        builder.argName("DECIMAL");
+//        Option optMaxFPR = builder.build();
+//        options.addOption(optMaxFPR);
+                
 //        builder = Option.builder("m");
 //        builder.longOpt("mismatch");
 //        builder.desc("max number of mismatch bases allowed per read");
@@ -1905,10 +1928,20 @@ public class RNABloom {
         builder.argName("INT");
         Option optErrCorrItr = builder.build();
         options.addOption(optErrCorrItr);        
+
+        builder = Option.builder("h");
+        builder.longOpt("help");
+        builder.desc("print this message and exits");
+        Option optHelp = builder.build();
+        options.addOption(optHelp);
         
 
         try {
             CommandLine line = parser.parse(options, args);
+
+            if (line.getOptions().length == 0 || line.hasOption(optHelp.getOpt())) {
+                printHelp(options, false);
+            }
             
             int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), "2"));
             boolean forceOverwrite = line.hasOption(optForce.getOpt());
@@ -1963,8 +1996,8 @@ public class RNABloom {
             long pkbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), "1")));
             
             int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), "2"));
-            int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), "3"));
-            int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), "4"));
+            int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), "2"));
+            int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), "2"));
             int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), "2"));
             
             /**@TODO ensure that sbfNumHash and pkbfNumHash <= max(dbgbfNumHash, cbfNumHash) */
