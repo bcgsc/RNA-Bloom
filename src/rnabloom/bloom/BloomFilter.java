@@ -18,6 +18,7 @@ import rnabloom.bloom.buffer.UnsafeBitBuffer;
 import rnabloom.bloom.buffer.AbstractLargeBitBuffer;
 import static java.lang.Math.pow;
 import static java.lang.Math.exp;
+import static java.lang.Math.log;
 import rnabloom.bloom.buffer.BufferComparator;
 import rnabloom.bloom.hash.HashFunction2;
 
@@ -30,6 +31,7 @@ public class BloomFilter implements BloomFilterInterface {
     protected int numHash;
     protected long size;
     protected HashFunction2 hashFunction;
+    protected long popcount = -1;
         
     public BloomFilter(long size, int numHash, HashFunction2 hashFunction) {
         
@@ -158,8 +160,30 @@ public class BloomFilter implements BloomFilterInterface {
         n = pop count
         */
         
-        float fpr = (float) pow(1 - exp((float)(-numHash * bitArray.popCount()) / size), numHash);
-        return fpr;
+        popcount = bitArray.popCount();
+        
+        return (float) pow(1 - exp((float)(-numHash * popcount) / size), numHash);
+    }
+    
+    public long updatePopcount() {
+        popcount = bitArray.popCount();
+        return popcount;
+    }
+    
+    public long getSizeNeeded(float fpr) {
+        if (popcount < 0) {
+            popcount = updatePopcount();
+        }
+        
+        return (long) Math.ceil(- popcount *log(fpr) / pow(log(2), 2));
+    }
+    
+    public float getOptimalNumHash() {
+        if (popcount < 0) {
+            popcount = updatePopcount();
+        }
+        
+        return (float) (size / (float) popcount * log(2));
     }
     
     public void destroy() {

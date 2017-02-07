@@ -17,6 +17,7 @@ import rnabloom.bloom.buffer.UnsafeByteBuffer;
 import rnabloom.bloom.buffer.AbstractLargeByteBuffer;
 import rnabloom.bloom.buffer.LargeByteBuffer;
 import static java.lang.Math.exp;
+import static java.lang.Math.log;
 import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
@@ -32,6 +33,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     protected int numHash;
     protected long size;
     protected HashFunction2 hashFunction;
+    protected long popcount = -1;
         
     private static final byte MANTISSA = 3;
     private static final byte MANTI_MASK = 0xFF >> (8 - MANTISSA);
@@ -182,6 +184,27 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         return (float) pow(1 - exp((float)(-numHash * counts.popCount()) / size), numHash);
     }
  
+    public long updatePopcount() {
+        popcount = counts.popCount();
+        return popcount;
+    }
+    
+    public long getSizeNeeded(float fpr) {
+        if (popcount < 0) {
+            popcount = updatePopcount();
+        }
+        
+        return (long) Math.ceil(- popcount *log(fpr) / pow(log(2), 2));
+    }
+    
+    public float getOptimalNumHash() {
+        if (popcount < 0) {
+            popcount = updatePopcount();
+        }
+        
+        return (float) (size / (float) popcount * log(2));
+    }
+    
     public void destroy() {
         this.counts.destroy();
     }
