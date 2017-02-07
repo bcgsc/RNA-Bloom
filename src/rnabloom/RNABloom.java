@@ -1087,9 +1087,9 @@ public class RNABloom {
                     graph.setPairedKmerDistance(longFragmentLengthThreshold - k);
                     
                     // Set new bound for graph search
-                    int iqrOneAndHalf = (fragLengthsStats[3] - fragLengthsStats[1]) * 3 / 2;
-                    newBound = fragLengthsStats[2] + iqrOneAndHalf; // 1.5*IQR
-                    shortestFragmentLengthAllowed = Math.max(k, fragLengthsStats[2] - iqrOneAndHalf);
+                    int iqr15 = (fragLengthsStats[3] - fragLengthsStats[1]) * 3 / 2;
+                    newBound = fragLengthsStats[3] + iqr15; // 1.5*IQR
+                    shortestFragmentLengthAllowed = Math.max(k, fragLengthsStats[1] - iqr15);
                     
                     System.out.println("Paired kmers distance:       " + (longFragmentLengthThreshold - k));
                     System.out.println("Max graph traversal depth:   " + newBound);
