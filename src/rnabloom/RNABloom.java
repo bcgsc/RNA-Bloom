@@ -745,7 +745,9 @@ public class RNABloom {
                 
                 if (okToConnectPair(leftKmers, rightKmers)) {
                     boolean corrected = false;
+                    
                     if (this.errorCorrectionIterations > 0) {
+                        
                         ReadPair correctedReadPair = correctErrors2(leftKmers,
                                                             rightKmers,
                                                             graph, 
@@ -1031,8 +1033,8 @@ public class RNABloom {
                                     System.out.println("R:\t" + rightReadLengthsStats[0] + "\t" + rightReadLengthsStats[1] + "\t" + rightReadLengthsStats[2] + "\t" + rightReadLengthsStats[3] + "\t" + rightReadLengthsStats[4]);
                                     
                                     
-                                    leftReadLengthThreshold = Math.max(k, leftReadLengthsStats[2] - (leftReadLengthsStats[3] - leftReadLengthsStats[1]) * 3/2);
-                                    rightReadLengthThreshold = Math.max(k, rightReadLengthsStats[2] - (rightReadLengthsStats[3] - rightReadLengthsStats[1]) * 3/2);
+                                    leftReadLengthThreshold = Math.max(k, leftReadLengthsStats[1] - (leftReadLengthsStats[3] - leftReadLengthsStats[1]) * 3/2);
+                                    rightReadLengthThreshold = Math.max(k, rightReadLengthsStats[1] - (rightReadLengthsStats[3] - rightReadLengthsStats[1]) * 3/2);
                                     
                                     System.out.println("Left read length threshold:  " + leftReadLengthThreshold);
                                     System.out.println("Right read length threshold: " + rightReadLengthThreshold);
@@ -1087,9 +1089,9 @@ public class RNABloom {
                     graph.setPairedKmerDistance(longFragmentLengthThreshold - k);
                     
                     // Set new bound for graph search
-                    int iqrOneAndHalf = (fragLengthsStats[3] - fragLengthsStats[1]) * 3 / 2;
-                    newBound = fragLengthsStats[2] + iqrOneAndHalf; // 1.5*IQR
-                    shortestFragmentLengthAllowed = Math.max(k, fragLengthsStats[2] - iqrOneAndHalf);
+                    int iqr15 = (fragLengthsStats[3] - fragLengthsStats[1]) * 3 / 2;
+                    newBound = fragLengthsStats[3] + iqr15; // 1.5*IQR
+                    shortestFragmentLengthAllowed = Math.max(k, fragLengthsStats[1] - iqr15);
                     
                     System.out.println("Paired kmers distance:       " + (longFragmentLengthThreshold - k));
                     System.out.println("Max graph traversal depth:   " + newBound);
