@@ -734,8 +734,8 @@ public class RNABloom {
         @Override
         public void run() {
             // connect segments of each read
-            String left = connect(p.left, graph, k+p.numLeftBasesTrimmed+this.maxIndelSize, this.lookahead);
-            String right = connect(p.right, graph, k+p.numRightBasesTrimmed+this.maxIndelSize, this.lookahead);
+            String left = connect(p.left, graph, this.lookahead);
+            String right = connect(p.right, graph, this.lookahead);
 
             if (left.length() >= this.leftReadLengthThreshold 
                     && right.length() >= this.rightReadLengthThreshold) { 

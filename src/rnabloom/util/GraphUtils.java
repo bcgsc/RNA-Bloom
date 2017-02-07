@@ -1366,7 +1366,7 @@ public final class GraphUtils {
         }
     }
     
-    public static String connect(ArrayList<String> segments, BloomFilterDeBruijnGraph graph, int bound, int lookahead) {
+    public static String connect(ArrayList<String> segments, BloomFilterDeBruijnGraph graph, int lookahead) {
         int numSeqs = segments.size();
         switch (numSeqs) {
             case 0:
@@ -1377,10 +1377,10 @@ public final class GraphUtils {
                 String last = segments.get(0);
                 String longest = last;
                 
-                for (int i=1; i<numSeqs; ++i) {
-                    String current = segments.get(i);
+                for (int i=1; i<numSeqs; i+=2) {                    
+                    String current = segments.get(i+1);     
                     
-                    String connected = connect(last, current, graph, bound, lookahead);
+                    String connected = connect(last, current, graph, segments.get(i).length(), lookahead);
                     int connectedLength = connected.length();
                     
                     if (connectedLength > 0) {

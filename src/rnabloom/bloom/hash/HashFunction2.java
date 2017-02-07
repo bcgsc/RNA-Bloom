@@ -7,6 +7,7 @@ package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.NTHash.NTM64;
 import static rnabloom.bloom.hash.NTHash.NTM64B;
+import static rnabloom.util.SeqUtils.NUCLEOTIDES;
 
 
 /**
@@ -15,7 +16,6 @@ import static rnabloom.bloom.hash.NTHash.NTM64B;
  */
 public class HashFunction2 {
     protected final int k;
-    public final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
     
     public HashFunction2(int k) {
         this.k = k;

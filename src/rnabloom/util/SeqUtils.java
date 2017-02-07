@@ -7,6 +7,7 @@ package rnabloom.util;
 
 import java.util.AbstractCollection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.PrimitiveIterator;
 import java.util.regex.Matcher;
@@ -18,6 +19,8 @@ import rnabloom.io.FastqRecord;
  * @author kmnip
  */
 public final class SeqUtils {
+    public static final char GAP_CHAR = 'N';
+    public final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
     
     public static final int getNumGC(String seq) {
         int numGC = 0;
@@ -279,8 +282,26 @@ public final class SeqUtils {
         
         ArrayList<String> result = new ArrayList<>();
         
+        int startPos;
+        int endPos = 0;
         while (m.find()) {
-            result.add(seq.substring(m.start(), m.end()));
+            startPos = m.start();
+            
+            if (endPos > 0) {
+                endPos = startPos - endPos;
+                
+                if (endPos == 1) {
+                    result.add("N");
+                }
+                else {
+                    char[] gap = new char[endPos];
+                    Arrays.fill(gap, GAP_CHAR);
+                    result.add(new String(gap));
+                }
+            }
+            
+            endPos = m.end();
+            result.add(seq.substring(startPos, endPos));
         }
         
         return result;

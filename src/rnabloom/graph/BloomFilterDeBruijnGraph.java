@@ -21,9 +21,9 @@ import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction2;
 import rnabloom.bloom.hash.HashFunction2;
-import static rnabloom.bloom.hash.HashFunction2.NUCLEOTIDES;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.util.SeqUtils.KmerSeqIterator;
+import static rnabloom.util.SeqUtils.NUCLEOTIDES;
 import static rnabloom.util.SeqUtils.getNumKmers;
 
 /**
