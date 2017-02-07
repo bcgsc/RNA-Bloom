@@ -1524,7 +1524,7 @@ public class RNABloom {
 
                         int numFragKmers = getNumKmers(fragment, k);
                         
-                        if (numFragKmers > 0) {
+                        if (numFragKmers > 0 && !isHomoPolymer(fragment)) {
                             
                             ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
                             

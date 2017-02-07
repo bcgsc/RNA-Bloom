@@ -275,6 +275,19 @@ public final class SeqUtils {
                               "|(?:G{" + length + "})" +
                               "|(?:T{" + length + "})");
     }
+    
+    public static boolean isHomoPolymer(String seq) {
+        char c = seq.charAt(0);
+        
+        int len = seq.length();
+        for (int i=1; i<len; ++i) {
+            if (seq.charAt(i) != c) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
         
     public static ArrayList<String> filterFastq(FastqRecord fq, Pattern qualPattern) {
         Matcher m = qualPattern.matcher(fq.qual);
