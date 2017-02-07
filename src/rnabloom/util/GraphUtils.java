@@ -1374,13 +1374,14 @@ public final class GraphUtils {
             case 1:
                 return segments.get(0);
             default:
+                int k = graph.getK();
                 String last = segments.get(0);
                 String longest = last;
                 
                 for (int i=1; i<numSeqs; i+=2) {                    
                     String current = segments.get(i+1);     
                     
-                    String connected = connect(last, current, graph, segments.get(i).length(), lookahead);
+                    String connected = connect(last, current, graph, segments.get(i).length()+k, lookahead);
                     int connectedLength = connected.length();
                     
                     if (connectedLength > 0) {
