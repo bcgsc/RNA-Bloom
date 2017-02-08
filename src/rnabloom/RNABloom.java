@@ -960,6 +960,8 @@ public class RNABloom {
         // set up thread pool
         MyExecutorService service = new MyExecutorService(numThreads, maxTasksQueueSize);
         
+        int assembledFragmentsListSize = sampleSize + numThreads + maxTasksQueueSize + 1;
+        
         try {
             FastqReader lin, rin;
             FastqPairReader fqpr;
@@ -979,7 +981,7 @@ public class RNABloom {
                                                                 new FastaWriter(shortFragmentsFastaPaths[5], true)};
             
             FastqReadPair p;
-            List<Fragment> fragments = Collections.synchronizedList(new ArrayList<>(sampleSize));
+            List<Fragment> fragments = Collections.synchronizedList(new ArrayList<>(assembledFragmentsListSize));
             
             boolean readLengthThresholdIsSet = false;
             ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
@@ -1123,7 +1125,7 @@ public class RNABloom {
                 service = new MyExecutorService(numThreads, maxTasksQueueSize);
                 
                 // assemble the remaining fragments in multi-threaded mode
-                for (fragments = Collections.synchronizedList(new ArrayList<>(sampleSize)); fqpr.hasNext();) {
+                for (fragments = Collections.synchronizedList(new ArrayList<>(assembledFragmentsListSize)); fqpr.hasNext();) {
                     p = fqpr.next();
                     ++readPairsParsed;
                     
@@ -1165,7 +1167,7 @@ public class RNABloom {
                             }
 
                             // reset thread pool
-                            fragments = Collections.synchronizedList(new ArrayList<>(sampleSize));
+                            fragments = Collections.synchronizedList(new ArrayList<>(assembledFragmentsListSize));
                             service = new MyExecutorService(numThreads, maxTasksQueueSize);
                         }
                     }

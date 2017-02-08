@@ -116,7 +116,7 @@ public class LargeByteBuffer extends AbstractLargeByteBuffer {
         this.empty();
     }
     
-    private final static int TMP_BUFF_SIZE = 50000000;
+    private final static int TMP_BUFF_SIZE = 100000000;
     
     @Override
     public void write(FileOutputStream out) throws IOException {

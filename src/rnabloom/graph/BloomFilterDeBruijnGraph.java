@@ -11,11 +11,11 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.LinkedList;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysBloomFilter;
@@ -390,8 +390,8 @@ public class BloomFilterDeBruijnGraph {
         public String seq;
         public float count;
         public long[] hashVals;
-//        public LinkedList<Kmer> predecessors = null;
-//        public LinkedList<Kmer> successors = null;
+//        public ArrayDeque<Kmer> predecessors = null;
+//        public ArrayDeque<Kmer> successors = null;
                 
         public Kmer(String seq, float count, long[] hashVals) {
             this.seq = seq;
@@ -431,12 +431,12 @@ public class BloomFilterDeBruijnGraph {
         return kmer.subSequence(1, k);
     }
     
-    public LinkedList<Kmer> getPredecessors(Kmer kmer) {
+    public ArrayDeque<Kmer> getPredecessors(Kmer kmer) {
 //        if (kmer.predecessors != null) {
 //            return kmer.predecessors;
 //        }
         
-        LinkedList<Kmer> result = new LinkedList<>();
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         final StringBuilder buffer = new StringBuilder(k);
         buffer.append('A');
@@ -472,8 +472,8 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
     
-    public LinkedList<String> getPredecessors(String kmer) {
-        LinkedList<String> result = new LinkedList<>();
+    public ArrayDeque<String> getPredecessors(String kmer) {
+        ArrayDeque<String> result = new ArrayDeque<>(4);
         final String prefix = getPrefix(kmer);
         long[] hashVals = new long[dbgbfCbfMaxNumHash];
         for (char c : NUCLEOTIDES) {
@@ -489,12 +489,12 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
 
-    public LinkedList<Kmer> getSuccessors(Kmer kmer) {
+    public ArrayDeque<Kmer> getSuccessors(Kmer kmer) {
 //        if (kmer.successors != null) {
 //            return kmer.successors;
 //        }
         
-        LinkedList<Kmer> result = new LinkedList<>();
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         final StringBuilder buffer = new StringBuilder(k);
         buffer.append(getSuffix(kmer.seq));
@@ -531,8 +531,8 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
     
-    public LinkedList<String> getSuccessors(String kmer) {
-        LinkedList<String> result = new LinkedList<>();
+    public ArrayDeque<String> getSuccessors(String kmer) {
+        ArrayDeque<String> result = new ArrayDeque<>(4);
         final String suffix = getSuffix(kmer);
         long[] hashVals = new long[dbgbfCbfMaxNumHash];
         for (char c : NUCLEOTIDES) {
@@ -548,8 +548,8 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
 
-    public LinkedList<Kmer> getLeftVariants(Kmer kmer) {
-        LinkedList<Kmer> result = new LinkedList<>();
+    public ArrayDeque<Kmer> getLeftVariants(Kmer kmer) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         final String suffix = getSuffix(kmer.seq);
         String v;
@@ -570,8 +570,8 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
     
-    public LinkedList<String> getLeftVariants(String kmer) {
-        LinkedList<String> result = new LinkedList<>();
+    public ArrayDeque<String> getLeftVariants(String kmer) {
+        ArrayDeque<String> result = new ArrayDeque<>(4);
         final String suffix = getSuffix(kmer);
         String v;
         for (char c : NUCLEOTIDES) {
@@ -584,8 +584,8 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
 
-    public LinkedList<Kmer> getRightVariants(Kmer kmer) {
-        LinkedList<Kmer> result = new LinkedList<>();
+    public ArrayDeque<Kmer> getRightVariants(Kmer kmer) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         final String prefix = getPrefix(kmer.seq);
         String v;
@@ -606,8 +606,8 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
     
-    public LinkedList<String> getRightVariants(String kmer) {
-        LinkedList<String> result = new LinkedList<>();
+    public ArrayDeque<String> getRightVariants(String kmer) {
+        ArrayDeque<String> result = new ArrayDeque<>(4);
         final String prefix = getPrefix(kmer);
         String v;
         for (char c : NUCLEOTIDES) {
