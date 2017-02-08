@@ -318,7 +318,7 @@ public class RNABloom {
         float c;
         
         while (itr.hasNext()) {
-            if (!graph.lookupFragmentKmer(hVals)) {
+            if (!graph.lookupLeftKmer(hVals)) {
                 return true;
             }
         }
@@ -326,7 +326,7 @@ public class RNABloom {
         itr.start(right);
         
         while (itr.hasNext()) {
-            if (!graph.lookupFragmentKmer(hVals)) {
+            if (!graph.lookupRightKmer(hVals)) {
                 return true;
             }
         }
@@ -388,13 +388,13 @@ public class RNABloom {
         }
         
         for (Kmer kmer : leftKmers) {
-            if (!graph.lookupFragmentKmer(kmer.hashVals)) {
+            if (!graph.lookupLeftKmer(kmer.hashVals)) {
                 return true;
             }
         }
 
         for (Kmer kmer : rightKmers) {
-            if (!graph.lookupFragmentKmer(kmer.hashVals)) {
+            if (!graph.lookupRightKmer(kmer.hashVals)) {
                 return true;
             }
         }

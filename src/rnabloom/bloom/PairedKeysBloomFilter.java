@@ -23,14 +23,7 @@ public class PairedKeysBloomFilter extends BloomFilter {
     public PairedKeysBloomFilter(File desc, File bits, HashFunction2 hashFunction) throws FileNotFoundException, IOException {
         super(desc, bits, hashFunction);
     }
-    
-    public void addPair(String key1, String key2) {
-        long[] hash3 = hashFunction.getHashValues(key1, key2, numHash);
-        for (int h=0; h<numHash; ++h) {
-            bitArray.set(getIndex(hash3[h]));
-        }        
-    }
-    
+        
     public void addPair(final long[] hvals1, final long[] hvals2) {
         long[] hash3 = hashFunction.getHashValues(hvals1, hvals2, numHash);
         for (int h=0; h<numHash; ++h) {
@@ -38,7 +31,7 @@ public class PairedKeysBloomFilter extends BloomFilter {
         }   
     }
     
-    public void addSingleAndPair(String key1, String key2) {
+    public void add(String key1, String key2) {
         long[] hash1 = new long[numHash];
         hashFunction.getHashValues(key1, numHash, hash1);
         long[] hash2 = new long[numHash];
@@ -52,7 +45,7 @@ public class PairedKeysBloomFilter extends BloomFilter {
         }
     }
 
-    public void addSingleAndPair(long[] hvals1, long[] hvals2) {
+    public void add(long[] hvals1, long[] hvals2) {
         long[] hash3 = hashFunction.getHashValues(hvals1, hvals2, numHash);
         
         for (int h=0; h<numHash; ++h) {
@@ -86,7 +79,7 @@ public class PairedKeysBloomFilter extends BloomFilter {
         return true;
     }
 
-    public boolean lookupSingleAndPair(String key1, String key2) {
+    public boolean lookup(String key1, String key2) {
         long[] hash1 = new long[numHash];
         hashFunction.getHashValues(key1, numHash, hash1);
         long[] hash2 = new long[numHash];
@@ -104,7 +97,7 @@ public class PairedKeysBloomFilter extends BloomFilter {
         return true;
     }
     
-    public boolean lookupSingleAndPair(long[] hash1, long[] hash2) {
+    public boolean lookup(long[] hash1, long[] hash2) {
         return lookup(hash1) && lookup(hash2) && lookupPair(hash1, hash2);
     }
 }
