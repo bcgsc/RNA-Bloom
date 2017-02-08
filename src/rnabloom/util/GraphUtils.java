@@ -1779,7 +1779,8 @@ public final class GraphUtils {
             if (neighbors.isEmpty()) {
                 branchesStack.removeLast();
                 if (!extension.isEmpty()) {
-                    extension.removeLast().successors = null; // prune the cached successors
+                    //extension.removeLast().successors = null; // prune the cached successors
+                    extension.removeLast();
                 }
             }
             else if (depth == 0 && neighbors.size() == 1 && !usedKmers.contains(neighbors.peek().seq)) {
@@ -1916,7 +1917,8 @@ public final class GraphUtils {
             if (neighbors.isEmpty()) {
                 branchesStack.removeLast();
                 if (!extension.isEmpty()) {
-                    extension.removeLast().predecessors = null; // prune the cached predecessors
+                    //extension.removeLast().predecessors = null; // prune the cached predecessors
+                    extension.removeLast();
                 }
             }
             else if (depth == 0 && neighbors.size() == 1 && !usedKmers.contains(neighbors.peek().seq)) {

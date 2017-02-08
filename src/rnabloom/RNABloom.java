@@ -950,7 +950,7 @@ public class RNABloom {
         long fragmentId = 0;
         long readPairsParsed = 0;
         
-        int maxTasksQueueSize = numThreads*10;
+        int maxTasksQueueSize = 2;
         
         int newBound = bound;
         boolean pairedKmerDistanceIsSet = false;
