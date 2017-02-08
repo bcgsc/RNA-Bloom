@@ -248,18 +248,18 @@ public class BloomFilterDeBruijnGraph {
         cbf.increment(hashVals);        
     }
     
-    public void addFragmentKmersFromSeq(String seq) {
-        final int numKmers = getNumKmers(seq, k);
-        for (int i=0; i<numKmers; ++i) {
-            pkbf.add(seq.substring(i, i+k));
-        }
-    }
-    
-    public void addFragmentKmers(ArrayList<Kmer> kmers) {
-        for (Kmer kmer : kmers) {
-            pkbf.add(kmer.hashVals);
-        }
-    }
+//    public void addFragmentKmersFromSeq(String seq) {
+//        final int numKmers = getNumKmers(seq, k);
+//        for (int i=0; i<numKmers; ++i) {
+//            pkbf.add(seq.substring(i, i+k));
+//        }
+//    }
+//    
+//    public void addFragmentKmers(ArrayList<Kmer> kmers) {
+//        for (Kmer kmer : kmers) {
+//            pkbf.add(kmer.hashVals);
+//        }
+//    }
     
     public void addPairedKmersFromSeq(String seq) {
         // add paired kmers
@@ -277,25 +277,25 @@ public class BloomFilterDeBruijnGraph {
         }
     }
     
-    public void addFragmentKmersAndPairedKmersFromSeq(String seq) {
-        final int numKmers = getNumKmers(seq, k);
-        
-        // add kmers
-        for (int i=0; i<numKmers; ++i) {
-            pkbf.add(seq.substring(i, i+k));
-        }
-
-        // add paired kmers
-        final int upperBound = numKmers-pairedKmersDistance;
-        for (int i=0; i<upperBound; ++i) {
-            pkbf.addPair(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
-        }
-    }
+//    public void addFragmentKmersAndPairedKmersFromSeq(String seq) {
+//        final int numKmers = getNumKmers(seq, k);
+//        
+//        // add kmers
+//        for (int i=0; i<numKmers; ++i) {
+//            pkbf.add(seq.substring(i, i+k));
+//        }
+//
+//        // add paired kmers
+//        final int upperBound = numKmers-pairedKmersDistance;
+//        for (int i=0; i<upperBound; ++i) {
+//            pkbf.addPair(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
+//        }
+//    }
     
-    public void addFragmentKmersAndPairedKmers(ArrayList<Kmer> kmers) {
-        addFragmentKmers(kmers);
-        addPairedKmers(kmers);
-    }
+//    public void addFragmentKmersAndPairedKmers(ArrayList<Kmer> kmers) {
+//        addFragmentKmers(kmers);
+//        addPairedKmers(kmers);
+//    }
     
     public boolean lookupFragmentKmer(String kmer) {
         return pkbf.lookup(kmer);
