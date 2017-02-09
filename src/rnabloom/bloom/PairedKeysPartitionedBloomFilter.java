@@ -235,11 +235,11 @@ public class PairedKeysPartitionedBloomFilter {
     }
     
     public boolean equivalent(PairedKeysPartitionedBloomFilter bf) {
-        return this.size != bf.size || 
-                this.numHash != bf.numHash || 
-                !BufferComparator.equivalentBitBuffers(this.bitArrayLeft, bf.bitArrayLeft) ||
-                !BufferComparator.equivalentBitBuffers(this.bitArrayRight, bf.bitArrayRight) ||
-                !BufferComparator.equivalentBitBuffers(this.bitArrayPair, bf.bitArrayPair);
+        return this.size == bf.size && 
+                this.numHash == bf.numHash && 
+                BufferComparator.equivalentBitBuffers(this.bitArrayLeft, bf.bitArrayLeft) &&
+                BufferComparator.equivalentBitBuffers(this.bitArrayRight, bf.bitArrayRight) &&
+                BufferComparator.equivalentBitBuffers(this.bitArrayPair, bf.bitArrayPair);
     }
     
     public float getFPR() {

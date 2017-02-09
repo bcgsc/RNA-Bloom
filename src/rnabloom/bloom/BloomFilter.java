@@ -191,6 +191,8 @@ public class BloomFilter implements BloomFilterInterface {
     }
     
     public boolean equivalent(BloomFilter bf) {
-        return this.size != bf.size || this.numHash != bf.numHash || !BufferComparator.equivalentBitBuffers(bitArray, bf.bitArray);
+        return this.size == bf.size && 
+                this.numHash == bf.numHash &&
+                BufferComparator.equivalentBitBuffers(bitArray, bf.bitArray);
     }
 }

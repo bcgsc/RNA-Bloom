@@ -210,6 +210,8 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     }
     
     public boolean equivalent(CountingBloomFilter bf) {
-        return this.size != bf.size || this.numHash != bf.numHash || !BufferComparator.equivalentByteBuffers(counts, bf.counts);
+        return this.size == bf.size &&
+                this.numHash == bf.numHash &&
+                BufferComparator.equivalentByteBuffers(counts, bf.counts);
     }
 }
