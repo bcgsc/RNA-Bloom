@@ -693,7 +693,7 @@ public class RNABloom {
     
     public class FragmentAssembler implements Runnable {
         private FastqReadPair p;
-        private List<Fragment> outList;
+        private ArrayBlockingQueue<Fragment> outList;
         private int bound;
         private int lookahead;
         private int minOverlap;
@@ -707,7 +707,7 @@ public class RNABloom {
         private int rightReadLengthThreshold;
         
         public FragmentAssembler(FastqReadPair p,
-                                List<Fragment> outList,
+                                ArrayBlockingQueue<Fragment> outList,
                                 int bound, 
                                 int lookahead, 
                                 int minOverlap, 
@@ -799,7 +799,11 @@ public class RNABloom {
                                     }
                                 }
                                 
-                                outList.add(new Fragment(assemble(fragmentKmers, k), fragLength, minCov));
+                                try {
+                                    outList.put(new Fragment(assemble(fragmentKmers, k), fragLength, minCov));
+                                } catch (InterruptedException ex) {
+                                    Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+                                }
                             }
                         }
                         else {
@@ -829,7 +833,11 @@ public class RNABloom {
                                 }
                             }
                             
-                            outList.add(new Fragment(assemble(fragmentKmers, k), fragLength, minCov));
+                            try {
+                                outList.put(new Fragment(assemble(fragmentKmers, k), fragLength, minCov));
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+                            }
                         }
                     }
                 }
@@ -959,9 +967,7 @@ public class RNABloom {
         
         // set up thread pool
         MyExecutorService service = new MyExecutorService(numThreads, maxTasksQueueSize);
-        
-        int assembledFragmentsListSize = sampleSize + numThreads + maxTasksQueueSize + 1;
-        
+                
         try {
             FastqReader lin, rin;
             FastqPairReader fqpr;
@@ -981,7 +987,7 @@ public class RNABloom {
                                                                 new FastaWriter(shortFragmentsFastaPaths[5], true)};
             
             FastqReadPair p;
-            List<Fragment> fragments = Collections.synchronizedList(new ArrayList<>(assembledFragmentsListSize));
+            ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
             
             boolean readLengthThresholdIsSet = false;
             ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
@@ -1063,7 +1069,7 @@ public class RNABloom {
                                                                 leftReadLengthThreshold,
                                                                 rightReadLengthThreshold));
                             
-                            if (fragments.size() >= sampleSize) {
+                            if (fragments.remainingCapacity() == 0) {
                                 break;
                             }
 //                            else {
@@ -1072,20 +1078,15 @@ public class RNABloom {
 //                            }
                         }
                     }
-
-                    service.terminate();
-
                     
                     // Calculate length stats
-                    int numFragments = fragments.size();
-                    ArrayList<Integer> fragLengths = new ArrayList<>(numFragments);
-                    
+                    ArrayList<Integer> fragLengths = new ArrayList<>(sampleSize);
                     for (Fragment frag : fragments) {
                         fragLengths.add(frag.length);
                     }
                    
                     int[] fragLengthsStats = getMinQ1MedianQ3Max(fragLengths);
-                    System.out.println("Fragment Lengths Distribution (n=" + sampleSize + ")");
+                    System.out.println("Fragment Lengths Distribution (n=" + fragLengths.size() + ")");
                     System.out.println("\tmin\tQ1\tM\tQ3\tmax");
                     System.out.println("\t" + fragLengthsStats[0] + "\t" + fragLengthsStats[1] + "\t" + fragLengthsStats[2] + "\t" + fragLengthsStats[3] + "\t" + fragLengthsStats[4]);
 
@@ -1103,7 +1104,9 @@ public class RNABloom {
 
                     // Store kmer pairs and write fragments to file
                     int m;
-                    for (Fragment frag : fragments) {
+                    Fragment frag;
+                    while (!fragments.isEmpty()) {
+                        frag = fragments.poll();
                         if (frag.length >= shortestFragmentLengthAllowed) {
                             m = getMinCoverageOrderOfMagnitude(frag.minCov);
 
@@ -1122,10 +1125,8 @@ public class RNABloom {
                     pairedKmerDistanceIsSet = true;
                 }
                 
-                service = new MyExecutorService(numThreads, maxTasksQueueSize);
-                
                 // assemble the remaining fragments in multi-threaded mode
-                for (fragments = Collections.synchronizedList(new ArrayList<>(assembledFragmentsListSize)); fqpr.hasNext();) {
+                while (fqpr.hasNext()) {
                     p = fqpr.next();
                     ++readPairsParsed;
                     
@@ -1146,12 +1147,13 @@ public class RNABloom {
                                                             leftReadLengthThreshold, 
                                                             rightReadLengthThreshold));
 
-                        if (fragments.size() >= sampleSize) {
-                            service.terminate();
+                        if (fragments.remainingCapacity() <= numThreads) {
 
                             // write fragments to file
                             int m;
-                            for (Fragment frag : fragments) {
+                            Fragment frag;
+                            while (!fragments.isEmpty()) {
+                                frag = fragments.poll();
                                 if (frag.length >= shortestFragmentLengthAllowed) {
                                     m = getMinCoverageOrderOfMagnitude(frag.minCov);
 
@@ -1165,10 +1167,6 @@ public class RNABloom {
                                     }
                                 }
                             }
-
-                            // reset thread pool
-                            fragments = Collections.synchronizedList(new ArrayList<>(assembledFragmentsListSize));
-                            service = new MyExecutorService(numThreads, maxTasksQueueSize);
                         }
                     }
                 }
@@ -1177,7 +1175,9 @@ public class RNABloom {
 
                 // write fragments to file
                 int m;
-                for (Fragment frag : fragments) {
+                Fragment frag;
+                while (!fragments.isEmpty()) {
+                    frag = fragments.poll();
                     if (frag.length >= shortestFragmentLengthAllowed) {
                         m = getMinCoverageOrderOfMagnitude(frag.minCov);
 
