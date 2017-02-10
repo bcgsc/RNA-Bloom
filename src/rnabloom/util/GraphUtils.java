@@ -1745,9 +1745,9 @@ public final class GraphUtils {
        
         for (int i=numKmers-graph.getK(); i>Math.max(0, numKmers-pairedKmerDistance); --i) {
             if (graph.lookupLeftKmer(fragmentKmers.get(i).hashVals)) {
-//                if (i>0 && graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
+                if (i>0 && graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
                     return pairedKmerDistance - (numKmers - i);
-//                }
+                }
             }
         }
         
@@ -1760,9 +1760,9 @@ public final class GraphUtils {
        
         for (int i=numKmers-graph.getK(); i>Math.max(0, numKmers-pairedKmerDistance); --i) {
             if (graph.lookupRightKmer(fragmentKmers.get(i).hashVals)) {
-//                if (i>0 && graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
+                if (i>0 && graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
                     return pairedKmerDistance - (numKmers - i);
-//                }
+                }
             }
         }
         
