@@ -18,7 +18,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
-import rnabloom.bloom.PairedKeysBloomFilter;
 import rnabloom.bloom.PairedKeysPartitionedBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction2;
 import rnabloom.bloom.hash.HashFunction2;
