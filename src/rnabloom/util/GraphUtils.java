@@ -1851,7 +1851,9 @@ public final class GraphUtils {
 
                                     if (!greedy && 
                                             assembledKmersBloomFilter.lookup(n.hashVals) &&
-                                            assembledKmersBloomFilter.lookup(partner.hashVals)) {
+                                            assembledKmersBloomFilter.lookup(partner.hashVals) &&
+                                            assembledKmersBloomFilter.lookup(n2.hashVals) &&
+                                            assembledKmersBloomFilter.lookup(partner2.hashVals)) {
                                         stop = true;
                                         break;
                                     }
@@ -1924,7 +1926,9 @@ public final class GraphUtils {
                             
                             if (!greedy && 
                                     assembledKmersBloomFilter.lookup(n.hashVals) && 
-                                    assembledKmersBloomFilter.lookup(partner.hashVals)) {
+                                    assembledKmersBloomFilter.lookup(partner.hashVals) &&
+                                    assembledKmersBloomFilter.lookup(n2.hashVals) &&
+                                    assembledKmersBloomFilter.lookup(partner2.hashVals)) {
                                 stop = true;
                                 break;
                             }
