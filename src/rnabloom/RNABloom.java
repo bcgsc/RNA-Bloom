@@ -1489,6 +1489,7 @@ public class RNABloom {
         
         int maxIndelSize = 1;
         float percentIdentity = 0.95f;
+        float percentError = 1-percentIdentity;
         
         System.out.println("Assembling transcripts...");
         long numFragmentsParsed = 0;
@@ -1528,7 +1529,7 @@ public class RNABloom {
                         
                         if (numFragKmers > 0 && !isHomoPolymer(fragment)) {
                             
-                            ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
+                            ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookAhead, (int) Math.ceil(fragment.length()*percentError)));
                             
                             if (hasNotYetAssembled(fragKmers, screeningBf, maxIndelSize, percentIdentity, 0)) {
 

@@ -2446,12 +2446,17 @@ public final class GraphUtils {
     
     private static String naiveExtendRight(String kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
         StringBuilder sb = new StringBuilder(100);
-        int lastBaseIndex = graph.getK()-1;
+        int lastBaseIndex = graph.getKMinus1();
         
         ArrayDeque<String> neighbors = graph.getSuccessors(kmer);
         String best = kmer;
         while (!neighbors.isEmpty()) {
-            String prev = best;
+            /** look for back branches*/
+            for (String s : graph.getLeftVariants(best)) {
+                if (hasDepthLeft(s, graph, maxTipLength)) {
+                    return sb.toString();
+                }
+            }
             
             if (neighbors.size() == 1) {
                 best = neighbors.peek();
@@ -2465,8 +2470,7 @@ public final class GraphUtils {
                         }
                         else {
                             // too many good branches
-                            best = null;
-                            break;
+                            return sb.toString();
                         }
                     }
                 }
@@ -2476,18 +2480,6 @@ public final class GraphUtils {
                 break;
             }
             
-            /** look for back branches*/
-            boolean hasBackBranch = false;
-            for (String s : graph.getPredecessors(kmer)) {
-                if (!s.equals(prev) && hasDepthLeft(s, graph, maxTipLength)) {
-                    hasBackBranch = true;
-                    break;
-                }
-            }
-            if (hasBackBranch) {
-                break;
-            }
-
             sb.append(best.charAt(lastBaseIndex));
             terminators.add(best);
         }
@@ -2501,7 +2493,12 @@ public final class GraphUtils {
         ArrayDeque<Kmer> neighbors = graph.getSuccessors(kmer);
         Kmer best = kmer;
         while (!neighbors.isEmpty()) {
-            Kmer prev = best;
+            /** look for back branches*/
+            for (Kmer s : graph.getLeftVariants(best)) {
+                if (hasDepthLeft(s, graph, maxTipLength)) {
+                    return result;
+                }
+            }
             
             if (neighbors.size() == 1) {
                 best = neighbors.peek();
@@ -2515,8 +2512,7 @@ public final class GraphUtils {
                         }
                         else {
                             // too many good branches
-                            best = null;
-                            break;
+                            return result;
                         }
                     }
                 }
@@ -2526,18 +2522,6 @@ public final class GraphUtils {
                 break;
             }
             
-            /** look for back branches*/
-            boolean hasBackBranch = false;
-            for (Kmer s : graph.getPredecessors(kmer)) {
-                if (!s.equals(prev) && hasDepthLeft(s, graph, maxTipLength)) {
-                    hasBackBranch = true;
-                    break;
-                }
-            }
-            if (hasBackBranch) {
-                break;
-            }
-
             result.add(best);
             terminators.add(best.seq);
         }
@@ -2551,7 +2535,13 @@ public final class GraphUtils {
         ArrayDeque<String> neighbors = graph.getPredecessors(kmer);
         String best = kmer;
         while (!neighbors.isEmpty()) {
-            String prev = best;
+            /** look for back branches*/
+            for (String s : graph.getRightVariants(best)) {
+                if (hasDepthRight(s, graph, maxTipLength)) {
+                    sb.reverse();
+                    return sb.toString();
+                }
+            }
             
             if (neighbors.size() == 1) {
                 best = neighbors.peek();
@@ -2565,8 +2555,8 @@ public final class GraphUtils {
                         }
                         else {
                             // too many good branches
-                            best = null;
-                            break;
+                            sb.reverse();
+                            return sb.toString();
                         }
                     }
                 }
@@ -2576,24 +2566,11 @@ public final class GraphUtils {
                 break;
             }
             
-            /** look for back branches*/
-            boolean hasBackBranch = false;
-            for (String s : graph.getSuccessors(kmer)) {
-                if (!s.equals(prev) && hasDepthRight(s, graph, maxTipLength)) {
-                    hasBackBranch = true;
-                    break;
-                }
-            }
-            if (hasBackBranch) {
-                break;
-            }
-
             sb.append(best.charAt(0));
             terminators.add(best);
         }
         
         sb.reverse();
-        
         return sb.toString();
     }
     
@@ -2603,7 +2580,16 @@ public final class GraphUtils {
         ArrayDeque<Kmer> neighbors = graph.getPredecessors(kmer);
         Kmer best = kmer;
         while (!neighbors.isEmpty()) {
-            Kmer prev = best;
+            /** look for back branches*/
+            for (Kmer s : graph.getRightVariants(best)) {
+                if (hasDepthRight(s, graph, maxTipLength)) {
+                    if (reverseResult) {
+                        Collections.reverse(result);
+                    }
+
+                    return result;
+                }
+            }
             
             if (neighbors.size() == 1) {
                 best = neighbors.peek();
@@ -2617,8 +2603,11 @@ public final class GraphUtils {
                         }
                         else {
                             // too many good branches
-                            best = null;
-                            break;
+                            if (reverseResult) {
+                                Collections.reverse(result);
+                            }
+
+                            return result;
                         }
                     }
                 }
@@ -2628,27 +2617,17 @@ public final class GraphUtils {
                 break;
             }
             
-            /** look for back branches*/
-            boolean hasBackBranch = false;
-            for (Kmer s : graph.getSuccessors(kmer)) {
-                if (!s.equals(prev) && hasDepthRight(s, graph, maxTipLength)) {
-                    hasBackBranch = true;
-                    break;
-                }
-            }
-            if (hasBackBranch) {
-                break;
-            }
-
             result.add(best);
             terminators.add(best.seq);
         }
         
-        Collections.reverse(result);
+        if (reverseResult) {
+            Collections.reverse(result);
+        }
         
         return result;
     }
-    
+        
 //    public static void main(String[] args) {
 ////        String seq = "AAAAAAAAAAA";
 //        String seq = "AAAAAAAAAAACCC";

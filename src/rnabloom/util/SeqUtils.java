@@ -21,6 +21,25 @@ import rnabloom.io.FastqRecord;
 public final class SeqUtils {
     public static final char GAP_CHAR = 'N';
     public final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
+    public final static char[] A_ALT_NUCLEOTIDES = new char[] {'C','G','T'};
+    public final static char[] C_ALT_NUCLEOTIDES = new char[] {'A','G','T'};
+    public final static char[] G_ALT_NUCLEOTIDES = new char[] {'A','C','T'};
+    public final static char[] T_ALT_NUCLEOTIDES = new char[] {'A','C','G'};
+    
+    public static final char[] getAltNucleotides(char c) {
+        switch (c) {
+            case 'A':
+                return A_ALT_NUCLEOTIDES;
+            case 'C':
+                return C_ALT_NUCLEOTIDES;
+            case 'G':
+                return G_ALT_NUCLEOTIDES;
+            case 'T':
+                return T_ALT_NUCLEOTIDES;
+            default:
+                return NUCLEOTIDES;
+        }
+    }
     
     public static final int getNumGC(String seq) {
         int numGC = 0;
