@@ -1774,8 +1774,7 @@ public final class GraphUtils {
                                             int lookahead, 
                                             int maxTipLength, 
                                             boolean greedy, 
-                                            BloomFilter assembledKmersBloomFilter,
-                                            float minCoverageThreshold) {
+                                            BloomFilter assembledKmersBloomFilter) {
         
         final int distance = graph.getPairedKmerDistance();
         
