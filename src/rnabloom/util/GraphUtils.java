@@ -1813,14 +1813,6 @@ public final class GraphUtils {
 //                    extension.removeLast().successors = null; // prune the cached successors
                 extension.pollLast();
             }
-            else if (depth == 0 && neighbors.size() == 1 && !usedKmers.contains(neighbors.peek().seq)) {
-                // naive extension                
-                n = neighbors.removeFirst();
-                kmers.add(n);
-                usedKmers.add(n.seq);
-                branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
-//                n.successors = null; // prune the cached successors
-            }
             else if (depth >= maxRightDepth) {
                 numKmers = kmers.size();
                 partnerIndex = numKmers - distance + depth;
@@ -1996,14 +1988,6 @@ public final class GraphUtils {
                 branchesStack.removeLast();
 //                    extension.removeLast().predecessors = null; // prune the cached predecessors
                 extension.pollLast();
-            }
-            else if (depth == 0 && neighbors.size() == 1 && !usedKmers.contains(neighbors.peek().seq)) {
-                // naive extension
-                n = neighbors.removeFirst();
-                kmers.add(n);
-                usedKmers.add(n.seq);
-                branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
-//                n.predecessors = null; // prune the cached predecessors
             }
             else if (depth >= maxLeftDepth) {
                 numKmers = kmers.size();

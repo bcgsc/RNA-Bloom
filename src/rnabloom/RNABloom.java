@@ -60,6 +60,7 @@ public class RNABloom {
     public final static long NUM_BYTES_1GB = (long) pow(1024, 3);
     
     private int k;
+    private int kMinus1;
 //    private boolean strandSpecific;
     private Pattern qualPatternDBG;
     private Pattern qualPatternFrag;
@@ -84,6 +85,7 @@ public class RNABloom {
     
     public RNABloom(int k, int qDBG, int qFrag) {
         this.k = k;
+        this.kMinus1 = k-1;
         this.qualPatternDBG = getPhred33Pattern(qDBG, k);
         this.qualPatternFrag = getPhred33Pattern(qFrag, k);
     }
@@ -400,47 +402,24 @@ public class RNABloom {
         return false;
         
 //        int numKmersNotSeenLeft = 0;
-//        float minCovLeft = Float.MAX_VALUE;
-//        
-//        float c;
 //        for (Kmer kmer : leftKmers) {
-//            c = kmer.count;
-//            
-//            if (c <= 0) {
-//                return false;
-//            }
-//            
-//            if (!graph.lookupFragmentKmer(kmer.hashVals)) {
-//                ++numKmersNotSeenLeft;
-//                
-//                if (c < minCovLeft) {
-//                    minCovLeft = c;
+//            if (!graph.lookupLeftKmer(kmer.hashVals)) {
+//                if (++numKmersNotSeenLeft >= kMinus1) {
+//                    return true;
 //                }
 //            }
 //        }
 //        
 //        int numKmersNotSeenRight = 0;
-//        float minCovRight = Float.MAX_VALUE;
-//        
 //        for (Kmer kmer : rightKmers) {
-//            c = kmer.count;
-//            
-//            if (c <= 0) {
-//                return false;
-//            }
-//            
-//            if (!graph.lookupFragmentKmer(kmer.hashVals)) {
-//                ++numKmersNotSeenRight;
-//                
-//                if (c < minCovRight) {
-//                    minCovRight = c;
+//            if (!graph.lookupRightKmer(kmer.hashVals)) {
+//                if (++numKmersNotSeenRight >= kMinus1) {
+//                    return true;
 //                }
 //            }
 //        }
 //        
-//        return numKmersNotSeenLeft >= k || numKmersNotSeenLeft >= minCovLeft ||
-//                numKmersNotSeenRight >= k || numKmersNotSeenRight >= minCovRight ||
-//                numKmersNotSeenLeft == leftKmers.size() || numKmersNotSeenRight == rightKmers.size();
+//        return numKmersNotSeenLeft + numKmersNotSeenRight >= kMinus1;
     }
     
 //    
@@ -731,7 +710,7 @@ public class RNABloom {
         }
 
         @Override
-        public void run() {
+        public void run() {            
             ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookahead, (int) Math.ceil(fragment.length()*percentError)));
 
             if (hasNotYetAssembled(fragKmers, maxIndelSize, percentIdentity)) {
@@ -2210,7 +2189,7 @@ public class RNABloom {
             int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), "10"));
             int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
             int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
-            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "7"));
+            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "5"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "3"));
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
