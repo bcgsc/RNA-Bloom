@@ -734,7 +734,7 @@ public class RNABloom {
         public void run() {
             ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookahead, (int) Math.ceil(fragment.length()*percentError)));
 
-            if (hasNotYetAssembled(fragKmers, maxIndelSize, percentIdentity, 0)) {
+            if (hasNotYetAssembled(fragKmers, maxIndelSize, percentIdentity)) {
                 int numFragKmers = fragKmers.size();
 
                 /** check whether sequence-wide coverage differences are too large */
@@ -759,7 +759,7 @@ public class RNABloom {
 
                 extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, !covDiffTooLarge && beGreedy, screeningBf);
 
-                if (hasNotYetAssembled(fragKmers, maxIndelSize, percentIdentity, maxTipLength)) {
+                if (hasNotYetAssembled(fragKmers, maxIndelSize, percentIdentity)) {
 
                     for (Kmer kmer : fragKmers) {
                         screeningBf.add(kmer.hashVals);
@@ -1508,7 +1508,7 @@ public class RNABloom {
         }
     }
     
-    private boolean hasNotYetAssembled(ArrayList<Kmer> kmers, int maxIndelSize, float perecentIdentity, int maxTipLength) {
+    private boolean hasNotYetAssembled(ArrayList<Kmer> kmers, int maxIndelSize, float perecentIdentity) {
         int numKmers = kmers.size();
         int length = numKmers + k - 1;
         
@@ -1525,15 +1525,15 @@ public class RNABloom {
             
             if (screeningBf.lookup(kmer.hashVals)) {
                 if (lastGoodKmer == null) {
-                    if (i > maxTipLength) {
+//                    if (i > maxTipLength) {
                         numMismatchBases += numKmersNotSeen;
-                    }
+//                    }
                 }
                 else if (numKmersNotSeen > 0) {
                     if (numKmersNotSeen <= k+maxIndelSize && hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
-                        if (i > maxTipLength) {
+//                        if (i > maxTipLength) {
                             numMismatchBases += numKmersNotSeen - k + 1;
-                        }
+//                        }
                     }
                     else {
                         return true;
@@ -1559,9 +1559,9 @@ public class RNABloom {
             return true;
         }
         
-        if (numKmersNotSeen > maxTipLength) {
+//        if (numKmersNotSeen > maxTipLength) {
             numMismatchBases += numKmersNotSeen;
-        }
+//        }
         
         return numMismatchBases > maxMismatchesAllowed;
     }
@@ -1733,7 +1733,7 @@ public class RNABloom {
                             
                             ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookAhead, (int) Math.ceil(fragment.length()*percentError)));
                             
-                            if (hasNotYetAssembled(fragKmers, maxIndelSize, percentIdentity, 0)) {
+                            if (hasNotYetAssembled(fragKmers, maxIndelSize, percentIdentity)) {
 
                                 /** check whether sequence-wide coverage differences are too large */
                                 int numFalsePositivesAllowed = (int) Math.round(numFragKmers * covFPR);
@@ -1757,7 +1757,7 @@ public class RNABloom {
 
                                 extendWithPairedKmers(fragKmers, graph, lookAhead, maxTipLength, !covDiffTooLarge && beGreedy, screeningBf);
 
-                                if (hasNotYetAssembled(fragKmers, maxIndelSize, percentIdentity, maxTipLength)) {
+                                if (hasNotYetAssembled(fragKmers, maxIndelSize, percentIdentity)) {
 
                                     for (Kmer kmer : fragKmers) {
                                         screeningBf.add(kmer.hashVals);
@@ -2209,7 +2209,7 @@ public class RNABloom {
             int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
             int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
             int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "7"));
-            int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
+            int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), Integer.toString(k-1)));
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
             
