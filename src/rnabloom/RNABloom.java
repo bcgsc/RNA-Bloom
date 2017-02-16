@@ -861,19 +861,24 @@ public class RNABloom {
                             if (connectedPath != null) {
                                 int fragLength = leftKmers.size() + connectedPath.size() + rightKmers.size() + k - 1;
 
-                                HashSet<String> terminators = new HashSet<>(fragLength + 2 * k);
-
-                                ArrayList<Kmer> rightExtension = naiveExtendRight(rightKmers.get(rightKmers.size()-1), graph, maxTipLen, terminators);
-
-                                ArrayList<Kmer> leftExtension = naiveExtendLeft(leftKmers.get(0), graph, maxTipLen, terminators, true);
+//                                HashSet<String> terminators = new HashSet<>(fragLength + 2 * k);
+//
+//                                ArrayList<Kmer> rightExtension = naiveExtendRight(rightKmers.get(rightKmers.size()-1), graph, maxTipLen, terminators);
+//
+//                                ArrayList<Kmer> leftExtension = naiveExtendLeft(leftKmers.get(0), graph, maxTipLen, terminators, true);
+//                                
+//                                fragmentKmers = new ArrayList<>(leftExtension.size() + leftKmers.size() + connectedPath.size() + rightKmers.size() + rightExtension.size());
+//                                fragmentKmers.addAll(leftExtension);
+//                                fragmentKmers.addAll(leftKmers);
+//                                fragmentKmers.addAll(connectedPath);
+//                                fragmentKmers.addAll(rightKmers);
+//                                fragmentKmers.addAll(rightExtension);
                                 
-                                fragmentKmers = new ArrayList<>(leftExtension.size() + leftKmers.size() + connectedPath.size() + rightKmers.size() + rightExtension.size());
-                                fragmentKmers.addAll(leftExtension);
+                                fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
                                 fragmentKmers.addAll(leftKmers);
                                 fragmentKmers.addAll(connectedPath);
                                 fragmentKmers.addAll(rightKmers);
-                                fragmentKmers.addAll(rightExtension);
-                                
+
                                 if (this.storeKmerPairs) {
                                     graph.addPairedKmers(fragmentKmers);
                                 }
@@ -895,18 +900,18 @@ public class RNABloom {
                         else {
                             int fragLength = fragmentKmers.size() + k - 1;
                             
-                            HashSet<String> terminators = new HashSet<>(fragLength + 2 * k);
-                            
-                            ArrayList<Kmer> rightExtension = naiveExtendRight(fragmentKmers.get(fragmentKmers.size()-1), graph, maxTipLen, terminators);
-                        
-                            ArrayList<Kmer> leftExtension = naiveExtendLeft(fragmentKmers.get(0), graph, maxTipLen, terminators, true);
-                            
-                            if (!leftExtension.isEmpty()) {
-                                fragmentKmers.addAll(0, leftExtension);
-                            }
-                            if (!rightExtension.isEmpty()) {
-                                fragmentKmers.addAll(rightExtension);
-                            }
+//                            HashSet<String> terminators = new HashSet<>(fragLength + 2 * k);
+//                            
+//                            ArrayList<Kmer> rightExtension = naiveExtendRight(fragmentKmers.get(fragmentKmers.size()-1), graph, maxTipLen, terminators);
+//                        
+//                            ArrayList<Kmer> leftExtension = naiveExtendLeft(fragmentKmers.get(0), graph, maxTipLen, terminators, true);
+//                            
+//                            if (!leftExtension.isEmpty()) {
+//                                fragmentKmers.addAll(0, leftExtension);
+//                            }
+//                            if (!rightExtension.isEmpty()) {
+//                                fragmentKmers.addAll(rightExtension);
+//                            }
                             
                             if (this.storeKmerPairs) {
                                 graph.addPairedKmers(fragmentKmers);
@@ -1549,9 +1554,6 @@ public class RNABloom {
             }
             else {
                 ++numKmersNotSeen;
-                if (numKmersNotSeen > maxMismatchesAllowed) {
-                    return true;
-                }
             }
         }
         
@@ -1718,7 +1720,7 @@ public class RNABloom {
                     fin = new FastaReader(fragmentsFasta);
 
                     String fragment;
-                    float minCoverageThreshold = (float) Math.pow(10, mag);
+//                    float minCoverageThreshold = (float) Math.pow(10, mag);
 
                     while (fin.hasNext()) {
                         if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
@@ -2209,7 +2211,7 @@ public class RNABloom {
             int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
             int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
             int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "7"));
-            int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), Integer.toString(k-1)));
+            int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "3"));
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
             
