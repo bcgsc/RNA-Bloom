@@ -278,7 +278,7 @@ public final class GraphUtils {
             frontier = newFrontier;
         }
         
-        for (int i=lowerBound; i<upperBound; ++i) {
+        for (int i=lowerBound; i<=upperBound; ++i) {
             kmersInFrontier.clear();
             newFrontier = new ArrayDeque<>();
             for (Kmer kmer : frontier) {
@@ -1849,19 +1849,17 @@ public final class GraphUtils {
                                 if (graph.lookupRightKmer(n.hashVals) && 
                                         graph.lookupKmerPairing(partner.hashVals, n.hashVals)) {
 
-                                    if (!greedy && 
-                                            assembledKmersBloomFilter.lookup(n.hashVals) &&
-                                            assembledKmersBloomFilter.lookup(partner.hashVals) &&
-                                            assembledKmersBloomFilter.lookup(n2.hashVals) &&
-                                            assembledKmersBloomFilter.lookup(partner2.hashVals)) {
-                                        stop = true;
-                                        break;
-                                    }
-
                                     branchesStack.clear();
 
                                     kmers.addAll(extension);
                                     kmers.add(n);
+                                    
+                                    if (!greedy && 
+                                            assembledKmersBloomFilter.lookup(n.hashVals) &&
+                                            assembledKmersBloomFilter.lookup(n2.hashVals) ) {
+                                        stop = true;
+                                        break;
+                                    }
                                     
                                     Iterator<Kmer> kmerItr = extension.iterator();
                                     while (kmerItr.hasNext()) {
@@ -1924,19 +1922,17 @@ public final class GraphUtils {
                         if (graph.lookupKmerPair(partner.hashVals, n.hashVals) &&
                                 graph.lookupKmerPair(partner2.hashVals, n2.hashVals)) {
                             
-                            if (!greedy && 
-                                    assembledKmersBloomFilter.lookup(n.hashVals) && 
-                                    assembledKmersBloomFilter.lookup(partner.hashVals) &&
-                                    assembledKmersBloomFilter.lookup(n2.hashVals) &&
-                                    assembledKmersBloomFilter.lookup(partner2.hashVals)) {
-                                stop = true;
-                                break;
-                            }
-
                             branchesStack.clear();
                             
                             kmers.addAll(extension);
                             kmers.add(n);
+                            
+                            if (!greedy && 
+                                    assembledKmersBloomFilter.lookup(n.hashVals) &&
+                                    assembledKmersBloomFilter.lookup(n2.hashVals)) {
+                                stop = true;
+                                break;
+                            }
                             
                             Iterator<Kmer> kmerItr = extension.iterator();
                             while (kmerItr.hasNext()) {
