@@ -1702,9 +1702,10 @@ public class RNABloom {
 //                    float minCoverageThreshold = (float) Math.pow(10, mag);
 
                     while (fin.hasNext()) {
-                        if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
-                            System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments...");
-                        }
+                        ++numFragmentsParsed;
+//                        if (++numFragmentsParsed % NUM_PARSED_INTERVAL == 0) {
+//                            System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments...");
+//                        }
 
                         fragment = fin.next();
 
