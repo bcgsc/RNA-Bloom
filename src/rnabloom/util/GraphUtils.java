@@ -1863,6 +1863,7 @@ public final class GraphUtils {
                                         graph.lookupKmerPairing(partner.hashVals, n.hashVals)) {
 
                                     branchesStack.clear();
+                                    visitedKmers.clear();
 
                                     kmers.addAll(extension);
                                     kmers.add(n);
@@ -1885,8 +1886,6 @@ public final class GraphUtils {
                                     }
                                     usedKmers.add(n.seq);
 
-                                    visitedKmers.clear();
-
                                     mergedSeq = partner.seq + n.seq;
 
                                     if (usedPairs.contains(mergedSeq)) {
@@ -1897,8 +1896,16 @@ public final class GraphUtils {
                                         usedPairs.add(mergedSeq);
                                     }
 
+                                    ArrayList<Kmer> extendRight = naiveExtendRight(n, graph, maxTipLength, usedKmers);
+                                    if (extendRight.isEmpty()) {
+                                        branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
+                                    }
+                                    else {
+                                        kmers.addAll(extendRight);
+                                        branchesStack.add(getSuccessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
+                                    }
+                                    
                                     maxRightDepth = maxRightPartnerSearchDepth(kmers, graph, distance);
-                                    branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
         //                            n.successors = null; // prune the cached successors
 
                                     found = true;
@@ -1938,6 +1945,7 @@ public final class GraphUtils {
                                 graph.lookupKmerPair(partner2.hashVals, n2.hashVals)) {
                             
                             branchesStack.clear();
+                            visitedKmers.clear();
                             
                             kmers.addAll(extension);
                             kmers.add(n);
@@ -1960,8 +1968,6 @@ public final class GraphUtils {
                             }
                             usedKmers.add(n.seq);
                             
-                            visitedKmers.clear();
-
                             if (usedPairs.contains(mergedSeq)) {
                                 stop = true;
                                 break;
@@ -1970,8 +1976,16 @@ public final class GraphUtils {
                                 usedPairs.add(mergedSeq);
                             }
                             
+                            ArrayList<Kmer> extendRight = naiveExtendRight(n, graph, maxTipLength, usedKmers);
+                            if (extendRight.isEmpty()) {
+                                branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
+                            }
+                            else {
+                                kmers.addAll(extendRight);
+                                branchesStack.add(getSuccessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
+                            }
+                            
                             maxRightDepth = maxRightPartnerSearchDepth(kmers, graph, distance);
-                            branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
                             
 //                            n.successors = null; // prune the cached successors
                         }
@@ -2039,17 +2053,18 @@ public final class GraphUtils {
                                 if (graph.lookupLeftKmer(n.hashVals) && 
                                         graph.lookupKmerPairing(n.hashVals, partner.hashVals)) {
 
+                                    branchesStack.clear();
+                                    visitedKmers.clear();
+
+                                    kmers.addAll(extension);
+                                    kmers.add(n);
+                                    
                                     if (!greedy && 
                                             assembledKmersBloomFilter.lookup(n.hashVals) && 
                                             assembledKmersBloomFilter.lookup(partner.hashVals)) {
                                         stop = true;
                                         break;
                                     }
-
-                                    branchesStack.clear();
-
-                                    kmers.addAll(extension);
-                                    kmers.add(n);
                                     
                                     Iterator<Kmer> kmerItr = extension.iterator();
                                     while (kmerItr.hasNext()) {
@@ -2059,8 +2074,6 @@ public final class GraphUtils {
                                         kmerItr.remove();
                                     }
                                     usedKmers.add(n.seq);
-
-                                    visitedKmers.clear();
 
                                     mergedSeq = n.seq + partner.seq;
 
@@ -2072,8 +2085,16 @@ public final class GraphUtils {
                                         usedPairs.add(mergedSeq);
                                     }
 
+                                    ArrayList<Kmer> extendLeft = naiveExtendLeft(n, graph, maxTipLength, usedKmers, false);
+                                    if (extendLeft.isEmpty()) {
+                                        branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
+                                    }
+                                    else {
+                                        kmers.addAll(extendLeft);
+                                        branchesStack.add(getPredecessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
+                                    }
+                                    
                                     maxLeftDepth = maxLeftPartnerSearchDepth(kmers, graph, distance);
-                                    branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
 
         //                            n.predecessors = null; // prune the cached predecessors
 
@@ -2113,17 +2134,18 @@ public final class GraphUtils {
                         if (graph.lookupKmerPair(n.hashVals, partner.hashVals) &&
                                 graph.lookupKmerPair(n2.hashVals, partner2.hashVals)) {
                             
+                            branchesStack.clear();
+                            visitedKmers.clear();
+
+                            kmers.addAll(extension);
+                            kmers.add(n);
+                            
                             if (!greedy && 
                                     assembledKmersBloomFilter.lookup(n.hashVals) && 
                                     assembledKmersBloomFilter.lookup(partner.hashVals)) {
                                 stop = true;
                                 break;
                             }
-
-                            branchesStack.clear();
-
-                            kmers.addAll(extension);
-                            kmers.add(n);
                             
                             Iterator<Kmer> kmerItr = extension.iterator();
                             while (kmerItr.hasNext()) {
@@ -2133,8 +2155,6 @@ public final class GraphUtils {
                                 kmerItr.remove();
                             }
                             usedKmers.add(n.seq);
-                            
-                            visitedKmers.clear();
 
                             if (usedPairs.contains(mergedSeq)) {
                                 stop = true;
@@ -2143,9 +2163,16 @@ public final class GraphUtils {
                                 usedPairs.add(mergedSeq);
                             }
 
-                            maxLeftDepth = maxLeftPartnerSearchDepth(kmers, graph, distance);
-                            branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
+                            ArrayList<Kmer> extendLeft = naiveExtendLeft(n, graph, maxTipLength, usedKmers, false);
+                            if (extendLeft.isEmpty()) {
+                                branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
+                            }
+                            else {
+                                kmers.addAll(extendLeft);
+                                branchesStack.add(getPredecessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
+                            }
                             
+                            maxLeftDepth = maxLeftPartnerSearchDepth(kmers, graph, distance);
 //                            n.predecessors = null; // prune the cached predecessors
                         }
                         else {
