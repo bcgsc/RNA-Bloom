@@ -747,7 +747,7 @@ public final class GraphUtils {
 
                 // correct left read
                 leftCorrected = false;
-                ArrayList<Kmer> leftKmers2 = new ArrayList<>(numLeftKmers);
+                ArrayList<Kmer> leftKmers2 = new ArrayList<>(numLeftKmers + maxIndelSize);
                 int numBadKmersSince = 0;
                 Kmer kmer;
                 for (int i=0; i<numLeftKmers; ++i) {
@@ -757,13 +757,24 @@ public final class GraphUtils {
                             if (!leftKmers2.isEmpty()) {
                                 ArrayList<Kmer> path = getMaxCoveragePath(graph, leftKmers2.get(leftKmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
                                 if (path == null) {
+                                    // fill with original sequence
                                     for (int j=i-numBadKmersSince; j<i; ++j) {
                                         leftKmers2.add(leftKmers.get(j));
                                     }
                                 }
                                 else {
-                                    leftKmers2.addAll(path);
-                                    leftCorrected = true;
+                                    int altPathLen = path.size();
+                                    
+                                    if (numBadKmersSince-maxIndelSize <= altPathLen && altPathLen <= numBadKmersSince+maxIndelSize) {
+                                        leftKmers2.addAll(path);
+                                        leftCorrected = true;
+                                    }
+                                    else {
+                                        // fill with original sequence
+                                        for (int j=i-numBadKmersSince; j<i; ++j) {
+                                            leftKmers2.add(leftKmers.get(j));
+                                        }
+                                    }
                                 }
                             }
 
@@ -784,7 +795,7 @@ public final class GraphUtils {
                 
                 // correct right read
                 rightCorrected = false;
-                ArrayList<Kmer> rightKmers2 = new ArrayList<>(numRightKmers);
+                ArrayList<Kmer> rightKmers2 = new ArrayList<>(numRightKmers + maxIndelSize);
                 numBadKmersSince = 0;
                 for (int i=0; i<numRightKmers; ++i) {
                     kmer = rightKmers.get(i);
@@ -793,13 +804,24 @@ public final class GraphUtils {
                             if (!rightKmers2.isEmpty()) {
                                 ArrayList<Kmer> path = getMaxCoveragePath(graph, rightKmers2.get(rightKmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
                                 if (path == null) {
+                                    // fill with original sequence
                                     for (int j=i-numBadKmersSince; j<i; ++j) {
                                         rightKmers2.add(rightKmers.get(j));
                                     }
                                 }
                                 else {
-                                    rightKmers2.addAll(path);
-                                    rightCorrected = true;
+                                    int altPathLen = path.size();
+                                    
+                                    if (numBadKmersSince-maxIndelSize <= altPathLen && altPathLen <= numBadKmersSince+maxIndelSize) {
+                                        rightKmers2.addAll(path);
+                                        rightCorrected = true;
+                                    }
+                                    else {
+                                        // fill with original sequence
+                                        for (int j=i-numBadKmersSince; j<i; ++j) {
+                                            rightKmers2.add(rightKmers.get(j));
+                                        }
+                                    }
                                 }
                             }
 
@@ -1095,10 +1117,9 @@ public final class GraphUtils {
 //        int numKmers = kmers.size();
 //        int length = numKmers + k - 1;
 //        StringBuilder sb = new StringBuilder(length);
-//        int numNonOverlappingKmers = length/k;
 //
-//        for (int i=0; i<numNonOverlappingKmers; ++i) {
-//            sb.append(kmers.get(i*k).seq);
+//        for (int i=0; i<numKmers; i+k) {
+//            sb.append(kmers.get(i).seq);
 //        }
 //
 //        int remainder = length % k;
