@@ -680,6 +680,166 @@ public final class GraphUtils {
         return seq;
     }
     
+    private static ArrayList<Kmer> correctErrorHelper(ArrayList<Kmer> kmers,
+                                                    BloomFilterDeBruijnGraph graph, 
+                                                    int lookahead,
+                                                    int maxIndelSize,
+                                                    float covThreshold) {
+        
+        
+        boolean corrected = false;
+        int numKmers = kmers.size();
+        int k = graph.getK();
+        int kMinus1 = graph.getKMinus1();
+
+        ArrayList<Kmer> kmers2 = new ArrayList<>(numKmers + maxIndelSize);
+        int numBadKmersSince = 0;
+        Kmer kmer;
+        for (int i=0; i<numKmers; ++i) {
+            kmer = kmers.get(i);
+            if (kmer.count >= covThreshold) {                    
+                if (numBadKmersSince > 0) {
+                    if (kmers2.isEmpty()) {
+                        // check left edge
+                        ArrayDeque<Kmer> leftVars = graph.getLeftVariants(kmers.get(i-1));
+                        if (leftVars.isEmpty()) {
+                            // no branches found
+                            for (int j=0; j<i; ++j) {
+                                kmers2.add(kmers.get(j));
+                            }
+                        }
+                        else if (numBadKmersSince >= lookahead) {
+                            // calculate median cov of edge kmers
+                            float[] tipCovs = new float[numBadKmersSince];
+                            for (int j=0; j<i; ++j) {
+                                tipCovs[j] = kmers.get(j).count;
+                            }
+                            float tipMedCov = getMedian(tipCovs);
+
+                            // extract tip sequence
+                            StringBuilder sb = new StringBuilder(i);
+                            for (int j=0; j<i-1; ++j) {
+                                sb.append(kmers.get(j).seq.charAt(0));
+                            }
+                            String tip = sb.toString();
+
+                            // identify the best variant tip
+                            String best = null;
+                            float bestCov = tipMedCov;
+                            for (Kmer v : leftVars) {
+                                String s = tip + v.seq;
+                                float[] vc = graph.getMinMedianMaxKmerCoverage(s);
+                                if (vc[0] > 0 && vc[1] > bestCov) {
+                                    best = s;
+                                    bestCov = vc[1];
+                                }
+                            }
+
+                            if (best != null) {
+                                corrected = true;
+                                // replace with best variant tip
+                                kmers2.addAll(graph.getKmers(best));
+                            }
+                            else if (numBadKmersSince > k) {
+                                // original sequence
+                                for (int j=0; j<i; ++j) {
+                                    kmers2.add(kmers.get(j));
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        ArrayList<Kmer> path = getMaxCoveragePath(graph, kmers2.get(kmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
+                        if (path == null) {
+                            // fill with original sequence
+                            for (int j=i-numBadKmersSince; j<i; ++j) {
+                                kmers2.add(kmers.get(j));
+                            }
+                        }
+                        else {
+                            int altPathLen = path.size();
+
+                            if (numBadKmersSince-maxIndelSize <= altPathLen && altPathLen <= numBadKmersSince+maxIndelSize) {
+                                kmers2.addAll(path);
+                                corrected = true;
+                            }
+                            else {
+                                // fill with original sequence
+                                for (int j=i-numBadKmersSince; j<i; ++j) {
+                                    kmers2.add(kmers.get(j));
+                                }
+                            }
+                        }
+                    }
+
+                    numBadKmersSince = 0;
+                }
+
+                kmers2.add(kmer);
+            }
+            else {
+                ++numBadKmersSince;
+            }
+        }
+        
+        if (numBadKmersSince > 0 && numBadKmersSince < numKmers) {
+            // check right edge
+            int i = numKmers-numBadKmersSince; // index of first bad kmer
+            ArrayDeque<Kmer> rightVars = graph.getRightVariants(kmers.get(i));
+            if (rightVars.isEmpty()) {
+                for (int j=i; j<numKmers; ++j) {
+                    kmers2.add(kmers.get(j));
+                }
+            }
+            else if (numBadKmersSince >= lookahead) {
+                // calculate median cov of edge kmers
+                float[] tipCovs = new float[numBadKmersSince];
+                for (int j=0; j<numBadKmersSince; ++j) {
+                    tipCovs[j] = kmers.get(i+j).count;
+                }
+                float tipMedCov = getMedian(tipCovs);
+
+                // extract tip sequence
+                StringBuilder sb = new StringBuilder(numBadKmersSince);
+                for (int j=i+1; j<numKmers; ++j) {
+                    sb.append(kmers.get(j).seq.charAt(kMinus1));
+                }
+                String tip = sb.toString();
+
+                // identify the best variant tip
+                String best = null;
+                float bestCov = tipMedCov;
+                for (Kmer v : rightVars) {
+                    String s = v.seq + tip;
+                    float[] vc = graph.getMinMedianMaxKmerCoverage(s);
+                    if (vc[0] > 0 && vc[1] > bestCov) {
+                        best = s;
+                        bestCov = vc[1];
+                    }
+                }
+
+                if (best != null) {
+                    corrected = true;
+                    // replace with best variant tip
+                    kmers2.addAll(graph.getKmers(best));
+                }
+                else if (numBadKmersSince > k) {
+                    // original sequence
+                    for (int j=i; j<numKmers; ++j) {
+                        kmers2.add(kmers.get(j));
+                    }
+                }
+            }
+        }
+        
+        if (corrected) {
+            return kmers2;
+        }
+        
+        // no changes
+        return null;
+    }
+    
     public static ReadPair correctErrors2(ArrayList<Kmer> leftKmers, 
                                             ArrayList<Kmer> rightKmers, 
                                             BloomFilterDeBruijnGraph graph, 
@@ -746,101 +906,31 @@ public final class GraphUtils {
                 float covThreshold = Math.min(leftCovThreshold, rightCovThreshold);
 
                 // correct left read
-                leftCorrected = false;
-                ArrayList<Kmer> leftKmers2 = new ArrayList<>(numLeftKmers + maxIndelSize);
-                int numBadKmersSince = 0;
-                Kmer kmer;
-                for (int i=0; i<numLeftKmers; ++i) {
-                    kmer = leftKmers.get(i);
-                    if (kmer.count >= covThreshold) {                    
-                        if (numBadKmersSince > 0) {
-                            if (!leftKmers2.isEmpty()) {
-                                ArrayList<Kmer> path = getMaxCoveragePath(graph, leftKmers2.get(leftKmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
-                                if (path == null) {
-                                    // fill with original sequence
-                                    for (int j=i-numBadKmersSince; j<i; ++j) {
-                                        leftKmers2.add(leftKmers.get(j));
-                                    }
-                                }
-                                else {
-                                    int altPathLen = path.size();
-                                    
-                                    if (numBadKmersSince-maxIndelSize <= altPathLen && altPathLen <= numBadKmersSince+maxIndelSize) {
-                                        leftKmers2.addAll(path);
-                                        leftCorrected = true;
-                                    }
-                                    else {
-                                        // fill with original sequence
-                                        for (int j=i-numBadKmersSince; j<i; ++j) {
-                                            leftKmers2.add(leftKmers.get(j));
-                                        }
-                                    }
-                                }
-                            }
+                ArrayList<Kmer> leftKmers2 = correctErrorHelper(leftKmers,
+                                                                graph, 
+                                                                lookahead,
+                                                                maxIndelSize,
+                                                                covThreshold);
 
-                            numBadKmersSince = 0;
-                        }
-
-                        leftKmers2.add(kmer);
-                    }
-                    else {
-                        ++numBadKmersSince;
-                    }
-                }
-
-                if (leftCorrected || leftKmers2.size() != numLeftKmers) {
+                if (leftKmers2 != null) {
                     leftKmers = leftKmers2;
                     leftCorrected = true;
                 }
                 
                 // correct right read
                 rightCorrected = false;
-                ArrayList<Kmer> rightKmers2 = new ArrayList<>(numRightKmers + maxIndelSize);
-                numBadKmersSince = 0;
-                for (int i=0; i<numRightKmers; ++i) {
-                    kmer = rightKmers.get(i);
-                    if (kmer.count >= covThreshold) {                    
-                        if (numBadKmersSince > 0) {
-                            if (!rightKmers2.isEmpty()) {
-                                ArrayList<Kmer> path = getMaxCoveragePath(graph, rightKmers2.get(rightKmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
-                                if (path == null) {
-                                    // fill with original sequence
-                                    for (int j=i-numBadKmersSince; j<i; ++j) {
-                                        rightKmers2.add(rightKmers.get(j));
-                                    }
-                                }
-                                else {
-                                    int altPathLen = path.size();
-                                    
-                                    if (numBadKmersSince-maxIndelSize <= altPathLen && altPathLen <= numBadKmersSince+maxIndelSize) {
-                                        rightKmers2.addAll(path);
-                                        rightCorrected = true;
-                                    }
-                                    else {
-                                        // fill with original sequence
-                                        for (int j=i-numBadKmersSince; j<i; ++j) {
-                                            rightKmers2.add(rightKmers.get(j));
-                                        }
-                                    }
-                                }
-                            }
+                ArrayList<Kmer> rightKmers2 = correctErrorHelper(rightKmers,
+                                                                graph, 
+                                                                lookahead,
+                                                                maxIndelSize,
+                                                                covThreshold);
 
-                            numBadKmersSince = 0;
-                        }
-
-                        rightKmers2.add(kmer);
-                    }
-                    else {
-                        ++numBadKmersSince;
-                    }
-                }
-
-                if (rightCorrected || rightKmers2.size() != numRightKmers) {
+                if (rightKmers2 != null) {
                     rightKmers = rightKmers2;
                     rightCorrected = true;
                 }
                 
-                if (!leftCorrected && !rightCorrected) {
+                if (leftKmers2 == null && rightKmers2 == null) {
                     break;
                 }
             }
