@@ -1897,8 +1897,6 @@ public final class GraphUtils {
                                             BloomFilter assembledKmersBloomFilter) {
         
         final int distance = graph.getPairedKmerDistance();
-        
-        int maxRightDepth = maxRightPartnerSearchDepth(kmers, graph, distance);
                 
         // kmer pairs used in the extension of this transcript
         final HashSet<String> usedPairs = new HashSet<>();
@@ -1936,6 +1934,8 @@ public final class GraphUtils {
         
         HashSet<String> visitedKmers = new HashSet<>();
 
+        int maxRightDepth = maxRightPartnerSearchDepth(kmers, graph, distance);
+        
         while (!branchesStack.isEmpty() && !stop && maxRightDepth > 0) {
             neighbors = branchesStack.getLast();
             depth = extension.size();
