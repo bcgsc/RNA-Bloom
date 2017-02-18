@@ -1908,7 +1908,19 @@ public final class GraphUtils {
             usedKmers.add(kmer.seq);
         }
         
-        // extend right
+        // naive extend left
+        ArrayList<Kmer> naiveExtension = naiveExtendLeft(kmers.get(0), graph, maxTipLength, usedKmers, true);
+        if (!naiveExtension.isEmpty()) {
+            kmers.addAll(0, naiveExtension);
+        }
+        
+        // naive extend right
+        naiveExtension = naiveExtendRight(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers);
+        if (!naiveExtension.isEmpty()) {
+            kmers.addAll(naiveExtension);
+        }
+        
+        // extend right with paired kmers
   
         Kmer kmer, n, n2, partner, partner2;
         int partnerIndex;
@@ -2102,7 +2114,13 @@ public final class GraphUtils {
             }
         }
         
-        // extend left
+        // naive extend right for the final time
+        naiveExtension = naiveExtendRight(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers);
+        if (!naiveExtension.isEmpty()) {
+            kmers.addAll(naiveExtension);
+        }
+        
+        // extend left with paired kmers
         
         Collections.reverse(kmers);
         
@@ -2286,6 +2304,13 @@ public final class GraphUtils {
                     branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
                 }
             }
+        }
+        
+        // naive extend left for the final time
+        // note: list is still reversed here
+        naiveExtension = naiveExtendLeft(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers, false);
+        if (!naiveExtension.isEmpty()) {
+            kmers.addAll(naiveExtension);
         }
         
         Collections.reverse(kmers);
