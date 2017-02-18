@@ -847,7 +847,8 @@ public final class GraphUtils {
                                             int maxIndelSize, 
                                             float maxCovGradient, 
                                             float covFPR,
-                                            int errorCorrectionIterations) {
+                                            int errorCorrectionIterations,
+                                            float medCovThreshold) {
         
         boolean leftCorrected = false;
         boolean rightCorrected = false;
@@ -865,6 +866,10 @@ public final class GraphUtils {
                 covs[i] = leftKmers.get(i).count;
             }
             Arrays.sort(covs);
+            
+            if (covs[numLeftKmers/2] < medCovThreshold) {
+                break;
+            }
 
             // find cov threshold in left kmers
             boolean leftThresholdFound = false;
@@ -887,6 +892,10 @@ public final class GraphUtils {
             }
             Arrays.sort(covs);
 
+            if (covs[numRightKmers/2] < medCovThreshold) {
+                break;
+            }
+            
             // find cov threshold in right kmers
             boolean rightThresholdFound = false;
             startIndex = numRightKmers - 1 - numFalsePositivesAllowed;

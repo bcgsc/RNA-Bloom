@@ -787,9 +787,7 @@ public class RNABloom {
                 if (okToConnectPair(leftKmers, rightKmers)) {
                     boolean corrected = false;
                     
-                    if (this.errorCorrectionIterations > 0 &&
-                            getMedianKmerCoverage(leftKmers) >= 3 &&
-                            getMedianKmerCoverage(rightKmers) >= 3) {
+                    if (this.errorCorrectionIterations > 0) {
                         
                         ReadPair correctedReadPair = correctErrors2(leftKmers,
                                                             rightKmers,
@@ -798,7 +796,8 @@ public class RNABloom {
                                                             maxIndelSize, 
                                                             maxCovGradient, 
                                                             covFPR,
-                                                            this.errorCorrectionIterations);
+                                                            this.errorCorrectionIterations,
+                                                            3);
                         
                         if (correctedReadPair.corrected) {
                             corrected = true;
