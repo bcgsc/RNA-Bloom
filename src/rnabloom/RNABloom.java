@@ -1546,7 +1546,7 @@ public class RNABloom {
             FastaReader fin;
             
             for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
-                boolean beGreedy = mag > 0;
+                boolean beGreedy = false;
                 
                 String prefix = "E" + mag + ".L.";
                 

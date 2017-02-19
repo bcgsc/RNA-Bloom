@@ -1906,17 +1906,17 @@ public final class GraphUtils {
             usedKmers.add(kmer.seq);
         }
         
-        // naive extend left
-        ArrayList<Kmer> naiveExtension = naiveExtendLeft(kmers.get(0), graph, maxTipLength, usedKmers, true);
-        if (!naiveExtension.isEmpty()) {
-            kmers.addAll(0, naiveExtension);
-        }
-        
-        // naive extend right
-        naiveExtension = naiveExtendRight(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers);
-        if (!naiveExtension.isEmpty()) {
-            kmers.addAll(naiveExtension);
-        }
+//        // naive extend left
+//        ArrayList<Kmer> naiveExtension = naiveExtendLeft(kmers.get(0), graph, maxTipLength, usedKmers, true);
+//        if (!naiveExtension.isEmpty()) {
+//            kmers.addAll(0, naiveExtension);
+//        }
+//        
+//        // naive extend right
+//        naiveExtension = naiveExtendRight(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers);
+//        if (!naiveExtension.isEmpty()) {
+//            kmers.addAll(naiveExtension);
+//        }
         
         // extend right with paired kmers
   
@@ -1975,9 +1975,6 @@ public final class GraphUtils {
 
                                     branchesStack.clear();
                                     visitedKmers.clear();
-
-                                    kmers.addAll(extension);
-                                    kmers.add(n);
                                     
                                     if (!greedy && 
                                             assembledKmersBloomFilter.lookup(n.hashVals) &&
@@ -1987,6 +1984,9 @@ public final class GraphUtils {
                                         stop = true;
                                         break;
                                     }
+                                    
+                                    kmers.addAll(extension);
+                                    kmers.add(n);
                                     
                                     Iterator<Kmer> kmerItr = extension.iterator();
                                     while (kmerItr.hasNext()) {
@@ -2057,10 +2057,7 @@ public final class GraphUtils {
                             
                             branchesStack.clear();
                             visitedKmers.clear();
-                            
-                            kmers.addAll(extension);
-                            kmers.add(n);
-                            
+                                                        
                             if (!greedy && 
                                     assembledKmersBloomFilter.lookup(n.hashVals) &&
                                     assembledKmersBloomFilter.lookup(partner.hashVals) &&
@@ -2069,6 +2066,9 @@ public final class GraphUtils {
                                 stop = true;
                                 break;
                             }
+                            
+                            kmers.addAll(extension);
+                            kmers.add(n);
                             
                             Iterator<Kmer> kmerItr = extension.iterator();
                             while (kmerItr.hasNext()) {
@@ -2114,10 +2114,12 @@ public final class GraphUtils {
             }
         }
         
-        // naive extend right for the final time
-        naiveExtension = naiveExtendRight(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers);
-        if (!naiveExtension.isEmpty()) {
-            kmers.addAll(naiveExtension);
+        if (!stop) {
+            // naive extend right for the final time
+            ArrayList<Kmer> naiveExtension = naiveExtendRight(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers);
+            if (!naiveExtension.isEmpty()) {
+                kmers.addAll(naiveExtension);
+            }
         }
         
         // extend left with paired kmers
@@ -2172,16 +2174,18 @@ public final class GraphUtils {
 
                                     branchesStack.clear();
                                     visitedKmers.clear();
-
-                                    kmers.addAll(extension);
-                                    kmers.add(n);
                                     
                                     if (!greedy && 
-                                            assembledKmersBloomFilter.lookup(n.hashVals) && 
-                                            assembledKmersBloomFilter.lookup(partner.hashVals)) {
+                                            assembledKmersBloomFilter.lookup(n.hashVals) &&
+                                            assembledKmersBloomFilter.lookup(partner.hashVals) &&
+                                            assembledKmersBloomFilter.lookup(partner2.hashVals) &&
+                                            assembledKmersBloomFilter.lookup(n2.hashVals)) {
                                         stop = true;
                                         break;
                                     }
+                                    
+                                    kmers.addAll(extension);
+                                    kmers.add(n);
                                     
                                     Iterator<Kmer> kmerItr = extension.iterator();
                                     while (kmerItr.hasNext()) {
@@ -2253,16 +2257,18 @@ public final class GraphUtils {
                             
                             branchesStack.clear();
                             visitedKmers.clear();
-
-                            kmers.addAll(extension);
-                            kmers.add(n);
                             
                             if (!greedy && 
-                                    assembledKmersBloomFilter.lookup(n.hashVals) && 
-                                    assembledKmersBloomFilter.lookup(partner.hashVals)) {
+                                    assembledKmersBloomFilter.lookup(n.hashVals) &&
+                                    assembledKmersBloomFilter.lookup(partner.hashVals) &&
+                                    assembledKmersBloomFilter.lookup(partner2.hashVals) &&
+                                    assembledKmersBloomFilter.lookup(n2.hashVals)) {
                                 stop = true;
                                 break;
                             }
+                            
+                            kmers.addAll(extension);
+                            kmers.add(n);
                             
                             Iterator<Kmer> kmerItr = extension.iterator();
                             while (kmerItr.hasNext()) {
@@ -2306,11 +2312,13 @@ public final class GraphUtils {
             }
         }
         
-        // naive extend left for the final time
-        // note: list is still reversed here
-        naiveExtension = naiveExtendLeft(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers, false);
-        if (!naiveExtension.isEmpty()) {
-            kmers.addAll(naiveExtension);
+        if (!stop) {
+            // naive extend left for the final time
+            // note: list is still reversed here
+            ArrayList<Kmer> naiveExtension = naiveExtendLeft(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers, false);
+            if (!naiveExtension.isEmpty()) {
+                kmers.addAll(naiveExtension);
+            }
         }
         
         Collections.reverse(kmers);
