@@ -1526,9 +1526,6 @@ public class RNABloom {
             covFPR = graph.getCbf().getFPR();
         }
         
-        int maxIndelSize = 1;
-        float percentIdentity = 0.95f;
-        
         System.out.println("Assembling transcripts...");
         long numFragmentsParsed = 0;
         boolean append = false;
@@ -2145,7 +2142,7 @@ public class RNABloom {
             
             int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "25"));
             int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
-            int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "3"));
+            int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "30"));
             
             long sbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), "1")));
             long dbgbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), "1")));
