@@ -22,6 +22,7 @@ import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
 import static rnabloom.util.SeqUtils.getNumGC;
+import static rnabloom.util.SeqUtils.isHomoPolymer;
 import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 
@@ -1560,7 +1561,7 @@ public final class GraphUtils {
         
         String overlapped = overlapMaximally(left, right, minOverlap);
         
-        if (overlapped != null) {
+        if (overlapped != null && !isHomoPolymer(overlapped)) {
             int overlappedLength = overlapped.length();
             if (overlappedLength >= left.length() && overlappedLength >= right.length()) {
                 ArrayList<Kmer> overlappedKmers = graph.getKmers(overlapped);
