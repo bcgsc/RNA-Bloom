@@ -47,7 +47,7 @@ public final class SeqUtils {
 
         int d = getDistance(a, b, aLen, bLen);
         
-        if (aLen < bLen) {
+        if (aLen <= bLen) {
             return ((float) (bLen - d))/bLen;
         }
         

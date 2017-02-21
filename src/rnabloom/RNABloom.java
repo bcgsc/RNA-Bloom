@@ -701,29 +701,29 @@ public class RNABloom {
             ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookahead, (int) Math.ceil(fragment.length()*percentError)));
 
             if (hasNotYetAssembled(fragKmers)) {
-                int numFragKmers = fragKmers.size();
+//                int numFragKmers = fragKmers.size();
+//
+//                /** check whether sequence-wide coverage differences are too large */
+//                int numFalsePositivesAllowed = (int) Math.round(numFragKmers * covFPR);
+//                float[] covs = new float[numFragKmers];
+//                for (int i=0; i<numFragKmers; ++i) {
+//                    covs[i] = fragKmers.get(i).count;
+//                }
+//
+//                boolean covDiffTooLarge = false;
+//                Arrays.sort(covs);
+//                float covLow = covs[0];
+//                float covHigh;
+//                for (int i=1; i<numFragKmers-numFalsePositivesAllowed; ++i) {
+//                    covHigh = covs[i];
+//                    if (covHigh * maxCovGradient > covLow) {
+//                        covDiffTooLarge = true;
+//                        break;
+//                    }
+//                    covLow = covHigh;
+//                }
 
-                /** check whether sequence-wide coverage differences are too large */
-                int numFalsePositivesAllowed = (int) Math.round(numFragKmers * covFPR);
-                float[] covs = new float[numFragKmers];
-                for (int i=0; i<numFragKmers; ++i) {
-                    covs[i] = fragKmers.get(i).count;
-                }
-
-                boolean covDiffTooLarge = false;
-                Arrays.sort(covs);
-                float covLow = covs[0];
-                float covHigh;
-                for (int i=1; i<numFragKmers-numFalsePositivesAllowed; ++i) {
-                    covHigh = covs[i];
-                    if (covHigh * maxCovGradient > covLow) {
-                        covDiffTooLarge = true;
-                        break;
-                    }
-                    covLow = covHigh;
-                }
-
-                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, !covDiffTooLarge && beGreedy, screeningBf);
+                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
 
                 if (hasNotYetAssembled(fragKmers)) {
 
@@ -797,7 +797,8 @@ public class RNABloom {
                                                             maxCovGradient, 
                                                             covFPR,
                                                             this.errorCorrectionIterations,
-                                                            3);
+                                                            3,
+                                                            percentIdentity);
                         
                         if (correctedReadPair.corrected) {
                             corrected = true;
@@ -1483,9 +1484,14 @@ public class RNABloom {
 //                    }
                 }
                 else if (numKmersNotSeen > 0) {
-                    if (numKmersNotSeen <= k+maxIndelSize && hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
+                    if (numKmersNotSeen <= 2*k && hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
 //                        if (i > maxTipLength) {
-                            numMismatchBases += numKmersNotSeen - k + 1;
+                            if (numKmersNotSeen <= k+maxIndelSize) {
+                                numMismatchBases += 1;
+                            }
+                            else {
+                                numMismatchBases += numKmersNotSeen - k + 1;
+                            }
 //                        }
                     }
                     else {
