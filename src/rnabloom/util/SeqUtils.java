@@ -43,10 +43,10 @@ public final class SeqUtils {
     }
     
     public static float getPercentIdentity(String a, String b) {
-        int d = getDistance(a, b);
-        
         int aLen = a.length();
         int bLen = b.length();
+
+        int d = getDistance(a, b, aLen, bLen);
         
         if (aLen < bLen) {
             return ((float) (bLen - d))/bLen;
@@ -55,72 +55,52 @@ public final class SeqUtils {
         return ((float) (aLen - d))/aLen;
     }
     
-    private static int getDistance(String a, String b) {
-        // compute the Damerau–Levenshtein distance
-        // https://en.wikipedia.org/wiki/Damerau%E2%80%93Levenshtein_distance
-                
-        if (a.equals(b)) {
-            return 0;
-        }
-
-        int aLen = a.length();
-        int bLen = b.length();
+    private static int getDistance(String s, String t, int sLen, int tLen) {
+        // compute the Levenshtein Distance
+        // https://en.wikipedia.org/wiki/Levenshtein_distance
         
-        int maxDist = aLen + bLen;
-
-        // character array indices
-        HashMap<Character, Integer> da = new HashMap<>();
-
-        for (int i=0; i<aLen; ++i) {
-            da.put(a.charAt(i), 0);
-        }
-
-        for (int j=0; j<bLen; ++j) {
-            da.put(b.charAt(j), 0);
-        }
-
-        // create and initialize the distance matrix
-        int[][] d = new int[aLen+2][bLen+2];
+        // degenerate case
+        if (s.equals(t)) return 0;
         
-        for (int i=0; i<=aLen; ++i) {
-            d[i+1][0] = maxDist;
-            d[i+1][1] = i;
+        if (sLen == 0) return tLen;
+        if (tLen == 0) return sLen;
+
+        // create two work vectors of integer distances
+        int[] v0 = new int[tLen+1];
+        int[] v1 = new int[tLen+1];
+        
+        // initialize v0 (the previous row of distances)
+        // this row is A[0][i]: edit distance for an empty s
+        // the distance is just the number of characters to delete from t
+        for (int i=0; i<=tLen; ++i) {
+            v0[i] = i;
         }
 
-        for (int j=0; j<=bLen; ++j) {
-            d[0][j+1] = maxDist;
-            d[1][j+1] = j;
+        int cost;
+        for (int i=0; i<sLen; ++i) {
+            // calculate v1 (current row distances) from the previous row v0
 
-        }
-
-        // populate the distance matrix
-        for (int i=1; i<=aLen; ++i) {
-            int db = 0;
-
-            for (int j=1; j<=bLen; ++j) {
-                int m = da.get(b.charAt(j-1));
-                int n = db;
-
-                int cost = 1;
-                if (a.charAt(i-1) == b.charAt(j-1)) {
-                    cost = 0;
-                    db = j;
-                }
-
-                d[i+1][j+1] = min4(d[i  ][j  ] + cost,  // substitution
-                                   d[i+1][j  ] + 1,     // insertion
-                                   d[i  ][j+1] + 1,     // deletion
-                                   d[m  ][n  ] + (i-m-1) + 1 + (j-n-1)); // transposition
+            // first element of v1 is A[i+1][0]
+            //   edit distance is delete (i+1) chars from s to match empty t
+            
+            v1[0] = i+1;
+            
+            for (int j=0; j<tLen; ++j) {
+                cost = (s.charAt(i) == t.charAt(j)) ? 0 : 1;
+                v1[j+1] = min3(v1[j]+1, v0[j+1]+1, v0[j]+cost);
             }
-
-            da.put(a.charAt(i-1), i);
+            
+            // copy v1 (current row) to v0 (previous row) for next iteration
+            for (int j=0; j<=tLen; ++j) {
+                v0[j] = v1[j];
+            }
         }
 
-        return d[aLen+1][bLen+1];
+        return v1[tLen];
     }
     
-    private static int min4(int a, int b, int c, int d) {
-        return Math.min(a, Math.min(b, Math.min(c, d)));
+    private static int min3(int a, int b, int c) {
+        return Math.min(a, Math.min(b, c));
     }
     
     public static final int getNumGC(String seq) {
@@ -420,5 +400,11 @@ public final class SeqUtils {
         
         return result;
     }
-        
+       
+//    public static void main(String[] args) {
+//        String seq1 = "AATAA";
+//        String seq2 = "AAAA";
+//
+//        System.out.println(getDistance(seq1, seq2));
+//    }
 }
