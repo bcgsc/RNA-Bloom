@@ -8,7 +8,6 @@ package rnabloom.util;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.PrimitiveIterator;
 import java.util.regex.Matcher;
@@ -59,9 +58,8 @@ public final class SeqUtils {
         // compute the Levenshtein Distance
         // https://en.wikipedia.org/wiki/Levenshtein_distance
         
-        // degenerate case
+        // degenerate cases
         if (s.equals(t)) return 0;
-        
         if (sLen == 0) return tLen;
         if (tLen == 0) return sLen;
 
@@ -76,7 +74,6 @@ public final class SeqUtils {
             v0[i] = i;
         }
 
-        int cost;
         for (int i=0; i<sLen; ++i) {
             // calculate v1 (current row distances) from the previous row v0
 
@@ -86,14 +83,16 @@ public final class SeqUtils {
             v1[0] = i+1;
             
             for (int j=0; j<tLen; ++j) {
-                cost = (s.charAt(i) == t.charAt(j)) ? 0 : 1;
-                v1[j+1] = min3(v1[j]+1, v0[j+1]+1, v0[j]+cost);
+                v1[j+1] = min3(v1[j  ]+1,
+                               v0[j+1]+1,
+                               v0[j  ]+(s.charAt(i) == t.charAt(j) ? 0 : 1));
             }
             
             // copy v1 (current row) to v0 (previous row) for next iteration
-            for (int j=0; j<=tLen; ++j) {
-                v0[j] = v1[j];
-            }
+            System.arraycopy(v1, 0, v0, 0, tLen);
+//            for (int j=0; j<=tLen; ++j) {
+//                v0[j] = v1[j];
+//            }
         }
 
         return v1[tLen];

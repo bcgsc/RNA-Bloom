@@ -421,9 +421,10 @@ public final class GraphUtils {
     }    
     
     public static float getMedian(float[] arr) {
-        float[] a = Arrays.copyOf(arr, arr.length);
+        int len = arr.length;
+        float[] a = Arrays.copyOf(arr, len);
         Arrays.sort(a);
-        int halfLen = a.length/2;
+        int halfLen = len/2;
         if (halfLen % 2 == 0) {
             return (a[halfLen-1] + a[halfLen])/2.0f;
         }
