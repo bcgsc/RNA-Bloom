@@ -8,6 +8,7 @@ package rnabloom.util;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -22,6 +23,7 @@ import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
 import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
 import static rnabloom.util.SeqUtils.getNumGC;
+import static rnabloom.util.SeqUtils.getPercentIdentity;
 import static rnabloom.util.SeqUtils.isHomoPolymer;
 import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.overlapMaximally;
@@ -32,7 +34,7 @@ import static rnabloom.util.SeqUtils.overlapMaximally;
  */
 public final class GraphUtils {
     
-    public static float getMedianKmerCoverage(final ArrayList<Kmer> kmers) {
+    public static float getMedianKmerCoverage(final Collection<Kmer> kmers) {
         int numKmers = kmers.size();
         int halfNumKmers = numKmers/2;
         
@@ -1204,6 +1206,32 @@ public final class GraphUtils {
         return gradients;
     }
 
+    public static String assemble(ArrayDeque<Kmer> kmers, int k) {
+        StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+
+        int lastIndex = k - 1;        
+        sb.append(kmers.getFirst().seq.substring(0, lastIndex));        
+        for (Kmer kmer : kmers) {
+            sb.append(kmer.seq.charAt(lastIndex));
+        }
+        
+        return sb.toString();
+    }
+    
+    public static String assembleReverseOrder(ArrayDeque<Kmer> kmers, int k) {
+        StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+
+        int lastIndex = k - 1;        
+        sb.append(kmers.getLast().seq.substring(0, lastIndex));
+        
+        Iterator<Kmer> itr = kmers.descendingIterator();
+        while (itr.hasNext()) {
+            sb.append(itr.next().seq.charAt(lastIndex));
+        }
+        
+        return sb.toString();
+    }
+    
     public static String assemble(ArrayList<Kmer> kmers, int k) {
         StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
 
@@ -2008,7 +2036,7 @@ public final class GraphUtils {
                                         usedPairs.add(mergedSeq);
                                     }
 
-                                    ArrayList<Kmer> extendRight = naiveExtendRight(n, graph, maxTipLength, usedKmers);
+                                    ArrayDeque<Kmer> extendRight = naiveExtendRight(n, graph, maxTipLength, usedKmers);
                                     if (extendRight.isEmpty()) {
                                         branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
                                     }
@@ -2088,7 +2116,7 @@ public final class GraphUtils {
                                 usedPairs.add(mergedSeq);
                             }
                             
-                            ArrayList<Kmer> extendRight = naiveExtendRight(n, graph, maxTipLength, usedKmers);
+                            ArrayDeque<Kmer> extendRight = naiveExtendRight(n, graph, maxTipLength, usedKmers);
                             if (extendRight.isEmpty()) {
                                 branchesStack.add(getSuccessorsRanked(n, graph, lookahead));
                             }
@@ -2117,7 +2145,7 @@ public final class GraphUtils {
         
         if (!stop) {
             // naive extend right for the final time
-            ArrayList<Kmer> naiveExtension = naiveExtendRight(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers);
+            ArrayDeque<Kmer> naiveExtension = naiveExtendRight(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers);
             if (!naiveExtension.isEmpty()) {
                 kmers.addAll(naiveExtension);
             }
@@ -2207,7 +2235,7 @@ public final class GraphUtils {
                                         usedPairs.add(mergedSeq);
                                     }
 
-                                    ArrayList<Kmer> extendLeft = naiveExtendLeft(n, graph, maxTipLength, usedKmers, false);
+                                    ArrayDeque<Kmer> extendLeft = naiveExtendLeft(n, graph, maxTipLength, usedKmers);
                                     if (extendLeft.isEmpty()) {
                                         branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
                                     }
@@ -2287,7 +2315,7 @@ public final class GraphUtils {
                                 usedPairs.add(mergedSeq);
                             }
 
-                            ArrayList<Kmer> extendLeft = naiveExtendLeft(n, graph, maxTipLength, usedKmers, false);
+                            ArrayDeque<Kmer> extendLeft = naiveExtendLeft(n, graph, maxTipLength, usedKmers);
                             if (extendLeft.isEmpty()) {
                                 branchesStack.add(getPredecessorsRanked(n, graph, lookahead));
                             }
@@ -2316,7 +2344,7 @@ public final class GraphUtils {
         if (!stop) {
             // naive extend left for the final time
             // note: list is still reversed here
-            ArrayList<Kmer> naiveExtension = naiveExtendLeft(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers, false);
+            ArrayDeque<Kmer> naiveExtension = naiveExtendLeft(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers);
             if (!naiveExtension.isEmpty()) {
                 kmers.addAll(naiveExtension);
             }
@@ -2655,8 +2683,8 @@ public final class GraphUtils {
         return sb.toString();
     }
     
-    public static ArrayList<Kmer> naiveExtendRight(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
-        ArrayList<Kmer> result = new ArrayList<>();
+    public static ArrayDeque<Kmer> naiveExtendRight(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
+        ArrayDeque<Kmer> result = new ArrayDeque<>();
         
         ArrayDeque<Kmer> neighbors = graph.getSuccessors(kmer);
         Kmer best = kmer;
@@ -2742,8 +2770,8 @@ public final class GraphUtils {
         return sb.toString();
     }
     
-    public static ArrayList<Kmer> naiveExtendLeft(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators, boolean reverseResult) {        
-        ArrayList<Kmer> result = new ArrayList<>();
+    public static ArrayDeque<Kmer> naiveExtendLeft(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
+        ArrayDeque<Kmer> result = new ArrayDeque<>();
         
         ArrayDeque<Kmer> neighbors = graph.getPredecessors(kmer);
         Kmer best = kmer;
@@ -2751,10 +2779,6 @@ public final class GraphUtils {
             /** look for back branches*/
             for (Kmer s : graph.getRightVariants(best)) {
                 if (hasDepthRight(s, graph, maxTipLength)) {
-                    if (reverseResult) {
-                        Collections.reverse(result);
-                    }
-
                     return result;
                 }
             }
@@ -2771,10 +2795,6 @@ public final class GraphUtils {
                         }
                         else {
                             // too many good branches
-                            if (reverseResult) {
-                                Collections.reverse(result);
-                            }
-
                             return result;
                         }
                     }
@@ -2785,17 +2805,288 @@ public final class GraphUtils {
                 break;
             }
             
-            result.add(best);
+            result.addLast(best);
+            
             terminators.add(best.seq);
-        }
-        
-        if (reverseResult) {
-            Collections.reverse(result);
         }
         
         return result;
     }
+    
+    public static ArrayDeque<Kmer> extendRight(Kmer kmer,
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int maxTipLength, 
+                                            HashSet<String> terminators, 
+                                            int maxIndelSize, 
+                                            float percentIdentity) {
         
+        ArrayDeque<Kmer> result = new ArrayDeque<>();
+        
+        ArrayDeque<Kmer> neighbors = graph.getSuccessors(kmer);
+        Kmer best = kmer;
+        HashSet<String> backBranchesVisited = new HashSet<>(3);
+        
+        int k = graph.getK();
+        
+        while (!neighbors.isEmpty()) {
+            /** look for back branches*/
+            for (Kmer s : graph.getLeftVariants(best)) {
+                if (!backBranchesVisited.contains(s.seq) && hasDepthLeft(s, graph, maxTipLength)) {
+                    return result;
+                }
+            }
+            
+            backBranchesVisited.clear();
+            
+            if (neighbors.size() == 1) {
+                best = neighbors.peek();
+                
+                if (terminators.contains(best.seq)) {
+                    return result;
+                }
+                
+                ArrayDeque<Kmer> b = naiveExtendRight(best, graph, maxTipLength, terminators);
+                
+                if (b.isEmpty()) {
+                    result.add(best);
+                }
+                else {
+                    result.add(best);
+                    result.addAll(b);
+                    best = b.peekLast();
+                }
+            }
+            else {
+                best = null;
+                
+                ArrayDeque<ArrayDeque<Kmer>> branches = new ArrayDeque<>(4);
+                
+                float maxCov = -1;
+                for (Kmer n : neighbors) {
+                    if (hasDepthRight(n, graph, maxTipLength)) {
+                        ArrayDeque<Kmer> b = naiveExtendRight(n, graph, maxTipLength, new HashSet<>());
+                        b.addFirst(n);
+                        
+                        float c = getMedianKmerCoverage(b);
+                        if (c > maxCov) {
+                            maxCov = c;
+                            branches.addFirst(b);
+                        }
+                        else {
+                            branches.addLast(b);
+                        }
+                    }
+                }
+                
+                if (branches.isEmpty()) {
+                    // fuzzy end
+                    return result;
+                }
+                else if (branches.size() == 1) {
+                    // one good branch
+                    ArrayDeque<Kmer> b = branches.peekLast();
+                    result.addAll(b);
+                    
+                    for (Kmer n : b) {
+                        terminators.add(n.seq);
+                    }
+                    
+                    best = b.peekLast();
+                }
+                else {
+                    // multiple good branches
+                    
+                    // check whether the branches form a bubble
+                    ArrayDeque<Kmer> bestBranch = branches.pollFirst();
+                    String bestBranchSeq = assemble(bestBranch, k);
+                    String suffix = graph.getSuffix(bestBranch.peekLast().seq);
+                    int bestBranchLength = bestBranch.size();
+                    
+                    for (ArrayDeque<Kmer> b : branches) {
+                        int len = b.size();
+                        
+                        if (len >= bestBranchLength - maxIndelSize && len <= bestBranchLength + maxIndelSize) {
+                            // length is within range
+                            
+                            if (!suffix.equals(graph.getSuffix(b.peekLast().seq)) || 
+                                    getPercentIdentity(assemble(b, k), bestBranchSeq) < percentIdentity) {
+                                return result;
+                            }
+                        }
+                        else {
+                            if (len < bestBranchLength - maxIndelSize) {
+                                // compare percent identity
+                                if (getPercentIdentity(assemble(b, k), bestBranchSeq.substring(0, len+k-1)) < percentIdentity) {
+                                    return result;
+                                }
+                            }
+                            else {
+                                return result;
+                            }
+                        }
+                    }
+                    
+                    result.addAll(bestBranch);
+                    
+                    for (Kmer n : bestBranch) {
+                        terminators.add(n.seq);
+                    }
+                    
+                    best = bestBranch.peekLast();
+                    
+                    for (ArrayDeque<Kmer> b : branches) {
+                        backBranchesVisited.add(b.peekLast().seq);
+                    }
+                }
+            }
+            
+            if (best == null) {
+                break;
+            }
+            
+            neighbors = graph.getSuccessors(best);
+        }
+        
+        return result;
+    }
+    
+    public static ArrayDeque<Kmer> extendLeft(Kmer kmer,
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int maxTipLength, 
+                                            HashSet<String> terminators, 
+                                            int maxIndelSize, 
+                                            float percentIdentity) {
+        
+        ArrayDeque<Kmer> result = new ArrayDeque<>();
+        
+        ArrayDeque<Kmer> neighbors = graph.getPredecessors(kmer);
+        Kmer best = kmer;
+        HashSet<String> backBranchesVisited = new HashSet<>(3);
+        
+        int k = graph.getK();
+        
+        while (!neighbors.isEmpty()) {
+            /** look for back branches*/
+            for (Kmer s : graph.getRightVariants(best)) {
+                if (!backBranchesVisited.contains(s.seq) && hasDepthRight(s, graph, maxTipLength)) {
+                    return result;
+                }
+            }
+            
+            backBranchesVisited.clear();
+            
+            if (neighbors.size() == 1) {
+                best = neighbors.peek();
+                
+                if (terminators.contains(best.seq)) {
+                    return result;
+                }
+                
+                ArrayDeque<Kmer> b = naiveExtendLeft(best, graph, maxTipLength, terminators);
+                
+                if (b.isEmpty()) {
+                    result.add(best);
+                }
+                else {
+                    result.add(best);
+                    result.addAll(b);
+                    best = b.peekLast();
+                }
+            }
+            else {
+                best = null;
+                
+                ArrayDeque<ArrayDeque<Kmer>> branches = new ArrayDeque<>(4);
+                
+                float maxCov = -1;
+                for (Kmer n : neighbors) {
+                    if (hasDepthLeft(n, graph, maxTipLength)) {
+                        ArrayDeque<Kmer> b = naiveExtendLeft(n, graph, maxTipLength, new HashSet<>());
+                        b.addFirst(n);
+                        
+                        float c = getMedianKmerCoverage(b);
+                        if (c > maxCov) {
+                            maxCov = c;
+                            branches.addFirst(b);
+                        }
+                        else {
+                            branches.addLast(b);
+                        }
+                    }
+                }
+                
+                if (branches.isEmpty()) {
+                    // fuzzy end
+                    return result;
+                }
+                else if (branches.size() == 1) {
+                    // one good branch
+                    ArrayDeque<Kmer> b = branches.peekLast();
+                    result.addAll(b);
+                    
+                    for (Kmer n : b) {
+                        terminators.add(n.seq);
+                    }
+                    
+                    best = b.peekLast();
+                }
+                else {
+                    // multiple good branches
+                    
+                    // check whether the branches form a bubble
+                    ArrayDeque<Kmer> bestBranch = branches.pollFirst();
+                    String bestBranchSeq = assembleReverseOrder(bestBranch, k);
+                    String suffix = graph.getPrefix(bestBranch.peekLast().seq);
+                    int bestBranchLength = bestBranch.size();
+                    
+                    for (ArrayDeque<Kmer> b : branches) {
+                        int len = b.size();
+                        
+                        if (len >= bestBranchLength - maxIndelSize && len <= bestBranchLength + maxIndelSize) {
+                            // length is within range
+                            
+                            if (!suffix.equals(graph.getSuffix(b.peekLast().seq)) || 
+                                    getPercentIdentity(assembleReverseOrder(b, k), bestBranchSeq) < percentIdentity) {
+                                return result;
+                            }
+                        }
+                        else {
+                            if (len < bestBranchLength - maxIndelSize) {
+                                // compare percent identity
+                                if (getPercentIdentity(assemble(b, k), bestBranchSeq.substring(bestBranchLength - (len+k-1))) < percentIdentity) {
+                                    return result;
+                                }
+                            }
+                            else {
+                                return result;
+                            }
+                        }
+                    }
+                    
+                    result.addAll(bestBranch);
+                    
+                    for (Kmer n : bestBranch) {
+                        terminators.add(n.seq);
+                    }
+                    
+                    best = bestBranch.peekLast();
+                    
+                    for (ArrayDeque<Kmer> b : branches) {
+                        backBranchesVisited.add(b.peekLast().seq);
+                    }
+                }
+            }
+            
+            if (best == null) {
+                break;
+            }
+            
+            neighbors = graph.getPredecessors(best);
+        }
+        
+        return result;
+    }
+    
 //    public static void main(String[] args) {
 ////        String seq = "AAAAAAAAAAA";
 //        String seq = "AAAAAAAAAAACCC";
