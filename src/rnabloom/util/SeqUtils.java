@@ -13,12 +13,14 @@ import java.util.PrimitiveIterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import rnabloom.io.FastqRecord;
+import info.debatty.java.stringsimilarity.Damerau;
 
 /**
  *
  * @author kmnip
  */
 public final class SeqUtils {
+    private static final Damerau damerau = new Damerau();
     public static final char GAP_CHAR = 'N';
     public final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
     public final static char[] A_ALT_NUCLEOTIDES = new char[] {'C','G','T'};
@@ -39,6 +41,19 @@ public final class SeqUtils {
             default:
                 return NUCLEOTIDES;
         }
+    }
+    
+    public static final float getPercentIdentity(String a, String b) {
+        double distance = damerau.distance(a, b);
+        
+        int aLen = a.length();
+        int bLen = b.length();
+        
+        if (aLen <= bLen) {
+            return Math.max(0, (float) (bLen - distance))/bLen;
+        }
+        
+        return Math.max(0, (float) (aLen - distance))/aLen;
     }
     
     public static final int getNumGC(String seq) {
