@@ -8,6 +8,7 @@ package rnabloom.util;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.PrimitiveIterator;
 import java.util.regex.Matcher;
@@ -39,6 +40,87 @@ public final class SeqUtils {
             default:
                 return NUCLEOTIDES;
         }
+    }
+    
+    public static float getPercentIdentity(String a, String b) {
+        int d = getDistance(a, b);
+        
+        int aLen = a.length();
+        int bLen = b.length();
+        
+        if (aLen < bLen) {
+            return ((float) (bLen - d))/bLen;
+        }
+        
+        return ((float) (aLen - d))/aLen;
+    }
+    
+    private static int getDistance(String a, String b) {
+        // compute the Damerau–Levenshtein distance
+        // https://en.wikipedia.org/wiki/Damerau%E2%80%93Levenshtein_distance
+                
+        if (a.equals(b)) {
+            return 0;
+        }
+
+        int aLen = a.length();
+        int bLen = b.length();
+        
+        int maxDist = aLen + bLen;
+
+        // character array indices
+        HashMap<Character, Integer> da = new HashMap<>();
+
+        for (int i=0; i<aLen; ++i) {
+            da.put(a.charAt(i), 0);
+        }
+
+        for (int j=0; j<bLen; ++j) {
+            da.put(b.charAt(j), 0);
+        }
+
+        // create and initialize the distance matrix
+        int[][] d = new int[aLen+2][bLen+2];
+        
+        for (int i=0; i<=aLen; ++i) {
+            d[i+1][0] = maxDist;
+            d[i+1][1] = i;
+        }
+
+        for (int j=0; j<=bLen; ++j) {
+            d[0][j+1] = maxDist;
+            d[1][j+1] = j;
+
+        }
+
+        // populate the distance matrix
+        for (int i=1; i<=aLen; ++i) {
+            int db = 0;
+
+            for (int j=1; j<=bLen; ++j) {
+                int m = da.get(b.charAt(j-1));
+                int n = db;
+
+                int cost = 1;
+                if (a.charAt(i-1) == b.charAt(j-1)) {
+                    cost = 0;
+                    db = j;
+                }
+
+                d[i+1][j+1] = min4(d[i  ][j  ] + cost,  // substitution
+                                   d[i+1][j  ] + 1,     // insertion
+                                   d[i  ][j+1] + 1,     // deletion
+                                   d[m  ][n  ] + (i-m-1) + 1 + (j-n-1)); // transposition
+            }
+
+            da.put(a.charAt(i-1), i);
+        }
+
+        return d[aLen+1][bLen+1];
+    }
+    
+    private static int min4(int a, int b, int c, int d) {
+        return Math.min(a, Math.min(b, Math.min(c, d)));
     }
     
     public static final int getNumGC(String seq) {
