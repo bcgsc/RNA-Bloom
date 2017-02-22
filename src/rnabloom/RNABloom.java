@@ -955,7 +955,7 @@ public class RNABloom {
         return new int[]{a.get(0), q1, median, q3, a.get(arrLen-1)};
     }
     
-    public int getMinCoverageOrderOfMagnitude(float c) {
+    public static int getMinCoverageOrderOfMagnitude(float c) {
         if (c >= 1e5) {
             return 5;
         }
@@ -1254,9 +1254,9 @@ public class RNABloom {
             }
             
         } catch (IOException ex) {
-            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+            ex.printStackTrace();
         } catch (InterruptedException ex) {
-            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+            ex.printStackTrace();
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
             
@@ -1610,9 +1610,9 @@ public class RNABloom {
             
             screeningBf.destroy();
         } catch (IOException ex) {
-            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+            ex.printStackTrace();
         } catch (InterruptedException ex) {
-            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+            ex.printStackTrace();
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments.");
         }

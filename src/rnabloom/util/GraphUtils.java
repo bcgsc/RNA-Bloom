@@ -15,6 +15,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import rnabloom.RNABloom;
 import rnabloom.RNABloom.ReadPair;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.hash.NTHashIterator;
@@ -1923,8 +1924,19 @@ public final class GraphUtils {
     private static int maxRightPartnerSearchDepth(ArrayList<Kmer> fragmentKmers, BloomFilterDeBruijnGraph graph, int pairedKmerDistance) {
         
         final int numKmers = fragmentKmers.size();
-       
-        for (int i=numKmers-graph.getK(); i>Math.max(0, numKmers-pairedKmerDistance); --i) {
+        
+        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
+        for (int i=0; i<covs.length; ++i) {
+            covs[i] = fragmentKmers.get(numKmers-i-1).count;
+        }
+        
+        int k = graph.getK();
+        int anchorLength = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMedian(covs)), pairedKmerDistance-k);
+        if (anchorLength == 0) {
+            ++anchorLength;
+        }
+        
+        for (int i=numKmers-anchorLength; i>Math.max(0, numKmers-pairedKmerDistance); --i) {
             if (graph.lookupLeftKmer(fragmentKmers.get(i).hashVals)) {
                 if (i>0 && graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
                     return pairedKmerDistance - (numKmers - i);
@@ -1938,8 +1950,19 @@ public final class GraphUtils {
     private static int maxLeftPartnerSearchDepth(ArrayList<Kmer> fragmentKmers, BloomFilterDeBruijnGraph graph, int pairedKmerDistance) {
         
         final int numKmers = fragmentKmers.size();
-       
-        for (int i=numKmers-graph.getK(); i>Math.max(0, numKmers-pairedKmerDistance); --i) {
+        
+        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
+        for (int i=0; i<covs.length; ++i) {
+            covs[i] = fragmentKmers.get(numKmers-i-1).count;
+        }
+        
+        int k = graph.getK();
+        int anchorLength = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMedian(covs)), pairedKmerDistance-k);
+        if (anchorLength == 0) {
+            ++anchorLength;
+        }
+        
+        for (int i=numKmers-anchorLength; i>Math.max(0, numKmers-pairedKmerDistance); --i) {
             if (graph.lookupRightKmer(fragmentKmers.get(i).hashVals)) {
                 if (i>0 && graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
                     return pairedKmerDistance - (numKmers - i);
