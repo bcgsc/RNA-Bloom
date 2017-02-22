@@ -427,9 +427,10 @@ public final class GraphUtils {
     }
     
     public static float getMedianModifyInput(float[] arr) {
+        int len = arr.length;
         Arrays.sort(arr);
-        int halfLen = arr.length/2;
-        if (halfLen % 2 == 0) {
+        int halfLen = len/2;
+        if (len % 2 == 0) {
             return (arr[halfLen-1] + arr[halfLen])/2.0f;
         }
         
@@ -441,18 +442,29 @@ public final class GraphUtils {
         float[] a = Arrays.copyOf(arr, len);
         Arrays.sort(a);
         int halfLen = len/2;
-        if (halfLen % 2 == 0) {
+        if (len % 2 == 0) {
             return (a[halfLen-1] + a[halfLen])/2.0f;
         }
         
         return a[halfLen];
     }
+    
+    public static float getMinium(float[] arr) {
+        float min = Float.MAX_VALUE;
+        for (float c : arr) {
+            if (c < min) {
+                min = c;
+            }
+        }
+        return min;
+    }
         
     public static float getMedian(ArrayDeque<Float> arr) {
+        int len = arr.size();
         ArrayList<Float> a = new ArrayList<>(arr);
         Collections.sort(a);
-        int halfLen = a.size()/2;
-        if (halfLen % 2 == 0) {
+        int halfLen = len/2;
+        if (len % 2 == 0) {
             return (a.get(halfLen-1) + a.get(halfLen))/2.0f;
         }
         
@@ -555,33 +567,29 @@ public final class GraphUtils {
         return getMedianModifyInput(covs);
     }
     
-    public static ArrayList<Kmer> greedyExtendLeft(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead, int bound) {
-        ArrayList<Kmer> extension = new ArrayList<>(bound);
-        Kmer nextKmer = source;
-        extension.add(nextKmer);
+    public static ArrayDeque<Kmer> greedyExtendLeft(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead, int bound) {
+        ArrayDeque<Kmer> extension = new ArrayDeque<>(bound);
         
+        Kmer nextKmer = source;
         for (int i=0; i<bound; ++i) {
             nextKmer = greedyExtendLeftOnce(graph, nextKmer, lookahead);
-            extension.add(nextKmer);
+            extension.addFirst(nextKmer);
             
             if (nextKmer == null) {
                 break;
             }
         }
         
-        Collections.reverse(extension);
-        
         return extension;
     }
     
-    public static ArrayList<Kmer> greedyExtendRight(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead, int bound) {
-        ArrayList<Kmer> extension = new ArrayList<>(bound);
-        Kmer nextKmer = source;
-        extension.add(nextKmer);
+    public static ArrayDeque<Kmer> greedyExtendRight(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead, int bound) {
+        ArrayDeque<Kmer> extension = new ArrayDeque<>(bound);
         
+        Kmer nextKmer = source;
         for (int i=0; i<bound; ++i) {
             nextKmer = greedyExtendRightOnce(graph, nextKmer, lookahead);
-            extension.add(nextKmer);
+            extension.addLast(nextKmer);
             
             if (nextKmer == null) {
                 break;
@@ -761,7 +769,20 @@ public final class GraphUtils {
                                 // replace with best variant tip
                                 kmers2.addAll(graph.getKmers(best));
                             }
-                            else if (numBadKmersSince > k) {
+                            else if (numBadKmersSince < k) {
+                                ArrayDeque<Kmer> greedyTipKmers = greedyExtendLeft(graph, kmer, lookahead, numBadKmersSince);
+                                if (getMedianKmerCoverage(greedyTipKmers) > tipMedCov &&
+                                        getPercentIdentity(assemble(greedyTipKmers, k), assemble(kmers, k, 0, i)) >= percentIdentity){
+                                    kmers2.addAll(greedyTipKmers);
+                                }
+                                else {
+                                    // original sequence
+                                    for (int j=0; j<i; ++j) {
+                                        kmers2.add(kmers.get(j));
+                                    }
+                                }
+                            }
+                            else {
                                 // original sequence
                                 for (int j=0; j<i; ++j) {
                                     kmers2.add(kmers.get(j));
@@ -848,7 +869,20 @@ public final class GraphUtils {
                     // replace with best variant tip
                     kmers2.addAll(graph.getKmers(best));
                 }
-                else if (numBadKmersSince > k) {
+                else if (numBadKmersSince < k) {
+                    ArrayDeque<Kmer> greedyTipKmers = greedyExtendRight(graph, kmers.get(i-1), lookahead, numBadKmersSince);
+                    if (getMedianKmerCoverage(greedyTipKmers) > tipMedCov &&
+                            getPercentIdentity(assemble(greedyTipKmers, k), assemble(kmers, k, i, numKmers)) >= percentIdentity){
+                        kmers2.addAll(greedyTipKmers);
+                    }
+                    else {
+                        // original sequence
+                        for (int j=i; j<numKmers; ++j) {
+                            kmers2.add(kmers.get(j));
+                        }
+                    }
+                }
+                else {
                     // original sequence
                     for (int j=i; j<numKmers; ++j) {
                         kmers2.add(kmers.get(j));
@@ -1313,8 +1347,8 @@ public final class GraphUtils {
         return sb.toString();
     }
     
-    public static String assembleFirstBase(ArrayList<Kmer> kmers) {
-        StringBuilder sb = new StringBuilder(kmers.size());
+    public static String assembleFirstBase(Collection<Kmer> kmers, int k) {
+        StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
         for (Kmer kmer : kmers) {
             sb.append(kmer.seq.charAt(0));
         }
@@ -1322,10 +1356,10 @@ public final class GraphUtils {
         return sb.toString();
     }
 
-    public static String assembleLastBase(ArrayList<Kmer> kmers) {
-        int lastIndex = kmers.get(0).seq.length() - 1;
+    public static String assembleLastBase(Collection<Kmer> kmers, int k) {
+        int lastIndex = k-1;
         
-        StringBuilder sb = new StringBuilder(kmers.size());
+        StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
         for (Kmer kmer : kmers) {
             sb.append(kmer.seq.charAt(lastIndex));
         }
@@ -1931,7 +1965,7 @@ public final class GraphUtils {
         }
         
         int k = graph.getK();
-        int anchorLength = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMedian(covs)), pairedKmerDistance-k);
+        int anchorLength = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance-k);
         if (anchorLength == 0) {
             ++anchorLength;
         }
@@ -1957,7 +1991,7 @@ public final class GraphUtils {
         }
         
         int k = graph.getK();
-        int anchorLength = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMedian(covs)), pairedKmerDistance-k);
+        int anchorLength = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance-k);
         if (anchorLength == 0) {
             ++anchorLength;
         }
