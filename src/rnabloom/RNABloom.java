@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import static java.lang.Math.pow;
 import java.text.NumberFormat;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -814,8 +815,8 @@ public class RNABloom {
                             Kmer leftLastKmer = leftKmers.get(leftKmers.size()-1);
                             Kmer rightFirstKmer = rightKmers.get(0);
                             
-                            if (!isHomoPolymer(leftLastKmer.seq) && !isHomoPolymer(rightFirstKmer.seq)) {
-                                ArrayList<Kmer> connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+//                            if (!isHomoPolymer(leftLastKmer.seq) && !isHomoPolymer(rightFirstKmer.seq)) {
+                                ArrayDeque<Kmer> connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
 
                                 if (connectedPath != null) {
                                     int fragLength = leftKmers.size() + connectedPath.size() + rightKmers.size() + k - 1;
@@ -855,7 +856,7 @@ public class RNABloom {
                                         Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
                                     }
                                 }
-                            }
+//                            }
                         }
                         else {
                             int fragLength = fragmentKmers.size() + k - 1;
@@ -1037,9 +1038,9 @@ public class RNABloom {
             FastqReadPair p;
             ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
             
-            boolean readLengthThresholdIsSet = false;
-            ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
-            ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
+//            boolean readLengthThresholdIsSet = false;
+//            ArrayList<Integer> leftReadLengths = new ArrayList<>(sampleSize);
+//            ArrayList<Integer> rightReadLengths = new ArrayList<>(sampleSize);
             
 //            int minNumKmersNotAssembled = 1;
             
@@ -1059,50 +1060,47 @@ public class RNABloom {
                     while (fqpr.hasNext()) {
                         p = fqpr.next();
                         ++readPairsParsed;
-                        
-                        // ignore read pairs when more than half of raw read length were trimmed for each read
-                        if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
-                                p.originalRightLength > 2*p.numRightBasesTrimmed) {
-                            
-                            if (!readLengthThresholdIsSet) {
-                                int best = 0;
-                                for (String s : p.left) {
-                                    if (s.length() > best) {
-                                        best = s.length();
-                                    }
-                                }
-                                leftReadLengths.add(best);
 
-                                best = 0;
-                                for (String s : p.right) {
-                                    if (s.length() > best) {
-                                        best = s.length();
-                                    }
-                                }
-                                rightReadLengths.add(best);
-                                    
-                                if (leftReadLengths.size() >= sampleSize) {
-                                    int[] leftReadLengthsStats = getMinQ1MedianQ3Max(leftReadLengths);
-                                    int[] rightReadLengthsStats = getMinQ1MedianQ3Max(rightReadLengths);
-                                   
-                                    System.out.println("Read Lengths Distribution (n=" + sampleSize + ")");
-                                    System.out.println("  \tmin\tQ1\tM\tQ3\tmax");
-                                    System.out.println("L:\t" + leftReadLengthsStats[0] + "\t" + leftReadLengthsStats[1] + "\t" + leftReadLengthsStats[2] + "\t" + leftReadLengthsStats[3] + "\t" + leftReadLengthsStats[4]);
-                                    System.out.println("R:\t" + rightReadLengthsStats[0] + "\t" + rightReadLengthsStats[1] + "\t" + rightReadLengthsStats[2] + "\t" + rightReadLengthsStats[3] + "\t" + rightReadLengthsStats[4]);
-                                    
-                                    
-                                    leftReadLengthThreshold = Math.max(k, leftReadLengthsStats[1] - (leftReadLengthsStats[3] - leftReadLengthsStats[1]) * 3/2);
-                                    rightReadLengthThreshold = Math.max(k, rightReadLengthsStats[1] - (rightReadLengthsStats[3] - rightReadLengthsStats[1]) * 3/2);
-                                    
-                                    System.out.println("Left read length threshold:  " + leftReadLengthThreshold);
-                                    System.out.println("Right read length threshold: " + rightReadLengthThreshold);
-                                    
-                                    readLengthThresholdIsSet = true;
-                                    
-                                    leftReadLengths = null;
-                                    rightReadLengths = null;
-                                }
-                            }
+                            
+//                            if (!readLengthThresholdIsSet) {
+//                                int best = 0;
+//                                for (String s : p.left) {
+//                                    if (s.length() > best) {
+//                                        best = s.length();
+//                                    }
+//                                }
+//                                leftReadLengths.add(best);
+//
+//                                best = 0;
+//                                for (String s : p.right) {
+//                                    if (s.length() > best) {
+//                                        best = s.length();
+//                                    }
+//                                }
+//                                rightReadLengths.add(best);
+//                                    
+//                                if (leftReadLengths.size() >= sampleSize) {
+//                                    int[] leftReadLengthsStats = getMinQ1MedianQ3Max(leftReadLengths);
+//                                    int[] rightReadLengthsStats = getMinQ1MedianQ3Max(rightReadLengths);
+//                                   
+//                                    System.out.println("Read Lengths Distribution (n=" + sampleSize + ")");
+//                                    System.out.println("  \tmin\tQ1\tM\tQ3\tmax");
+//                                    System.out.println("L:\t" + leftReadLengthsStats[0] + "\t" + leftReadLengthsStats[1] + "\t" + leftReadLengthsStats[2] + "\t" + leftReadLengthsStats[3] + "\t" + leftReadLengthsStats[4]);
+//                                    System.out.println("R:\t" + rightReadLengthsStats[0] + "\t" + rightReadLengthsStats[1] + "\t" + rightReadLengthsStats[2] + "\t" + rightReadLengthsStats[3] + "\t" + rightReadLengthsStats[4]);
+//                                    
+//                                    
+//                                    leftReadLengthThreshold = Math.max(k, leftReadLengthsStats[1] - (leftReadLengthsStats[3] - leftReadLengthsStats[1]) * 3/2);
+//                                    rightReadLengthThreshold = Math.max(k, rightReadLengthsStats[1] - (rightReadLengthsStats[3] - rightReadLengthsStats[1]) * 3/2);
+//                                    
+//                                    System.out.println("Left read length threshold:  " + leftReadLengthThreshold);
+//                                    System.out.println("Right read length threshold: " + rightReadLengthThreshold);
+//                                    
+//                                    readLengthThresholdIsSet = true;
+//                                    
+//                                    leftReadLengths = null;
+//                                    rightReadLengths = null;
+//                                }
+//                            }
                             
                             service.submit(new FragmentAssembler(p,
                                                                 fragments,
@@ -1120,7 +1118,6 @@ public class RNABloom {
 //                                System.out.println(readPairsParsed + " read pairs parsed");
 //                                System.out.println(fragments.size() + " fragments assembled");
 //                            }
-                        }
                     }
                     
                     // Calculate length stats
@@ -1484,14 +1481,9 @@ public class RNABloom {
 //                    }
                 }
                 else if (numKmersNotSeen > 0) {
-                    if (numKmersNotSeen <= 2*k && hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
+                    if (numKmersNotSeen <= k+maxIndelSize && hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
 //                        if (i > maxTipLength) {
-                            if (numKmersNotSeen <= k+maxIndelSize) {
-                                numMismatchBases += 1;
-                            }
-                            else {
                                 numMismatchBases += numKmersNotSeen - k + 1;
-                            }
 //                        }
                     }
                     else {
@@ -2153,7 +2145,7 @@ public class RNABloom {
             
             int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "25"));
             int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
-            int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "30"));
+            int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "10"));
             
             long sbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), "1")));
             long dbgbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), "1")));
