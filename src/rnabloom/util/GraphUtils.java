@@ -573,11 +573,12 @@ public final class GraphUtils {
         Kmer nextKmer = source;
         for (int i=0; i<bound; ++i) {
             nextKmer = greedyExtendLeftOnce(graph, nextKmer, lookahead);
-            extension.addFirst(nextKmer);
             
             if (nextKmer == null) {
                 break;
             }
+            
+            extension.addFirst(nextKmer);
         }
         
         return extension;
@@ -589,11 +590,12 @@ public final class GraphUtils {
         Kmer nextKmer = source;
         for (int i=0; i<bound; ++i) {
             nextKmer = greedyExtendRightOnce(graph, nextKmer, lookahead);
-            extension.addLast(nextKmer);
             
             if (nextKmer == null) {
                 break;
             }
+            
+            extension.addLast(nextKmer);
         }
         
         return extension;
