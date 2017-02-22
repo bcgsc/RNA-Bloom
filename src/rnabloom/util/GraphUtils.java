@@ -24,7 +24,6 @@ import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
 import static rnabloom.util.SeqUtils.getNumGC;
 import static rnabloom.util.SeqUtils.getPercentIdentity;
-import static rnabloom.util.SeqUtils.isHomoPolymer;
 import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 
@@ -331,18 +330,21 @@ public final class GraphUtils {
      * @param lookahead
      * @return 
      */
-    public static ArrayList<Kmer> getMaxCoveragePath(BloomFilterDeBruijnGraph graph, Kmer left, Kmer right, int bound, int lookahead) {
+    public static ArrayDeque<Kmer> getMaxCoveragePath(BloomFilterDeBruijnGraph graph, Kmer left, Kmer right, int bound, int lookahead) {
         
         HashSet<String> leftPathKmers = new HashSet<>(bound);
         
         /* extend right */
-        ArrayList<Kmer> leftPath = new ArrayList<>(bound);
-        Kmer best = left;
+        ArrayDeque<Kmer> leftPath = new ArrayDeque<>(bound);
+        Kmer best;
         ArrayDeque<Kmer> neighbors;
+        
+        best = left;
+
         for (int depth=0; depth < bound; ++depth) {
             neighbors = graph.getSuccessors(best);
 //            best.successors = null; // clear cache
-            
+
             if (neighbors.isEmpty()) {
                 break;
             }
@@ -351,24 +353,28 @@ public final class GraphUtils {
                     best = neighbors.peek();
                 }
                 else {
-                    best = greedyExtendRightOnce(graph, best, lookahead);
+                    best = greedyExtendRightOnce(graph, neighbors, lookahead);
                 }
-                
+
                 if (best.equals(right)) {
                     return leftPath;
                 }
                 else {
-                    leftPath.add(best);
+                    if (leftPathKmers.contains(best.seq)) {
+                        break;
+                    }
+                    else {
+                        leftPathKmers.add(best.seq);
+                        leftPath.add(best);
+                    }
                 }
             }
         }
         
-        for (Kmer kmer : leftPath) {
-            leftPathKmers.add(kmer.seq);
-        }
+        HashSet<String> rightPathKmers = new HashSet<>(bound);
         
         /* not connected, search from right */
-        ArrayList<Kmer> rightPath = new ArrayList<>(bound);
+        ArrayDeque<Kmer> rightPath = new ArrayDeque<>(bound);
         best = right;
         for (int depth=0; depth < bound; ++depth) {
             neighbors = graph.getPredecessors(best);
@@ -382,32 +388,36 @@ public final class GraphUtils {
                     best = neighbors.peek();
                 }
                 else {
-                    best = greedyExtendLeftOnce(graph, best, lookahead);
+                    best = greedyExtendLeftOnce(graph, neighbors, lookahead);
                 }
                 
                 if (best.equals(left)) {
-                    Collections.reverse(rightPath);
                     return rightPath;
                 }
                 else if (leftPathKmers.contains(best.seq)) {
                     /* right path intersects the left path */
                     String convergingKmer = best.seq;
-                    ArrayList<Kmer> path = new ArrayList<>(bound);
-                    for (Kmer kmer : leftPath) {
-                        path.add(kmer);
+                    rightPath.addFirst(best);
+                    
+                    Iterator<Kmer> itr = leftPath.descendingIterator();
+                    Kmer kmer;
+                    while (itr.hasNext()) {
+                        kmer = itr.next();
                         if (convergingKmer.equals(kmer.seq)) {
-                            break;
+                            while (itr.hasNext()) {
+                                rightPath.addFirst(itr.next());
+                            }
+                            
+                            return rightPath;
                         }
                     }
-                    
-                    if (path.size() + rightPath.size() <= bound) {
-                        Collections.reverse(rightPath);
-                        path.addAll(rightPath);
-                        return path;
-                    }
+                }
+                else if (!rightPathKmers.contains(best.seq)) {
+                    rightPathKmers.add(best.seq);
+                    rightPath.addFirst(best);
                 }
                 else {
-                    rightPath.add(best);
+                    return null;
                 }
             }
         }
@@ -759,7 +769,7 @@ public final class GraphUtils {
                         }
                     }
                     else {
-                        ArrayList<Kmer> path = getMaxCoveragePath(graph, kmers2.get(kmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
+                        ArrayDeque<Kmer> path = getMaxCoveragePath(graph, kmers2.get(kmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead);
                         if (path == null) {
                             // fill with original sequence
                             for (int j=i-numBadKmersSince; j<i; ++j) {
@@ -1465,7 +1475,7 @@ public final class GraphUtils {
                 nextKmer = new Kmer(seq.substring(i, i+k), c, hVals);
                 
                 if (numMissingKmers > 0 && !result.isEmpty()) {
-                    ArrayList<Kmer> path = getMaxCoveragePath(graph, result.get(result.size()-1), nextKmer, maxIndelSize + numMissingKmers, lookahead);
+                    ArrayDeque<Kmer> path = getMaxCoveragePath(graph, result.get(result.size()-1), nextKmer, maxIndelSize + numMissingKmers, lookahead);
                     
                     if (path == null) {
                         if (bestResult == null) {
@@ -1518,7 +1528,7 @@ public final class GraphUtils {
                     next = getKmers(segments.get(i), graph, maxIndelSize, lookahead);
                     
                     if (!next.isEmpty()) {                    
-                        ArrayList<Kmer> path = getMaxCoveragePath(graph, current.get(current.size()-1), next.get(0), bound, lookahead);
+                        ArrayDeque<Kmer> path = getMaxCoveragePath(graph, current.get(current.size()-1), next.get(0), bound, lookahead);
 
                         if (path == null) {
                             if (best == null) {
@@ -1588,7 +1598,7 @@ public final class GraphUtils {
     public static String connect(String left, String right, BloomFilterDeBruijnGraph graph, int bound, int lookahead) {
         int k = graph.getK();
         
-        ArrayList<Kmer> pathKmers = getMaxCoveragePath(graph, graph.getKmer(getLastKmer(left, k)), graph.getKmer(getFirstKmer(right, k)), bound, lookahead);
+        ArrayDeque<Kmer> pathKmers = getMaxCoveragePath(graph, graph.getKmer(getLastKmer(left, k)), graph.getKmer(getFirstKmer(right, k)), bound, lookahead);
         
         if (pathKmers == null || pathKmers.isEmpty() || pathKmers.size() > bound) {
             return "";
@@ -1612,23 +1622,17 @@ public final class GraphUtils {
     public static ArrayList<Kmer> overlap(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, BloomFilterDeBruijnGraph graph, int minOverlap) {
         int k = graph.getK();
         
-        String left = assemble(leftKmers, k);
-        String right = assemble(rightKmers, k);
+        String overlapped = overlapMaximally(assemble(leftKmers, k), assemble(rightKmers, k), minOverlap);
         
-        String overlapped = overlapMaximally(left, right, minOverlap);
-        
-        if (overlapped != null && !isHomoPolymer(overlapped)) {
-            int overlappedLength = overlapped.length();
-            if (overlappedLength >= left.length() && overlappedLength >= right.length()) {
-                ArrayList<Kmer> overlappedKmers = graph.getKmers(overlapped);
-                for (Kmer kmer : overlappedKmers) {
-                    if (kmer.count <= 0) {
-                        return null;
-                    }
+        if (overlapped != null) {
+            ArrayList<Kmer> overlappedKmers = graph.getKmers(overlapped);
+            for (Kmer kmer : overlappedKmers) {
+                if (kmer.count <= 0) {
+                    return null;
                 }
-
-                return overlappedKmers;
             }
+
+            return overlappedKmers;
         }
         
         return null;
