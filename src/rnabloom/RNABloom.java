@@ -1475,24 +1475,41 @@ public class RNABloom {
             kmer = kmers.get(i);
             
             if (screeningBf.lookup(kmer.hashVals)) {
-                if (lastGoodKmer == null) {
-//                    if (i > maxTipLength) {
-                        numMismatchBases += numKmersNotSeen;
-//                    }
-                }
-                else if (numKmersNotSeen > 0) {
-                    if (numKmersNotSeen <= k+maxIndelSize && hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
-//                        if (i > maxTipLength) {
-                                numMismatchBases += numKmersNotSeen - k + 1;
-//                        }
+                if (numKmersNotSeen > 0) {
+                    if (lastGoodKmer == null) {
+                        // left edge is not assembled
+                        if (numKmersNotSeen < k+maxIndelSize) {
+                            ArrayDeque<Kmer> extension = greedyExtendLeft(graph, kmers.get(0), lookahead, k-numKmersNotSeen+maxIndelSize);
+
+                            if (!extension.isEmpty() && hasValidPath(graph,
+                                                                    extension.getFirst(),
+                                                                    kmer,
+                                                                    screeningBf,
+                                                                    k-maxIndelSize,
+                                                                    k+maxIndelSize)) {
+                                numMismatchBases += 1;
+                            }
+                            else {
+                                numMismatchBases += numKmersNotSeen;
+                            }
+                        }
+                        else {
+                            numMismatchBases += numKmersNotSeen;
+                        }
                     }
                     else {
+                        // unassembled gap
+                        if (numKmersNotSeen <= k+maxIndelSize && hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
+                            numMismatchBases += 1;
+                        }
+                        else {
+                            return true;
+                        }
+                    }
+                
+                    if (numMismatchBases > maxMismatchesAllowed) {
                         return true;
                     }
-                }
-                
-                if (numMismatchBases > maxMismatchesAllowed) {
-                    return true;
                 }
                 
                 numKmersNotSeen = 0;
@@ -1507,9 +1524,25 @@ public class RNABloom {
             return true;
         }
         
-//        if (numKmersNotSeen > maxTipLength) {
+        if (numKmersNotSeen > 0 && numKmersNotSeen < k+maxIndelSize) {
+            // right edge is not assembled
+            ArrayDeque<Kmer> extension = greedyExtendRight(graph, kmers.get(kmers.size()-1), lookahead, k-numKmersNotSeen+maxIndelSize);
+            
+            if (!extension.isEmpty() && hasValidPath(graph,
+                                                    lastGoodKmer,
+                                                    extension.getLast(),
+                                                    screeningBf,
+                                                    k-maxIndelSize,
+                                                    k+maxIndelSize)) {
+                numMismatchBases += 1;
+            }
+            else {
+                numMismatchBases += numKmersNotSeen;
+            }
+        }
+        else {
             numMismatchBases += numKmersNotSeen;
-//        }
+        }
         
         return numMismatchBases > maxMismatchesAllowed;
     }
