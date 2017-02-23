@@ -33,10 +33,12 @@ import static rnabloom.util.SeqUtils.getNumKmers;
  */
 public class BloomFilterDeBruijnGraph {
     
-    private final BloomFilter dbgbf;
-    private final CountingBloomFilter cbf;
+    private BloomFilter dbgbf;
+    private CountingBloomFilter cbf;
     private PairedKeysPartitionedBloomFilter pkbf = null;
     
+    private int dbgbfNumHash;
+    private int cbfNumHash;
     private int dbgbfCbfMaxNumHash;
     private final HashFunction2 hashFunction;
     private int k;
@@ -74,6 +76,8 @@ public class BloomFilterDeBruijnGraph {
         this.k = k;
         this.kMinus1 = k-1;
         this.stranded = stranded;
+        this.dbgbfNumHash = dbgbfNumHash;
+        this.cbfNumHash = cbfNumHash;
         this.dbgbfCbfMaxNumHash = Math.max(dbgbfNumHash, cbfNumHash);
         if (stranded) {
             this.hashFunction = new HashFunction2(k);
@@ -133,6 +137,9 @@ public class BloomFilterDeBruijnGraph {
         String cbfDescPath = cbfBitsPath + FILE_DESC_EXTENSION;
         cbf = new CountingBloomFilter(new File(cbfDescPath), new File(cbfBitsPath), hashFunction);
         
+        dbgbfNumHash = dbgbf.getNumHash();
+        cbfNumHash = cbf.getNumHash();
+        
         String leftBitsPath = graphFile.getPath() + FILE_PKBF_LEFT_EXTENSION;
         String rightBitsPath = graphFile.getPath() + FILE_PKBF_RIGHT_EXTENSION;
         String pairBitsPath = graphFile.getPath() + FILE_PKBF_PAIR_EXTENSION;
@@ -152,6 +159,14 @@ public class BloomFilterDeBruijnGraph {
         return this.hashFunction;
     }
     
+    public int getDbgbfNumHash () {
+        return dbgbfNumHash;
+    }
+
+    public int getCbfNumHash () {
+        return cbfNumHash;
+    }
+    
     public int getMaxNumHash() {
         return dbgbfCbfMaxNumHash;
     }
@@ -162,6 +177,22 @@ public class BloomFilterDeBruijnGraph {
         if (pkbf != null) {
             pkbf.destroy();
         }        
+    }
+    
+    public void clearDbgbf() {
+        dbgbf.empty();
+    }
+
+    public void destroyDbgbf() {
+        if (dbgbf != null) {
+            dbgbf.destroy();
+        }
+    }
+    
+    public void destroyCbf() {
+        if (cbf != null) {
+            cbf.destroy();
+        }
     }
     
     public void destroyPkbf() {
@@ -266,6 +297,10 @@ public class BloomFilterDeBruijnGraph {
     public void add(final long[] hashVals) {
         dbgbf.add(hashVals);
         cbf.increment(hashVals);        
+    }
+    
+    public void addDbgOnly(final long[] hashVals) {
+        dbgbf.add(hashVals);
     }
     
 //    public void addFragmentKmersFromSeq(String seq) {
