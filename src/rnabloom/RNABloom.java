@@ -308,7 +308,7 @@ public class RNABloom {
         covFPR = graph.getCbfFPR();
     }
     
-    public void createDeBruijnGraph(String[] fastas) throws IOException { 
+    public void insertIntoDeBruijnGraph(String[] fastas) throws IOException { 
         
         NTHashIterator itr = graph.getHashIterator(graph.getDbgbfNumHash());
         long[] hashVals = itr.hVals;
@@ -1570,22 +1570,31 @@ public class RNABloom {
                                                 int sbfNumHash,
                                                 int numThreads,
                                                 int sampleSize) {
-        if (dbgFPR <= 0) {
-            dbgFPR = graph.getDbgbf().getFPR();
-        }
         
-        if (covFPR <= 0) {
-            covFPR = graph.getCbf().getFPR();
-        }
-        
-        System.out.println("Assembling transcripts...");
         long numFragmentsParsed = 0;
-        boolean append = false;
-        
-        // set up thread pool
-        int maxTasksQueueSize = 2;
-        
+
         try {
+            System.out.println("Creating graph from fragment kmers...");
+            graph.getDbgbf().empty();
+            insertIntoDeBruijnGraph(longFragmentsFastas);
+            insertIntoDeBruijnGraph(shortFragmentsFastas);
+        
+    //        if (dbgFPR <= 0) {
+                dbgFPR = graph.getDbgbf().getFPR();
+    //        }
+
+            if (covFPR <= 0) {
+                covFPR = graph.getCbf().getFPR();
+            }
+
+            System.out.println("Assembling transcripts...");
+
+            boolean append = false;
+
+            // set up thread pool
+            int maxTasksQueueSize = 2;
+        
+
             FastaWriter fout = new FastaWriter(outFasta, append);
             
             screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
