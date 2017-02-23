@@ -6,7 +6,6 @@
 package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.NTHash.NTMC64;
-import static rnabloom.bloom.hash.NTHash.NTMC64;
 
 /**
  *
