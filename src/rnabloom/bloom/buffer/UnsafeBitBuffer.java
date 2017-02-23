@@ -66,6 +66,7 @@ public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
         return size;
     }
     
+    @Override
     public void empty() {
         backingByteBuffer.empty();
     }

@@ -70,6 +70,7 @@ public class LargeBitBuffer extends AbstractLargeBitBuffer {
         return size;
     }
     
+    @Override
     public void empty() {
         backingByteBuffer.empty();
     }

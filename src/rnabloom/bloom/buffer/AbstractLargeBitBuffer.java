@@ -20,6 +20,7 @@ public abstract class AbstractLargeBitBuffer {
     public abstract boolean getAndSet(long index);
     public abstract long size();
     public abstract long popCount();
+    public abstract void empty();
     public abstract void destroy();
     public abstract void write(FileOutputStream out) throws IOException;
     public abstract void read(FileInputStream in) throws IOException;

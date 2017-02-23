@@ -87,6 +87,7 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
         return size;
     }
     
+    @Override
     public void empty() {
         unsafe.setMemory(start, size, (byte) 0);
     }
