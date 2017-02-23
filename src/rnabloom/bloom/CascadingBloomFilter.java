@@ -89,6 +89,12 @@ public class CascadingBloomFilter implements BloomFilterInterface {
         return bfs[level].getFPR();
     }
     
+    public void empty() {
+        for (BloomFilter bf : bfs) {
+            bf.empty();
+        }
+    }
+    
     public void destroy() {
         for (BloomFilter bf : bfs) {
             bf.destroy();

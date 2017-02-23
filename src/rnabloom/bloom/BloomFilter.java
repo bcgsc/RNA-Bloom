@@ -178,12 +178,20 @@ public class BloomFilter implements BloomFilterInterface {
         return (long) Math.ceil(- popcount *log(fpr) / pow(log(2), 2));
     }
     
+    public int getNumHash() {
+        return numHash;
+    }
+    
     public float getOptimalNumHash() {
         if (popcount < 0) {
             popcount = updatePopcount();
         }
         
         return (float) (size / (float) popcount * log(2));
+    }
+    
+    public void empty() {
+        this.bitArray.empty();
     }
     
     public void destroy() {
