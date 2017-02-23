@@ -307,85 +307,101 @@ public class RNABloom {
         dbgFPR = graph.getDbgbfFPR();
         covFPR = graph.getCbfFPR();
     }
-
-    public BloomFilterDeBruijnGraph getGraph() {
-        return graph;
+    
+    public void createDeBruijnGraph(String[] fastas) throws IOException { 
+        
+        NTHashIterator itr = graph.getHashIterator(graph.getDbgbfNumHash());
+        long[] hashVals = itr.hVals;
+        
+        for (String fasta : fastas) {
+            FastaReader fin = new FastaReader(fasta);
+            
+            while (fin.hasNext()) {
+                itr.start(fin.next());
+                while (itr.hasNext()) {
+                    itr.next();
+                    graph.addDbgOnly(hashVals);
+                }
+            }
+            
+            fin.close();
+        }
     }
     
     private boolean isPolyA(String left, String right) {
         return right.endsWith("AAAA") || (!graph.isStranded() && left.startsWith("TTTT"));
     }
     
-    private boolean okToConnectPair(String left, String right) {
-        NTHashIterator itr = graph.getHashIterator();
-        itr.start(left);
-        long[] hVals = itr.hVals;
-        float c;
-        
-        while (itr.hasNext()) {
-            if (!graph.lookupLeftKmer(hVals)) {
-                return true;
-            }
-        }
-        
-        itr.start(right);
-        
-        while (itr.hasNext()) {
-            if (!graph.lookupRightKmer(hVals)) {
-                return true;
-            }
-        }
-        
-        return false;
-        
-//        int numKmersNotSeenLeft = 0;
-//        float minCovLeft = Float.MAX_VALUE;
+//    private boolean okToConnectPair(String left, String right) {
+//        NTHashIterator itr = graph.getHashIterator();
+//        itr.start(left);
+//        long[] hVals = itr.hVals;
+//        float c;
 //        
-//        // scan the entire read for c=0 kmers
 //        while (itr.hasNext()) {
-//            itr.next();
-//
-//            c = graph.getCount(hVals);
-//            
-//            if (c == 0) {
-//                return false;
-//            }
-//            
-//            if (!graph.lookupFragmentKmer(hVals)) {
-//                ++numKmersNotSeenLeft;
-//                
-//                if (c < minCovLeft) {
-//                    minCovLeft = c;
-//                }
+//            if (!graph.lookupLeftKmer(hVals)) {
+//                return true;
 //            }
 //        }
 //        
 //        itr.start(right);
 //        
-//        int numKmersNotSeenRight = 0;
-//        float minCovRight = Float.MAX_VALUE;
-//        
-//        // scan the entire read for c=0 kmers
 //        while (itr.hasNext()) {
-//            itr.next();
-//
-//            c = graph.getCount(hVals);
-//            
-//            if (c == 0) {
-//                return false;
-//            }
-//            
-//            if (!graph.lookupFragmentKmer(hVals)) {
-//                ++numKmersNotSeenRight;
-//                
-//                if (c < minCovRight) {
-//                    minCovRight = c;
-//                }
+//            if (!graph.lookupRightKmer(hVals)) {
+//                return true;
 //            }
 //        }
-//        return numKmersNotSeenLeft >= k || numKmersNotSeenLeft >= minCovLeft || numKmersNotSeenLeft == getNumKmers(left, k ) ||
-//                numKmersNotSeenRight >= k || numKmersNotSeenRight >= minCovRight || numKmersNotSeenRight == getNumKmers(right, k);
-    }
+//        
+//        return false;
+//        
+////        int numKmersNotSeenLeft = 0;
+////        float minCovLeft = Float.MAX_VALUE;
+////        
+////        // scan the entire read for c=0 kmers
+////        while (itr.hasNext()) {
+////            itr.next();
+////
+////            c = graph.getCount(hVals);
+////            
+////            if (c == 0) {
+////                return false;
+////            }
+////            
+////            if (!graph.lookupFragmentKmer(hVals)) {
+////                ++numKmersNotSeenLeft;
+////                
+////                if (c < minCovLeft) {
+////                    minCovLeft = c;
+////                }
+////            }
+////        }
+////        
+////        itr.start(right);
+////        
+////        int numKmersNotSeenRight = 0;
+////        float minCovRight = Float.MAX_VALUE;
+////        
+////        // scan the entire read for c=0 kmers
+////        while (itr.hasNext()) {
+////            itr.next();
+////
+////            c = graph.getCount(hVals);
+////            
+////            if (c == 0) {
+////                return false;
+////            }
+////            
+////            if (!graph.lookupFragmentKmer(hVals)) {
+////                ++numKmersNotSeenRight;
+////                
+////                if (c < minCovRight) {
+////                    minCovRight = c;
+////                }
+////            }
+////        }
+////        return numKmersNotSeenLeft >= k || numKmersNotSeenLeft >= minCovLeft || numKmersNotSeenLeft == getNumKmers(left, k ) ||
+////                numKmersNotSeenRight >= k || numKmersNotSeenRight >= minCovRight || numKmersNotSeenRight == getNumKmers(right, k);
+//    }
     
     private boolean okToConnectPair(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers) {
         if (leftKmers.isEmpty() || rightKmers.isEmpty()) {
