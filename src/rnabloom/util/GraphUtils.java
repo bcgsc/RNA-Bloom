@@ -52,49 +52,56 @@ public final class GraphUtils {
         return counts.get(halfNumKmers);
     }
     
-    public static float getMaxMedianCoverageRight(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead) {
-        Iterator<Kmer> itr = graph.getSuccessors(source).iterator();
+    public static float getMaxMedianCoverageRight(final BloomFilterDeBruijnGraph graph, final Kmer source, final int lookahead) {
+        ArrayDeque<Kmer> neighbors = graph.getSuccessors(source);
         
-        if (!itr.hasNext()) {
-            return source.count;
+        if (neighbors.isEmpty()) {
+            if (lookahead > 0) {
+                return 0;
+            }
+            else {
+                return source.count;
+            }
         }
         else {
-            Kmer cursor = itr.next();
-            ArrayList<Kmer> path = new ArrayList<>(lookahead); 
+            ArrayDeque<Kmer> path = new ArrayDeque<>(lookahead); 
             path.add(source);
+            
+            Kmer cursor = neighbors.removeFirst();
             path.add(cursor);
 
-            ArrayList<Iterator<Kmer>> frontier = new ArrayList<>(lookahead);
-            frontier.add(itr);
+            ArrayDeque<ArrayDeque<Kmer>> frontier = new ArrayDeque<>(lookahead);
+            frontier.add(neighbors);
 
             float bestCov = 0;
 
             while (!frontier.isEmpty()) {
                 if (path.size() < lookahead) {
-                    itr = graph.getSuccessors(cursor).iterator();
-                    if (itr.hasNext()) {
-                        cursor = itr.next();
+                    neighbors = graph.getSuccessors(cursor);
+                    if (!neighbors.isEmpty()) {
+                        cursor = neighbors.removeFirst();
                         path.add(cursor);
-                        frontier.add(itr);
+                        frontier.add(neighbors);
                         continue;
                     }
                 }
 
-                float pathCov = getMedianKmerCoverage(path);
-                if (bestCov < pathCov) {
-                    bestCov = pathCov;
+                if (path.size() == lookahead) {
+                    // we only calculate coverage if path is long enough
+                    float pathCov = getMedianKmerCoverage(path);
+                    if (bestCov < pathCov) {
+                        bestCov = pathCov;
+                    }
                 }
 
-                int i = path.size()-2;
-                while (i >= 0) {
-                    itr = frontier.get(i);
-                    path.remove(i+1);
-                    if (!itr.hasNext()) {
-                        frontier.remove(i);
-                        --i;
+                while (!frontier.isEmpty()) {
+                    neighbors = frontier.getLast();
+                    path.removeLast();
+                    if (neighbors.isEmpty()) {
+                        frontier.removeLast();
                     }
                     else {
-                        cursor = itr.next();
+                        cursor = neighbors.removeFirst();
                         path.add(cursor);
                         break;
                     }
@@ -105,60 +112,67 @@ public final class GraphUtils {
         }
     }
 
-    public static float getMaxMedianCoverageLeft(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead) {
-        Iterator<Kmer> itr = graph.getPredecessors(source).iterator();
+    public static float getMaxMedianCoverageLeft(final BloomFilterDeBruijnGraph graph, final Kmer source, final int lookahead) {
+        ArrayDeque<Kmer> neighbors = graph.getPredecessors(source);
         
-        if (!itr.hasNext()) {
-            return source.count;
+        if (neighbors.isEmpty()) {
+            if (lookahead > 0) {
+                return 0;
+            }
+            else {
+                return source.count;
+            }
         }
         else {
-            Kmer cursor = itr.next();
-            ArrayList<Kmer> path = new ArrayList<>(lookahead);
+            ArrayDeque<Kmer> path = new ArrayDeque<>(lookahead); 
             path.add(source);
+            
+            Kmer cursor = neighbors.removeFirst();
             path.add(cursor);
 
-            ArrayList<Iterator<Kmer>> frontier = new ArrayList<>(lookahead);
-            frontier.add(itr);
+            ArrayDeque<ArrayDeque<Kmer>> frontier = new ArrayDeque<>(lookahead);
+            frontier.add(neighbors);
 
             float bestCov = 0;
 
             while (!frontier.isEmpty()) {
                 if (path.size() < lookahead) {
-                    itr = graph.getPredecessors(cursor).iterator();
-                    if (itr.hasNext()) {
-                        cursor = itr.next();
+                    neighbors = graph.getPredecessors(cursor);
+                    if (!neighbors.isEmpty()) {
+                        cursor = neighbors.removeFirst();
                         path.add(cursor);
-                        frontier.add(itr);
+                        frontier.add(neighbors);
                         continue;
                     }
                 }
 
-                float pathCov = getMedianKmerCoverage(path);
-                if (bestCov < pathCov) {
-                    bestCov = pathCov;
+                if (path.size() == lookahead) {
+                    // we only calculate coverage if path is long enough
+                    float pathCov = getMedianKmerCoverage(path);
+                    if (bestCov < pathCov) {
+                        bestCov = pathCov;
+                    }
                 }
 
-                int i = path.size()-2;
-                while (i >= 0) {
-                    itr = frontier.get(i);
-                    path.remove(i+1);
-                    if (!itr.hasNext()) {
-                        frontier.remove(i);
-                        --i;
+                while (!frontier.isEmpty()) {
+                    neighbors = frontier.getLast();
+                    path.removeLast();
+                    if (neighbors.isEmpty()) {
+                        frontier.removeLast();
                     }
                     else {
-                        cursor = itr.next();
+                        cursor = neighbors.removeFirst();
                         path.add(cursor);
                         break;
                     }
                 }
             }
-
+            
             return bestCov;
         }
     }
     
-    private static Kmer greedyExtendRightOnce(BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> candidates, int lookahead) {
+    private static Kmer greedyExtendRightOnce(final BloomFilterDeBruijnGraph graph, final ArrayDeque<Kmer> candidates, final int lookahead) {
         if (candidates.isEmpty()) {
             return null;
         }
@@ -181,32 +195,11 @@ public final class GraphUtils {
         }
     }
     
-    public static Kmer greedyExtendRightOnce(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead) {
-        ArrayDeque<Kmer> candidates = graph.getSuccessors(source);
-        
-        if (candidates.isEmpty()) {
-            return null;
-        }
-        else {
-            if (candidates.size() == 1) {
-                return candidates.peek();
-            }
-            else {
-                float bestCov = -1;
-                Kmer bestKmer = null;
-                for (Kmer kmer : candidates) {
-                    float c = getMaxMedianCoverageRight(graph, kmer, lookahead);
-                    if (c > bestCov) {
-                        bestKmer = kmer;
-                        bestCov = c;
-                    }
-                }
-                return bestKmer;
-            }
-        }
+    public static Kmer greedyExtendRightOnce(final BloomFilterDeBruijnGraph graph, final Kmer source, final int lookahead) {
+        return greedyExtendRightOnce(graph, graph.getSuccessors(source), lookahead);
     }
     
-    public static Kmer greedyExtendLeftOnce(BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> candidates, int lookahead) {
+    public static Kmer greedyExtendLeftOnce(final BloomFilterDeBruijnGraph graph, final ArrayDeque<Kmer> candidates, final int lookahead) {
         if (candidates.isEmpty()) {
             return null;
         }
@@ -229,29 +222,8 @@ public final class GraphUtils {
         }
     }
     
-    public static Kmer greedyExtendLeftOnce(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead) {
-        ArrayDeque<Kmer> candidates = graph.getPredecessors(source);
-        
-        if (candidates.isEmpty()) {
-            return null;
-        }
-        else {
-            if (candidates.size() == 1) {
-                return candidates.peek();
-            }
-            else {
-                float bestCov = -1;
-                Kmer bestKmer = null;
-                for (Kmer kmer : candidates) {
-                    float c = getMaxMedianCoverageLeft(graph, kmer, lookahead);
-                    if (c > bestCov) {
-                        bestKmer = kmer;
-                        bestCov = c;
-                    }
-                }
-                return bestKmer;
-            }
-        }
+    public static Kmer greedyExtendLeftOnce(final BloomFilterDeBruijnGraph graph, final Kmer source, final int lookahead) {
+        return greedyExtendLeftOnce(graph, graph.getPredecessors(source), lookahead);
     }
     
     public static boolean hasValidPath(BloomFilterDeBruijnGraph graph,
