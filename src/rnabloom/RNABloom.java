@@ -717,7 +717,7 @@ public class RNABloom {
         public void run() {            
             ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookahead, (int) Math.ceil(fragment.length()*percentError)));
 
-            if (hasNotYetAssembled(fragKmers)) {
+            if (areUnassembledKmers(fragKmers)) {
 //                int numFragKmers = fragKmers.size();
 //
 //                /** check whether sequence-wide coverage differences are too large */
@@ -742,7 +742,7 @@ public class RNABloom {
 
                 extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
 
-                if (hasNotYetAssembled(fragKmers)) {
+                if (areUnassembledKmers(fragKmers)) {
 
                     for (Kmer kmer : fragKmers) {
                         screeningBf.add(kmer.hashVals);
@@ -1475,7 +1475,7 @@ public class RNABloom {
         }
     }
     
-    private boolean hasNotYetAssembled(ArrayList<Kmer> kmers) {
+    private boolean areUnassembledKmers(ArrayList<Kmer> kmers) {
         int numKmers = kmers.size();
         int length = numKmers + k - 1;
         
@@ -1515,7 +1515,7 @@ public class RNABloom {
                     }
                     else {
                         // unassembled gap
-                        if (numKmersNotSeen <= k+maxIndelSize && hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
+                        if (numKmersNotSeen <= 2*k && hasValidPath(graph, lastGoodKmer, kmer, screeningBf, numKmersNotSeen-maxIndelSize, numKmersNotSeen+maxIndelSize)) {
                             numMismatchBases += 1;
                         }
                         else {
