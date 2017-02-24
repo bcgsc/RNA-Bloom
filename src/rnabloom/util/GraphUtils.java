@@ -2556,7 +2556,7 @@ public final class GraphUtils {
         return false;
     }
     
-    private static boolean hasDepthRight(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
+    public static boolean hasDepthRight(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
         ArrayDeque<ArrayDeque> frontier = new ArrayDeque<>();
         ArrayDeque<Kmer> alts = graph.getSuccessors(source);
         frontier.add(alts);
@@ -2600,7 +2600,7 @@ public final class GraphUtils {
         return false;
     }
     
-    private static boolean hasDepthLeft(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
+    public static boolean hasDepthLeft(Kmer source, BloomFilterDeBruijnGraph graph, int depth) {
         ArrayDeque<ArrayDeque> frontier = new ArrayDeque<>();
         ArrayDeque<Kmer> alts = graph.getPredecessors(source);
         frontier.add(alts);

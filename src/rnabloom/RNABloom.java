@@ -13,7 +13,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -1494,19 +1493,23 @@ public class RNABloom {
                 if (numKmersNotSeen > 0) {
                     if (lastGoodKmer == null) {
                         // left edge is not assembled
-                        if (numKmersNotSeen < k+maxIndelSize) {
-                            ArrayDeque<Kmer> extension = greedyExtendLeft(graph, kmers.get(0), lookahead, k-numKmersNotSeen+maxIndelSize);
+                        if (numKmersNotSeen < k) {
+                            int depth = k-numKmersNotSeen;
+                            Kmer edgeKmer = kmers.get(0);
+                            if (hasDepthLeft(edgeKmer, graph, depth)) {
+                                ArrayDeque<Kmer> extension = greedyExtendLeft(graph, edgeKmer, lookahead, depth+maxIndelSize);
 
-                            if (!extension.isEmpty() && hasValidPath(graph,
-                                                                    extension.getFirst(),
-                                                                    kmer,
-                                                                    screeningBf,
-                                                                    k-maxIndelSize,
-                                                                    k+maxIndelSize)) {
-                                numMismatchBases += 1;
-                            }
-                            else {
-                                numMismatchBases += numKmersNotSeen;
+                                if (!extension.isEmpty() && hasValidPath(graph,
+                                                                        extension.getFirst(),
+                                                                        kmer,
+                                                                        screeningBf,
+                                                                        k-maxIndelSize,
+                                                                        k+maxIndelSize)) {
+                                    numMismatchBases += 1;
+                                }
+                                else {
+                                    numMismatchBases += numKmersNotSeen;
+                                }
                             }
                         }
                         else {
@@ -1540,20 +1543,24 @@ public class RNABloom {
             return true;
         }
         
-        if (numKmersNotSeen > 0 && numKmersNotSeen < k+maxIndelSize) {
+        if (numKmersNotSeen > 0 && numKmersNotSeen < k) {
             // right edge is not assembled
-            ArrayDeque<Kmer> extension = greedyExtendRight(graph, kmers.get(kmers.size()-1), lookahead, k-numKmersNotSeen+maxIndelSize);
-            
-            if (!extension.isEmpty() && hasValidPath(graph,
-                                                    lastGoodKmer,
-                                                    extension.getLast(),
-                                                    screeningBf,
-                                                    k-maxIndelSize,
-                                                    k+maxIndelSize)) {
-                numMismatchBases += 1;
-            }
-            else {
-                numMismatchBases += numKmersNotSeen;
+            int depth = k-numKmersNotSeen;
+            Kmer edgeKmer = kmers.get(numKmers-1);
+            if (hasDepthRight(edgeKmer, graph, depth)) {
+                ArrayDeque<Kmer> extension = greedyExtendRight(graph, edgeKmer, lookahead, depth+maxIndelSize);
+
+                if (!extension.isEmpty() && hasValidPath(graph,
+                                                        lastGoodKmer,
+                                                        extension.getLast(),
+                                                        screeningBf,
+                                                        k-maxIndelSize,
+                                                        k+maxIndelSize)) {
+                    numMismatchBases += 1;
+                }
+                else {
+                    numMismatchBases += numKmersNotSeen;
+                }
             }
         }
         else {
