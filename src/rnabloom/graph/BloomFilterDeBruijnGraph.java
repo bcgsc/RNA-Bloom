@@ -470,6 +470,16 @@ public class BloomFilterDeBruijnGraph {
         return kmer.subSequence(1, k);
     }
     
+    public boolean hasPredecessors(Kmer kmer) {
+        long[][] allHashVals = hashFunction.getPredecessorsHashValues(dbgbfCbfMaxNumHash, kmer.hashVals, kmer.seq.charAt(kMinus1));
+        for (int i=0; i<4; ++i) {
+            if (dbgbf.lookup(allHashVals[i]) && cbf.getCount(allHashVals[i]) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     public ArrayDeque<Kmer> getPredecessors(Kmer kmer) {
 //        if (kmer.predecessors != null) {
 //            return kmer.predecessors;
@@ -528,6 +538,16 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
 
+    public boolean hasSuccessors(Kmer kmer) {
+        long[][] allHashVals = hashFunction.getSuccessorsHashValues(dbgbfCbfMaxNumHash, kmer.hashVals, kmer.seq.charAt(0));
+        for (int i=0; i<4; ++i) {
+            if (dbgbf.lookup(allHashVals[i]) && cbf.getCount(allHashVals[i]) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     public ArrayDeque<Kmer> getSuccessors(Kmer kmer) {
 //        if (kmer.successors != null) {
 //            return kmer.successors;
