@@ -1586,10 +1586,9 @@ public class RNABloom {
             insertIntoDeBruijnGraph(longFragmentsFastas);
             insertIntoDeBruijnGraph(shortFragmentsFastas);
         
-    //        if (dbgFPR <= 0) {
-                dbgFPR = graph.getDbgbf().getFPR();
-    //        }
-
+            dbgFPR = graph.getDbgbf().getFPR();
+            System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
+            
             if (covFPR <= 0) {
                 covFPR = graph.getCbf().getFPR();
             }
