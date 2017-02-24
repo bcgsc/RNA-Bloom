@@ -773,19 +773,28 @@ public final class GraphUtils {
                             }
                             else if (numBadKmersSince < k) {
                                 ArrayDeque<Kmer> greedyTipKmers = greedyExtendLeft(graph, kmer, lookahead, numBadKmersSince);
-                                if (getMedianKmerCoverage(greedyTipKmers) > tipMedCov &&
-                                        getPercentIdentity(assemble(greedyTipKmers, k), assemble(kmers, k, 0, i)) >= percentIdentity){
-                                    kmers2.addAll(greedyTipKmers);
+                                if (greedyTipKmers.size() == numBadKmersSince && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
+                                    if (getPercentIdentity(assemble(greedyTipKmers, k), assemble(kmers, k, 0, i)) >= percentIdentity){
+                                        kmers2.addAll(greedyTipKmers);
+                                    }
+                                    else if (hasDepthLeft(kmers.get(0), graph, k-numBadKmersSince)) {
+                                        // use original sequence
+                                        for (int j=0; j<i; ++j) {
+                                            kmers2.add(kmers.get(j));
+                                        }
+                                    }
+                                    // otherwise, this tip is not included
                                 }
                                 else {
-                                    // original sequence
+                                    // either alt branch is too short or has lower coverge
+                                    // use original sequence
                                     for (int j=0; j<i; ++j) {
                                         kmers2.add(kmers.get(j));
                                     }
                                 }
                             }
                             else {
-                                // original sequence
+                                // use original sequence
                                 for (int j=0; j<i; ++j) {
                                     kmers2.add(kmers.get(j));
                                 }
@@ -873,12 +882,21 @@ public final class GraphUtils {
                 }
                 else if (numBadKmersSince < k) {
                     ArrayDeque<Kmer> greedyTipKmers = greedyExtendRight(graph, kmers.get(i-1), lookahead, numBadKmersSince);
-                    if (getMedianKmerCoverage(greedyTipKmers) > tipMedCov &&
-                            getPercentIdentity(assemble(greedyTipKmers, k), assemble(kmers, k, i, numKmers)) >= percentIdentity){
-                        kmers2.addAll(greedyTipKmers);
+                    if (greedyTipKmers.size() == numBadKmersSince && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
+                        if (getPercentIdentity(assemble(greedyTipKmers, k), assemble(kmers, k, i, numKmers)) >= percentIdentity){
+                            kmers2.addAll(greedyTipKmers);
+                        }
+                        else if (hasDepthRight(kmers.get(numKmers-1), graph, k-numBadKmersSince)) {
+                            // use original sequence
+                            for (int j=i; j<numKmers; ++j) {
+                                kmers2.add(kmers.get(j));
+                            }
+                        }
+                        // otherwise, this tip is not included
                     }
                     else {
-                        // original sequence
+                        // either alt branch is too short or has lower coverge
+                        // use original sequence
                         for (int j=i; j<numKmers; ++j) {
                             kmers2.add(kmers.get(j));
                         }
