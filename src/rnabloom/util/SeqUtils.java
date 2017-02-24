@@ -6,6 +6,7 @@
 package rnabloom.util;
 
 import java.util.AbstractCollection;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -376,18 +377,19 @@ public final class SeqUtils {
         ArrayList<String> result = new ArrayList<>();
         
         int startPos;
+        int len;
         int endPos = 0;
         while (m.find()) {
             startPos = m.start();
             
             if (endPos > 0) {
-                endPos = startPos - endPos;
+                len = startPos - endPos;
                 
-                if (endPos == 1) {
+                if (len == 1) {
                     result.add("N");
                 }
                 else {
-                    char[] gap = new char[endPos];
+                    char[] gap = new char[len];
                     Arrays.fill(gap, GAP_CHAR);
                     result.add(new String(gap));
                 }
