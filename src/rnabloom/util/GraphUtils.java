@@ -743,32 +743,30 @@ public final class GraphUtils {
                                 // replace with best variant tip
                                 kmers2.addAll(graph.getKmers(best));
                             }
-                            else if (numBadKmersSince < k) {
+                            else {
                                 ArrayDeque<Kmer> greedyTipKmers = greedyExtendLeft(graph, kmer, lookahead, numBadKmersSince);
                                 if (greedyTipKmers.size() == numBadKmersSince && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
                                     if (getPercentIdentity(assemble(greedyTipKmers, k), assemble(kmers, k, 0, i)) >= percentIdentity){
+                                        corrected = true;
                                         kmers2.addAll(greedyTipKmers);
                                     }
-                                    else if (hasDepthLeft(kmers.get(0), graph, k-numBadKmersSince)) {
+                                    else if (graph.hasPredecessors(kmers.get(0)) && numBadKmersSince < k) {
+                                        // this is blunt end edge in graph
+                                        // do not add its kmers
+                                        corrected = true;
+                                    }
+                                    else {
                                         // use original sequence
                                         for (int j=0; j<i; ++j) {
                                             kmers2.add(kmers.get(j));
                                         }
                                     }
-                                    // otherwise, this tip is not included
                                 }
                                 else {
-                                    // either alt branch is too short or has lower coverge
                                     // use original sequence
                                     for (int j=0; j<i; ++j) {
                                         kmers2.add(kmers.get(j));
                                     }
-                                }
-                            }
-                            else {
-                                // use original sequence
-                                for (int j=0; j<i; ++j) {
-                                    kmers2.add(kmers.get(j));
                                 }
                             }
                         }
@@ -852,32 +850,30 @@ public final class GraphUtils {
                     // replace with best variant tip
                     kmers2.addAll(graph.getKmers(best));
                 }
-                else if (numBadKmersSince < k) {
+                else {
                     ArrayDeque<Kmer> greedyTipKmers = greedyExtendRight(graph, kmers.get(i-1), lookahead, numBadKmersSince);
                     if (greedyTipKmers.size() == numBadKmersSince && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
                         if (getPercentIdentity(assemble(greedyTipKmers, k), assemble(kmers, k, i, numKmers)) >= percentIdentity){
+                            corrected = true;
                             kmers2.addAll(greedyTipKmers);
                         }
-                        else if (hasDepthRight(kmers.get(numKmers-1), graph, k-numBadKmersSince)) {
+                        else if (!graph.hasSuccessors(kmers.get(numKmers-1)) && numBadKmersSince < k) {
+                            // this is blunt end edge in graph
+                            // do not add its kmers
+                            corrected = true;
+                        }
+                        else {
                             // use original sequence
                             for (int j=i; j<numKmers; ++j) {
                                 kmers2.add(kmers.get(j));
                             }
                         }
-                        // otherwise, this tip is not included
                     }
                     else {
-                        // either alt branch is too short or has lower coverge
                         // use original sequence
                         for (int j=i; j<numKmers; ++j) {
                             kmers2.add(kmers.get(j));
                         }
-                    }
-                }
-                else {
-                    // original sequence
-                    for (int j=i; j<numKmers; ++j) {
-                        kmers2.add(kmers.get(j));
                     }
                 }
             }
