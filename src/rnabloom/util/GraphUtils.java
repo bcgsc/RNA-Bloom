@@ -1648,7 +1648,13 @@ public final class GraphUtils {
     public static ArrayList<Kmer> overlap(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, BloomFilterDeBruijnGraph graph, int minOverlap) {
         int k = graph.getK();
         
-        String overlapped = overlapMaximally(assemble(leftKmers, k), assemble(rightKmers, k), minOverlap);
+        return overlap(assemble(leftKmers, k), assemble(rightKmers, k), graph, minOverlap);
+    }
+    
+    public static ArrayList<Kmer> overlap(String left, String right, BloomFilterDeBruijnGraph graph, int minOverlap) {
+        int k = graph.getK();
+        
+        String overlapped = overlapMaximally(left, right, minOverlap);
         
         if (overlapped != null) {
             ArrayList<Kmer> overlappedKmers = graph.getKmers(overlapped);
@@ -1664,15 +1670,34 @@ public final class GraphUtils {
         return null;
     }
     
-    public static String overlapThenConnect(String left, String right, BloomFilterDeBruijnGraph graph, int bound, int lookahead, int minOverlap) {
+    public static ArrayList<Kmer> overlapAndConnect(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, BloomFilterDeBruijnGraph graph, int bound, int lookahead, int minOverlap) {
+        int k = graph.getK();
+        String leftSeq = assemble(leftKmers, k);
+        String rightSeq = assemble(rightKmers, k);
+
+        // 1. Attempt simple overlap
+        ArrayList<Kmer> fragmentKmers = overlap(leftSeq, rightSeq, graph, minOverlap);
         
-        // overlap before finding path
-        String overlapped = overlapMaximally(left, right, minOverlap);
-        if (overlapped != null && graph.isValidSeq(overlapped)) {
-            return overlapped;
+        if (fragmentKmers == null) {
+            Kmer leftLastKmer = leftKmers.get(leftKmers.size()-1);
+            Kmer rightFirstKmer = rightKmers.get(0);
+
+            // 2. Attempt connect a path
+            ArrayDeque<Kmer> connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+
+            if (connectedPath != null) {
+                fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
+                fragmentKmers.addAll(leftKmers);
+                fragmentKmers.addAll(connectedPath);
+                fragmentKmers.addAll(rightKmers);
+            }
+            else {
+                // 3. Attempt dovetail overlap (ie. when fragment is shorter than read length)
+                fragmentKmers = overlap(rightSeq, leftSeq, graph, minOverlap);
+            }
         }
         
-        return connect(left, right, graph, bound, lookahead);
+        return fragmentKmers;
     }
 
 //    public static String extendWithPairedKmersNonGreedily(String fragment, BloomFilterDeBruijnGraph graph, int lookahead) {
