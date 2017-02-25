@@ -750,8 +750,8 @@ public final class GraphUtils {
                                         corrected = true;
                                         kmers2.addAll(greedyTipKmers);
                                     }
-                                    else if (graph.hasPredecessors(kmers.get(0)) && numBadKmersSince < k) {
-                                        // this is blunt end edge in graph
+                                    else if (!graph.hasPredecessors(kmers.get(0)) && numBadKmersSince < k) {
+                                        // this is blunt end in graph
                                         // do not add its kmers
                                         corrected = true;
                                     }
@@ -858,7 +858,7 @@ public final class GraphUtils {
                             kmers2.addAll(greedyTipKmers);
                         }
                         else if (!graph.hasSuccessors(kmers.get(numKmers-1)) && numBadKmersSince < k) {
-                            // this is blunt end edge in graph
+                            // this is blunt end in graph
                             // do not add its kmers
                             corrected = true;
                         }
