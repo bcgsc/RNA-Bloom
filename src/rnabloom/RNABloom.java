@@ -1539,10 +1539,12 @@ public class RNABloom {
     public void assembleTranscriptsMultiThreaded(String[] longFragmentsFastas, 
                                                 String[] shortFragmentsFastas,
                                                 String outFasta,
+                                                String outFastaShort,
                                                 long sbfNumBits, 
                                                 int sbfNumHash,
                                                 int numThreads,
-                                                int sampleSize) {
+                                                int sampleSize,
+                                                int minTranscriptLength) {
         
         long numFragmentsParsed = 0;
 
@@ -1568,6 +1570,7 @@ public class RNABloom {
         
 
             FastaWriter fout = new FastaWriter(outFasta, append);
+            FastaWriter foutShort = new FastaWriter(outFastaShort, append);
             
             screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
 
@@ -1612,10 +1615,17 @@ public class RNABloom {
                             if (transcripts.remainingCapacity() <= numThreads) {
 
                                 // write fragments to file
+                                int len;
                                 while (!transcripts.isEmpty()) {
                                     t = transcripts.poll();
+                                    len = t.transcript.length();
                                     
-                                    fout.write(prefix +  Long.toString(++cid) + " l=" + t.transcript.length() + " F=[" + t.fragment + "]", t.transcript);
+                                    if (len >= minTranscriptLength) {
+                                        fout.write(prefix +  Long.toString(++cid) + " l=" + len + " F=[" + t.fragment + "]", t.transcript);
+                                    }
+                                    else {
+                                        foutShort.write(prefix +  Long.toString(++cid) + " l=" + len + " F=[" + t.fragment + "]", t.transcript);
+                                    }
                                 }
                             }
                         }
@@ -1626,10 +1636,17 @@ public class RNABloom {
                     service.terminate();
 
                     // write fragments to file
+                    int len;
                     while (!transcripts.isEmpty()) {
                         t = transcripts.poll();
+                        len = t.transcript.length();
 
-                        fout.write(prefix +  Long.toString(++cid) + " l=" + t.transcript.length() + " F=[" + t.fragment + "]", t.transcript);
+                        if (len >= minTranscriptLength) {
+                            fout.write(prefix +  Long.toString(++cid) + " l=" + len + " F=[" + t.fragment + "]", t.transcript);
+                        }
+                        else {
+                            foutShort.write(prefix +  Long.toString(++cid) + " l=" + len + " F=[" + t.fragment + "]", t.transcript);
+                        }
                     }
                     
                     prefix = "E" + mag + ".S.";
@@ -1637,6 +1654,7 @@ public class RNABloom {
             }
             
             fout.close();
+            foutShort.close();
             
             screeningBf.destroy();
         } catch (IOException ex) {
@@ -2116,6 +2134,14 @@ public class RNABloom {
         Option optErrCorrItr = builder.build();
         options.addOption(optErrCorrItr);        
 
+        builder = Option.builder("len");
+        builder.longOpt("length");
+        builder.desc("min transcript length in final assembly");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optMinLength = builder.build();
+        options.addOption(optMinLength);  
+        
         builder = Option.builder("h");
         builder.longOpt("help");
         builder.desc("print this message and exits");
@@ -2140,6 +2166,7 @@ public class RNABloom {
             String longFragmentsFastaPrefix = outdir + File.separator + name + ".fragments.long.";
             String shortFragmentsFastaPrefix = outdir + File.separator + name + ".fragments.short.";
             String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
+            String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short.fa";
 //            String tmpFasta = outdir + File.separator + name + ".tmp.fa";
             String graphFile = outdir + File.separator + name + ".graph";
             
@@ -2199,6 +2226,7 @@ public class RNABloom {
             float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.95"));
             int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
+            int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
             
             boolean saveGraph = true;
             boolean saveKmerPairs = true;
@@ -2322,16 +2350,22 @@ public class RNABloom {
                     transcriptsFile.delete();
                 }
                 
+                File shortTranscriptsFile = new File(shortTranscriptsFasta);
+                if (shortTranscriptsFile.exists()) {
+                    shortTranscriptsFile.delete();
+                }
                 
                 long startTime = System.nanoTime();
                 
                 assembler.assembleTranscriptsMultiThreaded(longFragmentsFastaPaths, 
-                        shortFragmentsFastaPaths, 
-                        transcriptsFasta, 
-                        sbfSize,
-                        sbfNumHash,
-                        numThreads,
-                        sampleSize);
+                                                            shortFragmentsFastaPaths, 
+                                                            transcriptsFasta, 
+                                                            shortTranscriptsFasta,
+                                                            sbfSize,
+                                                            sbfNumHash,
+                                                            numThreads,
+                                                            sampleSize,
+                                                            minTranscriptLength);
 
                 System.out.println("Transcripts assembled in `" + transcriptsFasta + "`");
                 System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
