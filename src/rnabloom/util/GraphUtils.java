@@ -915,9 +915,7 @@ public final class GraphUtils {
             }
             Arrays.sort(covs);
             
-            if (covs[numLeftKmers/2] < medCovThreshold) {
-                break;
-            }
+            float leftMedianCoverage = covs[numLeftKmers/2];
 
             // find cov threshold in left kmers
             boolean leftThresholdFound = false;
@@ -940,7 +938,9 @@ public final class GraphUtils {
             }
             Arrays.sort(covs);
 
-            if (covs[numRightKmers/2] < medCovThreshold) {
+            float rightMedianCov = covs[numRightKmers/2];
+            
+            if (Math.max(leftMedianCoverage, rightMedianCov) < medCovThreshold) {
                 break;
             }
             
