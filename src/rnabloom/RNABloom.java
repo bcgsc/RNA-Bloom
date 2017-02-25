@@ -813,7 +813,7 @@ public class RNABloom {
                                                             maxCovGradient, 
                                                             covFPR,
                                                             this.errorCorrectionIterations,
-                                                            3,
+                                                            2,
                                                             percentIdentity);
                         
                         if (correctedReadPair.corrected) {
