@@ -693,7 +693,7 @@ public final class GraphUtils {
         boolean corrected = false;
         int numKmers = kmers.size();
         int k = graph.getK();
-        int kMinus1 = graph.getKMinus1();
+//        int kMinus1 = graph.getKMinus1();
 
         ArrayList<Kmer> kmers2 = new ArrayList<>(numKmers + maxIndelSize);
         int numBadKmersSince = 0;
@@ -719,31 +719,31 @@ public final class GraphUtils {
                             }
                             float tipMedCov = getMedian(tipCovs);
 
-                            // extract tip sequence
-                            StringBuilder sb = new StringBuilder(i);
-                            for (int j=0; j<i-1; ++j) {
-                                sb.append(kmers.get(j).seq.charAt(0));
-                            }
-                            String tip = sb.toString();
-
-                            // identify the best variant tip
-                            String best = null;
-                            float bestCov = tipMedCov;
-                            for (Kmer v : leftVars) {
-                                String s = tip + v.seq;
-                                float[] vc = graph.getMinMedianMaxKmerCoverage(s);
-                                if (vc[0] > 0 && vc[1] > bestCov) {
-                                    best = s;
-                                    bestCov = vc[1];
-                                }
-                            }
-
-                            if (best != null) {
-                                corrected = true;
-                                // replace with best variant tip
-                                kmers2.addAll(graph.getKmers(best));
-                            }
-                            else {
+//                            // extract tip sequence
+//                            StringBuilder sb = new StringBuilder(i);
+//                            for (int j=0; j<i-1; ++j) {
+//                                sb.append(kmers.get(j).seq.charAt(0));
+//                            }
+//                            String tip = sb.toString();
+//
+//                            // identify the best variant tip
+//                            String best = null;
+//                            float bestCov = tipMedCov;
+//                            for (Kmer v : leftVars) {
+//                                String s = tip + v.seq;
+//                                float[] vc = graph.getMinMedianMaxKmerCoverage(s);
+//                                if (vc[0] > 0 && vc[1] > bestCov) {
+//                                    best = s;
+//                                    bestCov = vc[1];
+//                                }
+//                            }
+//
+//                            if (best != null) {
+//                                corrected = true;
+//                                // replace with best variant tip
+//                                kmers2.addAll(graph.getKmers(best));
+//                            }
+//                            else {
                                 ArrayDeque<Kmer> greedyTipKmers = greedyExtendLeft(graph, kmer, lookahead, numBadKmersSince);
                                 if (greedyTipKmers.size() == numBadKmersSince && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
                                     if (getPercentIdentity(assemble(greedyTipKmers, k), assemble(kmers, k, 0, i)) >= percentIdentity){
@@ -768,7 +768,7 @@ public final class GraphUtils {
                                         kmers2.add(kmers.get(j));
                                     }
                                 }
-                            }
+//                            }
                         }
                     }
                     else {
@@ -826,31 +826,31 @@ public final class GraphUtils {
                 }
                 float tipMedCov = getMedian(tipCovs);
 
-                // extract tip sequence
-                StringBuilder sb = new StringBuilder(numBadKmersSince);
-                for (int j=i+1; j<numKmers; ++j) {
-                    sb.append(kmers.get(j).seq.charAt(kMinus1));
-                }
-                String tip = sb.toString();
-
-                // identify the best variant tip
-                String best = null;
-                float bestCov = tipMedCov;
-                for (Kmer v : rightVars) {
-                    String s = v.seq + tip;
-                    float[] vc = graph.getMinMedianMaxKmerCoverage(s);
-                    if (vc[0] > 0 && vc[1] > bestCov) {
-                        best = s;
-                        bestCov = vc[1];
-                    }
-                }
-
-                if (best != null) {
-                    corrected = true;
-                    // replace with best variant tip
-                    kmers2.addAll(graph.getKmers(best));
-                }
-                else {
+//                // extract tip sequence
+//                StringBuilder sb = new StringBuilder(numBadKmersSince);
+//                for (int j=i+1; j<numKmers; ++j) {
+//                    sb.append(kmers.get(j).seq.charAt(kMinus1));
+//                }
+//                String tip = sb.toString();
+//
+//                // identify the best variant tip
+//                String best = null;
+//                float bestCov = tipMedCov;
+//                for (Kmer v : rightVars) {
+//                    String s = v.seq + tip;
+//                    float[] vc = graph.getMinMedianMaxKmerCoverage(s);
+//                    if (vc[0] > 0 && vc[1] > bestCov) {
+//                        best = s;
+//                        bestCov = vc[1];
+//                    }
+//                }
+//
+//                if (best != null) {
+//                    corrected = true;
+//                    // replace with best variant tip
+//                    kmers2.addAll(graph.getKmers(best));
+//                }
+//                else {
                     ArrayDeque<Kmer> greedyTipKmers = greedyExtendRight(graph, kmers.get(i-1), lookahead, numBadKmersSince);
                     if (greedyTipKmers.size() == numBadKmersSince && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
                         if (getPercentIdentity(assemble(greedyTipKmers, k), assemble(kmers, k, i, numKmers)) >= percentIdentity){
@@ -875,7 +875,7 @@ public final class GraphUtils {
                             kmers2.add(kmers.get(j));
                         }
                     }
-                }
+//                }
             }
         }
         
