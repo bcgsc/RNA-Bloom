@@ -831,41 +831,48 @@ public class RNABloom {
                         if (fragmentKmers != null) {
                             int fragLength = fragmentKmers.size() + k - 1;
                             
-                            if (this.storeKmerPairs) {
-                                graph.addPairedKmers(fragmentKmers);
-                            }
-                            
-                            float minCov = Float.MAX_VALUE;
-                            for (Kmer kmer : fragmentKmers) {
-                                if (kmer.count < minCov) {
-                                    minCov = kmer.count;
+                            if (fragLength >= k + lookahead) {
+                                if (this.storeKmerPairs) {
+                                    graph.addPairedKmers(fragmentKmers);
                                 }
-                            }
-                            
-                            try {
-                                outList.put(new Fragment(assemble(fragmentKmers, k), fragLength, minCov, false));
-                            } catch (InterruptedException ex) {
-                                ex.printStackTrace();
+
+                                float minCov = Float.MAX_VALUE;
+                                for (Kmer kmer : fragmentKmers) {
+                                    if (kmer.count < minCov) {
+                                        minCov = kmer.count;
+                                    }
+                                }
+
+                                try {
+                                    outList.put(new Fragment(assemble(fragmentKmers, k), fragLength, minCov, false));
+                                } catch (InterruptedException ex) {
+                                    ex.printStackTrace();
+                                }
                             }
                         }
                         else {
                             // store unconnected reads
                             try {
                                 float minCov = Float.MAX_VALUE;
-                                for (Kmer kmer : leftKmers) {
-                                    if (kmer.count < minCov) {
-                                        minCov = kmer.count;
-                                    }
-                                }
-                                outList.put(new Fragment(assemble(leftKmers, k), leftKmers.size()+k-1, minCov, true));
                                 
-                                minCov = Float.MAX_VALUE;
-                                for (Kmer kmer : leftKmers) {
-                                    if (kmer.count < minCov) {
-                                        minCov = kmer.count;
+                                if (leftKmers.size() >= lookahead) {
+                                    for (Kmer kmer : leftKmers) {
+                                        if (kmer.count < minCov) {
+                                            minCov = kmer.count;
+                                        }
                                     }
+                                    outList.put(new Fragment(assemble(leftKmers, k), leftKmers.size()+k-1, minCov, true));
                                 }
-                                outList.put(new Fragment(assemble(rightKmers, k), rightKmers.size()+k-1, minCov, true));
+                                
+                                if (rightKmers.size() >= lookahead) {
+                                    minCov = Float.MAX_VALUE;
+                                    for (Kmer kmer : rightKmers) {
+                                        if (kmer.count < minCov) {
+                                            minCov = kmer.count;
+                                        }
+                                    }
+                                    outList.put(new Fragment(assemble(rightKmers, k), rightKmers.size()+k-1, minCov, true));
+                                }
                             } catch (InterruptedException ex) {
                                 ex.printStackTrace();
                             }
@@ -991,7 +998,7 @@ public class RNABloom {
         int newBound = bound;
         boolean pairedKmerDistanceIsSet = false;
         int longFragmentLengthThreshold = -1;
-        int shortestFragmentLengthAllowed = k;
+        int shortestFragmentLengthAllowed = k + lookahead;
         
         // set up thread pool
         MyExecutorService service = new MyExecutorService(numThreads, maxTasksQueueSize);
