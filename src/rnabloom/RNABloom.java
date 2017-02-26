@@ -1585,13 +1585,16 @@ public class RNABloom {
 
             FastaReader fin;
             
-            for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
-                boolean beGreedy = false;
-                
-                String prefix = "E" + mag + ".L.";
-                
-                for (String fragmentsFasta : new String[]{longFragmentsFastas[mag], shortFragmentsFastas[mag]}) {
-                    
+            String tag = ".L.";
+            
+            for (String[] fragmentsFastas : new String[][]{longFragmentsFastas, shortFragmentsFastas}) {
+                for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
+                    boolean beGreedy = false;
+
+                    String prefix = "E" + mag + tag;
+
+                    String fragmentsFasta = fragmentsFastas[mag];
+
                     System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
 
                     fin = new FastaReader(fragmentsFasta);
@@ -1655,9 +1658,9 @@ public class RNABloom {
                             foutShort.write(prefix +  Long.toString(++cid) + " l=" + len + " F=[" + t.fragment + "]", t.transcript);
                         }
                     }
-                    
-                    prefix = "E" + mag + ".S.";
                 }
+                
+                tag = ".S.";
             }
             
             fout.close();
