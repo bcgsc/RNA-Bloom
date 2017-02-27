@@ -303,6 +303,10 @@ public class BloomFilterDeBruijnGraph {
         dbgbf.add(hashVals);
     }
     
+    public void addCountOnly(final long[] hashVals) {
+        cbf.increment(hashVals);
+    }
+    
 //    public void addFragmentKmersFromSeq(String seq) {
 //        final int numKmers = getNumKmers(seq, k);
 //        for (int i=0; i<numKmers; ++i) {
