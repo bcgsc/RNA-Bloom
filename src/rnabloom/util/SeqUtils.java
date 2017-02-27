@@ -128,6 +128,64 @@ public final class SeqUtils {
         return (float) getNumGC(seq) / seq.length();
     }
     
+    public static final boolean isLowComplexity(String seq) {
+        // http://www.repeatmasker.org/webrepeatmaskerhelp.html
+                
+        float gcp = getGCContent(seq);
+        int minWindowSize = Math.min(seq.length(), 29);
+        
+        if (gcp > 0.87f) {
+            // 87% GC-rich
+            
+            PrimitiveIterator.OfInt itr = seq.chars().iterator();
+            int c;
+            int numGC = 0;
+            while (itr.hasNext()) {
+                c = itr.nextInt();
+                switch(c) {
+                    case CHAR_C_INT:
+                        if (++numGC >= minWindowSize) {
+                            return true;
+                        }
+                        break;
+                    case CHAR_G_INT:
+                        if (++numGC >= minWindowSize) {
+                            return true;
+                        }
+                        break;
+                    default:
+                        numGC = 0;
+                }
+            }
+        }
+        else if (gcp <= 0.11f) {
+            // 89% AT-rich
+            
+            PrimitiveIterator.OfInt itr = seq.chars().iterator();
+            int c;
+            int numAT = 0;
+            while (itr.hasNext()) {
+                c = itr.nextInt();
+                switch(c) {
+                    case CHAR_A_INT:
+                        if (++numAT >= minWindowSize) {
+                            return true;
+                        }
+                        break;
+                    case CHAR_T_INT:
+                        if (++numAT >= minWindowSize) {
+                            return true;
+                        }
+                        break;
+                    default:
+                        numAT = 0;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
     public static final int getNumKmers(String seq, int k) {
         return seq.length() - k + 1;
     }
