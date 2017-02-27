@@ -1971,7 +1971,7 @@ public final class GraphUtils {
         return results;
     }
     
-    private static int maxRightPartnerSearchDepth(ArrayList<Kmer> fragmentKmers, BloomFilterDeBruijnGraph graph, int pairedKmerDistance) {
+    private static int maxRightPartnerSearchDepth(ArrayList<Kmer> fragmentKmers, BloomFilterDeBruijnGraph graph, int pairedKmerDistance, BloomFilter assembledKmersBloomFilter) {
         
         final int numKmers = fragmentKmers.size();
         
@@ -1986,9 +1986,21 @@ public final class GraphUtils {
             ++anchorLength;
         }
         
-        for (int i=numKmers-anchorLength; i>Math.max(0, numKmers-pairedKmerDistance); --i) {
-            if (graph.lookupLeftKmer(fragmentKmers.get(i).hashVals)) {
-                if (i>0 && graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
+        
+        int end = Math.max(0, numKmers-pairedKmerDistance);
+        int start;
+
+        for (start=numKmers-1; start>end; --start) {
+            if (!assembledKmersBloomFilter.lookup(fragmentKmers.get(start).hashVals)) {
+                break;
+            }
+        }
+        
+        start = Math.min(numKmers-anchorLength, start);
+        
+        for (int i=start; i>end; --i) {
+            if (graph.lookupLeftKmer(fragmentKmers.get(i).hashVals) && i>0) {
+                if (graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
                     return pairedKmerDistance - (numKmers - i);
                 }
             }
@@ -1997,7 +2009,7 @@ public final class GraphUtils {
         return 0;
     }
     
-    private static int maxLeftPartnerSearchDepth(ArrayList<Kmer> fragmentKmers, BloomFilterDeBruijnGraph graph, int pairedKmerDistance) {
+    private static int maxLeftPartnerSearchDepth(ArrayList<Kmer> fragmentKmers, BloomFilterDeBruijnGraph graph, int pairedKmerDistance, BloomFilter assembledKmersBloomFilter) {
         
         final int numKmers = fragmentKmers.size();
         
@@ -2012,9 +2024,20 @@ public final class GraphUtils {
             ++anchorLength;
         }
         
-        for (int i=numKmers-anchorLength; i>Math.max(0, numKmers-pairedKmerDistance); --i) {
-            if (graph.lookupRightKmer(fragmentKmers.get(i).hashVals)) {
-                if (i>0 && graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
+        int end = Math.max(0, numKmers-pairedKmerDistance);
+        int start;
+        
+        for (start=numKmers-1; start>end; --start) {
+            if (!assembledKmersBloomFilter.lookup(fragmentKmers.get(start).hashVals)) {    
+                break;
+            }
+        }
+        
+        start = Math.min(numKmers-anchorLength, start);
+        
+        for (int i=start; i>end; --i) {
+            if (graph.lookupRightKmer(fragmentKmers.get(i).hashVals) && i>0) {
+                if (graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
                     return pairedKmerDistance - (numKmers - i);
                 }
             }
@@ -2070,7 +2093,7 @@ public final class GraphUtils {
         
         HashSet<String> visitedKmers = new HashSet<>();
 
-        int maxRightDepth = maxRightPartnerSearchDepth(kmers, graph, distance);
+        int maxRightDepth = maxRightPartnerSearchDepth(kmers, graph, distance, assembledKmersBloomFilter);
         
         while (!branchesStack.isEmpty() && !stop && maxRightDepth > 0) {
             neighbors = branchesStack.getLast();
@@ -2152,7 +2175,7 @@ public final class GraphUtils {
                                         branchesStack.add(getSuccessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
                                     }
                                     
-                                    maxRightDepth = maxRightPartnerSearchDepth(kmers, graph, distance);
+                                    maxRightDepth = maxRightPartnerSearchDepth(kmers, graph, distance, assembledKmersBloomFilter);
         //                            n.successors = null; // prune the cached successors
 
                                     found = true;
@@ -2232,7 +2255,7 @@ public final class GraphUtils {
                                 branchesStack.add(getSuccessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
                             }
                             
-                            maxRightDepth = maxRightPartnerSearchDepth(kmers, graph, distance);
+                            maxRightDepth = maxRightPartnerSearchDepth(kmers, graph, distance, assembledKmersBloomFilter);
                             
 //                            n.successors = null; // prune the cached successors
                         }
@@ -2268,7 +2291,7 @@ public final class GraphUtils {
         branchesStack.clear();
         neighbors = getPredecessorsRanked(kmers.get(kmers.size()-1), graph, lookahead);
         branchesStack.add(neighbors);
-        int maxLeftDepth = maxLeftPartnerSearchDepth(kmers, graph, distance);
+        int maxLeftDepth = maxLeftPartnerSearchDepth(kmers, graph, distance, assembledKmersBloomFilter);
         
         while (!branchesStack.isEmpty() && !stop && maxLeftDepth > 0) {
             neighbors = branchesStack.getLast();
@@ -2351,7 +2374,7 @@ public final class GraphUtils {
                                         branchesStack.add(getPredecessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
                                     }
                                     
-                                    maxLeftDepth = maxLeftPartnerSearchDepth(kmers, graph, distance);
+                                    maxLeftDepth = maxLeftPartnerSearchDepth(kmers, graph, distance, assembledKmersBloomFilter);
 
         //                            n.predecessors = null; // prune the cached predecessors
 
@@ -2431,7 +2454,7 @@ public final class GraphUtils {
                                 branchesStack.add(getPredecessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
                             }
                             
-                            maxLeftDepth = maxLeftPartnerSearchDepth(kmers, graph, distance);
+                            maxLeftDepth = maxLeftPartnerSearchDepth(kmers, graph, distance, assembledKmersBloomFilter);
 //                            n.predecessors = null; // prune the cached predecessors
                         }
                         else {
