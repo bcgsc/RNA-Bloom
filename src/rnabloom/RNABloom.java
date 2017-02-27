@@ -64,6 +64,7 @@ public class RNABloom {
 //    private boolean strandSpecific;
     private Pattern qualPatternDBG;
     private Pattern qualPatternFrag;
+    private Pattern homoPolymerKmerPattern;
     private BloomFilterDeBruijnGraph graph = null;
     private BloomFilter screeningBf = null;
 
@@ -83,6 +84,7 @@ public class RNABloom {
         this.kMinus1 = k-1;
         this.qualPatternDBG = getPhred33Pattern(qDBG, k);
         this.qualPatternFrag = getPhred33Pattern(qFrag, k);
+        this.homoPolymerKmerPattern = getHomoPolymerPattern(k);
     }
     
     public void setParams(int maxTipLength, int lookahead, float maxCovGradient, int maxIndelSize, float percentIdentity) {
@@ -827,7 +829,12 @@ public class RNABloom {
                     }
                     
                     if (!corrected || okToConnectPair(leftKmers, rightKmers)) {
-                        ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap);
+                        ArrayList<Kmer> fragmentKmers = null;
+                        
+                        if (!homoPolymerKmerPattern.matcher(leftKmers.get(leftKmers.size()-1).seq).matches() && 
+                                !homoPolymerKmerPattern.matcher(rightKmers.get(0).seq).matches()) {
+                            fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap);
+                        }
                         
                         if (fragmentKmers != null) {
                             int fragLength = fragmentKmers.size() + k - 1;
@@ -852,7 +859,7 @@ public class RNABloom {
                             }
                         }
                         else {
-                            // store unconnected reads
+                            // write unconnected reads to file
                             try {
                                 float minCov = Float.MAX_VALUE;
                                 
