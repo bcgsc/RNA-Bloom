@@ -446,7 +446,7 @@ public final class GraphUtils {
                         return false;
                     }
                     
-                    if (expectedPathLen > k+maxIndelSize) {
+                    if (expectedPathLen >= k-maxIndelSize) {
                         ArrayDeque<Kmer> testPathKmers = getMaxCoveragePath(graph, kmers.get(lastKmerFoundIndex), currentKmer, expectedPathLen+maxIndelSize, lookahead, bf);
                         int testPathLen = testPathKmers.size();
 
