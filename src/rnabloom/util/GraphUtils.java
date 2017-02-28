@@ -2389,8 +2389,7 @@ public final class GraphUtils {
         int start;
 
         for (start=numKmers-1; start>end; --start) {
-            if (!assembledKmersBloomFilter.lookup(fragmentKmers.get(start).hashVals)
-                    && !isLowComplexityShort(fragmentKmers.get(start).seq)) {
+            if (!assembledKmersBloomFilter.lookup(fragmentKmers.get(start).hashVals)) {
                 break;
             }
         }
@@ -2433,8 +2432,7 @@ public final class GraphUtils {
         int start;
         
         for (start=numKmers-1; start>end; --start) {
-            if (!assembledKmersBloomFilter.lookup(fragmentKmers.get(start).hashVals) 
-                    && !isLowComplexityShort(fragmentKmers.get(start).seq)) {    
+            if (!assembledKmersBloomFilter.lookup(fragmentKmers.get(start).hashVals)) {    
                 break;
             }
         }
