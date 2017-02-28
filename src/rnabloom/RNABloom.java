@@ -722,10 +722,6 @@ public class RNABloom {
 //            ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookahead, (int) Math.ceil(fragment.length()*percentError)));
             ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
             
-            if (fragment.equals("GGGCCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACACCCACTCCTCCACCTTCGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTTGTCAAGCTCATTTCCTGG")) {
-                System.out.println("here");
-            }
-
             if (!represented(fragKmers,
                                     graph,
                                     screeningBf,
