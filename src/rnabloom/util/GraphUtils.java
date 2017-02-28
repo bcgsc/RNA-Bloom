@@ -25,6 +25,7 @@ import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
 import static rnabloom.util.SeqUtils.getNumGC;
 import static rnabloom.util.SeqUtils.getPercentIdentity;
+import static rnabloom.util.SeqUtils.isLowComplexity;
 import static rnabloom.util.SeqUtils.isLowComplexityShort;
 import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.overlapMaximally;
@@ -2399,9 +2400,9 @@ public final class GraphUtils {
         Kmer kmer;
         for (int i=start; i>end; --i) {
             kmer = fragmentKmers.get(i);
-            if (graph.lookupLeftKmer(kmer.hashVals) && i>0 && !isLowComplexityShort(kmer.seq)) {
+            if (graph.lookupLeftKmer(kmer.hashVals) && i>0 && !isLowComplexity(kmer.seq)) {
                 kmer = fragmentKmers.get(i-1);
-                if (graph.lookupLeftKmer(kmer.hashVals) && !isLowComplexityShort(kmer.seq)) {
+                if (graph.lookupLeftKmer(kmer.hashVals) && !isLowComplexity(kmer.seq)) {
                     return pairedKmerDistance - (numKmers - i);
                 }
                 else {
@@ -2442,9 +2443,9 @@ public final class GraphUtils {
         Kmer kmer;
         for (int i=start; i>end; --i) {
             kmer = fragmentKmers.get(i);
-            if (graph.lookupRightKmer(kmer.hashVals) && i>0 && !isLowComplexityShort(kmer.seq)) {
+            if (graph.lookupRightKmer(kmer.hashVals) && i>0 && !isLowComplexity(kmer.seq)) {
                 kmer = fragmentKmers.get(i-1);
-                if (graph.lookupRightKmer(kmer.hashVals) && !isLowComplexityShort(kmer.seq)) {
+                if (graph.lookupRightKmer(kmer.hashVals) && !isLowComplexity(kmer.seq)) {
                     return pairedKmerDistance - (numKmers - i);
                 }
                 else {
@@ -2454,6 +2455,93 @@ public final class GraphUtils {
         }
         
         return 0;
+    }
+    
+    public static void extendWithPairedKmersBFS(ArrayList<Kmer> kmers, 
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int lookahead, 
+                                            int maxTipLength,
+                                            BloomFilter assembledKmersBloomFilter) {
+        
+        int distance = graph.getPairedKmerDistance();
+        int numKmers = kmers.size();
+        
+        if (numKmers < distance) {
+            return;
+        }
+        
+        // extend right        
+        Kmer cursor = kmers.get(numKmers-1);
+        ArrayDeque<Kmer> neighbors = graph.getSuccessors(cursor);
+        
+        Iterator<Kmer> itr;
+        int partnerIndex = numKmers-distance;
+        int numNeighbors;
+        Kmer kmer, partner;
+        ArrayDeque<Kmer> pairedRightKmers = new ArrayDeque<>(lookahead+1);
+        while (!neighbors.isEmpty()) {
+            cursor = null;
+            partner = kmers.get(partnerIndex);
+            if (!graph.lookupLeftKmer(partner.hashVals)) {
+                break;
+            }
+            
+            itr = neighbors.iterator();
+            while (itr.hasNext()) {
+                kmer = itr.next();
+                if (!graph.lookupRightKmer(kmer.hashVals) ||
+                        !graph.lookupKmerPairing(partner.hashVals, kmer.hashVals)) {
+                    itr.remove();
+                }
+            }
+            
+            if (neighbors.isEmpty()) {
+                break;
+            }
+            
+            numNeighbors = neighbors.size();
+            if (numNeighbors == 1) {
+                cursor = neighbors.pop();
+                pairedRightKmers.add(cursor);
+                if (pairedRightKmers.size() >= lookahead) {
+                    kmers.add(pairedRightKmers.removeFirst());
+                }
+            }
+            else {
+                itr = neighbors.iterator();
+                while (itr.hasNext()) {
+                    kmer = itr.next();
+                    if (!hasDepthRight(kmer, graph, maxTipLength)) {
+                        itr.remove();
+                    }
+                }
+                
+                if (neighbors.isEmpty()) {
+                    break;
+                }
+                else if (neighbors.size() == 1) {
+                    cursor = neighbors.pop();
+                    pairedRightKmers.add(cursor);
+                    if (pairedRightKmers.size() >= lookahead) {
+                        kmers.add(pairedRightKmers.removeFirst());
+                    }
+                }
+                else {
+                    /**@TODO not done yet*/
+                }
+            }
+            
+            if (assembledKmersBloomFilter.lookup(cursor.hashVals) &&
+                    assembledKmersBloomFilter.lookup(partner.hashVals)) {
+                break;
+            }
+                        
+            ++partnerIndex;
+        }
+        
+        kmers.addAll(pairedRightKmers);
+        
+        /**@TODO not done yet*/
     }
     
     public static void extendWithPairedKmers(ArrayList<Kmer> kmers, 
