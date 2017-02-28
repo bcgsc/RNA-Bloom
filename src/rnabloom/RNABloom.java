@@ -707,6 +707,7 @@ public class RNABloom {
         private String fragment;
         private boolean beGreedy;
         private ArrayBlockingQueue<Transcript> outList;
+        private int maxNumBubbleKmers = 3*k;
         
         public TranscriptAssembler(String fragment,
                                     ArrayBlockingQueue<Transcript> outList,
@@ -720,33 +721,28 @@ public class RNABloom {
         public void run() {            
 //            ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookahead, (int) Math.ceil(fragment.length()*percentError)));
             ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
+            
+            if (fragment.equals("GGGCCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACACCCACTCCTCCACCTTCGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTTGTCAAGCTCATTTCCTGG")) {
+                System.out.println("here");
+            }
 
-            if (areUnassembledKmers(fragKmers)) {
-//                int numFragKmers = fragKmers.size();
-//
-//                /** check whether sequence-wide coverage differences are too large */
-//                int numFalsePositivesAllowed = (int) Math.round(numFragKmers * covFPR);
-//                float[] covs = new float[numFragKmers];
-//                for (int i=0; i<numFragKmers; ++i) {
-//                    covs[i] = fragKmers.get(i).count;
-//                }
-//
-//                boolean covDiffTooLarge = false;
-//                Arrays.sort(covs);
-//                float covLow = covs[0];
-//                float covHigh;
-//                for (int i=1; i<numFragKmers-numFalsePositivesAllowed; ++i) {
-//                    covHigh = covs[i];
-//                    if (covHigh * maxCovGradient > covLow) {
-//                        covDiffTooLarge = true;
-//                        break;
-//                    }
-//                    covLow = covHigh;
-//                }
+            if (!represented(fragKmers,
+                                    graph,
+                                    screeningBf,
+                                    lookahead,
+                                    maxIndelSize,
+                                    maxNumBubbleKmers,
+                                    percentIdentity)) {
 
                 extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
 
-                if (areUnassembledKmers(fragKmers)) {
+                if (!represented(fragKmers,
+                                    graph,
+                                    screeningBf,
+                                    lookahead,
+                                    maxIndelSize,
+                                    maxNumBubbleKmers,
+                                    percentIdentity)) {
 
                     for (Kmer kmer : fragKmers) {
                         screeningBf.add(kmer.hashVals);

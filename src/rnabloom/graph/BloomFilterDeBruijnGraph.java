@@ -525,6 +525,30 @@ public class BloomFilterDeBruijnGraph {
         return result;
     }
     
+    public ArrayDeque<Kmer> getPredecessors(Kmer kmer, BloomFilter bf) {        
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
+        
+        final StringBuilder buffer = new StringBuilder(k);
+        buffer.append('A');
+        buffer.append(getPrefix(kmer.seq));
+               
+        long[][] allHashVals = hashFunction.getPredecessorsHashValues(dbgbfCbfMaxNumHash, kmer.hashVals, kmer.seq.charAt(kMinus1));
+        
+        long[] hashVals;
+        for (int i=0; i<4; ++i) {
+            hashVals = allHashVals[i];
+            if (bf.lookup(hashVals) && dbgbf.lookup(hashVals)) {
+                float count = cbf.getCount(allHashVals[i]);
+                if (count > 0) {
+                    buffer.setCharAt(0, NUCLEOTIDES[i]);
+                    result.add(new Kmer(buffer.toString(), count, allHashVals[i], false));
+                }
+            }
+        }
+        
+        return result;
+    }
+    
     public ArrayDeque<String> getPredecessors(String kmer) {
         ArrayDeque<String> result = new ArrayDeque<>(4);
         final String prefix = getPrefix(kmer);
@@ -590,6 +614,31 @@ public class BloomFilterDeBruijnGraph {
 //        }
         
 //        kmer.successors = result;
+        
+        return result;
+    }
+    
+    public ArrayDeque<Kmer> getSuccessors(Kmer kmer, BloomFilter bf) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
+        
+        final StringBuilder buffer = new StringBuilder(k);
+        buffer.append(getSuffix(kmer.seq));
+        buffer.append('A');
+               
+        long[][] allHashVals = hashFunction.getSuccessorsHashValues(dbgbfCbfMaxNumHash, kmer.hashVals, kmer.seq.charAt(0));
+        
+        int lastIndex = kMinus1;
+        long[] hashVals;
+        for (int i=0; i<4; ++i) {
+            hashVals = allHashVals[i];
+            if (bf.lookup(hashVals) && dbgbf.lookup(hashVals)) {
+                float count = cbf.getCount(allHashVals[i]);
+                if (count > 0) {
+                    buffer.setCharAt(lastIndex, NUCLEOTIDES[i]);
+                    result.add(new Kmer(buffer.toString(), count, allHashVals[i], false));
+                }
+            }
+        }
         
         return result;
     }
