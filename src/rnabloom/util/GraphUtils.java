@@ -25,6 +25,7 @@ import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
 import static rnabloom.util.SeqUtils.getNumGC;
 import static rnabloom.util.SeqUtils.getPercentIdentity;
+import static rnabloom.util.SeqUtils.isLowComplexityShort;
 import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 
@@ -2388,17 +2389,24 @@ public final class GraphUtils {
         int start;
 
         for (start=numKmers-1; start>end; --start) {
-            if (!assembledKmersBloomFilter.lookup(fragmentKmers.get(start).hashVals)) {
+            if (!assembledKmersBloomFilter.lookup(fragmentKmers.get(start).hashVals)
+                    && !isLowComplexityShort(fragmentKmers.get(start).seq)) {
                 break;
             }
         }
         
         start = Math.min(numKmers-anchorLength, start);
         
+        Kmer kmer;
         for (int i=start; i>end; --i) {
-            if (graph.lookupLeftKmer(fragmentKmers.get(i).hashVals) && i>0) {
-                if (graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
+            kmer = fragmentKmers.get(i);
+            if (graph.lookupLeftKmer(kmer.hashVals) && i>0 && !isLowComplexityShort(kmer.seq)) {
+                kmer = fragmentKmers.get(i-1);
+                if (graph.lookupLeftKmer(kmer.hashVals) && !isLowComplexityShort(kmer.seq)) {
                     return pairedKmerDistance - (numKmers - i);
+                }
+                else {
+                    --i;
                 }
             }
         }
@@ -2425,17 +2433,24 @@ public final class GraphUtils {
         int start;
         
         for (start=numKmers-1; start>end; --start) {
-            if (!assembledKmersBloomFilter.lookup(fragmentKmers.get(start).hashVals)) {    
+            if (!assembledKmersBloomFilter.lookup(fragmentKmers.get(start).hashVals) 
+                    && !isLowComplexityShort(fragmentKmers.get(start).seq)) {    
                 break;
             }
         }
         
         start = Math.min(numKmers-anchorLength, start);
         
+        Kmer kmer;
         for (int i=start; i>end; --i) {
-            if (graph.lookupRightKmer(fragmentKmers.get(i).hashVals) && i>0) {
-                if (graph.lookupLeftKmer(fragmentKmers.get(i-1).hashVals)) {
+            kmer = fragmentKmers.get(i);
+            if (graph.lookupRightKmer(kmer.hashVals) && i>0 && !isLowComplexityShort(kmer.seq)) {
+                kmer = fragmentKmers.get(i-1);
+                if (graph.lookupRightKmer(kmer.hashVals) && !isLowComplexityShort(kmer.seq)) {
                     return pairedKmerDistance - (numKmers - i);
+                }
+                else {
+                    --i;
                 }
             }
         }
