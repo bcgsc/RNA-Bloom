@@ -128,6 +128,41 @@ public final class SeqUtils {
         return (float) getNumGC(seq) / seq.length();
     }
     
+    public static final boolean isLowComplexity(String seq) {
+        
+        int nThreshold = Math.round(seq.length() * 0.75f);
+        int gcRichThreshold = Math.round(seq.length() * 0.80f);
+        int atRichThreshold = Math.round(seq.length() * 0.80f);
+        
+        int numA = 0;
+        int numC = 0;
+        int numG = 0;
+        int numT = 0;
+        
+        PrimitiveIterator.OfInt itr = seq.chars().iterator();
+        int c;
+        while (itr.hasNext()) {
+            c = itr.nextInt();
+            switch(c) {
+                case CHAR_A_INT:
+                    ++numA;
+                    break;
+                case CHAR_C_INT:
+                    ++numC;
+                    break;
+                case CHAR_G_INT:
+                    ++numG;
+                    break;
+                case CHAR_T_INT:
+                    ++numT;
+                    break;
+            }
+        }
+        
+        return numA > nThreshold || numC > nThreshold || numG > nThreshold || numT > nThreshold ||
+                numA + numT > atRichThreshold || numC + numG > gcRichThreshold;
+    }
+    
     public static final boolean isLowComplexityLong(String seq) {
         float gcp = getGCContent(seq);
         // 87% GC-rich OR 89% AT-rich
