@@ -128,62 +128,32 @@ public final class SeqUtils {
         return (float) getNumGC(seq) / seq.length();
     }
     
-    public static final boolean isLowComplexity(String seq) {
-        // http://www.repeatmasker.org/webrepeatmaskerhelp.html
-                
+    public static final boolean isLowComplexityLong(String seq) {
         float gcp = getGCContent(seq);
-        int minWindowSize = Math.min(seq.length(), 29);
+        // 87% GC-rich OR 89% AT-rich
+        return gcp > 0.87f || gcp <= 0.11f;
+    }
+    
+    public static final boolean isLowComplexityShort(String seq) {
+        // http://www.repeatmasker.org/webrepeatmaskerhelp.html
         
-        if (gcp > 0.87f) {
-            // 87% GC-rich
-            
-            PrimitiveIterator.OfInt itr = seq.chars().iterator();
-            int c;
-            int numGC = 0;
-            while (itr.hasNext()) {
-                c = itr.nextInt();
-                switch(c) {
-                    case CHAR_C_INT:
-                        if (++numGC >= minWindowSize) {
-                            return true;
-                        }
-                        break;
-                    case CHAR_G_INT:
-                        if (++numGC >= minWindowSize) {
-                            return true;
-                        }
-                        break;
-                    default:
-                        numGC = 0;
-                }
-            }
-        }
-        else if (gcp <= 0.11f) {
-            // 89% AT-rich
-            
-            PrimitiveIterator.OfInt itr = seq.chars().iterator();
-            int c;
-            int numAT = 0;
-            while (itr.hasNext()) {
-                c = itr.nextInt();
-                switch(c) {
-                    case CHAR_A_INT:
-                        if (++numAT >= minWindowSize) {
-                            return true;
-                        }
-                        break;
-                    case CHAR_T_INT:
-                        if (++numAT >= minWindowSize) {
-                            return true;
-                        }
-                        break;
-                    default:
-                        numAT = 0;
-                }
+        PrimitiveIterator.OfInt itr = seq.chars().iterator();
+        int c;
+        int numGC = 0;
+        while (itr.hasNext()) {
+            c = itr.nextInt();
+            switch(c) {
+                case CHAR_C_INT:
+                    ++numGC;
+                    break;
+                case CHAR_G_INT:
+                    ++numGC;
+                    break;
             }
         }
         
-        return false;
+        // tolerate 1 mismatch
+        return numGC <= 1 || numGC >= seq.length()-1;
     }
     
     public static final int getNumKmers(String seq, int k) {
@@ -377,7 +347,7 @@ public final class SeqUtils {
         
         return null;
     }
-    
+        
     public static String overlapMinimally(String left, String right, int minOverlap) {
         int li = left.length() - minOverlap;
         String suffix = left.substring(li);
@@ -460,10 +430,13 @@ public final class SeqUtils {
         return result;
     }
        
-//    public static void main(String[] args) {
-//        String seq1 = "AATAA";
-//        String seq2 = "AAAA";
-//
-//        System.out.println(getDistance(seq1, seq2));
-//    }
+    public static void main(String[] args) {
+        Pattern p = getHomoPolymerPattern(10);
+
+        System.out.println(getGCContent("AAAAAAAAAA"));
+        System.out.println(getGCContent("TTTTTTTTTT"));
+        System.out.println(getGCContent("CCCCCCCCCC"));
+        System.out.println(getGCContent("GGGGGGGGGG"));
+        System.out.println(getGCContent("AAAAGGGGGG"));
+    }
 }
