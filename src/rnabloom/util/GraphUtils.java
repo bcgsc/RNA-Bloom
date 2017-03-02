@@ -26,8 +26,6 @@ import static rnabloom.util.SeqUtils.getLastKmer;
 import static rnabloom.util.SeqUtils.getNumGC;
 import static rnabloom.util.SeqUtils.getPercentIdentity;
 import static rnabloom.util.SeqUtils.isLowComplexity;
-import static rnabloom.util.SeqUtils.isLowComplexityShort;
-import static rnabloom.util.SeqUtils.kmerizeToCollection;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 
 /**
