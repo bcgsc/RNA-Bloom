@@ -469,7 +469,7 @@ public final class GraphUtils {
             if (expectedLen >= k) {
                 ArrayDeque testEdgeKmers = greedyExtendRight(graph, kmers.get(lastKmerFoundIndex), lookahead, expectedLen, bf);
                 if (testEdgeKmers.size() != expectedLen ||
-                        getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, lastKmerFoundIndex+1, numKmers)) < percentIdentity) {
+                        getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, lastKmerFoundIndex+1, numKmers+1)) < percentIdentity) {
                     return false;
                 }
             }
