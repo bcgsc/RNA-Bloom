@@ -823,8 +823,8 @@ public class RNABloom {
                     if (!corrected || okToConnectPair(leftKmers, rightKmers)) {
                         ArrayList<Kmer> fragmentKmers = null;
                         
-                        if (!homoPolymerKmerPattern.matcher(leftKmers.get(leftKmers.size()-1).seq).matches() && 
-                                !homoPolymerKmerPattern.matcher(rightKmers.get(0).seq).matches()) {
+                        if (!isLowComplexity2(leftKmers.get(leftKmers.size()-1).seq) && 
+                                !isLowComplexity2(rightKmers.get(0).seq)) {
                             fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap);
                         }
                         
