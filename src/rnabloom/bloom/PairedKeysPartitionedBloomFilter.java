@@ -191,7 +191,7 @@ public class PairedKeysPartitionedBloomFilter {
             bitArrayPair.set(getIndex(hashVals[h]));
         }
     }
-
+    
     public boolean lookup(final long[] hashValsLeft, final long[] hashValsRight) {
         return lookupLeft(hashValsLeft) && lookupRight(hashValsRight) && lookupPair(hashValsLeft, hashValsRight);
     }
