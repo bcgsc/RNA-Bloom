@@ -20,7 +20,13 @@ import rnabloom.io.FastqRecord;
  * @author kmnip
  */
 public final class SeqUtils {
+    private final static int CHAR_A_INT = (int) 'A';
+    private final static int CHAR_C_INT = (int) 'C';
+    private final static int CHAR_G_INT = (int) 'G';
+    private final static int CHAR_T_INT = (int) 'T';
+    
     public static final char GAP_CHAR = 'N';
+    
     public final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
     public final static char[] A_ALT_NUCLEOTIDES = new char[] {'C','G','T'};
     public final static char[] C_ALT_NUCLEOTIDES = new char[] {'A','G','T'};
@@ -128,11 +134,98 @@ public final class SeqUtils {
         return (float) getNumGC(seq) / seq.length();
     }
     
+    private static final int nucleotideArrayIndex(int c) {
+        switch(c) {
+            case CHAR_A_INT:
+                return 0;
+            case CHAR_C_INT:
+                return 1;
+            case CHAR_G_INT:
+                return 2;
+            case CHAR_T_INT:
+                return 3;
+            default:
+                return -1;
+        }
+    }
+    
+    private static final float LOW_COMPLEXITY_THRESHOLD = 0.75f;
+    
+    public static final boolean isLowComplexity2(String seq) {
+        byte nf1[]     = new byte[4];
+        byte nf2[][]   = new byte[4][4];
+        byte nf3[][][] = new byte[4][4][4];
+        
+        PrimitiveIterator.OfInt itr = seq.chars().iterator();
+        int c3 = nucleotideArrayIndex(itr.nextInt());
+        int c2 = nucleotideArrayIndex(itr.nextInt());
+        int c1 = nucleotideArrayIndex(itr.nextInt());
+        
+        ++nf1[c3];
+        ++nf1[c2];
+        ++nf1[c1];
+        
+        ++nf2[c3][c2];
+        ++nf2[c2][c1];
+        
+        ++nf3[c3][c2][c1];
+        
+        while (itr.hasNext()) {
+            c3 = c2;
+            c2 = c1;
+            c1 = nucleotideArrayIndex(itr.nextInt());
+            
+            ++nf1[c1];
+            ++nf2[c2][c1];
+            ++nf3[c3][c2][c1];
+        }
+        
+        int length = seq.length();
+        
+        // homopolymer runs
+        int t1 = Math.round(length * LOW_COMPLEXITY_THRESHOLD);
+        for (byte n : nf1) {
+            if (n >= t1) {
+                return true;
+            }
+        }
+        
+        // di-nucleotide content
+        if (nf1[0]+nf1[1]>t1 || nf1[0]+nf1[2]>t1 || nf1[0]+nf1[3]>t1 || 
+                nf1[1]+nf1[2]>t1 || nf1[1]+nf1[3]>t1 || nf1[2]+nf1[3]>t1) {
+            return true;
+        }
+        
+        // di-nucleotide repeat
+        int t2 = Math.round(length/2 * LOW_COMPLEXITY_THRESHOLD);
+        for (byte[] n1 : nf2) {
+            for (byte n : n1) {
+                if (n >= t2) {
+                    return true;
+                }
+            }
+        }
+        
+        // tri-nucleotide repeat
+        int t3 = Math.round(length/3 * LOW_COMPLEXITY_THRESHOLD);
+        for (byte[][] n2 : nf3) {
+            for (byte[] n1 : n2) {
+                for (byte n : n1) {
+                    if (n >= t3) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        return false;
+    }
+    
     public static final boolean isLowComplexity(String seq) {
         
-        int nThreshold = Math.round(seq.length() * 0.75f);
-        int gcRichThreshold = Math.round(seq.length() * 0.80f);
-        int atRichThreshold = Math.round(seq.length() * 0.80f);
+        int length = seq.length();
+        int thresholdHi = Math.round(length * LOW_COMPLEXITY_THRESHOLD);
+        int thresholdLo = length - thresholdHi;
         
         int numA = 0;
         int numC = 0;
@@ -159,8 +252,10 @@ public final class SeqUtils {
             }
         }
         
-        return numA > nThreshold || numC > nThreshold || numG > nThreshold || numT > nThreshold ||
-                numA + numT > atRichThreshold || numC + numG > gcRichThreshold;
+        return numA > thresholdHi || numC > thresholdHi || numG > thresholdHi || numT > thresholdHi ||
+               numA < thresholdLo || numC < thresholdLo || numG < thresholdLo || numT < thresholdLo ||
+               numA + numC > thresholdHi || numA + numG > thresholdHi || numA + numT > thresholdHi || 
+               numC + numG > thresholdHi || numC + numT > thresholdHi || numG + numT > thresholdHi;
     }
     
     public static final boolean isLowComplexityLong(String seq) {
@@ -263,11 +358,6 @@ public final class SeqUtils {
             kmers.add(seq.substring(i, i+k));
         }
     }
-        
-    private final static int CHAR_A_INT = (int) 'A';
-    private final static int CHAR_C_INT = (int) 'C';
-    private final static int CHAR_G_INT = (int) 'G';
-    private final static int CHAR_T_INT = (int) 'T';
         
     public static final String reverseComplement(String seq) {
         int seqLen = seq.length();
@@ -466,12 +556,6 @@ public final class SeqUtils {
     }
        
     public static void main(String[] args) {
-        Pattern p = getHomoPolymerPattern(10);
-
-        System.out.println(getGCContent("AAAAAAAAAA"));
-        System.out.println(getGCContent("TTTTTTTTTT"));
-        System.out.println(getGCContent("CCCCCCCCCC"));
-        System.out.println(getGCContent("GGGGGGGGGG"));
-        System.out.println(getGCContent("AAAAGGGGGG"));
+        System.out.println(isLowComplexity2("ATGATGATGATGAAA"));
     }
 }
