@@ -149,7 +149,7 @@ public final class SeqUtils {
         }
     }
     
-    private static final float LOW_COMPLEXITY_THRESHOLD = 0.75f;
+    private static final float LOW_COMPLEXITY_THRESHOLD = 0.87f;
     
     public static final boolean isLowComplexity2(String seq) {
         byte nf1[]     = new byte[4];

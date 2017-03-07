@@ -730,7 +730,7 @@ public class RNABloom {
                                     maxNumBubbleKmers,
                                     percentIdentity)) {
 
-                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
+                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
 
                 if (!represented(fragKmers,
                                     graph,
