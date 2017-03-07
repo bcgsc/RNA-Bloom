@@ -25,7 +25,7 @@ import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
 import static rnabloom.util.SeqUtils.getNumGC;
 import static rnabloom.util.SeqUtils.getPercentIdentity;
-import static rnabloom.util.SeqUtils.isLowComplexity;
+import static rnabloom.util.SeqUtils.isLowComplexity2;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 
 /**
@@ -622,30 +622,37 @@ public final class GraphUtils {
                 if (best.equals(left)) {
                     return rightPath;
                 }
-                else if (leftPathKmers.contains(best.seq)) {
-                    /* right path intersects the left path */
-                    String convergingKmer = best.seq;
-                    rightPath.addFirst(best);
-                    
-                    Iterator<Kmer> itr = leftPath.descendingIterator();
-                    Kmer kmer;
-                    while (itr.hasNext()) {
-                        kmer = itr.next();
-                        if (convergingKmer.equals(kmer.seq)) {
-                            while (itr.hasNext()) {
-                                rightPath.addFirst(itr.next());
+                else {
+                    if (rightPathKmers.contains(best.seq)) {
+                        return null;
+                    }
+                    else if (leftPathKmers.contains(best.seq)) {
+                        /* right path intersects the left path */
+                        String convergingKmer = best.seq;
+                        
+                        if (isLowComplexity2(convergingKmer)) {
+                            return null;
+                        }
+                        
+                        rightPath.addFirst(best);
+
+                        Iterator<Kmer> itr = leftPath.descendingIterator();
+                        Kmer kmer;
+                        while (itr.hasNext()) {
+                            kmer = itr.next();
+                            if (convergingKmer.equals(kmer.seq)) {
+                                while (itr.hasNext()) {
+                                    rightPath.addFirst(itr.next());
+                                }
+
+                                return rightPath;
                             }
-                            
-                            return rightPath;
                         }
                     }
-                }
-                else if (!rightPathKmers.contains(best.seq)) {
-                    rightPathKmers.add(best.seq);
-                    rightPath.addFirst(best);
-                }
-                else {
-                    return null;
+                    else {
+                        rightPathKmers.add(best.seq);
+                        rightPath.addFirst(best);
+                    }
                 }
             }
         }
@@ -2049,7 +2056,7 @@ public final class GraphUtils {
     }
     
     public static ArrayList<Kmer> overlap(String left, String right, BloomFilterDeBruijnGraph graph, int minOverlap) {
-        int k = graph.getK();
+//        int k = graph.getK();
         
         String overlapped = overlapMaximally(left, right, minOverlap);
         
@@ -2088,10 +2095,10 @@ public final class GraphUtils {
                 fragmentKmers.addAll(connectedPath);
                 fragmentKmers.addAll(rightKmers);
             }
-            else {
-                // 3. Attempt dovetail overlap (ie. when fragment is shorter than read length)
-                fragmentKmers = overlap(rightSeq, leftSeq, graph, minOverlap);
-            }
+//            else {
+//                // 3. Attempt dovetail overlap (ie. when fragment is shorter than read length)
+//                fragmentKmers = overlap(rightSeq, leftSeq, graph, minOverlap);
+//            }
         }
         
         return fragmentKmers;
@@ -2368,6 +2375,103 @@ public final class GraphUtils {
         return results;
     }
     
+    private static int maxRightPartnerSearchDepth2(ArrayList<Kmer> kmers, 
+                                                BloomFilterDeBruijnGraph graph,
+                                                int pairedKmerDistance,
+                                                BloomFilter assembledKmersBloomFilter,
+                                                int minNumPairs) {
+        final int numKmers = kmers.size();
+        
+        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
+        for (int i=0; i<covs.length; ++i) {
+            covs[i] = kmers.get(numKmers-i-1).count;
+        }
+        
+        int k = graph.getK();
+        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance);
+        
+        int end = Math.max(0, numKmers-pairedKmerDistance);
+        int start;
+
+        for (start=numKmers-1; start>=end; --start) {
+            if (!assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
+                break;
+            }
+        }
+        
+        start = Math.min(numKmers-1-minAnchorDistanceFromEdge, start);
+        
+        Kmer kmer;
+        for (int i=start; i>=end; --i) {
+            kmer = kmers.get(i);
+            
+            if (graph.lookupLeftKmer(kmer.hashVals) &&
+                    !isLowComplexity2(kmer.seq)) {
+                boolean found = true;
+                for (int j=1; j<minNumPairs; ++j) {
+                    if (!graph.lookupLeftKmer(kmers.get(i+j).hashVals)) {
+                        found = false;
+                    }
+                }
+                if (found) {
+                    return pairedKmerDistance - (numKmers - i);
+                }
+            }
+        }
+        
+        return 0;
+    }
+    
+    private static int maxLeftPartnerSearchDepth2(ArrayList<Kmer> kmers, 
+                                                BloomFilterDeBruijnGraph graph,
+                                                int pairedKmerDistance,
+                                                BloomFilter assembledKmersBloomFilter,
+                                                int minNumPairs) {
+        
+        // NOTE: kmers have been reversed; end of list = leftmost kmer
+        
+        final int numKmers = kmers.size();
+        
+        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
+        for (int i=0; i<covs.length; ++i) {
+            covs[i] = kmers.get(numKmers-i-1).count;
+        }
+        
+        int k = graph.getK();
+        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance);
+        
+        int end = Math.max(0, numKmers-pairedKmerDistance);
+        int start;
+
+        for (start=numKmers-1; start>=end; --start) {
+            if (!assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
+                break;
+            }
+        }
+        
+        start = Math.min(numKmers-1-minAnchorDistanceFromEdge, start);
+        
+        Kmer kmer;
+        for (int i=start; i>=end; --i) {
+            kmer = kmers.get(i);
+            
+            if (graph.lookupRightKmer(kmer.hashVals) &&
+                    !isLowComplexity2(kmer.seq)) {
+                boolean found = true;
+                for (int j=1; j<minNumPairs; ++j) {
+                    if (!graph.lookupRightKmer(kmers.get(i+j).hashVals)) {
+                        found = false;
+                    }
+                }
+                if (found) {
+                    return pairedKmerDistance - (numKmers - i);
+                }
+            }
+        }
+        
+        return 0;
+    }
+    
     private static int maxRightPartnerSearchDepth(ArrayList<Kmer> fragmentKmers, BloomFilterDeBruijnGraph graph, int pairedKmerDistance, BloomFilter assembledKmersBloomFilter) {
         
         final int numKmers = fragmentKmers.size();
@@ -2398,9 +2502,9 @@ public final class GraphUtils {
         Kmer kmer;
         for (int i=start; i>end; --i) {
             kmer = fragmentKmers.get(i);
-            if (graph.lookupLeftKmer(kmer.hashVals) && i>0 && !isLowComplexity(kmer.seq)) {
+            if (graph.lookupLeftKmer(kmer.hashVals) && i>0 && !isLowComplexity2(kmer.seq)) {
                 kmer = fragmentKmers.get(i-1);
-                if (graph.lookupLeftKmer(kmer.hashVals) && !isLowComplexity(kmer.seq)) {
+                if (graph.lookupLeftKmer(kmer.hashVals) && !isLowComplexity2(kmer.seq)) {
                     return pairedKmerDistance - (numKmers - i);
                 }
                 else {
@@ -2441,9 +2545,9 @@ public final class GraphUtils {
         Kmer kmer;
         for (int i=start; i>end; --i) {
             kmer = fragmentKmers.get(i);
-            if (graph.lookupRightKmer(kmer.hashVals) && i>0 && !isLowComplexity(kmer.seq)) {
+            if (graph.lookupRightKmer(kmer.hashVals) && i>0 && !isLowComplexity2(kmer.seq)) {
                 kmer = fragmentKmers.get(i-1);
-                if (graph.lookupRightKmer(kmer.hashVals) && !isLowComplexity(kmer.seq)) {
+                if (graph.lookupRightKmer(kmer.hashVals) && !isLowComplexity2(kmer.seq)) {
                     return pairedKmerDistance - (numKmers - i);
                 }
                 else {
@@ -2455,9 +2559,11 @@ public final class GraphUtils {
         return 0;
     }
     
-    public static boolean hasRightPairedKmers(Kmer[] leftPartners, 
-                                            BloomFilterDeBruijnGraph graph, 
-                                            Kmer source) {
+    private static boolean hasPairedRightKmers(Kmer source,
+                                            ArrayList<Kmer> kmers,
+                                            int fromIndex,
+                                            int toIndex,
+                                            BloomFilterDeBruijnGraph graph) {
         
         
         ArrayDeque<Kmer> frontier = graph.getSuccessors(source);
@@ -2466,10 +2572,9 @@ public final class GraphUtils {
         
         Iterator<Kmer> itr;
         Kmer kmer, partner;
-        int depth = leftPartners.length;
         
-        for (int i=0; i<depth; ++i) {
-            partner = leftPartners[i];
+        for (int i=fromIndex; i<toIndex; ++i) {
+            partner = kmers.get(i);
             
             if (!graph.lookupLeftKmer(partner.hashVals)) {
                 return false;
@@ -2481,6 +2586,13 @@ public final class GraphUtils {
                 if (graph.lookupRightKmer(kmer.hashVals) && graph.lookupKmerPairing(partner.hashVals, kmer.hashVals)) {
                     newFrontier.addAll(graph.getSuccessors(kmer));
                 }
+                
+                partner = kmers.get(i-1);
+                boolean test0 = graph.lookupRightKmer(kmer.hashVals) && graph.lookupKmerPairing(partner.hashVals, kmer.hashVals);
+                
+                partner = kmers.get(i+1);
+                boolean test2 = graph.lookupRightKmer(kmer.hashVals) && graph.lookupKmerPairing(partner.hashVals, kmer.hashVals);
+                
                 itr.remove();
             }
             
@@ -2496,9 +2608,11 @@ public final class GraphUtils {
         return true;
     }
     
-    public static boolean hasLeftPairedKmers(Kmer[] rightPartners, 
-                                            BloomFilterDeBruijnGraph graph, 
-                                            Kmer source) {
+    private static boolean hasPairedLeftKmers(Kmer source,
+                                            ArrayList<Kmer> kmers,
+                                            int fromIndex,
+                                            int toIndex,
+                                            BloomFilterDeBruijnGraph graph) {
         
         
         ArrayDeque<Kmer> frontier = graph.getPredecessors(source);
@@ -2507,10 +2621,9 @@ public final class GraphUtils {
         
         Iterator<Kmer> itr;
         Kmer kmer, partner;
-        int depth = rightPartners.length;
         
-        for (int i=0; i<depth; ++i) {
-            partner = rightPartners[i];
+        for (int i=fromIndex; i<toIndex; ++i) {
+            partner = kmers.get(i);
             
             if (!graph.lookupRightKmer(partner.hashVals)) {
                 return false;
@@ -2522,6 +2635,13 @@ public final class GraphUtils {
                 if (graph.lookupLeftKmer(kmer.hashVals) && graph.lookupKmerPairing(kmer.hashVals, partner.hashVals)) {
                     newFrontier.addAll(graph.getPredecessors(kmer));
                 }
+                
+                partner = kmers.get(i-1);
+                boolean test0 = graph.lookupRightKmer(kmer.hashVals) && graph.lookupKmerPairing(partner.hashVals, kmer.hashVals);
+                
+                partner = kmers.get(i+1);
+                boolean test2 = graph.lookupRightKmer(kmer.hashVals) && graph.lookupKmerPairing(partner.hashVals, kmer.hashVals);
+                
                 itr.remove();
             }
             
@@ -2537,12 +2657,41 @@ public final class GraphUtils {
         return true;
     }
     
-    public static void extendRightWithPairedKmersBFS(ArrayList<Kmer> kmers, 
+    private static boolean areLeftKmers(ArrayList<Kmer> kmers, 
+                                        int fromIndex,
+                                        int toIndex,
+                                        BloomFilterDeBruijnGraph graph) {
+        
+        for (int i=fromIndex; i<toIndex; ++i) {
+            if (!graph.lookupLeftKmer(kmers.get(i).hashVals)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    private static boolean areRightKmers(ArrayList<Kmer> kmers,
+                                        int fromIndex,
+                                        int toIndex,
+                                        BloomFilterDeBruijnGraph graph) {
+        
+        for (int i=fromIndex; i<toIndex; ++i) {
+            if (!graph.lookupRightKmer(kmers.get(i).hashVals)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    public static boolean extendRightWithPairedKmersBFS(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int lookahead, 
                                             int maxTipLength,
                                             int maxIndelSize,
                                             float percentIdentity,
+                                            int minNumPairs,
                                             BloomFilter assembledKmersBloomFilter,
                                             HashSet<String> usedKmers) {
         
@@ -2552,7 +2701,7 @@ public final class GraphUtils {
         int numKmers = kmers.size();
         
         if (numKmers < distance) {
-            return;
+            return true;
         }
             
         Kmer cursor = kmers.get(numKmers-1);
@@ -2579,17 +2728,16 @@ public final class GraphUtils {
             }
             
             cursor = null;
-            
-            partner = kmers.get(partnerIndex);
-            if (!graph.lookupLeftKmer(partner.hashVals)) {
+                        
+            if (!areLeftKmers(kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                // not enough supporting partners
                 break;
             }
-            
+                        
             itr = neighbors.iterator();
             while (itr.hasNext()) {
                 kmer = itr.next();
-                if (!graph.lookupRightKmer(kmer.hashVals) ||
-                        !graph.lookupKmerPairing(partner.hashVals, kmer.hashVals)) {
+                if (!hasPairedRightKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                     itr.remove();
                 }
             }
@@ -2602,54 +2750,37 @@ public final class GraphUtils {
                 cursor = neighbors.pop();
             }
             else {
-                Kmer[] leftPartners = new Kmer[lookahead];
-                for (int i=0; i<lookahead; ++i) {
-                    leftPartners[i] = kmers.get(partnerIndex+i+1);
-                }
-
-                itr = neighbors.iterator();
-                while (itr.hasNext()) {
-                    kmer = itr.next();
-                    if (!hasRightPairedKmers(leftPartners, graph, kmer)) {
-                        itr.remove();
-                    }
-                }
-
-                if (neighbors.isEmpty()) {
+                cursor = greedyExtendRightOnce(graph, neighbors, lookahead);
+                
+                if (cursor == null) {
+                    // no good candidates
                     break;
                 }
-                else if (neighbors.size() == 1) {
-                    cursor = neighbors.pop();
-                }
-                else {
-                    cursor = greedyExtendRightOnce(graph, neighbors, lookahead);
-                }
             }
             
-            if (cursor == null ||
-                    (usedKmers.contains(cursor.seq) &&
-                    partnerKmers.contains(partner.seq))){
-                break;
+            partner = kmers.get(partnerIndex);
+            
+            if (usedKmers.contains(cursor.seq) &&
+                    partnerKmers.contains(partner.seq)){
+                // loop, do not extend further
+                return false;
             }
             
-            if (partnerIndex >= lookahead && assembledKmersBloomFilter.lookup(cursor.hashVals)) {
-                boolean assembled = true;
-                for (int i=numKmers-1; i>numKmers-lookahead; --i) {
-                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-                        assembled = false;
-                        break;
-                    }
-                }
+            if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+                boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
                 
-                for (int i=partnerIndex; i>=partnerIndex-lookahead; --i) {
-                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-                        assembled = false;
-                        break;
+                if (assembled) {
+                    for (int i=partnerIndex; i<partnerIndex+lookahead; ++i) {
+                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+                            assembled = false;
+                            break;
+                        }
                     }
                 }
                 
                 if (assembled) {
-                    break;
+                    // region already assembled, do not extend further
+                    return false;
                 }
             }
             
@@ -2664,25 +2795,26 @@ public final class GraphUtils {
             neighbors = graph.getSuccessors(cursor);
         }
         
-        //kmers.addAll(pairedRightKmers);
+        return true;
     }
     
-    public static void extendLeftWithPairedKmersBFS(ArrayList<Kmer> kmers, 
+    public static boolean extendLeftWithPairedKmersBFS(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int lookahead, 
                                             int maxTipLength,
                                             int maxIndelSize,
                                             float percentIdentity,
+                                            int minNumPairs,
                                             BloomFilter assembledKmersBloomFilter,
                                             HashSet<String> usedKmers) {
-        
+                
         HashSet<String> partnerKmers = new HashSet<>();
         
         int distance = graph.getPairedKmerDistance();
         int numKmers = kmers.size();
         
         if (numKmers < distance) {
-            return;
+            return true;
         }
               
         Kmer cursor = kmers.get(numKmers-1);
@@ -2710,16 +2842,15 @@ public final class GraphUtils {
             
             cursor = null;
             
-            partner = kmers.get(partnerIndex);
-            if (!graph.lookupRightKmer(partner.hashVals)) {
+            if (!areRightKmers(kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                // not enough supporting partners
                 break;
             }
             
             itr = neighbors.iterator();
             while (itr.hasNext()) {
                 kmer = itr.next();
-                if (!graph.lookupLeftKmer(kmer.hashVals) ||
-                        !graph.lookupKmerPairing(kmer.hashVals, partner.hashVals)) {
+                if (!hasPairedLeftKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                     itr.remove();
                 }
             }
@@ -2732,54 +2863,37 @@ public final class GraphUtils {
                 cursor = neighbors.pop();
             }
             else {
-                Kmer[] rightPartners = new Kmer[lookahead];
-                for (int i=0; i<lookahead; ++i) {
-                    rightPartners[i] = kmers.get(partnerIndex+i+1);
-                }
-
-                itr = neighbors.iterator();
-                while (itr.hasNext()) {
-                    kmer = itr.next();
-                    if (!hasLeftPairedKmers(rightPartners, graph, kmer)) {
-                        itr.remove();
-                    }
-                }
-
-                if (neighbors.isEmpty()) {
+                cursor = greedyExtendLeftOnce(graph, neighbors, lookahead);
+                
+                if (cursor == null) {
+                    // no good candidates
                     break;
                 }
-                else if (neighbors.size() == 1) {
-                    cursor = neighbors.pop();
-                }
-                else {
-                    cursor = greedyExtendLeftOnce(graph, neighbors, lookahead);
-                }
             }
             
-            if (cursor == null ||
-                    (usedKmers.contains(cursor.seq) &&
-                    partnerKmers.contains(partner.seq))){
-                break;
+            partner = kmers.get(partnerIndex);
+            
+            if (usedKmers.contains(cursor.seq) &&
+                    partnerKmers.contains(partner.seq)){
+                // loop, do not extend further
+                return false;
             }
             
-            if (partnerIndex >= lookahead && assembledKmersBloomFilter.lookup(cursor.hashVals)) {
-                boolean assembled = true;
-                for (int i=numKmers-1; i>numKmers-lookahead; --i) {
-                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-                        assembled = false;
-                        break;
-                    }
-                }
+            if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+                boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
                 
-                for (int i=partnerIndex; i>=partnerIndex-lookahead; --i) {
-                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-                        assembled = false;
-                        break;
+                if (assembled) {
+                    for (int i=partnerIndex; i<partnerIndex+lookahead; ++i) {
+                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+                            assembled = false;
+                            break;
+                        }
                     }
                 }
                 
                 if (assembled) {
-                    break;
+                    // region already assembled, do not extend further
+                    return false;
                 }
             }
             
@@ -2794,7 +2908,129 @@ public final class GraphUtils {
             neighbors = graph.getPredecessors(cursor);
         }
         
-//        kmers.addAll(pairedLeftKmers);
+        return true;
+    }
+    
+    public static boolean extendRightWithPairedKmersDFS(ArrayList<Kmer> kmers, 
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int lookahead, 
+                                            int maxTipLength,
+                                            int maxIndelSize,
+                                            float percentIdentity,
+                                            int minNumPairs,
+                                            BloomFilter assembledKmersBloomFilter,
+                                            HashSet<String> usedKmers) {
+        
+        /**@TODO detect loop by checking for used pairs */
+        
+        final int distance = graph.getPairedKmerDistance();
+        int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, lookahead);
+        
+        
+        int numKmers = kmers.size();
+        int depth = 0;
+        int partnerIndex = numKmers - distance + depth;
+        
+        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>();
+        
+        branchesStack.add(getSuccessorsRanked(kmers.get(numKmers-1), graph, lookahead));
+        
+        ArrayDeque<Kmer> extension = new ArrayDeque<>();
+        while (!branchesStack.isEmpty() && depth <= maxDepth) {
+            LinkedList<Kmer> branches = branchesStack.getLast();
+            
+            if (branches.isEmpty()) {
+                branchesStack.removeLast();
+                --depth;
+                --partnerIndex;
+            }
+            else {
+                Kmer cursor = branches.pop();
+                
+                if (graph.lookupRightKmer(cursor.hashVals) &&
+                        hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                    
+                    kmers.addAll(extension);
+                    kmers.add(cursor);
+                    
+                    for (Kmer e : extension) {
+                        usedKmers.add(e.seq);
+                    }
+                    usedKmers.add(cursor.seq);
+                    
+                    return true;
+                }
+                else if (depth < maxDepth) {
+                    branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
+                    extension.add(cursor);
+                    ++depth;
+                    ++partnerIndex;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    public static boolean extendLeftWithPairedKmersDFS(ArrayList<Kmer> kmers, 
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int lookahead, 
+                                            int maxTipLength,
+                                            int maxIndelSize,
+                                            float percentIdentity,
+                                            int minNumPairs,
+                                            BloomFilter assembledKmersBloomFilter,
+                                            HashSet<String> usedKmers) {
+        
+        /**@TODO detect loop by checking for used pairs */
+        
+        final int distance = graph.getPairedKmerDistance();
+        int maxDepth = maxLeftPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, lookahead);
+        
+        
+        int numKmers = kmers.size();
+        int depth = 0;
+        int partnerIndex = numKmers - distance + depth;
+        
+        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>();
+        
+        branchesStack.add(getPredecessorsRanked(kmers.get(numKmers-1), graph, lookahead));
+        
+        ArrayDeque<Kmer> extension = new ArrayDeque<>();
+        while (!branchesStack.isEmpty() && depth <= maxDepth) {
+            LinkedList<Kmer> branches = branchesStack.getLast();
+            
+            if (branches.isEmpty()) {
+                branchesStack.removeLast();
+                --depth;
+                --partnerIndex;
+            }
+            else {
+                Kmer cursor = branches.pop();
+                
+                if (graph.lookupLeftKmer(cursor.hashVals) &&
+                        hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                    
+                    kmers.addAll(extension);
+                    kmers.add(cursor);
+                    
+                    for (Kmer e : extension) {
+                        usedKmers.add(e.seq);
+                    }
+                    usedKmers.add(cursor.seq);
+                    
+                    return true;
+                }
+                else if (depth < maxDepth) {
+                    branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
+                    extension.add(cursor);
+                    ++depth;
+                    ++partnerIndex;
+                }
+            }
+        }
+        
+        return false;
     }
     
     public static void extendWithPairedKmers2(ArrayList<Kmer> kmers, 
@@ -2811,26 +3047,66 @@ public final class GraphUtils {
         }
         
         // extend right
-        extendRightWithPairedKmersBFS(kmers, 
+        boolean extendable = true;
+        int minNumPairs = 5;
+        
+        while (extendable) {
+            extendable = extendRightWithPairedKmersBFS(kmers, 
                                         graph, 
                                         lookahead, 
                                         maxTipLength,
                                         maxIndelSize,
                                         percentIdentity,
+                                        minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers);
-        
-        Collections.reverse(kmers);
+            
+            if (extendable) {
+                extendable = extendRightWithPairedKmersDFS(kmers, 
+                                        graph, 
+                                        lookahead, 
+                                        maxTipLength,
+                                        maxIndelSize,
+                                        percentIdentity,
+                                        minNumPairs,
+                                        assembledKmersBloomFilter,
+                                        usedKmers);
+            }
+            else {
+                break;
+            }
+        }
         
         // extend left
-        extendLeftWithPairedKmersBFS(kmers, 
+        Collections.reverse(kmers);
+        extendable = true;
+        
+        while (extendable) {
+            extendable = extendLeftWithPairedKmersBFS(kmers, 
                                         graph, 
                                         lookahead, 
                                         maxTipLength,
                                         maxIndelSize,
                                         percentIdentity,
+                                        minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers);
+            
+            if (extendable) {
+                extendable = extendLeftWithPairedKmersDFS(kmers, 
+                                        graph, 
+                                        lookahead, 
+                                        maxTipLength,
+                                        maxIndelSize,
+                                        percentIdentity,
+                                        minNumPairs,
+                                        assembledKmersBloomFilter,
+                                        usedKmers);
+            }
+            else {
+                break;
+            }
+        }
         
         Collections.reverse(kmers);
     }
