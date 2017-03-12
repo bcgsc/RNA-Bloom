@@ -674,7 +674,7 @@ public class RNABloom {
         }
     }
     
-    public class Fragment {
+    private class Fragment {
 //        String left;
 //        String right;
         String seq;
@@ -692,7 +692,7 @@ public class RNABloom {
         }
     }
     
-    public class Transcript {
+    private class Transcript {
         String fragment;
         String transcript;
         
@@ -702,15 +702,57 @@ public class RNABloom {
         }
     }
     
-    public class TranscriptAssembler implements Runnable {
+    private class AssembledTranscriptsQueue {
+        
+        private ArrayBlockingQueue<Transcript> queue;
+        
+        public AssembledTranscriptsQueue(int size) {
+            queue = new ArrayBlockingQueue<> (size);
+        }
+        
+        public synchronized void add(String fragment, ArrayList<Kmer> kmers) {
+            if (!represented(kmers,
+                                graph,
+                                screeningBf,
+                                lookahead,
+                                maxIndelSize,
+                                percentIdentity)) {
+
+                for (Kmer kmer : kmers) {
+                    screeningBf.add(kmer.hashVals);
+                }
+
+                String transcript = assemble(kmers, k);
+
+                try {
+                    queue.put(new Transcript(fragment, transcript));
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+        
+        public int remainingCapacity() {
+            return queue.remainingCapacity();
+        }
+        
+        public boolean isEmpty() {
+            return queue.isEmpty();
+        }
+        
+        public Transcript poll() {
+            return queue.poll();
+        }
+    }
+    
+    private class TranscriptAssembler implements Runnable {
         
         private String fragment;
         private boolean beGreedy;
-        private ArrayBlockingQueue<Transcript> outList;
-        private int maxNumBubbleKmers = 3*k;
+        private AssembledTranscriptsQueue outList;
         
         public TranscriptAssembler(String fragment,
-                                    ArrayBlockingQueue<Transcript> outList,
+                                    AssembledTranscriptsQueue outList,
                                     boolean beGreedy) {
             this.fragment = fragment;
             this.outList = outList;
@@ -718,45 +760,25 @@ public class RNABloom {
         }
 
         @Override
-        public void run() {            
+        public void run() {
 //            ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookahead, (int) Math.ceil(fragment.length()*percentError)));
             ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
             
             if (!represented(fragKmers,
-                                    graph,
-                                    screeningBf,
-                                    lookahead,
-                                    maxIndelSize,
-                                    maxNumBubbleKmers,
-                                    percentIdentity)) {
-
-                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
-
-                if (!represented(fragKmers,
-                                    graph,
-                                    screeningBf,
-                                    lookahead,
-                                    maxIndelSize,
-                                    maxNumBubbleKmers,
-                                    percentIdentity)) {
-
-                    for (Kmer kmer : fragKmers) {
-                        screeningBf.add(kmer.hashVals);
-                    }
-
-                    String transcript = assemble(fragKmers, k);
-
-                    try {
-                        outList.put(new Transcript(fragment, transcript));
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
+                                graph,
+                                screeningBf,
+                                lookahead,
+                                maxIndelSize,
+                                percentIdentity)) {
+                
+                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity, 5);
+                
+                outList.add(fragment, fragKmers);
             }
         }
     }
     
-    public class FragmentAssembler implements Runnable {
+    private class FragmentAssembler implements Runnable {
         private FastqReadPair p;
         private ArrayBlockingQueue<Fragment> outList;
         private int bound;
@@ -1600,7 +1622,7 @@ public class RNABloom {
                     fin = new FastaReader(fragmentsFasta);
 
                     MyExecutorService service = new MyExecutorService(numThreads, maxTasksQueueSize);
-                    ArrayBlockingQueue<Transcript> transcripts = new ArrayBlockingQueue<>(sampleSize);
+                    AssembledTranscriptsQueue transcripts = new AssembledTranscriptsQueue(sampleSize);
                     
                     String fragment;
                     Transcript t;
