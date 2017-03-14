@@ -74,6 +74,7 @@ public class RNABloom {
     private int maxIndelSize;
     private float percentIdentity;
     private float percentError;
+    private int minNumKmerPairs = 5;
     
     private float dbgFPR = -1;
     private float covFPR = -1;
@@ -771,7 +772,7 @@ public class RNABloom {
                                 maxIndelSize,
                                 percentIdentity)) {
                 
-                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity, 5);
+                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs);
                 
                 outList.add(fragment, fragKmers);
             }
@@ -1142,7 +1143,7 @@ public class RNABloom {
                     System.out.println("\t" + fragLengthsStats[0] + "\t" + fragLengthsStats[1] + "\t" + fragLengthsStats[2] + "\t" + fragLengthsStats[3] + "\t" + fragLengthsStats[4]);
 
                     longFragmentLengthThreshold = fragLengthsStats[1];
-                    graph.setPairedKmerDistance(longFragmentLengthThreshold - k);
+                    graph.setPairedKmerDistance(longFragmentLengthThreshold - k - minNumKmerPairs);
                     
                     // Set new bound for graph search
                     int iqr15 = (fragLengthsStats[3] - fragLengthsStats[1]) * 3 / 2;
