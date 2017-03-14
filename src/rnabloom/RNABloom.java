@@ -779,7 +779,9 @@ public class RNABloom {
                                 maxIndelSize,
                                 percentIdentity)) {
                 
-                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs);
+                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
+//                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs);
+
                 
                 outList.add(fragment, fragKmers);
             }
