@@ -2382,13 +2382,13 @@ public final class GraphUtils {
                                                 int minNumPairs) {
         final int numKmers = kmers.size();
         
-        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
-        for (int i=0; i<covs.length; ++i) {
-            covs[i] = kmers.get(numKmers-i-1).count;
-        }
-        
-        int k = graph.getK();
-        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance);
+//        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
+//        for (int i=0; i<covs.length; ++i) {
+//            covs[i] = kmers.get(numKmers-i-1).count;
+//        }
+//        
+//        int k = graph.getK();
+//        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance-k);
         
         int end = Math.max(0, numKmers-pairedKmerDistance);
         int start;
@@ -2399,9 +2399,9 @@ public final class GraphUtils {
             }
         }
         
-        start = Math.min(numKmers-1-minAnchorDistanceFromEdge, start);
+//        start = Math.min(numKmers-1-minAnchorDistanceFromEdge, start);
         
-        Kmer kmer;
+        Kmer kmer, p;
         for (int i=start; i>=end; --i) {
             kmer = kmers.get(i);
             
@@ -2409,8 +2409,11 @@ public final class GraphUtils {
                     !isLowComplexity2(kmer.seq)) {
                 boolean found = true;
                 for (int j=1; j<minNumPairs; ++j) {
-                    if (!graph.lookupLeftKmer(kmers.get(i+j).hashVals)) {
+                    p = kmers.get(i+j);
+                    if (!graph.lookupLeftKmer(p.hashVals) ||
+                            isLowComplexity2(p.seq)) {
                         found = false;
+                        break;
                     }
                 }
                 if (found) {
@@ -2432,13 +2435,13 @@ public final class GraphUtils {
         
         final int numKmers = kmers.size();
         
-        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
-        for (int i=0; i<covs.length; ++i) {
-            covs[i] = kmers.get(numKmers-i-1).count;
-        }
-        
-        int k = graph.getK();
-        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance);
+//        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
+//        for (int i=0; i<covs.length; ++i) {
+//            covs[i] = kmers.get(numKmers-i-1).count;
+//        }
+//        
+//        int k = graph.getK();
+//        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance-k);
         
         int end = Math.max(0, numKmers-pairedKmerDistance);
         int start;
@@ -2449,9 +2452,9 @@ public final class GraphUtils {
             }
         }
         
-        start = Math.min(numKmers-1-minAnchorDistanceFromEdge, start);
+//        start = Math.min(numKmers-1-minAnchorDistanceFromEdge, start);
         
-        Kmer kmer;
+        Kmer kmer, p;
         for (int i=start; i>=end; --i) {
             kmer = kmers.get(i);
             
@@ -2459,8 +2462,11 @@ public final class GraphUtils {
                     !isLowComplexity2(kmer.seq)) {
                 boolean found = true;
                 for (int j=1; j<minNumPairs; ++j) {
-                    if (!graph.lookupRightKmer(kmers.get(i+j).hashVals)) {
+                    p = kmers.get(i+j);
+                    if (!graph.lookupRightKmer(p.hashVals) ||
+                            isLowComplexity2(p.seq)) {
                         found = false;
+                        break;
                     }
                 }
                 if (found) {
@@ -3311,6 +3317,10 @@ public final class GraphUtils {
                                     }
                                     else {
                                         kmers.addAll(extendRight);
+                                        for (Kmer e : extendRight) {
+                                            usedKmers.add(e.seq);
+                                        }
+                                        
                                         branchesStack.add(getSuccessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
                                     }
                                     
@@ -3391,6 +3401,10 @@ public final class GraphUtils {
                             }
                             else {
                                 kmers.addAll(extendRight);
+                                for (Kmer e : extendRight) {
+                                    usedKmers.add(e.seq);
+                                }
+                                
                                 branchesStack.add(getSuccessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
                             }
                             
@@ -3510,6 +3524,10 @@ public final class GraphUtils {
                                     }
                                     else {
                                         kmers.addAll(extendLeft);
+                                        for (Kmer e : extendLeft) {
+                                            usedKmers.add(e.seq);
+                                        }
+                                        
                                         branchesStack.add(getPredecessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
                                     }
                                     
@@ -3590,6 +3608,10 @@ public final class GraphUtils {
                             }
                             else {
                                 kmers.addAll(extendLeft);
+                                for (Kmer e : extendLeft) {
+                                    usedKmers.add(e.seq);
+                                }
+                                
                                 branchesStack.add(getPredecessorsRanked(kmers.get(kmers.size()-1), graph, lookahead));
                             }
                             
