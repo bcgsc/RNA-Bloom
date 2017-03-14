@@ -3052,7 +3052,7 @@ public final class GraphUtils {
                         ++depth;
                         ++partnerIndex;
                     }
-                    else if (visitedKmers[depth].contains(cursor.seq)) {
+                    else if (!visitedKmers[depth].contains(cursor.seq)) {
                         visitedKmers[depth].add(cursor.seq);
                         
                         branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
