@@ -74,7 +74,7 @@ public class RNABloom {
     private int maxIndelSize;
     private float percentIdentity;
     private float percentError;
-    private int minNumKmerPairs = 5;
+    private int minNumKmerPairs;
     
     private float dbgFPR = -1;
     private float covFPR = -1;
@@ -88,13 +88,20 @@ public class RNABloom {
         this.homoPolymerKmerPattern = getHomoPolymerPattern(k);
     }
     
-    public void setParams(int maxTipLength, int lookahead, float maxCovGradient, int maxIndelSize, float percentIdentity) {
+    public void setParams(int maxTipLength, 
+            int lookahead, 
+            float maxCovGradient, 
+            int maxIndelSize, 
+            float percentIdentity, 
+            int minNumKmerPairs) {
+        
         this.maxTipLength = maxTipLength;
         this.lookahead = lookahead;
         this.maxCovGradient = maxCovGradient;
         this.maxIndelSize = maxIndelSize;
         this.percentIdentity = percentIdentity;
         this.percentError = 1.0f - percentIdentity;
+        this.minNumKmerPairs = minNumKmerPairs;
     }
     
     public void saveGraph(File f) {
@@ -2167,6 +2174,14 @@ public class RNABloom {
         Option optErrCorrItr = builder.build();
         options.addOption(optErrCorrItr);        
 
+        builder = Option.builder("mkp");
+        builder.longOpt("pair");
+        builder.desc("minimum number of kmer pairs for assembling transcripts");
+        builder.hasArg(true);
+        builder.argName("INT");
+        Option optMinKmerPairs = builder.build();
+        options.addOption(optMinKmerPairs);  
+        
         builder = Option.builder("len");
         builder.longOpt("length");
         builder.desc("min transcript length in final assembly");
@@ -2260,6 +2275,7 @@ public class RNABloom {
             int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
+            int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "2"));
             
             boolean saveGraph = true;
             boolean saveKmerPairs = true;
@@ -2273,7 +2289,7 @@ public class RNABloom {
             }
 
             RNABloom assembler = new RNABloom(k, qDBG, qFrag);
-            assembler.setParams(maxTipLen, lookahead, maxCovGradient, maxIndelSize, percentIdentity);
+            assembler.setParams(maxTipLen, lookahead, maxCovGradient, maxIndelSize, percentIdentity, minNumKmerPairs);
 
             try {
                 touch(startedStamp);
