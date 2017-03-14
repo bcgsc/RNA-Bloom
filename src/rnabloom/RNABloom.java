@@ -1150,7 +1150,7 @@ public class RNABloom {
                     newBound = fragLengthsStats[3] + iqr15; // 1.5*IQR
 //                    shortestFragmentLengthAllowed = Math.max(k, fragLengthsStats[1] - iqr15);
                     
-                    System.out.println("Paired kmers distance:       " + (longFragmentLengthThreshold - k));
+                    System.out.println("Paired kmers distance:       " + (longFragmentLengthThreshold - k - minNumKmerPairs));
                     System.out.println("Max graph traversal depth:   " + newBound);
 //                    System.out.println("Shortest fragment allowed:   " + shortestFragmentLengthAllowed);
 
@@ -2256,7 +2256,7 @@ public class RNABloom {
             int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "5"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "3"));
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
-            float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.9"));
+            float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.95"));
             int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
