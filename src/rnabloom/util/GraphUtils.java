@@ -2722,6 +2722,15 @@ public final class GraphUtils {
                 partnerIndex += simpleExtension.size();
                 numKmers = kmers.size();
                 neighbors = graph.getSuccessors(simpleExtension.getLast());
+                
+                for (Kmer e : simpleExtension) {
+                    usedKmers.add(e.seq);
+                }
+                
+                // NOTE: kmer at `partnerIndex` will be paired with `cursor`
+                for (int i=partnerIndex-simpleExtension.size(); i<partnerIndex; ++i) {
+                    usedPartnerKmers.add(kmers.get(i).seq);
+                }
             }
             
             cursor = null;
@@ -2834,6 +2843,15 @@ public final class GraphUtils {
                 partnerIndex += simpleExtension.size();
                 neighbors = graph.getPredecessors(simpleExtension.getLast());
                 numKmers = kmers.size();
+                
+                for (Kmer e : simpleExtension) {
+                    usedKmers.add(e.seq);
+                }
+                
+                // NOTE: kmer at `partnerIndex` will be paired with `cursor`
+                for (int i=partnerIndex-simpleExtension.size(); i<partnerIndex; ++i) {
+                    usedPartnerKmers.add(kmers.get(i).seq);
+                }
             }
             
             cursor = null;
@@ -2956,8 +2974,10 @@ public final class GraphUtils {
                         usedKmers.add(e.seq);
                     }
                     usedKmers.add(cursor.seq);
-                    
-                    usedPartnerKmers.add(kmers.get(partnerIndex).seq);
+                                        
+                    for (int i=partnerIndex-extension.size(); i<=partnerIndex; ++i) {
+                        usedPartnerKmers.add(kmers.get(i).seq);
+                    }
                     
                     return true;
                 }
@@ -3037,7 +3057,9 @@ public final class GraphUtils {
                     }
                     usedKmers.add(cursor.seq);
                     
-                    usedPartnerKmers.add(kmers.get(partnerIndex).seq);
+                    for (int i=partnerIndex-extension.size(); i<=partnerIndex; ++i) {
+                        usedPartnerKmers.add(kmers.get(i).seq);
+                    }
                     
                     return true;
                 }
