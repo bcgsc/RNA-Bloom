@@ -107,8 +107,8 @@ public class RNABloom {
     public void saveGraph(File f) {
         try {
             graph.save(f);
-        } catch (IOException ex) {
-            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
     
@@ -126,8 +126,8 @@ public class RNABloom {
             //BloomFilterDeBruijnGraph graph2 = new BloomFilterDeBruijnGraph(f);
             //System.out.println(graph2.getDbgbf().equivalent(graph.getDbgbf()));
             //System.out.println(graph2.getCbf().equivalent(graph.getCbf()));
-        } catch (IOException ex) {
-            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
 
@@ -230,12 +230,8 @@ public class RNABloom {
                 
                 successful = true;
                 System.out.println("[" + id + "] Parsed " + NumberFormat.getInstance().format(numReads) + " reads.");
-            } catch (IOException e) {
+            } catch (Exception e) {
                 /**@TODO */
-                e.printStackTrace();
-            }
-            catch (NoSuchElementException e) {
-                /**@TODO handle invalid format*/
                 e.printStackTrace();
             }
         }
@@ -309,8 +305,8 @@ public class RNABloom {
             
 //            screeningBf.destroy();
             
-        } catch (InterruptedException ex) {
-            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
         
         dbgFPR = graph.getDbgbfFPR();
@@ -734,8 +730,8 @@ public class RNABloom {
 
                 try {
                     queue.put(new Transcript(fragment, transcript));
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
             }
         }
@@ -778,9 +774,9 @@ public class RNABloom {
                                 lookahead,
                                 maxIndelSize,
                                 percentIdentity)) {
-                
-                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
-//                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs);
+                                
+//                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
+                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs);
 
                 
                 outList.add(fragment, fragKmers);
@@ -877,7 +873,7 @@ public class RNABloom {
 
                                 try {
                                     outList.put(new Fragment(assemble(fragmentKmers, k), fragLength, minCov, false));
-                                } catch (InterruptedException ex) {
+                                } catch (Exception ex) {
                                     ex.printStackTrace();
                                 }
                             }
@@ -905,7 +901,7 @@ public class RNABloom {
                                     }
                                     outList.put(new Fragment(assemble(rightKmers, k), rightKmers.size()+k-1, minCov, true));
                                 }
-                            } catch (InterruptedException ex) {
+                            } catch (Exception ex) {
                                 ex.printStackTrace();
                             }
                         }
@@ -1273,9 +1269,7 @@ public class RNABloom {
                 out.close();
             }
             
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        } catch (InterruptedException ex) {
+        } catch (Exception ex) {
             ex.printStackTrace();
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
@@ -1465,8 +1459,8 @@ public class RNABloom {
     public void savePairedKmersBloomFilter(File graphFile) {
         try {
             graph.savePkbf(graphFile);
-        } catch (IOException ex) {
-            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
     
@@ -1474,8 +1468,8 @@ public class RNABloom {
         try {
             graph.destroyPkbf();
             graph.restorePkbf(graphFile);
-        } catch (IOException ex) {
-            Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
     
@@ -1699,9 +1693,7 @@ public class RNABloom {
             foutShort.close();
             
             screeningBf.destroy();
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        } catch (InterruptedException ex) {
+        } catch (Exception ex) {
             ex.printStackTrace();
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments.");
@@ -1914,9 +1906,9 @@ public class RNABloom {
         
         System.out.println("args: " + Arrays.toString(args));
         
-        // -left /home/gengar/test_data/GAPDH/GAPDH_2.fq.gz -right /home/gengar/test_data/GAPDH/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /home/gengar/test_assemblies/GAPDH
+        // -dm 0.25 - cm 0.5 -pm 0.25 -left /home/gengar/test_data/GAPDH/GAPDH_2.fq.gz -right /home/gengar/test_data/GAPDH/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /home/gengar/test_assemblies/GAPDH
         // -dm 1 -cm 2.5 -pm 0.5 -left /home/gengar/test_data/SRR1360926/SRR1360926_2.fastq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926_1.fastq.gz -revcomp-right -stranded -name SRR1360926 -outdir /home/gengar/test_assemblies/SRR1360926
-
+        // -dm 0.25 - cm 0.5 -pm 0.25 -left /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.2.fq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.1.fq.gz -revcomp-right -stranded -name gapdh -outdir /home/gengar/test_assemblies/RNF213
         
         // -left /projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/gapdh
         // -dm 1 -cm 2.5 -pm 0.5 -left /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_2.fq -right /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_1.fq -revcomp-right -stranded -name SRR1360926 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1360926
@@ -2271,7 +2263,7 @@ public class RNABloom {
             int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
             int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
             int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "5"));
-            int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "3"));
+            int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "10"));
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
             float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.95"));
             int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
@@ -2295,8 +2287,8 @@ public class RNABloom {
 
             try {
                 touch(startedStamp);
-            } catch (IOException ex) {
-                Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
             
             if (!forceOverwrite && dbgDoneStamp.exists()) {
@@ -2324,8 +2316,8 @@ public class RNABloom {
                 
                 try {
                     touch(dbgDoneStamp);
-                } catch (IOException ex) {
-                    Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
             }
             
@@ -2389,8 +2381,8 @@ public class RNABloom {
                 
                 try {
                     touch(fragsDoneStamp);
-                } catch (IOException ex) {
-                    Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
             }
 
@@ -2423,8 +2415,8 @@ public class RNABloom {
                 
                 try {
                     touch(txptsDoneStamp);
-                } catch (IOException ex) {
-                    Logger.getLogger(RNABloom.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
             }
             

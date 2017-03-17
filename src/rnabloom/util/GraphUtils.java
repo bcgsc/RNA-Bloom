@@ -2393,7 +2393,7 @@ public final class GraphUtils {
         int end = Math.max(0, numKmers-pairedKmerDistance);
         int start;
 
-        for (start=numKmers-1; start>=end; --start) {
+        for (start=numKmers-minNumPairs; start>=end; --start) {
             if (!assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
                 break;
             }
@@ -2446,7 +2446,7 @@ public final class GraphUtils {
         int end = Math.max(0, numKmers-pairedKmerDistance);
         int start;
 
-        for (start=numKmers-1; start>=end; --start) {
+        for (start=numKmers-minNumPairs; start>=end; --start) {
             if (!assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
                 break;
             }
@@ -2943,7 +2943,7 @@ public final class GraphUtils {
                                             HashSet<String> usedPartnerKmers) {
                         
         final int distance = graph.getPairedKmerDistance();
-        int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, lookahead);
+        int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
         
         // data structure to store visited kmers at defined depth
         HashSet<String>[] visitedKmers = new HashSet[maxDepth];
@@ -3025,7 +3025,7 @@ public final class GraphUtils {
                                             HashSet<String> usedPartnerKmers) {
                 
         final int distance = graph.getPairedKmerDistance();
-        int maxDepth = maxLeftPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, lookahead);
+        int maxDepth = maxLeftPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
         
         // data structure to store visited kmers at defined depth
         HashSet<String>[] visitedKmers = new HashSet[maxDepth];
@@ -4107,7 +4107,7 @@ public final class GraphUtils {
                     // check whether the branches form a bubble
                     ArrayDeque<Kmer> bestBranch = branches.pollFirst();
                     String bestBranchSeq = assembleReverseOrder(bestBranch, k);
-                    String suffix = graph.getPrefix(bestBranch.peekLast().seq);
+                    String prefix = graph.getPrefix(bestBranch.peekLast().seq);
                     int bestBranchLength = bestBranch.size();
                     
                     for (ArrayDeque<Kmer> b : branches) {
@@ -4116,7 +4116,7 @@ public final class GraphUtils {
                         if (len >= bestBranchLength - maxIndelSize && len <= bestBranchLength + maxIndelSize) {
                             // length is within range
                             
-                            if (!suffix.equals(graph.getSuffix(b.peekLast().seq)) || 
+                            if (!prefix.equals(graph.getPrefix(b.peekLast().seq)) || 
                                     getPercentIdentity(assembleReverseOrder(b, k), bestBranchSeq) < percentIdentity) {
                                 return result;
                             }
