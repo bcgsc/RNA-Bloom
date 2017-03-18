@@ -34,22 +34,37 @@ import static rnabloom.util.SeqUtils.overlapMaximally;
  */
 public final class GraphUtils {
     
-    public static float getMedianKmerCoverage(final Collection<Kmer> kmers) {
+    public static float getMedianKmerCoverage(final ArrayDeque<Kmer> kmers) {
         int numKmers = kmers.size();
+        
+        Iterator<Kmer> itr = kmers.iterator();
+        
+        float[] counts = new float[numKmers];
+        for (int i=0; i<numKmers; ++i) {
+            counts[i] = itr.next().count;
+        }
+        Arrays.sort(counts);
+        
         int halfNumKmers = numKmers/2;
         
-        ArrayList<Float> counts = new ArrayList<>(numKmers);
-        for (Kmer kmer : kmers) {
-            counts.add(kmer.count);
-        }
-        
-        Collections.sort(counts);
-        
         if (numKmers % 2 == 0) {
-            return (counts.get(halfNumKmers) + counts.get(halfNumKmers -1))/2.0f;
+            return (counts[halfNumKmers] + counts[halfNumKmers-1])/2.0f;
         }
         
-        return counts.get(halfNumKmers);
+        return counts[halfNumKmers];
+        
+//        ArrayList<Float> counts = new ArrayList<>(numKmers);
+//        for (Kmer kmer : kmers) {
+//            counts.add(kmer.count);
+//        }
+//        
+//        Collections.sort(counts);
+//        
+//        if (numKmers % 2 == 0) {
+//            return (counts.get(halfNumKmers) + counts.get(halfNumKmers -1))/2.0f;
+//        }
+//        
+//        return counts.get(halfNumKmers);
     }
     
     public static float getMaxMedianCoverageRight(final BloomFilterDeBruijnGraph graph, final Kmer source, final int lookahead) {
@@ -2798,7 +2813,6 @@ public final class GraphUtils {
             
             kmers.add(cursor);
             
-            //usedPartnerKmers.add(cursor.seq);
             usedPartnerKmers.add(partner.seq);
             
             ++partnerIndex;

@@ -497,12 +497,14 @@ public class BloomFilterDeBruijnGraph {
                
         long[][] allHashVals = hashFunction.getPredecessorsHashValues(dbgbfCbfMaxNumHash, kmer.hashVals, kmer.seq.charAt(kMinus1));
         
+        long[] hashVals;
         for (int i=0; i<4; ++i) {
-            if (dbgbf.lookup(allHashVals[i])) {
-                float count = cbf.getCount(allHashVals[i]);
+            hashVals = allHashVals[i];
+            if (dbgbf.lookup(hashVals)) {
+                float count = cbf.getCount(hashVals);
                 if (count > 0) {
                     buffer.setCharAt(0, NUCLEOTIDES[i]);
-                    result.add(new Kmer(buffer.toString(), count, allHashVals[i], false));
+                    result.add(new Kmer(buffer.toString(), count, hashVals, false));
                 }
             }
         }
@@ -538,10 +540,10 @@ public class BloomFilterDeBruijnGraph {
         for (int i=0; i<4; ++i) {
             hashVals = allHashVals[i];
             if (bf.lookup(hashVals) && dbgbf.lookup(hashVals)) {
-                float count = cbf.getCount(allHashVals[i]);
+                float count = cbf.getCount(hashVals);
                 if (count > 0) {
                     buffer.setCharAt(0, NUCLEOTIDES[i]);
-                    result.add(new Kmer(buffer.toString(), count, allHashVals[i], false));
+                    result.add(new Kmer(buffer.toString(), count, hashVals, false));
                 }
             }
         }
@@ -589,13 +591,14 @@ public class BloomFilterDeBruijnGraph {
                
         long[][] allHashVals = hashFunction.getSuccessorsHashValues(dbgbfCbfMaxNumHash, kmer.hashVals, kmer.seq.charAt(0));
         
-        int lastIndex = kMinus1;
+        long[] hashVals;
         for (int i=0; i<4; ++i) {
-            if (dbgbf.lookup(allHashVals[i])) {
-                float count = cbf.getCount(allHashVals[i]);
+            hashVals = allHashVals[i];
+            if (dbgbf.lookup(hashVals)) {
+                float count = cbf.getCount(hashVals);
                 if (count > 0) {
-                    buffer.setCharAt(lastIndex, NUCLEOTIDES[i]);
-                    result.add(new Kmer(buffer.toString(), count, allHashVals[i], false));
+                    buffer.setCharAt(kMinus1, NUCLEOTIDES[i]);
+                    result.add(new Kmer(buffer.toString(), count, hashVals, false));
                 }
             }
         }
@@ -627,15 +630,14 @@ public class BloomFilterDeBruijnGraph {
                
         long[][] allHashVals = hashFunction.getSuccessorsHashValues(dbgbfCbfMaxNumHash, kmer.hashVals, kmer.seq.charAt(0));
         
-        int lastIndex = kMinus1;
         long[] hashVals;
         for (int i=0; i<4; ++i) {
             hashVals = allHashVals[i];
             if (bf.lookup(hashVals) && dbgbf.lookup(hashVals)) {
-                float count = cbf.getCount(allHashVals[i]);
+                float count = cbf.getCount(hashVals);
                 if (count > 0) {
-                    buffer.setCharAt(lastIndex, NUCLEOTIDES[i]);
-                    result.add(new Kmer(buffer.toString(), count, allHashVals[i], false));
+                    buffer.setCharAt(kMinus1, NUCLEOTIDES[i]);
+                    result.add(new Kmer(buffer.toString(), count, hashVals, false));
                 }
             }
         }

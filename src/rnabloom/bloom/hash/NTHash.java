@@ -498,12 +498,13 @@ public class NTHash {
      * @param k         length of kmer
      * @param m         number of hash values to generate
      * @param hVal      array to store hash values
+     * @param kMod64
      * @return hash values for each nucleotide added
      */
-    public static long[][] NTM64(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal) {
+    public static long[][] NTM64(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal, final int kMod64) {
         long bVal, tVal;
         
-        final long tmpVal = Long.rotateLeft(hVal[0], 1) ^ msTab[charOut][k%64];
+        final long tmpVal = Long.rotateLeft(hVal[0], 1) ^ msTab[charOut][kMod64];
         
         int numIns = charIns.length;
         final long[][] results = new long[numIns][m];
@@ -547,10 +548,11 @@ public class NTHash {
      * @param k         length of kmer
      * @param m         number of hash values to generate
      * @param hVal      array to store hash values
+     * @param kMinus1Mod64
      */
-    public static void NTM64B(final char charOut, final char charIn, final int k, final int m, final long[] hVal) {
+    public static void NTM64B(final char charOut, final char charIn, final int k, final int m, final long[] hVal, final int kMinus1Mod64) {
         long bVal, tVal;
-        bVal = Long.rotateRight(hVal[0], 1) ^ msTab[charOut][63] ^ msTab[charIn][(k-1)%64];
+        bVal = Long.rotateRight(hVal[0], 1) ^ msTab[charOut][63] ^ msTab[charIn][kMinus1Mod64];
         hVal[0] = bVal;
         for(int i=1; i<m; ++i) {
             tVal = bVal * (i ^ k * multiSeed);
@@ -566,9 +568,10 @@ public class NTHash {
      * @param k         length of kmer
      * @param m         number of hash values to generate
      * @param hVal      array to store hash values
+     * @param kMinus1Mod64
      * @return hash values for each nucleotide added
      */
-    public static long[][] NTM64B(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal) {
+    public static long[][] NTM64B(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal, final int kMinus1Mod64) {
         long bVal, tVal;
         
         final long tmpVal = Long.rotateRight(hVal[0], 1) ^ msTab[charOut][63];
@@ -577,7 +580,7 @@ public class NTHash {
         final long[][] results = new long[numIns][m];
         
         for (int c=0; c<numIns; ++c) {
-            bVal = tmpVal ^ msTab[charIns[c]][(k-1)%64];
+            bVal = tmpVal ^ msTab[charIns[c]][kMinus1Mod64];
             results[c][0] = bVal;
             for(int i=1; i<m; ++i) {
                 tVal = bVal * (i ^ k * multiSeed);

@@ -16,9 +16,13 @@ import static rnabloom.util.SeqUtils.NUCLEOTIDES;
  */
 public class HashFunction2 {
     protected final int k;
+    protected final int kMod64;
+    protected final int kMinus1Mod64;
     
     public HashFunction2(int k) {
         this.k = k;
+        this.kMod64 = k%64;
+        this.kMinus1Mod64 = (k-1)%64;
     }
     
     public void getHashValues(final CharSequence kmer,
@@ -28,11 +32,11 @@ public class HashFunction2 {
     }
     
     public long[][] getSuccessorsHashValues(final int numHash, final long[] hVals, final char leftMostNucleotide) {
-        return NTM64(leftMostNucleotide, NUCLEOTIDES, k, numHash, hVals);
+        return NTM64(leftMostNucleotide, NUCLEOTIDES, k, numHash, hVals, kMod64);
     }
 
     public long[][] getPredecessorsHashValues(final int numHash, final long[] hVals, final char rightMostNucleotide) {
-        return NTM64B(rightMostNucleotide, NUCLEOTIDES, k, numHash, hVals);
+        return NTM64B(rightMostNucleotide, NUCLEOTIDES, k, numHash, hVals, kMinus1Mod64);
     }    
     
     public NTHashIterator getHashIterator(final int numHash) {
