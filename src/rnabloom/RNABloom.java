@@ -768,6 +768,17 @@ public class RNABloom {
 //            ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookahead, (int) Math.ceil(fragment.length()*percentError)));
             ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
             
+            ArrayList<Kmer> correctedFragKmers = correctErrorsSE(fragKmers,
+                                                                graph, 
+                                                                lookahead,
+                                                                maxIndelSize,
+                                                                maxCovGradient, 
+                                                                covFPR,
+                                                                percentIdentity);
+            if (correctedFragKmers != null) {
+                fragKmers = correctedFragKmers;
+            }
+            
             if (!represented(fragKmers,
                                 graph,
                                 screeningBf,
@@ -830,7 +841,7 @@ public class RNABloom {
                     
                     if (this.errorCorrectionIterations > 0) {
                         
-                        ReadPair correctedReadPair = correctErrors2(leftKmers,
+                        ReadPair correctedReadPair = correctErrorsPE(leftKmers,
                                                             rightKmers,
                                                             graph, 
                                                             lookahead, 
@@ -1906,9 +1917,9 @@ public class RNABloom {
         
         System.out.println("args: " + Arrays.toString(args));
         
-        // -dm 0.25 - cm 0.5 -pm 0.25 -left /home/gengar/test_data/GAPDH/GAPDH_2.fq.gz -right /home/gengar/test_data/GAPDH/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /home/gengar/test_assemblies/GAPDH
+        // -dm 0.25 -cm 0.5 -pm 0.25 -left /home/gengar/test_data/GAPDH/GAPDH_2.fq.gz -right /home/gengar/test_data/GAPDH/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /home/gengar/test_assemblies/GAPDH
         // -dm 1 -cm 2.5 -pm 0.5 -left  /home/gengar/test_data/SRR1360926/trimmed_mod_2.fq -right /home/gengar/test_data/SRR1360926/trimmed_mod_1.fq -revcomp-right -stranded -name SRR1360926 -outdir /home/gengar/test_assemblies/SRR1360926
-        // -dm 0.25 - cm 0.5 -pm 0.25 -left /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.2.fq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.1.fq.gz -revcomp-right -stranded -name RNF213 -outdir /home/gengar/test_assemblies/RNF213
+        // -dm 0.25 -cm 0.5 -pm 0.25 -left /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.2.fq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.1.fq.gz -revcomp-right -stranded -name RNF213 -outdir /home/gengar/test_assemblies/RNF213
         
         // -left /projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/gapdh
         // -dm 1 -cm 2.5 -pm 0.5 -left /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_2.fq -right /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_1.fq -revcomp-right -stranded -name SRR1360926 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1360926
@@ -2269,7 +2280,7 @@ public class RNABloom {
             int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
-            int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "2"));
+            int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "5"));
             
             boolean saveGraph = true;
             boolean saveKmerPairs = true;
