@@ -767,7 +767,11 @@ public class RNABloom {
         public void run() {
 //            ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookahead, (int) Math.ceil(fragment.length()*percentError)));
             ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
-                        
+            
+//            if (fragment.equals("TGCAGATCGAGAGCCTGAATGAAGAGCTAGCCTACATGAAGAAGAACCATGAAGAGGAGATGAAGGAATTTAGCAACCAGGTGGTCGGCCAGGTCAACGTGGAGATGGATGCCACCCCAGGCATTGACCTGACCCGCGTGCTGGCAGAGATGAGGGAGCAGTACGAGGCCATGGCAGAGAGGAA")) {
+//                System.out.println("here");
+//            }
+            
             ArrayList<Kmer> correctedFragKmers = correctErrorsSE(fragKmers,
                                                                 graph, 
                                                                 lookahead,
@@ -1179,8 +1183,9 @@ public class RNABloom {
                             m = getMinCoverageOrderOfMagnitude(frag.minCov);
 
                             if (m >= 0) {
+                                graph.addPairedKmersFromSeq(frag.seq);
+                                
                                 if (frag.length >= longFragmentLengthThreshold) {
-                                    graph.addPairedKmersFromSeq(frag.seq);
                                     longFragmentsOut[m].write(Long.toString(++fragmentId), frag.seq);
                                 }
                                 else {
