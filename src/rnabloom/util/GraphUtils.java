@@ -3056,6 +3056,7 @@ public final class GraphUtils {
             LinkedList<Kmer> branches = branchesStack.getLast();
             
             if (branches.isEmpty()) {
+                extension.pollLast();
                 branchesStack.removeLast();
                 --depth;
                 --partnerIndex;
@@ -3140,6 +3141,7 @@ public final class GraphUtils {
             LinkedList<Kmer> branches = branchesStack.getLast();
             
             if (branches.isEmpty()) {
+                extension.pollLast();
                 branchesStack.removeLast();
                 --depth;
                 --partnerIndex;
