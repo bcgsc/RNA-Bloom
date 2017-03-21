@@ -939,13 +939,18 @@ public class RNABloom {
         
         public void submit(Runnable r) {
             while (true) {
-                try {
+                if (queue.remainingCapacity() > 0) {
                     service.submit(r);
-                    break;
+                    break;                    
                 }
-                catch(RejectedExecutionException e) {
-                    // do nothing
-                }
+                
+//                try {
+//                    service.submit(r);
+//                    break;
+//                }
+//                catch(RejectedExecutionException e) {
+//                    // do nothing
+//                }
             }
         }
         
@@ -1708,6 +1713,7 @@ public class RNABloom {
             fout.close();
             foutShort.close();
             
+            System.out.println("Screening Bloom filter FPR:      " + screeningBf.getFPR() * 100 + " %");
             screeningBf.destroy();
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -1926,6 +1932,7 @@ public class RNABloom {
         // -dm 1 -cm 2.5 -pm 0.5 -left /home/gengar/test_data/SRR1360926/SRR1360926_2.fastq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926_1.fastq.gz -revcomp-right -stranded -name SRR1360926 -outdir /home/gengar/test_assemblies/SRR1360926
         // -dm 0.25 -cm 0.5 -pm 0.25 -left /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.2.fq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.1.fq.gz -revcomp-right -stranded -name RNF213 -outdir /home/gengar/test_assemblies/RNF213
         
+        // -t 12 -dm 1 -cm 5 -pm 0.5 -sm 0.5 -e 1 -left /projects/btl2/kmnip/rna-bloom/example/SRX983106/SRR1957705_2.fastq.gz.trim.fq.gz -right /projects/btl2/kmnip/rna-bloom/example/SRX983106/SRR1957705_1.fastq.gz.trim.fq.gz -revcomp-right -stranded -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1957705/mar21
         // -left /projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/gapdh
         // -dm 1 -cm 2.5 -pm 0.5 -left /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_2.fq -right /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_1.fq -revcomp-right -stranded -name SRR1360926 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1360926
         // -dm 5 -cm 20 -pm 3 -sm 2 -left /projects/btl2/kmnip/ENCODE/MCF-7_nucleus_all_2.fq.gz -right /projects/btl2/kmnip/ENCODE/MCF-7_nucleus_all_1.fq.gz -revcomp-right -stranded -name mcf7 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/mcf7        
@@ -2283,7 +2290,7 @@ public class RNABloom {
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
             float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.95"));
             int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
-            int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "2"));
+            int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
             int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "5"));
             
