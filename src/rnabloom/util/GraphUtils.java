@@ -3047,22 +3047,29 @@ public final class GraphUtils {
         int depth = 0;
         int partnerIndex = numKmers - distance + depth;
         
-        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>();
+        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>(maxDepth);
         
         branchesStack.add(getSuccessorsRanked(kmers.get(numKmers-1), graph, lookahead));
         
-        ArrayDeque<Kmer> extension = new ArrayDeque<>();
+        ArrayDeque<Kmer> extension = new ArrayDeque<>(maxDepth);
+        HashSet<String> extensionKmers = new HashSet<>(maxDepth);
+        
+        Kmer cursor;
         while (!branchesStack.isEmpty() && depth <= maxDepth) {
             LinkedList<Kmer> branches = branchesStack.getLast();
             
             if (branches.isEmpty()) {
-                extension.pollLast();
+                cursor = extension.pollLast();
+                if (cursor != null) {
+                    extensionKmers.remove(cursor.seq);
+                }
+                
                 branchesStack.removeLast();
                 --depth;
                 --partnerIndex;
             }
             else {
-                Kmer cursor = branches.pop();
+                cursor = branches.pop();
                 
                 if (hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                     if (usedKmers.contains(cursor.seq) && usedPartnerKmers.contains(kmers.get(partnerIndex).seq)) {
@@ -3084,7 +3091,7 @@ public final class GraphUtils {
                     return true;
                 }
                 else if (depth < maxDepth &&
-                        (depth == 0 || !extension.getLast().equals(cursor))) {
+                        (depth == 0 || !extensionKmers.contains(cursor.seq))) {
                     
                     if (visitedKmers[depth] == null) {
                         HashSet<String> visitedSet = new HashSet<>();
@@ -3093,6 +3100,7 @@ public final class GraphUtils {
                         
                         branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
                         extension.add(cursor);
+                        extensionKmers.add(cursor.seq);
                         ++depth;
                         ++partnerIndex;
                     }
@@ -3101,6 +3109,7 @@ public final class GraphUtils {
                         
                         branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
                         extension.add(cursor);
+                        extensionKmers.add(cursor.seq);
                         ++depth;
                         ++partnerIndex;
                     }
@@ -3132,22 +3141,29 @@ public final class GraphUtils {
         int depth = 0;
         int partnerIndex = numKmers - distance + depth;
         
-        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>();
+        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>(maxDepth);
         
         branchesStack.add(getPredecessorsRanked(kmers.get(numKmers-1), graph, lookahead));
         
-        ArrayDeque<Kmer> extension = new ArrayDeque<>();
+        ArrayDeque<Kmer> extension = new ArrayDeque<>(maxDepth);
+        HashSet<String> extensionKmers = new HashSet<>(maxDepth);
+        
+        Kmer cursor;
         while (!branchesStack.isEmpty() && depth <= maxDepth) {
             LinkedList<Kmer> branches = branchesStack.getLast();
             
             if (branches.isEmpty()) {
-                extension.pollLast();
+                cursor = extension.pollLast();
+                if (cursor != null) {
+                    extensionKmers.remove(cursor.seq);
+                }
+                
                 branchesStack.removeLast();
                 --depth;
                 --partnerIndex;
             }
             else {
-                Kmer cursor = branches.pop();
+                cursor = branches.pop();
                 
                 if (hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                     if (usedKmers.contains(cursor.seq) && usedPartnerKmers.contains(kmers.get(partnerIndex).seq)) {
@@ -3169,7 +3185,7 @@ public final class GraphUtils {
                     return true;
                 }
                 else if (depth < maxDepth &&
-                        (depth == 0 || !extension.getLast().equals(cursor))) {
+                        (depth == 0 || !extensionKmers.contains(cursor.seq))) {
                     
                     if (visitedKmers[depth] == null) {
                         HashSet<String> visitedSet = new HashSet<>();
@@ -3178,6 +3194,7 @@ public final class GraphUtils {
                         
                         branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
                         extension.add(cursor);
+                        extensionKmers.add(cursor.seq);
                         ++depth;
                         ++partnerIndex;
                     }
@@ -3186,6 +3203,7 @@ public final class GraphUtils {
                         
                         branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
                         extension.add(cursor);
+                        extensionKmers.add(cursor.seq);
                         ++depth;
                         ++partnerIndex;
                     }
