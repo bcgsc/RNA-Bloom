@@ -3079,7 +3079,10 @@ public final class GraphUtils {
             else {
                 cursor = branches.pop();
                 
-                if (partnerIndex >=0 && hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                if (partnerIndex >=0 && 
+                        partnerIndex+minNumPairs < kmers.size() && 
+                        hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                    
                     if (usedKmers.contains(cursor.seq) && usedPartnerKmers.contains(kmers.get(partnerIndex).seq)) {
                         return false;
                     }
@@ -3173,7 +3176,10 @@ public final class GraphUtils {
             else {
                 cursor = branches.pop();
                 
-                if (partnerIndex >=0 && hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                if (partnerIndex >=0 && 
+                        partnerIndex+minNumPairs < kmers.size() && 
+                        hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                    
                     if (usedKmers.contains(cursor.seq) && usedPartnerKmers.contains(kmers.get(partnerIndex).seq)) {
                         return false;
                     }
