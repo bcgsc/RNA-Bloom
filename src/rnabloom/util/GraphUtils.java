@@ -473,6 +473,10 @@ public final class GraphUtils {
                     
                     if (expectedPathLen >= k-maxIndelSize) {
                         ArrayDeque<Kmer> testPathKmers = getMaxCoveragePath(graph, kmers.get(lastKmerFoundIndex), currentKmer, expectedPathLen+maxIndelSize, lookahead, bf);
+                        if (testPathKmers == null) {
+                            return false;
+                        }
+                        
                         int testPathLen = testPathKmers.size();
 
                         if ((testPathLen < expectedPathLen-maxIndelSize ||
@@ -495,7 +499,7 @@ public final class GraphUtils {
             if (expectedLen >= k) {
                 ArrayDeque testEdgeKmers = greedyExtendRight(graph, kmers.get(lastKmerFoundIndex), lookahead, expectedLen, bf);
                 if (testEdgeKmers.size() != expectedLen ||
-                        getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, lastKmerFoundIndex+1, numKmers+1)) < percentIdentity) {
+                        getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, lastKmerFoundIndex+1, numKmers)) < percentIdentity) {
                     return false;
                 }
             }
@@ -2807,6 +2811,7 @@ public final class GraphUtils {
                 numKmers = kmers.size();
                 
                 if (numKmers < distance) {
+                    // too short to have partners
                     return true;
                 }
                 
@@ -2818,11 +2823,12 @@ public final class GraphUtils {
                 }
                 
                 // NOTE: kmer at `partnerIndex` will be paired with `cursor`
-                for (int i=partnerIndex-simpleExtension.size(); i<partnerIndex; ++i) {
+                for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
                     usedPartnerKmers.add(kmers.get(i).seq);
                 }
             }
             else if (numKmers < distance) {
+                // too short to have partners
                 return true;
             }
             
@@ -2936,6 +2942,7 @@ public final class GraphUtils {
                 numKmers = kmers.size();
                 
                 if (numKmers < distance) {
+                    // too short to have partners
                     return true;
                 }
 
@@ -2947,11 +2954,12 @@ public final class GraphUtils {
                 }
                 
                 // NOTE: kmer at `partnerIndex` will be paired with `cursor`
-                for (int i=partnerIndex-simpleExtension.size(); i<partnerIndex; ++i) {
+                for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
                     usedPartnerKmers.add(kmers.get(i).seq);
                 }
             }
             else if (numKmers < distance) {
+                // too short to have partners
                 return true;
             }
             
@@ -3071,7 +3079,7 @@ public final class GraphUtils {
             else {
                 cursor = branches.pop();
                 
-                if (hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                if (partnerIndex >=0 && hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                     if (usedKmers.contains(cursor.seq) && usedPartnerKmers.contains(kmers.get(partnerIndex).seq)) {
                         return false;
                     }
@@ -3084,7 +3092,7 @@ public final class GraphUtils {
                     }
                     usedKmers.add(cursor.seq);
                                         
-                    for (int i=partnerIndex-extension.size(); i<=partnerIndex; ++i) {
+                    for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
                         usedPartnerKmers.add(kmers.get(i).seq);
                     }
                     
@@ -3165,7 +3173,7 @@ public final class GraphUtils {
             else {
                 cursor = branches.pop();
                 
-                if (hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                if (partnerIndex >=0 && hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                     if (usedKmers.contains(cursor.seq) && usedPartnerKmers.contains(kmers.get(partnerIndex).seq)) {
                         return false;
                     }
@@ -3178,7 +3186,7 @@ public final class GraphUtils {
                     }
                     usedKmers.add(cursor.seq);
                     
-                    for (int i=partnerIndex-extension.size(); i<=partnerIndex; ++i) {
+                    for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
                         usedPartnerKmers.add(kmers.get(i).seq);
                     }
                     
