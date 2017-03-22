@@ -752,20 +752,16 @@ public class RNABloom {
     private class TranscriptAssembler implements Runnable {
         
         private String fragment;
-        private boolean beGreedy;
         private AssembledTranscriptsQueue outList;
         
         public TranscriptAssembler(String fragment,
-                                    AssembledTranscriptsQueue outList,
-                                    boolean beGreedy) {
+                                    AssembledTranscriptsQueue outList) {
             this.fragment = fragment;
             this.outList = outList;
-            this.beGreedy = beGreedy;
         }
 
         @Override
         public void run() {
-//            ArrayList<Kmer> fragKmers = graph.getKmers(correctMismatches(fragment, graph, lookahead, (int) Math.ceil(fragment.length()*percentError)));
             ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
             
 //            if (fragment.equals("TGCAGATCGAGAGCCTGAATGAAGAGCTAGCCTACATGAAGAAGAACCATGAAGAGGAGATGAAGGAATTTAGCAACCAGGTGGTCGGCCAGGTCAACGTGGAGATGGATGCCACCCCAGGCATTGACCTGACCCGCGTGCTGGCAGAGATGAGGGAGCAGTACGAGGCCATGGCAGAGAGGAA")) {
@@ -791,7 +787,7 @@ public class RNABloom {
                                 percentIdentity)) {
                                 
 //                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
-                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs);
+                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs);
 
                 
                 outList.add(fragment, fragKmers);
@@ -958,6 +954,10 @@ public class RNABloom {
             service.shutdown();
             service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
         }
+        
+        public int getQueueRemainingCapacity() {
+            return queue.remainingCapacity();
+        }
     }
         
     public int[] getMinQ1MedianQ3Max(ArrayList<Integer> a) {
@@ -1041,7 +1041,7 @@ public class RNABloom {
         long fragmentId = 0;
         long readPairsParsed = 0;
         
-        int maxTasksQueueSize = 2;
+        int maxTasksQueueSize = numThreads;
         
         int newBound = bound;
         boolean pairedKmerDistanceIsSet = false;
@@ -1226,8 +1226,13 @@ public class RNABloom {
                             // write fragments to file
                             int m;
                             Fragment frag;
-                            while (!fragments.isEmpty()) {
+                            for (int i=0; i<sampleSize; ++i) {
                                 frag = fragments.poll();
+                                
+                                if (frag == null) {
+                                    break;
+                                }
+                                
                                 if (frag.length >= shortestFragmentLengthAllowed) {
                                     m = getMinCoverageOrderOfMagnitude(frag.minCov);
 
@@ -1620,7 +1625,7 @@ public class RNABloom {
             boolean append = false;
 
             // set up thread pool
-            int maxTasksQueueSize = 2;
+            int maxTasksQueueSize = numThreads;
         
 
             FastaWriter fout = new FastaWriter(outFasta, append);
@@ -1636,8 +1641,6 @@ public class RNABloom {
             
             for (String[] fragmentsFastas : new String[][]{longFragmentsFastas, shortFragmentsFastas}) {
                 for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
-                    boolean beGreedy = false;
-
                     String prefix = "E" + mag + tag;
 
                     String fragmentsFasta = fragmentsFastas[mag];
@@ -1664,17 +1667,19 @@ public class RNABloom {
                         
                         if (numFragKmers > 0 && !isHomoPolymer(fragment)) {
                                
-                            service.submit(new TranscriptAssembler(fragment,
-                                    transcripts,
-                                    beGreedy
-                            ));
+                            service.submit(new TranscriptAssembler(fragment, transcripts));
                             
                             if (transcripts.remainingCapacity() <= numThreads) {
 
                                 // write fragments to file
                                 int len;
-                                while (!transcripts.isEmpty()) {
+                                for (int i=0; i<sampleSize; ++i) {
                                     t = transcripts.poll();
+                                    
+                                    if (t == null) {
+                                        break;
+                                    }
+                                    
                                     len = t.transcript.length();
                                     
                                     if (len >= minTranscriptLength) {
