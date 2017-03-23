@@ -2768,7 +2768,7 @@ public final class GraphUtils {
         return true;
     }
     
-    public static boolean extendRightWithPairedKmersBFS(ArrayList<Kmer> kmers, 
+    private static boolean extendRightWithPairedKmersBFS(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int lookahead, 
                                             int maxTipLength,
@@ -2780,6 +2780,7 @@ public final class GraphUtils {
                                             HashSet<String> usedPartnerKmers) {
         
         int distance = graph.getPairedKmerDistance();
+        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int numKmers = kmers.size();
                             
         Kmer cursor = kmers.get(numKmers-1);
@@ -2875,10 +2876,13 @@ public final class GraphUtils {
                 boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
                 
                 if (assembled) {
-                    for (int i=partnerIndex; i<partnerIndex+lookahead; ++i) {
+                    int numNotAssembled = 0;
+                    for (int i=partnerIndex; i<numKmers; ++i) {
                         if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-                            assembled = false;
-                            break;
+                            if (distanceInversePI < ++numNotAssembled) {
+                                assembled = false;
+                                break;
+                            }
                         }
                     }
                 }
@@ -2902,7 +2906,7 @@ public final class GraphUtils {
         return true;
     }
     
-    public static boolean extendLeftWithPairedKmersBFS(ArrayList<Kmer> kmers, 
+    private static boolean extendLeftWithPairedKmersBFS(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int lookahead, 
                                             int maxTipLength,
@@ -2914,8 +2918,10 @@ public final class GraphUtils {
                                             HashSet<String> usedPartnerKmers) {
         
         int distance = graph.getPairedKmerDistance();
+        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int numKmers = kmers.size();
-                      
+        
+        // Note that `kmers` are in reverse order already
         Kmer cursor = kmers.get(numKmers-1);
         ArrayDeque<Kmer> neighbors = graph.getPredecessors(cursor);
         
@@ -2925,7 +2931,7 @@ public final class GraphUtils {
         ArrayDeque<Kmer> simpleExtension;
         
         while (!neighbors.isEmpty()) {
-            simpleExtension = extendRight(cursor,
+            simpleExtension = extendLeft(cursor,
                                             graph, 
                                             maxTipLength, 
                                             usedKmers, 
@@ -3009,10 +3015,13 @@ public final class GraphUtils {
                 boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
                 
                 if (assembled) {
-                    for (int i=partnerIndex; i<partnerIndex+lookahead; ++i) {
+                    int numNotAssembled = 0;
+                    for (int i=partnerIndex; i<numKmers; ++i) {
                         if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-                            assembled = false;
-                            break;
+                            if (distanceInversePI < ++numNotAssembled) {
+                                assembled = false;
+                                break;
+                            }
                         }
                     }
                 }
