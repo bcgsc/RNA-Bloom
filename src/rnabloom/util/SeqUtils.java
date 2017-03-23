@@ -25,6 +25,12 @@ public final class SeqUtils {
     private final static int CHAR_G_INT = (int) 'G';
     private final static int CHAR_T_INT = (int) 'T';
     
+    private final static int CHAR_A_BYTE = (byte) 'A';
+    private final static int CHAR_C_BYTE = (byte) 'C';
+    private final static int CHAR_G_BYTE = (byte) 'G';
+    private final static int CHAR_T_BYTE = (byte) 'T';
+    public final static byte[] NUCLEOTIDE_BYTES = new byte[] {CHAR_A_BYTE, CHAR_C_BYTE, CHAR_G_BYTE, CHAR_T_BYTE};
+    
     public static final char GAP_CHAR = 'N';
     
     public final static char[] NUCLEOTIDES = new char[] {'A','C','G','T'};
@@ -32,6 +38,53 @@ public final class SeqUtils {
     public final static char[] C_ALT_NUCLEOTIDES = new char[] {'A','G','T'};
     public final static char[] G_ALT_NUCLEOTIDES = new char[] {'A','C','T'};
     public final static char[] T_ALT_NUCLEOTIDES = new char[] {'A','C','G'};
+    
+    public static final byte[] stringToBytes(String seq, int len) {
+        byte[] arr = new byte[len];
+        
+        for (int i=0; i<len; ++i) {
+            arr[i] = (byte) seq.charAt(i);
+        }
+        
+        return arr;
+    }
+    
+    public static final String bytesToString(byte[] bytes, int len) {
+        StringBuilder sb = new StringBuilder(len);
+        
+        for (byte b : bytes) {
+            sb.append((char) b);
+        }
+        
+        return sb.toString();
+    }
+    
+    public static final byte[] shiftRight(byte[] bytes, int len) {
+        byte[] bytes2 = new byte[len];
+        System.arraycopy(bytes, 0, bytes2, 1, len-1);
+        return bytes2;
+    }
+    
+    public static final byte[] shiftLeft(byte[] bytes, int len) {
+        byte[] bytes2 = new byte[len];
+        System.arraycopy(bytes, 1, bytes2, 0, len-1);
+        return bytes2;
+    }
+    
+    public static final char[] getAltNucleotides(byte c) {
+        switch (c) {
+            case CHAR_A_BYTE:
+                return A_ALT_NUCLEOTIDES;
+            case CHAR_C_BYTE:
+                return C_ALT_NUCLEOTIDES;
+            case CHAR_G_BYTE:
+                return G_ALT_NUCLEOTIDES;
+            case CHAR_T_BYTE:
+                return T_ALT_NUCLEOTIDES;
+            default:
+                return NUCLEOTIDES;
+        }
+    }
     
     public static final char[] getAltNucleotides(char c) {
         switch (c) {
@@ -133,8 +186,23 @@ public final class SeqUtils {
     public static final float getGCContent(String seq) {
         return (float) getNumGC(seq) / seq.length();
     }
+
+    private static int nucleotideArrayIndex(byte b) {
+        switch(b) {
+            case CHAR_A_BYTE:
+                return 0;
+            case CHAR_C_BYTE:
+                return 1;
+            case CHAR_G_BYTE:
+                return 2;
+            case CHAR_T_BYTE:
+                return 3;
+            default:
+                return -1;
+        }
+    }
     
-    private static final int nucleotideArrayIndex(int c) {
+    private static int nucleotideArrayIndex(int c) {
         switch(c) {
             case CHAR_A_INT:
                 return 0;
@@ -150,6 +218,75 @@ public final class SeqUtils {
     }
     
     private static final float LOW_COMPLEXITY_THRESHOLD = 0.87f;
+    
+    public static final boolean isLowComplexity2(byte[] bytes) {
+        byte nf1[]     = new byte[4];
+        byte nf2[][]   = new byte[4][4];
+        byte nf3[][][] = new byte[4][4][4];
+        
+        int c3 = nucleotideArrayIndex(bytes[0]);
+        int c2 = nucleotideArrayIndex(bytes[1]);
+        int c1 = nucleotideArrayIndex(bytes[2]);
+        
+        ++nf1[c3];
+        ++nf1[c2];
+        ++nf1[c1];
+        
+        ++nf2[c3][c2];
+        ++nf2[c2][c1];
+        
+        ++nf3[c3][c2][c1];
+        
+        int length = bytes.length;
+        
+        for (int i=3; i<length; ++i) {
+            c3 = c2;
+            c2 = c1;
+            c1 = nucleotideArrayIndex(bytes[i]);
+            
+            ++nf1[c1];
+            ++nf2[c2][c1];
+            ++nf3[c3][c2][c1];
+        }
+        
+        // homopolymer runs
+        int t1 = Math.round(length * LOW_COMPLEXITY_THRESHOLD);
+        for (byte n : nf1) {
+            if (n >= t1) {
+                return true;
+            }
+        }
+        
+        // di-nucleotide content
+        if (nf1[0]+nf1[1]>t1 || nf1[0]+nf1[2]>t1 || nf1[0]+nf1[3]>t1 || 
+                nf1[1]+nf1[2]>t1 || nf1[1]+nf1[3]>t1 || nf1[2]+nf1[3]>t1) {
+            return true;
+        }
+        
+        // di-nucleotide repeat
+        int t2 = Math.round(length/2 * LOW_COMPLEXITY_THRESHOLD);
+        for (byte[] n1 : nf2) {
+            for (byte n : n1) {
+                if (n >= t2) {
+                    return true;
+                }
+            }
+        }
+        
+        // tri-nucleotide repeat
+        int t3 = Math.round(length/3 * LOW_COMPLEXITY_THRESHOLD);
+        for (byte[][] n2 : nf3) {
+            for (byte[] n1 : n2) {
+                for (byte n : n1) {
+                    if (n >= t3) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        return false;
+    }
     
     public static final boolean isLowComplexity2(String seq) {
         byte nf1[]     = new byte[4];
@@ -556,6 +693,13 @@ public final class SeqUtils {
     }
        
     public static void main(String[] args) {
-        System.out.println(isLowComplexity2("ATGATGATGATGAAA"));
+        String chars = "ACGTATGC";
+        int len = chars.length();
+        
+        byte[] bytes = stringToBytes(chars, len);
+        byte[] bytes2 = shiftLeft(bytes, len);
+        bytes2[len-1] = (byte) 'M';
+        
+        System.out.println(bytesToString(bytes2, len));
     }
 }

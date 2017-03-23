@@ -970,8 +970,8 @@ public class RNABloom {
                     if (!corrected || okToConnectPair(leftKmers, rightKmers)) {
                         ArrayList<Kmer> fragmentKmers = null;
                         
-                        if (!isLowComplexity2(leftKmers.get(leftKmers.size()-1).seq) &&  
-                                !isLowComplexity2(rightKmers.get(0).seq)) {
+                        if (!isLowComplexity2(leftKmers.get(leftKmers.size()-1).bytes) &&  
+                                !isLowComplexity2(rightKmers.get(0).bytes)) {
                             fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap);
                         }
                         
