@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -3061,18 +3062,18 @@ public final class GraphUtils {
         int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
         
         // data structure to store visited kmers at defined depth
-        HashSet<String>[] visitedKmers = new HashSet[maxDepth];
+        HashMap<String, ArrayDeque<Integer>> visitedKmers = new HashMap();
                 
         int numKmers = kmers.size();
         int depth = 0;
         int partnerIndex = numKmers - distance + depth;
         
-        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>(maxDepth);
+        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>();
         
         branchesStack.add(getSuccessorsRanked(kmers.get(numKmers-1), graph, lookahead));
         
-        ArrayDeque<Kmer> extension = new ArrayDeque<>(maxDepth);
-        HashSet<String> extensionKmers = new HashSet<>(maxDepth);
+        ArrayDeque<Kmer> extension = new ArrayDeque<>();
+        HashSet<String> extensionKmers = new HashSet<>();
         
         Kmer cursor;
         while (!branchesStack.isEmpty() && depth <= maxDepth) {
@@ -3120,20 +3121,43 @@ public final class GraphUtils {
                 else if (depth < maxDepth &&
                         (depth == 0 || !extensionKmers.contains(cursorSeq))) {
                     
-                    if (visitedKmers[depth] == null) {
-                        HashSet<String> visitedSet = new HashSet<>();
-                        visitedSet.add(cursorSeq);
-                        visitedKmers[depth] = visitedSet;
+                    if (graph.getNumPredecessors(cursor) > 1) {
+                        // only consider kmers that may be visited from an alternative branch upstream
                         
-                        branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
-                        extension.add(cursor);
-                        extensionKmers.add(cursorSeq);
-                        ++depth;
-                        ++partnerIndex;
+                        ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursorSeq);
+                        if (visitedDepths == null) {
+                            visitedDepths = new ArrayDeque<>();
+                            visitedDepths.add(depth);
+                            
+                            visitedKmers.put(cursorSeq, visitedDepths);
+                            
+                            branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
+                            extension.add(cursor);
+                            extensionKmers.add(cursorSeq);
+                            ++depth;
+                            ++partnerIndex;
+                        }
+                        else {
+                            boolean visited = false;
+                            for (Integer d : visitedDepths) {
+                                if (d == depth) {
+                                    visited = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!visited) {
+                                visitedDepths.add(depth);
+
+                                branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
+                                extension.add(cursor);
+                                extensionKmers.add(cursorSeq);
+                                ++depth;
+                                ++partnerIndex;
+                            }
+                        }
                     }
-                    else if (!visitedKmers[depth].contains(cursorSeq)) {
-                        visitedKmers[depth].add(cursorSeq);
-                        
+                    else {
                         branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
                         extension.add(cursor);
                         extensionKmers.add(cursorSeq);
@@ -3162,18 +3186,18 @@ public final class GraphUtils {
         int maxDepth = maxLeftPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
         
         // data structure to store visited kmers at defined depth
-        HashSet<String>[] visitedKmers = new HashSet[maxDepth];
+        HashMap<String, ArrayDeque<Integer>> visitedKmers = new HashMap();
         
         int numKmers = kmers.size();
         int depth = 0;
         int partnerIndex = numKmers - distance + depth;
         
-        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>(maxDepth);
+        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>();
         
         branchesStack.add(getPredecessorsRanked(kmers.get(numKmers-1), graph, lookahead));
         
-        ArrayDeque<Kmer> extension = new ArrayDeque<>(maxDepth);
-        HashSet<String> extensionKmers = new HashSet<>(maxDepth);
+        ArrayDeque<Kmer> extension = new ArrayDeque<>();
+        HashSet<String> extensionKmers = new HashSet<>();
         
         Kmer cursor;
         while (!branchesStack.isEmpty() && depth <= maxDepth) {
@@ -3220,20 +3244,43 @@ public final class GraphUtils {
                 else if (depth < maxDepth &&
                         (depth == 0 || !extensionKmers.contains(cursorSeq))) {
                     
-                    if (visitedKmers[depth] == null) {
-                        HashSet<String> visitedSet = new HashSet<>();
-                        visitedSet.add(cursorSeq);
-                        visitedKmers[depth] = visitedSet;
+                    if (graph.getNumSuccessors(cursor) > 1) {
+                        // only consider kmers that may be visited from an alternative branch upstream
                         
-                        branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
-                        extension.add(cursor);
-                        extensionKmers.add(cursorSeq);
-                        ++depth;
-                        ++partnerIndex;
+                        ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursorSeq);
+                        if (visitedDepths == null) {
+                            visitedDepths = new ArrayDeque<>();
+                            visitedDepths.add(depth);
+                            
+                            visitedKmers.put(cursorSeq, visitedDepths);
+                            
+                            branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
+                            extension.add(cursor);
+                            extensionKmers.add(cursorSeq);
+                            ++depth;
+                            ++partnerIndex;
+                        }
+                        else {
+                            boolean visited = false;
+                            for (Integer d : visitedDepths) {
+                                if (d == depth) {
+                                    visited = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!visited) {
+                                visitedDepths.add(depth);
+
+                                branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
+                                extension.add(cursor);
+                                extensionKmers.add(cursorSeq);
+                                ++depth;
+                                ++partnerIndex;
+                            }
+                        }
                     }
-                    else if (!visitedKmers[depth].contains(cursorSeq)) {
-                        visitedKmers[depth].add(cursorSeq);
-                        
+                    else {
                         branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
                         extension.add(cursor);
                         extensionKmers.add(cursorSeq);
