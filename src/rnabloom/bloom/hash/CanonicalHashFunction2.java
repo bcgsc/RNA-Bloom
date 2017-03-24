@@ -6,6 +6,7 @@
 package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.NTHash.NTMC64;
+import static rnabloom.util.SeqUtils.NUCLEOTIDES;
 import static rnabloom.util.SeqUtils.smallestStrand;
 
 /**
@@ -28,7 +29,7 @@ public class CanonicalHashFunction2 extends HashFunction2 {
     public NTHashIterator getHashIterator(final int numHash) {
         return new CanonicalNTHashIterator(k, numHash);
     }
-    
+        
 //    @Override
 //    public long[] getHashValues(final CharSequence kmer1, final CharSequence kmer2, int numHash) {
 //        String[] reorientedKmers = smallestStrand(kmer1.toString(), kmer2.toString());

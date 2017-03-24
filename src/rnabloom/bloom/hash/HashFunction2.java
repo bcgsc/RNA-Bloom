@@ -8,6 +8,8 @@ package rnabloom.bloom.hash;
 import static rnabloom.bloom.hash.NTHash.NTM64;
 import static rnabloom.bloom.hash.NTHash.NTM64B;
 import static rnabloom.util.SeqUtils.NUCLEOTIDES;
+import static rnabloom.bloom.hash.NTHash.NTM64;
+import static rnabloom.bloom.hash.NTHash.NTM64B;
 
 
 /**
@@ -41,6 +43,22 @@ public class HashFunction2 {
     
     public NTHashIterator getHashIterator(final int numHash) {
         return new NTHashIterator(k, numHash);
+    }
+    
+    public SuccessorsNTHashIterator getSuccessorsHashIterator(final int numHash) {
+        return new SuccessorsNTHashIterator(k, numHash);
+    }
+    
+    public PredecessorsNTHashIterator getPredecessorsNTHashIterator(final int numHash) {
+        return new PredecessorsNTHashIterator(k, numHash);
+    }
+    
+    public LeftVariantsNTHashIterator getLeftVariantsNTHashIterator(final int numHash) {
+        return new LeftVariantsNTHashIterator(k, numHash);
+    }
+    
+    public RightVariantsNTHashIterator getRightVariantsNTHashIterator(final int numHash) {
+        return new RightVariantsNTHashIterator(k, numHash);
     }
     
     public long[] getHashValues(final CharSequence kmer1,
