@@ -14,6 +14,7 @@ import static rnabloom.bloom.hash.NTHash.NTM64;
 public class NTHashIterator {
     protected CharSequence seq;
     protected final int k;
+    protected final int kMod64;
     protected final int h;
     protected int pos = -1;
     protected int max = -2;
@@ -21,6 +22,7 @@ public class NTHashIterator {
 
     public NTHashIterator(int k, int h) {
         this.k = k;
+        this.kMod64 = k%64;
         this.h = h;
         this.hVals = new long[h];
     }
@@ -36,7 +38,7 @@ public class NTHashIterator {
             NTM64(seq.subSequence(0, k), k, h, hVals);
         }
         else if (pos < max) {
-            NTM64(seq.charAt(pos), seq.charAt(pos+k), k, h, hVals);
+            NTM64(seq.charAt(pos), seq.charAt(pos+k), k, h, hVals, kMod64);
         }
         else {
             hVals = null;

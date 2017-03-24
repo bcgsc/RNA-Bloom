@@ -14,13 +14,13 @@ public class NTHash {
     
     
     // offset for the complement base in the random seeds table
-    private static final int cpOff = 0x07;
+    protected static final int cpOff = 0x07;
 
     // shift for generating multiple hash values
-    private static final int multiShift = 27;
+    protected static final int multiShift = 27;
 
     // seed for generating multiple hash values
-    private final static long multiSeed = 0x90b45d39fb6da1faL;
+    protected final static long multiSeed = 0x90b45d39fb6da1faL;
 
     // 64-bit random seeds corresponding to bases and their complements
     private final static long seedA = 0x3c8bfbb395c60474L;
@@ -84,7 +84,7 @@ public class NTHash {
         seedN,seedN,seedN,seedN,seedN,seedN,seedN,seedN
     };
 
-    private final static long[][] msTab = {
+    protected final static long[][] msTab = {
         vecN, vecT, vecN, vecG, vecA, vecN, vecN, vecC, // 0..7
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 8..15
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 16..23
@@ -480,9 +480,9 @@ public class NTHash {
      * @param m         number of hash values to generate
      * @param hVal      array to store hash values
      */
-    public static void NTM64(final char charOut, final char charIn, final int k, final int m, final long[] hVal) {
+    public static void NTM64(final char charOut, final char charIn, final int k, final int m, final long[] hVal, final int kMod64) {
         long bVal, tVal;
-        bVal = Long.rotateLeft(hVal[0], 1) ^ msTab[charOut][k%64] ^ msTab[charIn][0];
+        bVal = Long.rotateLeft(hVal[0], 1) ^ msTab[charOut][kMod64] ^ msTab[charIn][0];
         hVal[0] = bVal;
         for(int i=1; i<m; ++i) {
             tVal = bVal * (i ^ k * multiSeed);
@@ -668,7 +668,7 @@ public class NTHash {
             hVal[i] = tVal;
         }
     }
-            
+        
 //    public static void main(String[] args) {
 //        long h = Long.MIN_VALUE;
 //        
