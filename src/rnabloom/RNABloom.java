@@ -231,8 +231,7 @@ public class RNABloom {
                 successful = true;
                 System.out.println("[" + id + "] Parsed " + NumberFormat.getInstance().format(numReads) + " reads.");
             } catch (Exception e) {
-                /**@TODO */
-                e.printStackTrace();
+                throw new RuntimeException(e);
             }
         }
         
@@ -934,74 +933,70 @@ public class RNABloom {
         
         @Override
         public void run() {
-            // connect segments of each read
-            String left = connect(p.left, graph, lookahead);
-            String right = connect(p.right, graph, lookahead);
+            try {
+                // connect segments of each read
+                String left = connect(p.left, graph, lookahead);
+                String right = connect(p.right, graph, lookahead);
 
-            if (left.length() >= this.leftReadLengthThreshold 
-                    && right.length() >= this.rightReadLengthThreshold) { 
-                                
-                ArrayList<Kmer> leftKmers = graph.getKmers(left);
-                ArrayList<Kmer> rightKmers = graph.getKmers(right);
-                
-                if (okToConnectPair(leftKmers, rightKmers)) {
-                    boolean corrected = false;
-                    
-                    if (this.errorCorrectionIterations > 0) {
-                        
-                        ReadPair correctedReadPair = correctErrorsPE(leftKmers,
-                                                            rightKmers,
-                                                            graph, 
-                                                            lookahead, 
-                                                            maxIndelSize, 
-                                                            maxCovGradient, 
-                                                            covFPR,
-                                                            this.errorCorrectionIterations,
-                                                            2,
-                                                            percentIdentity);
-                        
-                        if (correctedReadPair.corrected) {
-                            corrected = true;
-                            leftKmers = correctedReadPair.leftKmers;
-                            rightKmers = correctedReadPair.rightKmers;
-                        }
-                    }
-                    
-                    if (!corrected || okToConnectPair(leftKmers, rightKmers)) {
-                        ArrayList<Kmer> fragmentKmers = null;
-                        
-                        if (!isLowComplexity2(leftKmers.get(leftKmers.size()-1).bytes) &&  
-                                !isLowComplexity2(rightKmers.get(0).bytes)) {
-                            fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap);
-                        }
-                        
-                        if (fragmentKmers != null) {
-                            int fragLength = fragmentKmers.size() + k - 1;
-                            
-                            if (fragLength >= k + lookahead) {
-                                if (this.storeKmerPairs) {
-                                    graph.addPairedKmers(fragmentKmers);
-                                }
+                if (left.length() >= this.leftReadLengthThreshold 
+                        && right.length() >= this.rightReadLengthThreshold) { 
 
-                                float minCov = Float.MAX_VALUE;
-                                for (Kmer kmer : fragmentKmers) {
-                                    if (kmer.count < minCov) {
-                                        minCov = kmer.count;
-                                    }
-                                }
+                    ArrayList<Kmer> leftKmers = graph.getKmers(left);
+                    ArrayList<Kmer> rightKmers = graph.getKmers(right);
 
-                                try {
-                                    outList.put(new Fragment(assemble(fragmentKmers, k), fragLength, minCov, false));
-                                } catch (Exception ex) {
-                                    ex.printStackTrace();
-                                }
+                    if (okToConnectPair(leftKmers, rightKmers)) {
+                        boolean corrected = false;
+
+                        if (this.errorCorrectionIterations > 0) {
+
+                            ReadPair correctedReadPair = correctErrorsPE(leftKmers,
+                                                                rightKmers,
+                                                                graph, 
+                                                                lookahead, 
+                                                                maxIndelSize, 
+                                                                maxCovGradient, 
+                                                                covFPR,
+                                                                this.errorCorrectionIterations,
+                                                                2,
+                                                                percentIdentity);
+
+                            if (correctedReadPair.corrected) {
+                                corrected = true;
+                                leftKmers = correctedReadPair.leftKmers;
+                                rightKmers = correctedReadPair.rightKmers;
                             }
                         }
-                        else {
-                            // write unconnected reads to file
-                            try {
+
+                        if (!corrected || okToConnectPair(leftKmers, rightKmers)) {
+                            ArrayList<Kmer> fragmentKmers = null;
+
+                            if (!isLowComplexity2(leftKmers.get(leftKmers.size()-1).bytes) &&  
+                                    !isLowComplexity2(rightKmers.get(0).bytes)) {
+                                fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap);
+                            }
+
+                            if (fragmentKmers != null) {
+                                int fragLength = fragmentKmers.size() + k - 1;
+
+                                if (fragLength >= k + lookahead) {
+                                    if (this.storeKmerPairs) {
+                                        graph.addPairedKmers(fragmentKmers);
+                                    }
+
+                                    float minCov = Float.MAX_VALUE;
+                                    for (Kmer kmer : fragmentKmers) {
+                                        if (kmer.count < minCov) {
+                                            minCov = kmer.count;
+                                        }
+                                    }
+
+                                    outList.put(new Fragment(assemble(fragmentKmers, k), fragLength, minCov, false));
+                                }
+                            }
+                            else {
+                                // write unconnected reads to file
                                 float minCov = Float.MAX_VALUE;
-                                
+
                                 if (leftKmers.size() >= lookahead) {
                                     for (Kmer kmer : leftKmers) {
                                         if (kmer.count < minCov) {
@@ -1010,7 +1005,7 @@ public class RNABloom {
                                     }
                                     outList.put(new Fragment(assemble(leftKmers, k), leftKmers.size()+k-1, minCov, true));
                                 }
-                                
+
                                 if (rightKmers.size() >= lookahead) {
                                     minCov = Float.MAX_VALUE;
                                     for (Kmer kmer : rightKmers) {
@@ -1020,12 +1015,13 @@ public class RNABloom {
                                     }
                                     outList.put(new Fragment(assemble(rightKmers, k), rightKmers.size()+k-1, minCov, true));
                                 }
-                            } catch (Exception ex) {
-                                ex.printStackTrace();
                             }
                         }
                     }
                 }
+            }
+            catch (Exception ex) {
+                throw new RuntimeException(ex);
             }
         }
     }
