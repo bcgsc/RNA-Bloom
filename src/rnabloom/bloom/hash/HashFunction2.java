@@ -6,15 +6,11 @@
 package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.NTHash.NTM64;
-import static rnabloom.bloom.hash.NTHash.NTM64B;
-import static rnabloom.util.SeqUtils.NUCLEOTIDES;
-import static rnabloom.bloom.hash.NTHash.NTM64;
-import static rnabloom.bloom.hash.NTHash.NTM64B;
 
 
 /**
  *
- * @author gengar
+ * @author Ka Ming Nip, Genome Sciences Centre, BC Cancer Agency
  */
 public class HashFunction2 {
     protected final int k;
@@ -33,13 +29,13 @@ public class HashFunction2 {
         NTM64(kmer, k, numHash, out);
     }
     
-    public long[][] getSuccessorsHashValues(final int numHash, final long[] hVals, final char leftMostNucleotide) {
-        return NTM64(leftMostNucleotide, NUCLEOTIDES, k, numHash, hVals, kMod64);
-    }
-
-    public long[][] getPredecessorsHashValues(final int numHash, final long[] hVals, final char rightMostNucleotide) {
-        return NTM64B(rightMostNucleotide, NUCLEOTIDES, k, numHash, hVals, kMinus1Mod64);
-    }    
+//    public long[][] getSuccessorsHashValues(final int numHash, final long[] hVals, final char leftMostNucleotide) {
+//        return NTM64(leftMostNucleotide, NUCLEOTIDES, k, numHash, hVals, kMod64);
+//    }
+//
+//    public long[][] getPredecessorsHashValues(final int numHash, final long[] hVals, final char rightMostNucleotide) {
+//        return NTM64B(rightMostNucleotide, NUCLEOTIDES, k, numHash, hVals, kMinus1Mod64);
+//    }    
     
     public NTHashIterator getHashIterator(final int numHash) {
         return new NTHashIterator(k, numHash);
@@ -60,7 +56,7 @@ public class HashFunction2 {
     public RightVariantsNTHashIterator getRightVariantsNTHashIterator(final int numHash) {
         return new RightVariantsNTHashIterator(k, numHash);
     }
-    
+        
     public long[] getHashValues(final CharSequence kmer1,
                                 final CharSequence kmer2,
                                 final int numHash) {

@@ -11,7 +11,7 @@ import static rnabloom.util.SeqUtils.smallestStrand;
 
 /**
  *
- * @author gengar
+ * @author Ka Ming Nip, Genome Sciences Centre, BC Cancer Agency
  */
 public class CanonicalHashFunction2 extends HashFunction2 {
     public CanonicalHashFunction2(int k) {
@@ -29,6 +29,13 @@ public class CanonicalHashFunction2 extends HashFunction2 {
     public NTHashIterator getHashIterator(final int numHash) {
         return new CanonicalNTHashIterator(k, numHash);
     }
+    
+    /** @TODO canonical NTHashIterators for non-strand specific data
+     *  @TODO method for combining two set of hash values 
+    */
+    
+
+    
         
 //    @Override
 //    public long[] getHashValues(final CharSequence kmer1, final CharSequence kmer2, int numHash) {

@@ -9,6 +9,7 @@ package rnabloom.bloom.hash;
 /**
  *
  * @author Hamid Mohamadi, Genome Sciences Centre, BC Cancer Agency
+ * @author Ka Ming Nip, Genome Sciences Centre, BC Cancer Agency
  */
 public class NTHash {
     
