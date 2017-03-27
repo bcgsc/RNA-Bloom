@@ -2466,8 +2466,21 @@ public final class GraphUtils {
         int end = Math.max(0, numKmers-pairedKmerDistance);
         int start;
 
-        for (start=numKmers-minNumPairs; start>=end; --start) {
-            if (!assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
+        int numPairedKmersNeeded = minNumPairs;
+        long[] hashVals;
+        for (start=numKmers-1; start>=end; --start) {
+            hashVals = kmers.get(start).hashVals;
+            
+            if (numPairedKmersNeeded > 0) {
+                if (graph.lookupRightKmer(hashVals)) {
+                    --numPairedKmersNeeded;
+                }
+                else {
+                    numPairedKmersNeeded = minNumPairs;
+                }
+            }
+            
+            if (numPairedKmersNeeded == 0 && !assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
                 break;
             }
         }
@@ -2519,8 +2532,21 @@ public final class GraphUtils {
         int end = Math.max(0, numKmers-pairedKmerDistance);
         int start;
 
-        for (start=numKmers-minNumPairs; start>=end; --start) {
-            if (!assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
+        int numPairedKmersNeeded = minNumPairs;
+        long[] hashVals;
+        for (start=numKmers-1; start>=end; --start) {
+            hashVals = kmers.get(start).hashVals;
+            
+            if (numPairedKmersNeeded > 0) {
+                if (graph.lookupLeftKmer(hashVals)) {
+                    --numPairedKmersNeeded;
+                }
+                else {
+                    numPairedKmersNeeded = minNumPairs;
+                }
+            }
+            
+            if (numPairedKmersNeeded == 0 && !assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
                 break;
             }
         }
