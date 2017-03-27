@@ -2464,16 +2464,30 @@ public final class GraphUtils {
 //        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance-k);
         
         int end = Math.max(0, numKmers-pairedKmerDistance);
-        int start;
+        int start, partnerIndex;
 
         int numPairedKmersNeeded = minNumPairs;
-        long[] hashVals;
+        long[] hashVals, partnerHashVals;
         for (start=numKmers-1; start>=end; --start) {
             hashVals = kmers.get(start).hashVals;
             
             if (numPairedKmersNeeded > 0) {
+                partnerIndex = start - pairedKmerDistance;
+                
                 if (graph.lookupRightKmer(hashVals)) {
-                    --numPairedKmersNeeded;
+                    if (partnerIndex < 0) {
+                        --numPairedKmersNeeded;
+                    }
+                    else {
+                        partnerHashVals = kmers.get(partnerIndex).hashVals;
+                        
+                        if (graph.lookupLeftKmer(partnerHashVals) && graph.lookupKmerPairing(partnerHashVals, hashVals)) {
+                            --numPairedKmersNeeded;
+                        }
+                        else {
+                            numPairedKmersNeeded = minNumPairs;
+                        }
+                    }
                 }
                 else {
                     numPairedKmersNeeded = minNumPairs;
@@ -2530,16 +2544,30 @@ public final class GraphUtils {
 //        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance-k);
         
         int end = Math.max(0, numKmers-pairedKmerDistance);
-        int start;
+        int start, partnerIndex;
 
         int numPairedKmersNeeded = minNumPairs;
-        long[] hashVals;
+        long[] hashVals, partnerHashVals;
         for (start=numKmers-1; start>=end; --start) {
             hashVals = kmers.get(start).hashVals;
             
             if (numPairedKmersNeeded > 0) {
+                partnerIndex = start - pairedKmerDistance;
+                
                 if (graph.lookupLeftKmer(hashVals)) {
-                    --numPairedKmersNeeded;
+                    if (partnerIndex < 0) {
+                        --numPairedKmersNeeded;
+                    }
+                    else {
+                        partnerHashVals = kmers.get(partnerIndex).hashVals;
+                        
+                        if (graph.lookupRightKmer(partnerHashVals) && graph.lookupKmerPairing(hashVals, partnerHashVals)) {
+                            --numPairedKmersNeeded;
+                        }
+                        else {
+                            numPairedKmersNeeded = minNumPairs;
+                        }
+                    }
                 }
                 else {
                     numPairedKmersNeeded = minNumPairs;
