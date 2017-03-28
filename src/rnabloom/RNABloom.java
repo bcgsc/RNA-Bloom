@@ -2278,24 +2278,27 @@ public class RNABloom {
                 assembler.restorePairedKmersBloomFilter(new File(graphFile));            
             }
             else {
+                File fragmentsFile;
+                
                 for (String fragmentsFasta : longFragmentsFastaPaths) {
-                    File fragmentsFile = new File(fragmentsFasta);
+                    fragmentsFile = new File(fragmentsFasta);
                     if (fragmentsFile.exists()) {
                         fragmentsFile.delete();
                     }
                 }
                 
                 for (String fragmentsFasta : shortFragmentsFastaPaths) {
-                    File fragmentsFile = new File(fragmentsFasta);
+                    fragmentsFile = new File(fragmentsFasta);
                     if (fragmentsFile.exists()) {
                         fragmentsFile.delete();
                     }
                 }
                 
-                File fragmentsFile = new File(longSingletonsFastaPath);
+                fragmentsFile = new File(longSingletonsFastaPath);
                 if (fragmentsFile.exists()) {
                     fragmentsFile.delete();
                 }
+                
                 fragmentsFile = new File(shortSingletonsFastaPath);
                 if (fragmentsFile.exists()) {
                     fragmentsFile.delete();
