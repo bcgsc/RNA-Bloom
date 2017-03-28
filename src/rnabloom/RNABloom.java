@@ -1334,8 +1334,6 @@ public class RNABloom {
                                 
                                 if (frag.length >= shortestFragmentLengthAllowed) {
                                     if (frag.minCov == 1) {
-                                        graph.addPairedKmersFromSeq(frag.seq);
-
                                         if (frag.length >= longFragmentLengthThreshold) {
                                             longSingletonsOut.write(Long.toString(++fragmentId), frag.seq);
                                         }
