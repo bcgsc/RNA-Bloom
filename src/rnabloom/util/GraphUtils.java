@@ -2515,7 +2515,7 @@ public final class GraphUtils {
         Kmer kmer, p;
         for (int i=start; i>=end; --i) {
             kmer = kmers.get(i);
-            
+                        
             if (graph.lookupLeftKmer(kmer.hashVals) &&
                     !isLowComplexity2(kmer.bytes)) {
                 boolean found = true;
@@ -2595,7 +2595,7 @@ public final class GraphUtils {
         Kmer kmer, p;
         for (int i=start; i>=end; --i) {
             kmer = kmers.get(i);
-            
+                        
             if (graph.lookupRightKmer(kmer.hashVals) &&
                     !isLowComplexity2(kmer.bytes)) {
                 boolean found = true;
