@@ -811,7 +811,8 @@ public class RNABloom {
         @Override
         public void run() {
             String fragment = null;
-            ArrayList<Kmer> fragKmers, correctedFragKmers;
+            //ArrayList<Kmer> fragKmers, correctedFragKmers;
+            ArrayList<Kmer> fragKmers;
             
             try {
                 while (true) {
@@ -825,16 +826,16 @@ public class RNABloom {
                     else {
                         fragKmers = graph.getKmers(fragment);
 
-                        correctedFragKmers = correctErrorsSE(fragKmers,
-                                                                graph, 
-                                                                lookahead,
-                                                                maxIndelSize,
-                                                                maxCovGradient, 
-                                                                covFPR,
-                                                                percentIdentity);
-                        if (correctedFragKmers != null) {
-                            fragKmers = correctedFragKmers;
-                        }
+//                        correctedFragKmers = correctErrorsSE(fragKmers,
+//                                                                graph, 
+//                                                                lookahead,
+//                                                                maxIndelSize,
+//                                                                maxCovGradient, 
+//                                                                covFPR,
+//                                                                percentIdentity);
+//                        if (correctedFragKmers != null) {
+//                            fragKmers = correctedFragKmers;
+//                        }
 
                         if (!represented(fragKmers,
                                             graph,
