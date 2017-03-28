@@ -1938,7 +1938,15 @@ public class RNABloom {
                                     .argName("INT")
                                     .build();
         options.addOption(optBaseQualFrag);        
-                
+        
+        Option optAllHash = Option.builder("hash")
+                                    .longOpt("all-hash")
+                                    .desc("number of hash functions for all Bloom filters")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optAllHash); 
+        
         Option optSbfHash = Option.builder("sh")
                                     .longOpt("sbf-hash")
                                     .desc("number of hash functions for screening Bloom filter")
@@ -1971,13 +1979,13 @@ public class RNABloom {
                                     .build();
         options.addOption(optPkbfHash);        
 
-        Option optMaxMem = Option.builder("mem")
+        Option optAllMem = Option.builder("mem")
                                     .longOpt("all-mem")
                                     .desc("total amount of memory (GB) for all Bloom filters")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
-        options.addOption(optMaxMem);
+        options.addOption(optAllMem);
         
         Option optSbfMem = Option.builder("sm")
                                     .longOpt("sbf-mem")
@@ -2161,7 +2169,7 @@ public class RNABloom {
             int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
             int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "10"));
             
-            float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optMaxMem.getOpt(), "10"));
+            float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), "10"));
             float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 7f)));
             float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 7f)));
             float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 5f / 7f)));
@@ -2172,10 +2180,12 @@ public class RNABloom {
             long cbfSize = (long) (NUM_BYTES_1GB * cbfGB);
             long pkbfSize = (long) (NUM_BITS_1GB * pkbfGB);
             
-            int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), "2"));
-            int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), "2"));
-            int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), "2"));
-            int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), "2"));
+            int allNumHash = Integer.parseInt(line.getOptionValue(optAllHash.getOpt(), "2"));
+            String allNumHashStr = Integer.toString(allNumHash);
+            int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), allNumHashStr));
+            int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), allNumHashStr));
+            int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), allNumHashStr));
+            int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), allNumHashStr));
             
             /**@TODO ensure that sbfNumHash and pkbfNumHash <= max(dbgbfNumHash, cbfNumHash) */
                         
