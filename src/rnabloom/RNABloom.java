@@ -1833,289 +1833,276 @@ public class RNABloom {
         
         System.out.println("args: " + Arrays.toString(args));
         
-        // -dm 0.25 -cm 0.5 -pm 0.25 -left /home/gengar/test_data/GAPDH/GAPDH_2.fq.gz -right /home/gengar/test_data/GAPDH/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /home/gengar/test_assemblies/GAPDH
-        // -dm 1 -cm 2.5 -pm 0.5 -left /home/gengar/test_data/SRR1360926/SRR1360926_2.fastq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926_1.fastq.gz -revcomp-right -stranded -name SRR1360926 -outdir /home/gengar/test_assemblies/SRR1360926
-        // -dm 0.25 -cm 0.5 -pm 0.25 -left /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.2.fq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.1.fq.gz -revcomp-right -stranded -name RNF213 -outdir /home/gengar/test_assemblies/RNF213
+        // -mem 0.5 -left /home/gengar/test_data/GAPDH/GAPDH_2.fq.gz -right /home/gengar/test_data/GAPDH/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /home/gengar/test_assemblies/GAPDH
+        // -mem 4 -left /home/gengar/test_data/SRR1360926/SRR1360926_2.fastq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926_1.fastq.gz -revcomp-right -stranded -name SRR1360926 -outdir /home/gengar/test_assemblies/SRR1360926
+        // -mem 0.5  -left /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.2.fq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.1.fq.gz -revcomp-right -stranded -name RNF213 -outdir /home/gengar/test_assemblies/RNF213
         
-        // -t 12 -dm 1 -cm 5 -pm 0.5 -sm 1 -left /projects/btl2/kmnip/rna-bloom/example/SRX983106/SRR1957705_2.fastq.gz.trim.fq.gz -right /projects/btl2/kmnip/rna-bloom/example/SRX983106/SRR1957705_1.fastq.gz.trim.fq.gz -revcomp-right -stranded -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1957705/mar21
-        // -left /projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/gapdh
-        // -dm 1 -cm 2.5 -pm 0.5 -left /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_2.fq -right /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_1.fq -revcomp-right -stranded -name SRR1360926 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1360926
-        // -dm 5 -cm 20 -pm 3 -sm 2 -left /projects/btl2/kmnip/ENCODE/MCF-7_nucleus_all_2.fq.gz -right /projects/btl2/kmnip/ENCODE/MCF-7_nucleus_all_1.fq.gz -revcomp-right -stranded -name mcf7 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/mcf7        
+        // -t 12 -mem 7 -left /projects/btl2/kmnip/rna-bloom/example/SRX983106/SRR1957705_2.fastq.gz.trim.fq.gz -right /projects/btl2/kmnip/rna-bloom/example/SRX983106/SRR1957705_1.fastq.gz.trim.fq.gz -revcomp-right -stranded -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1957705/mar21
+        // -mem 0.5 -left /projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/gapdh
+        // -mem 4 -left /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_2.fq -right /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_1.fq -revcomp-right -stranded -name SRR1360926 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1360926
+        // -mem 30 -left /projects/btl2/kmnip/ENCODE/MCF-7_nucleus_all_2.fq.gz -right /projects/btl2/kmnip/ENCODE/MCF-7_nucleus_all_1.fq.gz -revcomp-right -stranded -name mcf7 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/mcf7        
         // Based on: http://commons.apache.org/proper/commons-cli/usage.html
         CommandLineParser parser = new DefaultParser();
 
         Options options = new Options();
 
-        Builder builder;
                 
-        builder = Option.builder("l");
-        builder.longOpt("left");
-        builder.desc("left reads file");
-        builder.hasArg(true);
-        builder.argName("FILE");
-//        builder.required(true);
-        Option optLeftReads = builder.build();
+        Option optLeftReads = Option.builder("l")
+                                    .longOpt("left")
+                                    .desc("left reads file")
+                                    .hasArg(true)
+                                    .argName("FILE")
+                                    .build();
         options.addOption(optLeftReads);
         
-        builder = Option.builder("r");
-        builder.longOpt("right");
-        builder.desc("right reads file");
-        builder.hasArg(true);
-        builder.argName("FILE");
-//        builder.required(true);
-        Option optRightReads = builder.build();
+        Option optRightReads = Option.builder("r")
+                                    .longOpt("right")
+                                    .desc("right reads file")
+                                    .hasArg(true)
+                                    .argName("FILE")
+                                    .build();
         options.addOption(optRightReads);
         
-        builder = Option.builder("rcl");
-        builder.longOpt("revcomp-left");
-        builder.desc("reverse-complement left reads");
-        builder.hasArg(false);
-        Option optRevCompLeft = builder.build();
+        Option optRevCompLeft = Option.builder("rcl")
+                                    .longOpt("revcomp-left")
+                                    .desc("reverse-complement left reads")
+                                    .hasArg(false)
+                                    .build();
         options.addOption(optRevCompLeft);
 
-        builder = Option.builder("rcr");
-        builder.longOpt("revcomp-right");
-        builder.desc("reverse-complement right reads");
-        builder.hasArg(false);
-        Option optRevCompRight = builder.build();
+        Option optRevCompRight = Option.builder("rcr")
+                                    .longOpt("revcomp-right")
+                                    .desc("reverse-complement right reads")
+                                    .hasArg(false)
+                                    .build();
         options.addOption(optRevCompRight);
         
-        builder = Option.builder("ss");
-        builder.longOpt("stranded");
-        builder.desc("strand specific");
-        builder.hasArg(false);
-        Option optStranded = builder.build();
+        Option optStranded = Option.builder("ss")
+                                    .longOpt("stranded")
+                                    .desc("strand specific")
+                                    .hasArg(false)
+                                    .build();
         options.addOption(optStranded);
         
-        builder = Option.builder("n");
-        builder.longOpt("name");
-        builder.desc("assembly name");
-        builder.hasArg(true);
-        builder.argName("STR");
-        //builder.required(true);
-        Option optName = builder.build();
+        Option optName = Option.builder("n")
+                                    .longOpt("name")
+                                    .desc("assembly name")
+                                    .hasArg(true)
+                                    .argName("STR")
+                                    .build();
         options.addOption(optName);
         
-        builder = Option.builder("t");
-        builder.longOpt("threads");
-        builder.desc("run in INT threads");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optThreads = builder.build();
+        Option optThreads = Option.builder("t")
+                                    .longOpt("threads")
+                                    .desc("run in INT threads")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optThreads);
         
-        builder = Option.builder("o");
-        builder.longOpt("outdir");
-        builder.desc("output directory");
-        builder.hasArg(true);
-        builder.argName("PATH");
-        //builder.required(true);
-        Option optOutdir = builder.build();
+        Option optOutdir = Option.builder("o")
+                                    .longOpt("outdir")
+                                    .desc("output directory")
+                                    .hasArg(true)
+                                    .argName("PATH")
+                                    .build();
         options.addOption(optOutdir);
         
-        builder = Option.builder("f");
-        builder.longOpt("force");
-        builder.desc("force overwrite existing files");
-        builder.hasArg(false);
-        Option optForce = builder.build();
+        Option optForce = Option.builder("f")
+                                    .longOpt("force")
+                                    .desc("force overwrite existing files")
+                                    .hasArg(false)
+                                    .build();
         options.addOption(optForce);
         
-        builder = Option.builder("k");
-        builder.longOpt("kmer");
-        builder.desc("kmer size");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optKmerSize = builder.build();
+        Option optKmerSize = Option.builder("k")
+                                    .longOpt("kmer")
+                                    .desc("kmer size")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optKmerSize);
         
-        builder = Option.builder("q");
-        builder.longOpt("qual-dbg");
-        builder.desc("min base quality for constructing DBG");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optBaseQualDbg = builder.build();
+        Option optBaseQualDbg = Option.builder("q")
+                                    .longOpt("qual-dbg")
+                                    .desc("min base quality for constructing DBG")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optBaseQualDbg);
 
-        builder = Option.builder("Q");
-        builder.longOpt("qual-frag");
-        builder.desc("min base quality for fragment assembly");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optBaseQualFrag = builder.build();
+        Option optBaseQualFrag = Option.builder("Q")
+                                    .longOpt("qual-frag")
+                                    .desc("min base quality for fragment assembly")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optBaseQualFrag);        
                 
-        builder = Option.builder("sh");
-        builder.longOpt("sbf-hash");
-        builder.desc("number of hash functions for screening Bloom filter");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optSbfHash = builder.build();
+        Option optSbfHash = Option.builder("sh")
+                                    .longOpt("sbf-hash")
+                                    .desc("number of hash functions for screening Bloom filter")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optSbfHash); 
         
-        builder = Option.builder("dh");
-        builder.longOpt("dbgbf-hash");
-        builder.desc("number of hash functions for de Bruijn graph Bloom filter");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optDbgbfHash = builder.build();
+        Option optDbgbfHash = Option.builder("dh")
+                                    .longOpt("dbgbf-hash")
+                                    .desc("number of hash functions for de Bruijn graph Bloom filter")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optDbgbfHash);
 
-        builder = Option.builder("ch");
-        builder.longOpt("cbf-hash");
-        builder.desc("number of hash functions for kmer counting Bloom filter");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optCbfHash = builder.build();
+        Option optCbfHash = Option.builder("ch")
+                                    .longOpt("cbf-hash")
+                                    .desc("number of hash functions for kmer counting Bloom filter")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optCbfHash);
         
-        builder = Option.builder("ph");
-        builder.longOpt("pkbf-hash");
-        builder.desc("number of hash functions for paired kmers Bloom filter");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optPkbfHash = builder.build();
+        Option optPkbfHash = Option.builder("ph")
+                                    .longOpt("pkbf-hash")
+                                    .desc("number of hash functions for paired kmers Bloom filter")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optPkbfHash);        
 
-        builder = Option.builder("sm");
-        builder.longOpt("sbf-mem");
-        builder.desc("allocate DECIMAL-gigabyte for screening Bloom filter");
-        builder.hasArg(true);
-        builder.argName("DECIMAL");
-        Option optSbfMem = builder.build();
+        Option optMaxMem = Option.builder("mem")
+                                    .longOpt("all-mem")
+                                    .desc("total amount of memory (GB) for all Bloom filters")
+                                    .hasArg(true)
+                                    .argName("DECIMAL")
+                                    .build();
+        options.addOption(optMaxMem);
+        
+        Option optSbfMem = Option.builder("sm")
+                                    .longOpt("sbf-mem")
+                                    .desc("amount of memory (GB) for screening Bloom filter")
+                                    .hasArg(true)
+                                    .argName("DECIMAL")
+                                    .build();
         options.addOption(optSbfMem);
         
-        builder = Option.builder("dm");
-        builder.longOpt("dbgbf-mem");
-        builder.desc("allocate DECIMAL-gigabyte for de Bruijn graph Bloom filter");
-        builder.hasArg(true);
-        builder.argName("DECIMAL");
-        Option optDbgbfMem = builder.build();
+        Option optDbgbfMem = Option.builder("dm")
+                                    .longOpt("dbgbf-mem")
+                                    .desc("amount of memory (GB) for de Bruijn graph Bloom filter")
+                                    .hasArg(true)
+                                    .argName("DECIMAL")
+                                    .build();
         options.addOption(optDbgbfMem);
 
-        builder = Option.builder("cm");
-        builder.longOpt("cbf-mem");
-        builder.desc("allocate DECIMAL-gigabyte for kmer counting Bloom filter");
-        builder.hasArg(true);
-        builder.argName("DECIMAL");
-        Option optCbfMem = builder.build();
+        Option optCbfMem = Option.builder("cm")
+                                    .longOpt("cbf-mem")
+                                    .desc("amount of memory (GB) for kmer counting Bloom filter")
+                                    .hasArg(true)
+                                    .argName("DECIMAL")
+                                    .build();
         options.addOption(optCbfMem);
         
-        builder = Option.builder("pm");
-        builder.longOpt("pkbf-mem");
-        builder.desc("allocate DECIMAL-gigabyte for paired kmers Bloom filter");
-        builder.hasArg(true);
-        builder.argName("DECIMAL");
-        Option optPkbfMem = builder.build();
+        Option optPkbfMem = Option.builder("pm")
+                                    .longOpt("pkbf-mem")
+                                    .desc("amount of memory (GB) for paired kmers Bloom filter")
+                                    .hasArg(true)
+                                    .argName("DECIMAL")
+                                    .build();
         options.addOption(optPkbfMem);
-        
-//        builder = Option.builder("fpr");
-//        builder.longOpt("max-fpr");
-//        builder.desc("maximum FPR (%) allowed for Bloom filters");
-//        builder.hasArg(true);
-//        builder.argName("DECIMAL");
-//        Option optMaxFPR = builder.build();
-//        options.addOption(optMaxFPR);
-                
-//        builder = Option.builder("m");
-//        builder.longOpt("mismatch");
-//        builder.desc("max number of mismatch bases allowed per read");
-//        builder.hasArg(true);
-//        builder.argName("INT");
-//        Option optMismatch = builder.build();
-//        options.addOption(optMismatch);
-
-        builder = Option.builder("tl");
-        builder.longOpt("tiplength");
-        builder.desc("max tip length allowed");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optTipLength = builder.build();
+ 
+        Option optTipLength = Option.builder("tiplength")
+                                    .longOpt("tiplength")
+                                    .desc("max tip length allowed")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optTipLength);  
         
-        builder = Option.builder("la");
-        builder.longOpt("lookahead");
-        builder.desc("number of kmers to look ahead during graph traversal");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optLookahead = builder.build();
+        Option optLookahead = Option.builder("lookahead")
+                                    .longOpt("lookahead")
+                                    .desc("number of kmers to look ahead during graph traversal")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optLookahead);        
         
-        builder = Option.builder("ol");
-        builder.longOpt("overlap");
-        builder.desc("min number of overlapping bases between mates");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optOverlap = builder.build();
+        Option optOverlap = Option.builder("overlap")
+                                    .longOpt("overlap")
+                                    .desc("min number of overlapping bases between mates")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optOverlap);
         
-        builder = Option.builder("b");
-        builder.longOpt("bound");
-        builder.desc("max distance between mates");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optBound = builder.build();
+        Option optBound = Option.builder("bound")
+                                    .longOpt("bound")
+                                    .desc("max distance between mates")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optBound);
 
-        builder = Option.builder("S");
-        builder.longOpt("sample");
-        builder.desc("sample size for estimating median fragment length");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optSample = builder.build();
+        Option optSample = Option.builder("sample")
+                                    .longOpt("sample")
+                                    .desc("sample size for estimating median fragment length")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optSample);
         
-        builder = Option.builder("mcg");
-        builder.longOpt("maxcovgrad");
-        builder.desc("max coverage gradient for error correction");
-        builder.hasArg(true);
-        builder.argName("DECIMAL");
-        Option optMaxCovGrad = builder.build();
+        Option optMaxCovGrad = Option.builder("grad")
+                                    .longOpt("maxcovgrad")
+                                    .desc("max coverage gradient for error correction")
+                                    .hasArg(true)
+                                    .argName("DECIMAL")
+                                    .build();
         options.addOption(optMaxCovGrad);
         
-        builder = Option.builder("i");
-        builder.longOpt("indel");
-        builder.desc("maximum indel size allowed");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optIndelSize = builder.build();
+        Option optIndelSize = Option.builder("indel")
+                                    .longOpt("indel")
+                                    .desc("maximum indel size allowed")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optIndelSize);  
 
-        builder = Option.builder("p");
-        builder.longOpt("percent");
-        builder.desc("percent identity allowed");
-        builder.hasArg(true);
-        builder.argName("FLOAT");
-        Option optPercentIdentity = builder.build();
+        Option optPercentIdentity = Option.builder("p")
+                                    .longOpt("percent")
+                                    .desc("minimum percent identity allowed")
+                                    .hasArg(true)
+                                    .argName("FLOAT")
+                                    .build();
         options.addOption(optPercentIdentity); 
         
-        builder = Option.builder("e");
-        builder.longOpt("errcorritr");
-        builder.desc("max number of iterations of read error correction");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optErrCorrItr = builder.build();
+        Option optErrCorrItr = Option.builder("e")
+                                    .longOpt("errcorritr")
+                                    .desc("max number of iterations of read error correction")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optErrCorrItr);        
 
-        builder = Option.builder("mkp");
-        builder.longOpt("pair");
-        builder.desc("minimum number of kmer pairs for assembling transcripts");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optMinKmerPairs = builder.build();
+        Option optMinKmerPairs = Option.builder("pair")
+                                    .longOpt("pair")
+                                    .desc("minimum number of consecutive kmer pairs for assembling transcripts")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optMinKmerPairs);  
         
-        builder = Option.builder("len");
-        builder.longOpt("length");
-        builder.desc("min transcript length in final assembly");
-        builder.hasArg(true);
-        builder.argName("INT");
-        Option optMinLength = builder.build();
+        Option optMinLength = Option.builder("length")
+                                    .longOpt("length")
+                                    .desc("min transcript length in final assembly")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
         options.addOption(optMinLength);  
         
-        builder = Option.builder("h");
-        builder.longOpt("help");
-        builder.desc("print this message and exits");
-        Option optHelp = builder.build();
+        Option optHelp = Option.builder("h")
+                                    .longOpt("help")
+                                    .desc("print this message and exits")
+                                    .build();
         options.addOption(optHelp);
         
 
@@ -2129,7 +2116,7 @@ public class RNABloom {
             int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), "2"));
             boolean forceOverwrite = line.hasOption(optForce.getOpt());
             
-            String name = line.getOptionValue(optName.getOpt(), "rna-bloom");
+            String name = line.getOptionValue(optName.getOpt(), "rnabloom");
             String outdir = line.getOptionValue(optOutdir.getOpt(), System.getProperty("user.dir") + File.separator + name + "_assembly");
             /**@TODO evaluate whether out dir is a valid dir */
             
@@ -2174,10 +2161,16 @@ public class RNABloom {
             int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
             int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "10"));
             
-            long sbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), "1")));
-            long dbgbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), "1")));
-            long cbfSize = (long) (NUM_BYTES_1GB * Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), "1")));
-            long pkbfSize = (long) (NUM_BITS_1GB * Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), "1")));
+            float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optMaxMem.getOpt(), "10"));
+            float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 7f)));
+            float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 7f)));
+            float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 5f / 7f)));
+            float pkbfGB = Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 7f)));
+            
+            long sbfSize = (long) (NUM_BITS_1GB * sbfGB);
+            long dbgbfSize = (long) (NUM_BITS_1GB * dbgGB);
+            long cbfSize = (long) (NUM_BYTES_1GB * cbfGB);
+            long pkbfSize = (long) (NUM_BITS_1GB * pkbfGB);
             
             int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), "2"));
             int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), "2"));
@@ -2202,8 +2195,17 @@ public class RNABloom {
             boolean saveGraph = true;
             boolean saveKmerPairs = true;
 
-            System.out.println("name: " + name);
-            System.out.println("outdir: " + outdir);
+            System.out.println("Bloom filters     Memory (GB)");
+            System.out.println("=============================");
+            System.out.println("de Bruijn graph:  " + dbgGB);
+            System.out.println("kmer counting:    " + cbfGB);
+            System.out.println("paired kmers:     " + pkbfGB);
+            System.out.println("screening:        " + sbfGB);
+            System.out.println("=============================");
+            System.out.println("Total:            " + (dbgGB+cbfGB+pkbfGB+sbfGB));
+            
+            System.out.println("name:    " + name);
+            System.out.println("outdir:  " + outdir);
             
             File f = new File(outdir);
             if (!f.exists()) {
