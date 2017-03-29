@@ -1124,6 +1124,28 @@ public final class GraphUtils {
         return seq;
     }
     
+    private static int getHighCoverageWindowIndex(ArrayList<Kmer> kmers, int start, int window, int halfWindow, float covThreshold) {
+        int end = kmers.size() - window;
+        
+        for (int i=start; i<end; ++i) {
+            if (kmers.get(i).count >= covThreshold) {
+                boolean found = true;
+                for (int j=i+1; j<window; ++j) {
+                    if (kmers.get(j).count < covThreshold) {
+                        found = false;
+                        i = j;
+                    }
+                }
+                
+                if (found) {
+                    return i + halfWindow;
+                }
+            }
+        }
+        
+        return start;
+    }
+    
     private static ArrayList<Kmer> correctErrorHelper(ArrayList<Kmer> kmers,
                                                     BloomFilterDeBruijnGraph graph, 
                                                     int lookahead,
