@@ -437,50 +437,61 @@ public final class GraphUtils {
         int numKmers = kmers.size();
         int k = graph.getK();
         int maxNumBubbleKmers = 3*k;
+        int halfLookahead = lookahead/2;
         
         int lastKmerFoundIndex = -1;
         Kmer currentKmer;
         for (int i=0; i<numKmers; ++i) {
             currentKmer = kmers.get(i);
-            if (bf.lookup(currentKmer.hashVals)) {
-                if (lastKmerFoundIndex < 0) {
-                    if (i >= k) {
-                        // check left edge kmers
-                        ArrayDeque testEdgeKmers = greedyExtendLeft(graph, currentKmer, lookahead, i, bf);
-                        if (testEdgeKmers.size() != i ||
-                                getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, 0, i)) < percentIdentity) {
-                            return false;
-                        }
+            if (bf.lookup(currentKmer.hashVals) && i<numKmers-lookahead) {
+                boolean assembled = true;
+                for (int j=i+1; j<i+lookahead; ++j) {
+                    if (!bf.lookup(kmers.get(j).hashVals)) {
+                        assembled = false;
                     }
-                }
-                else {
-                    // check gap kmers
-                    int expectedPathLen = i-lastKmerFoundIndex;
-                    
-                    if (expectedPathLen > maxNumBubbleKmers) {
-                        return false;
-                    }
-                    
-                    if (expectedPathLen >= k-maxIndelSize) {
-                        ArrayDeque<Kmer> testPathKmers = getMaxCoveragePath(graph, kmers.get(lastKmerFoundIndex), currentKmer, expectedPathLen+maxIndelSize, lookahead, bf);
-                        if (testPathKmers == null) {
-                            return false;
-                        }
-                        
-                        int testPathLen = testPathKmers.size();
-
-                        if ((testPathLen < expectedPathLen-maxIndelSize ||
-                                testPathLen > expectedPathLen+maxIndelSize ||
-                                    getPercentIdentity(assemble(testPathKmers, k), assemble(kmers, k, lastKmerFoundIndex+1, i)) < percentIdentity)) {
-                            return false;
-                        }
-                    }
-                    // otherwise, bubble is too small
                 }
                 
-                lastKmerFoundIndex = i;
-            }
+                if (assembled) {
+                    i = i + halfLookahead;
+                    
+                    if (lastKmerFoundIndex < 0) {
+                        if (i >= k) {
+                            // check left edge kmers
+                            ArrayDeque testEdgeKmers = greedyExtendLeft(graph, currentKmer, lookahead, i, bf);
+                            if (testEdgeKmers.size() != i ||
+                                    getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, 0, i)) < percentIdentity) {
+                                return false;
+                            }
+                        }
+                    }
+                    else {
+                        // check gap kmers
+                        int expectedPathLen = i-lastKmerFoundIndex;
 
+                        if (expectedPathLen > maxNumBubbleKmers) {
+                            return false;
+                        }
+
+                        if (expectedPathLen >= k-maxIndelSize) {
+                            ArrayDeque<Kmer> testPathKmers = getMaxCoveragePath(graph, kmers.get(lastKmerFoundIndex), currentKmer, expectedPathLen+maxIndelSize, lookahead, bf);
+                            if (testPathKmers == null) {
+                                return false;
+                            }
+
+                            int testPathLen = testPathKmers.size();
+
+                            if ((testPathLen < expectedPathLen-maxIndelSize ||
+                                    testPathLen > expectedPathLen+maxIndelSize ||
+                                        getPercentIdentity(assemble(testPathKmers, k), assemble(kmers, k, lastKmerFoundIndex+1, i)) < percentIdentity)) {
+                                return false;
+                            }
+                        }
+                        // otherwise, bubble is too small
+                    }
+                
+                    lastKmerFoundIndex = i;
+                }
+            }
         }
         
         if (lastKmerFoundIndex >= 0) {
