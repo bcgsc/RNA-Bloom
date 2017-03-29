@@ -435,68 +435,59 @@ public final class GraphUtils {
                                     final int maxIndelSize,
                                     final float percentIdentity) {
         int numKmers = kmers.size();
+        int lastKmerIndex = numKmers - 1;
         int k = graph.getK();
         int maxNumBubbleKmers = 3*k;
-        int halfLookahead = lookahead/2;
         
         int lastKmerFoundIndex = -1;
         Kmer currentKmer;
         for (int i=0; i<numKmers; ++i) {
             currentKmer = kmers.get(i);
-            if (bf.lookup(currentKmer.hashVals) && i<numKmers-lookahead) {
-                boolean assembled = true;
-                for (int j=i+1; j<i+lookahead; ++j) {
-                    if (!bf.lookup(kmers.get(j).hashVals)) {
-                        assembled = false;
-                    }
-                }
-                
-                if (assembled) {
-                    i = i + halfLookahead;
-                    
-                    if (lastKmerFoundIndex < 0) {
-                        if (i >= k) {
-                            // check left edge kmers
-                            ArrayDeque testEdgeKmers = greedyExtendLeft(graph, currentKmer, lookahead, i, bf);
-                            if (testEdgeKmers.size() != i ||
-                                    getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, 0, i)) < percentIdentity) {
-                                return false;
-                            }
+            if (bf.lookup(currentKmer.hashVals) &&
+                    (i==0 || bf.lookup(kmers.get(i-1).hashVals)) && 
+                    (i==lastKmerIndex || bf.lookup(kmers.get(i+1).hashVals))) {
+                if (lastKmerFoundIndex < 0) {
+                    if (i >= k) {
+                        // check left edge kmers
+                        ArrayDeque testEdgeKmers = greedyExtendLeft(graph, currentKmer, lookahead, i, bf);
+                        if (testEdgeKmers.size() != i ||
+                                getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, 0, i)) < percentIdentity) {
+                            return false;
                         }
                     }
-                    else {
-                        // check gap kmers
-                        int expectedPathLen = i-lastKmerFoundIndex;
+                }
+                else {
+                    // check gap kmers
+                    int expectedPathLen = i-lastKmerFoundIndex;
 
-                        if (expectedPathLen > maxNumBubbleKmers) {
+                    if (expectedPathLen > maxNumBubbleKmers) {
+                        return false;
+                    }
+
+                    if (expectedPathLen >= k-maxIndelSize) {
+                        ArrayDeque<Kmer> testPathKmers = getMaxCoveragePath(graph, kmers.get(lastKmerFoundIndex), currentKmer, expectedPathLen+maxIndelSize, lookahead, bf);
+                        if (testPathKmers == null) {
                             return false;
                         }
 
-                        if (expectedPathLen >= k-maxIndelSize) {
-                            ArrayDeque<Kmer> testPathKmers = getMaxCoveragePath(graph, kmers.get(lastKmerFoundIndex), currentKmer, expectedPathLen+maxIndelSize, lookahead, bf);
-                            if (testPathKmers == null) {
-                                return false;
-                            }
+                        int testPathLen = testPathKmers.size();
 
-                            int testPathLen = testPathKmers.size();
-
-                            if ((testPathLen < expectedPathLen-maxIndelSize ||
-                                    testPathLen > expectedPathLen+maxIndelSize ||
-                                        getPercentIdentity(assemble(testPathKmers, k), assemble(kmers, k, lastKmerFoundIndex+1, i)) < percentIdentity)) {
-                                return false;
-                            }
+                        if ((testPathLen < expectedPathLen-maxIndelSize ||
+                                testPathLen > expectedPathLen+maxIndelSize ||
+                                    getPercentIdentity(assemble(testPathKmers, k), assemble(kmers, k, lastKmerFoundIndex+1, i)) < percentIdentity)) {
+                            return false;
                         }
-                        // otherwise, bubble is too small
                     }
-                
-                    lastKmerFoundIndex = i;
+                    // otherwise, bubble is too small
                 }
+
+                lastKmerFoundIndex = i;
             }
         }
         
         if (lastKmerFoundIndex >= 0) {
             // check right edge kmers
-            int expectedLen = numKmers-lastKmerFoundIndex;
+            int expectedLen = numKmers-lastKmerFoundIndex-1;
             if (expectedLen >= k) {
                 ArrayDeque testEdgeKmers = greedyExtendRight(graph, kmers.get(lastKmerFoundIndex), lookahead, expectedLen, bf);
                 if (testEdgeKmers.size() != expectedLen ||
@@ -1156,7 +1147,10 @@ public final class GraphUtils {
         
         boolean corrected = false;
         int numKmers = kmers.size();
+        int lastKmerIndex = numKmers-1;
+        
         int k = graph.getK();
+        
 //        int kMinus1 = graph.getKMinus1();
 
         ArrayList<Kmer> kmers2 = new ArrayList<>(numKmers + maxIndelSize);
@@ -1164,7 +1158,11 @@ public final class GraphUtils {
         Kmer kmer;
         for (int i=0; i<numKmers; ++i) {
             kmer = kmers.get(i);
-            if (kmer.count >= covThreshold) {                    
+            
+            if (kmer.count >= covThreshold &&
+                    (i==0 || kmers.get(i-1).count >= covThreshold) &&
+                    (i==lastKmerIndex || kmers.get(i+1).count >= covThreshold)) {
+                
                 if (numBadKmersSince > 0) {
                     if (kmers2.isEmpty()) {
                         // check left edge

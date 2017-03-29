@@ -840,7 +840,7 @@ public class RNABloom {
                             break;
                         }
                     }
-                    else {
+                    else {                        
                         fragKmers = graph.getKmers(fragment);
 
                         correctedFragKmers = correctErrorsSE(fragKmers,
@@ -1669,15 +1669,15 @@ public class RNABloom {
         long numFragmentsParsed = 0;
 
         try {
-//            System.out.println("Creating graph from fragment kmers...");
-//            graph.getDbgbf().empty();
-//            insertIntoDeBruijnGraph(longFragmentsFastas);
-//            insertIntoDeBruijnGraph(shortFragmentsFastas);
-//            insertIntoDeBruijnGraph(longSingletonsFasta);
-//            insertIntoDeBruijnGraph(shortSingletonsFasta);
-//        
-//            dbgFPR = graph.getDbgbf().getFPR();
-//            System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
+            System.out.println("Creating graph from fragment kmers...");
+            graph.getDbgbf().empty();
+            insertIntoDeBruijnGraph(longFragmentsFastas);
+            insertIntoDeBruijnGraph(shortFragmentsFastas);
+            insertIntoDeBruijnGraph(longSingletonsFasta);
+            insertIntoDeBruijnGraph(shortSingletonsFasta);
+        
+            dbgFPR = graph.getDbgbf().getFPR();
+            System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
             
             if (covFPR <= 0) {
                 covFPR = graph.getCbf().getFPR();
