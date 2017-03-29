@@ -2464,47 +2464,18 @@ public final class GraphUtils {
 //        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance-k);
         
         int end = Math.max(0, numKmers-pairedKmerDistance);
-        int start, partnerIndex;
+        int start;
 
-        int numPairedKmersNeeded = minNumPairs;
-        long[] hashVals, partnerHashVals;
         for (start=numKmers-1; start>=end; --start) {
-            hashVals = kmers.get(start).hashVals;
-            
-            if (numPairedKmersNeeded > 0) {
-                partnerIndex = start - pairedKmerDistance;
-                
-                if (graph.lookupRightKmer(hashVals)) {
-                    if (partnerIndex < 0) {
-                        --numPairedKmersNeeded;
-                    }
-                    else {
-                        partnerHashVals = kmers.get(partnerIndex).hashVals;
-                        
-                        if (graph.lookupLeftKmer(partnerHashVals) && graph.lookupKmerPairing(partnerHashVals, hashVals)) {
-                            --numPairedKmersNeeded;
-                        }
-                        else {
-                            numPairedKmersNeeded = minNumPairs;
-                        }
-                    }
-                }
-                else {
-                    numPairedKmersNeeded = minNumPairs;
-                }
-            }
-            
-            if (numPairedKmersNeeded == 0 && !assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
+            if (!assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
                 break;
             }
         }
-        
-//        start = Math.min(numKmers-1-minAnchorDistanceFromEdge, start);
-        
+                
         Kmer kmer, p;
-        for (int i=start; i>=end; --i) {
+        for (int i=Math.min(numKmers-minNumPairs, start); i>=end; --i) {
             kmer = kmers.get(i);
-                        
+            
             if (graph.lookupLeftKmer(kmer.hashVals) &&
                     !isLowComplexity2(kmer.bytes)) {
                 boolean found = true;
@@ -2544,47 +2515,18 @@ public final class GraphUtils {
 //        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(getMinium(covs)), pairedKmerDistance-k);
         
         int end = Math.max(0, numKmers-pairedKmerDistance);
-        int start, partnerIndex;
+        int start;
 
-        int numPairedKmersNeeded = minNumPairs;
-        long[] hashVals, partnerHashVals;
         for (start=numKmers-1; start>=end; --start) {
-            hashVals = kmers.get(start).hashVals;
-            
-            if (numPairedKmersNeeded > 0) {
-                partnerIndex = start - pairedKmerDistance;
-                
-                if (graph.lookupLeftKmer(hashVals)) {
-                    if (partnerIndex < 0) {
-                        --numPairedKmersNeeded;
-                    }
-                    else {
-                        partnerHashVals = kmers.get(partnerIndex).hashVals;
-                        
-                        if (graph.lookupRightKmer(partnerHashVals) && graph.lookupKmerPairing(hashVals, partnerHashVals)) {
-                            --numPairedKmersNeeded;
-                        }
-                        else {
-                            numPairedKmersNeeded = minNumPairs;
-                        }
-                    }
-                }
-                else {
-                    numPairedKmersNeeded = minNumPairs;
-                }
-            }
-            
-            if (numPairedKmersNeeded == 0 && !assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
+            if (!assembledKmersBloomFilter.lookup(kmers.get(start).hashVals)) {
                 break;
             }
         }
-        
-//        start = Math.min(numKmers-1-minAnchorDistanceFromEdge, start);
-        
+                
         Kmer kmer, p;
-        for (int i=start; i>=end; --i) {
+        for (int i=Math.min(numKmers-minNumPairs, start); i>=end; --i) {
             kmer = kmers.get(i);
-                        
+            
             if (graph.lookupRightKmer(kmer.hashVals) &&
                     !isLowComplexity2(kmer.bytes)) {
                 boolean found = true;
