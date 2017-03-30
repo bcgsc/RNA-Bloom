@@ -102,7 +102,7 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
         }
         return count;
     }
-    
+        
     public long bitPopCount() {
         long count = 0;
         
@@ -113,10 +113,12 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
         
         for (long i=numLongs * 8L; i<size; ++i) {
             byte b = get(i);
-            while (b != 0) {
-                count += (b & 1);
-                b = (byte) (b >> 1);
-            }
+
+            b = (byte) ((byte) (b & 0b01010101) + (byte)(((byte) (b >>> 1)) & 0b01010101));
+            b = (byte) ((byte) (b & 0b00110011) + (byte)(((byte) (b >>> 2)) & 0b00110011));
+            b = (byte) ((byte) (b & 0b00001111) + (byte)(((byte) (b >>> 4)) & 0b00001111));
+            
+            count += b;
         }
         
         return count;
