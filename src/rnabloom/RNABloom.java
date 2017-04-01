@@ -723,48 +723,48 @@ public class RNABloom {
         }
     }
     
-    private class AssembledTranscriptsQueue {
-        
-        private ArrayBlockingQueue<Transcript> queue;
-        
-        public AssembledTranscriptsQueue(int size) {
-            queue = new ArrayBlockingQueue<> (size);
-        }
-        
-        public synchronized void add(String fragment, ArrayList<Kmer> kmers) {
-            if (!represented(kmers,
-                                graph,
-                                screeningBf,
-                                lookahead,
-                                maxIndelSize,
-                                percentIdentity)) {
-
-                for (Kmer kmer : kmers) {
-                    screeningBf.add(kmer.hashVals);
-                }
-
-                String transcript = assemble(kmers, k);
-
-                try {
-                    queue.put(new Transcript(fragment, transcript));
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-        }
-        
-        public int remainingCapacity() {
-            return queue.remainingCapacity();
-        }
-        
-        public boolean isEmpty() {
-            return queue.isEmpty();
-        }
-        
-        public Transcript poll() {
-            return queue.poll();
-        }
-    }
+//    private class AssembledTranscriptsQueue {
+//        
+//        private ArrayBlockingQueue<Transcript> queue;
+//        
+//        public AssembledTranscriptsQueue(int size) {
+//            queue = new ArrayBlockingQueue<> (size);
+//        }
+//        
+//        public synchronized void add(String fragment, ArrayList<Kmer> kmers) {
+//            if (!represented(kmers,
+//                                graph,
+//                                screeningBf,
+//                                lookahead,
+//                                maxIndelSize,
+//                                percentIdentity)) {
+//
+//                for (Kmer kmer : kmers) {
+//                    screeningBf.add(kmer.hashVals);
+//                }
+//
+//                String transcript = assemble(kmers, k);
+//
+//                try {
+//                    queue.put(new Transcript(fragment, transcript));
+//                } catch (Exception ex) {
+//                    ex.printStackTrace();
+//                }
+//            }
+//        }
+//        
+//        public int remainingCapacity() {
+//            return queue.remainingCapacity();
+//        }
+//        
+//        public boolean isEmpty() {
+//            return queue.isEmpty();
+//        }
+//        
+//        public Transcript poll() {
+//            return queue.poll();
+//        }
+//    }
     
     private class TranscriptWriter {
         private final FastaWriter fout;
@@ -829,8 +829,8 @@ public class RNABloom {
         @Override
         public void run() {
             String fragment = null;
-            ArrayList<Kmer> fragKmers;
-//            ArrayList<Kmer> fragKmers, correctedFragKmers;
+//            ArrayList<Kmer> fragKmers;
+            ArrayList<Kmer> fragKmers, correctedFragKmers;
             
             try {
                 while (true) {
@@ -841,19 +841,12 @@ public class RNABloom {
                             break;
                         }
                     }
-                    else {                        
-                        fragKmers = graph.getKmers(fragment);
-
-//                        correctedFragKmers = correctErrorsSE(fragKmers,
-//                                                                graph, 
-//                                                                lookahead,
-//                                                                maxIndelSize,
-//                                                                maxCovGradient, 
-//                                                                covFPR,
-//                                                                percentIdentity);
-//                        if (correctedFragKmers != null) {
-//                            fragKmers = correctedFragKmers;
+                    else {
+//                        if (fragment.equals("GGGAAGTCAGGTGGAGCGAGGCTAGCTGGCCCGATTTCTCCTCCGGGTGATGCTTTTCCTAGATTATTCTCTGGTAAATCAAAGAAGTGGGTTTATGGAGGTCCTCTTGTGTCCCCTCCCCGCAGAGGTGTGGTGGCTGTGGCATGGTGCCAAGCCGGGAGAAGCTGAGTCATGGGTAGTTGGAAAAGGACATTTCCACCGCAAAATGGCCCCTCTGGCGGTGGCCCCTTCCTGCAGCGCCGGCTCACCTCACGGCCCCGCCCTTCCCCT")) {
+//                            System.out.println("here");
 //                        }
+                        
+                        fragKmers = graph.getKmers(fragment);
 
                         if (!represented(fragKmers,
                                             graph,
@@ -874,52 +867,52 @@ public class RNABloom {
             }
         }
     }
-    
-    private class TranscriptAssembler implements Runnable {
-        
-        private String fragment;
-        private AssembledTranscriptsQueue outList;
-        
-        public TranscriptAssembler(String fragment,
-                                    AssembledTranscriptsQueue outList) {
-            this.fragment = fragment;
-            this.outList = outList;
-        }
-
-        @Override
-        public void run() {
-            ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
-            
-//            if (fragment.equals("TGCAGATCGAGAGCCTGAATGAAGAGCTAGCCTACATGAAGAAGAACCATGAAGAGGAGATGAAGGAATTTAGCAACCAGGTGGTCGGCCAGGTCAACGTGGAGATGGATGCCACCCCAGGCATTGACCTGACCCGCGTGCTGGCAGAGATGAGGGAGCAGTACGAGGCCATGGCAGAGAGGAA")) {
-//                System.out.println("here");
+//    
+//    private class TranscriptAssembler implements Runnable {
+//        
+//        private String fragment;
+//        private AssembledTranscriptsQueue outList;
+//        
+//        public TranscriptAssembler(String fragment,
+//                                    AssembledTranscriptsQueue outList) {
+//            this.fragment = fragment;
+//            this.outList = outList;
+//        }
+//
+//        @Override
+//        public void run() {
+//            ArrayList<Kmer> fragKmers = graph.getKmers(fragment);
+//            
+////            if (fragment.equals("TGCAGATCGAGAGCCTGAATGAAGAGCTAGCCTACATGAAGAAGAACCATGAAGAGGAGATGAAGGAATTTAGCAACCAGGTGGTCGGCCAGGTCAACGTGGAGATGGATGCCACCCCAGGCATTGACCTGACCCGCGTGCTGGCAGAGATGAGGGAGCAGTACGAGGCCATGGCAGAGAGGAA")) {
+////                System.out.println("here");
+////            }
+//            
+//            ArrayList<Kmer> correctedFragKmers = correctErrorsSE(fragKmers,
+//                                                                graph, 
+//                                                                lookahead,
+//                                                                maxIndelSize,
+//                                                                maxCovGradient, 
+//                                                                covFPR,
+//                                                                percentIdentity);
+//            if (correctedFragKmers != null) {
+//                fragKmers = correctedFragKmers;
 //            }
-            
-            ArrayList<Kmer> correctedFragKmers = correctErrorsSE(fragKmers,
-                                                                graph, 
-                                                                lookahead,
-                                                                maxIndelSize,
-                                                                maxCovGradient, 
-                                                                covFPR,
-                                                                percentIdentity);
-            if (correctedFragKmers != null) {
-                fragKmers = correctedFragKmers;
-            }
-            
-            if (!represented(fragKmers,
-                                graph,
-                                screeningBf,
-                                lookahead,
-                                maxIndelSize,
-                                percentIdentity)) {
-                                
-//                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
-                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs);
-
-                
-                outList.add(fragment, fragKmers);
-            }
-        }
-    }
+//            
+//            if (!represented(fragKmers,
+//                                graph,
+//                                screeningBf,
+//                                lookahead,
+//                                maxIndelSize,
+//                                percentIdentity)) {
+//                                
+////                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, beGreedy, screeningBf, maxIndelSize, percentIdentity);
+//                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs);
+//
+//                
+//                outList.add(fragment, fragKmers);
+//            }
+//        }
+//    }
     
     private class FragmentAssembler implements Runnable {
         private FastqReadPair p;
@@ -1671,11 +1664,11 @@ public class RNABloom {
 
         try {
             System.out.println("Creating graph from fragment kmers...");
-            graph.getDbgbf().empty();
-            insertIntoDeBruijnGraph(longFragmentsFastas);
-            insertIntoDeBruijnGraph(shortFragmentsFastas);
-            insertIntoDeBruijnGraph(longSingletonsFasta);
-            insertIntoDeBruijnGraph(shortSingletonsFasta);
+//            graph.getDbgbf().empty();
+//            insertIntoDeBruijnGraph(longFragmentsFastas);
+//            insertIntoDeBruijnGraph(shortFragmentsFastas);
+//            insertIntoDeBruijnGraph(longSingletonsFasta);
+//            insertIntoDeBruijnGraph(shortSingletonsFasta);
         
             dbgFPR = graph.getDbgbf().getFPR();
             System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");

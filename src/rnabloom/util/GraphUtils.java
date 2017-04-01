@@ -34,7 +34,32 @@ import static rnabloom.util.SeqUtils.stringToBytes;
  * @author gengar
  */
 public final class GraphUtils {
+    
+    public static float getMinimumKmerCoverage(final ArrayList<Kmer> kmers, int start, int end) {
+        float min = kmers.get(start).count;
         
+        float c;
+        for (int i=start+1; i<end; ++i) {
+            c = kmers.get(i).count;
+            if (c < min) {
+                min = c;
+            }
+        }
+        
+        return min;
+    }
+    
+    public static float getMedianKmerCoverage(final ArrayList<Kmer> kmers, int start, int end) {
+        int range = end-start;
+        
+        float[] covs = new float[range];
+        for (int i=0; i<range; ++i) {
+            covs[i] = kmers.get(start+i).count;
+        }
+
+        return getMedian(covs);
+    }
+    
     public static float getMedianKmerCoverage(final ArrayDeque<Kmer> kmers) {
         int numKmers = kmers.size();
         
@@ -435,64 +460,103 @@ public final class GraphUtils {
                                     final int maxIndelSize,
                                     final float percentIdentity) {
         int numKmers = kmers.size();
-        int lastKmerIndex = numKmers - 1;
+        int maxIndex = numKmers - 1;
+        
         int k = graph.getK();
         int maxNumBubbleKmers = 3*k;
         
-        int lastKmerFoundIndex = -1;
-        Kmer currentKmer;
+        int lastRepresentedKmerFoundIndex = -1;
+        
         for (int i=0; i<numKmers; ++i) {
-            currentKmer = kmers.get(i);
-            if (bf.lookup(currentKmer.hashVals) &&
-                    (i==0 || bf.lookup(kmers.get(i-1).hashVals)) && 
-                    (i==lastKmerIndex || bf.lookup(kmers.get(i+1).hashVals))) {
-                if (lastKmerFoundIndex < 0) {
-                    if (i >= k) {
-                        // check left edge kmers
-                        ArrayDeque testEdgeKmers = greedyExtendLeft(graph, currentKmer, lookahead, i, bf);
-                        if (testEdgeKmers.size() != i ||
-                                getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, 0, i)) < percentIdentity) {
-                            return false;
-                        }
+            
+            if (bf.lookup(kmers.get(i).hashVals)) {
+                int startIndex = i;
+                int endIndex = i;
+                for (int j=i+1; j<numKmers; ++j) {
+                    if (bf.lookup(kmers.get(j).hashVals)) {
+                        endIndex = j;
+                    }
+                    else {
+                        break;
                     }
                 }
-                else {
-                    // check gap kmers
-                    int expectedPathLen = i-lastKmerFoundIndex;
-
-                    if (expectedPathLen > maxNumBubbleKmers) {
-                        return false;
-                    }
-
-                    if (expectedPathLen >= k-maxIndelSize) {
-                        ArrayDeque<Kmer> testPathKmers = getMaxCoveragePath(graph, kmers.get(lastKmerFoundIndex), currentKmer, expectedPathLen+maxIndelSize, lookahead, bf);
-                        if (testPathKmers == null) {
-                            return false;
+                
+                int assembledRange = endIndex - startIndex + 1;
+                
+                if (assembledRange >= 3) {                    
+                    if (startIndex > 0) {
+                                                
+                        if (lastRepresentedKmerFoundIndex < 0) {                            
+                            if (startIndex >= k) {
+                                // check left edge kmers
+                                ArrayDeque testEdgeKmers = greedyExtendLeft(graph, kmers.get(startIndex), lookahead, startIndex, bf);
+                                if (testEdgeKmers.size() != startIndex ||
+                                        getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, 0, startIndex)) < percentIdentity) {
+                                    return false;
+                                }
+                            }
                         }
+                        else {
+                            // check gap kmers
+                            int expectedPathLen = startIndex-lastRepresentedKmerFoundIndex-1;
 
-                        int testPathLen = testPathKmers.size();
+                            if (expectedPathLen > maxNumBubbleKmers) {
+                                return false;
+                            }
+                            
+                            int numMissing = k-expectedPathLen;
+                            
+                            int left = lastRepresentedKmerFoundIndex;
+                            int right = startIndex;
+                            
+                            if (numMissing > 0) {
+                                for (int j=0; j<numMissing; ++j) {
+                                    if (left == 0 || !bf.lookup(kmers.get(--left).hashVals)) {
+                                        break;
+                                    }
+                                }
 
-                        if ((testPathLen < expectedPathLen-maxIndelSize ||
-                                testPathLen > expectedPathLen+maxIndelSize ||
-                                    getPercentIdentity(assemble(testPathKmers, k), assemble(kmers, k, lastKmerFoundIndex+1, i)) < percentIdentity)) {
-                            return false;
+                                for (int j=0; j<numMissing; ++j) {
+                                    if (right == maxIndex || !bf.lookup(kmers.get(++right).hashVals)) {
+                                        break;
+                                    }
+                                }
+                                
+                                expectedPathLen = right - left - 1;
+                            }
+                            
+                            ArrayDeque<Kmer> testPathKmers = getMaxCoveragePath(graph, kmers.get(left), kmers.get(right), expectedPathLen+maxIndelSize, lookahead, bf);
+                            if (testPathKmers == null) {
+                                return false;
+                            }
+
+                            int testPathLen = testPathKmers.size();
+
+                            if ((testPathLen < expectedPathLen-maxIndelSize ||
+                                    testPathLen > expectedPathLen+maxIndelSize ||
+                                        getPercentIdentity(assemble(testPathKmers, k), assemble(kmers, k, left+1, right)) < percentIdentity)) {
+                                return false;
+                            }
                         }
                     }
-                    // otherwise, bubble is too small
+                        
+                    lastRepresentedKmerFoundIndex = endIndex;
                 }
-
-                lastKmerFoundIndex = i;
+                
+                i = endIndex;
             }
         }
         
-        if (lastKmerFoundIndex >= 0) {
-            // check right edge kmers
-            int expectedLen = numKmers-lastKmerFoundIndex-1;
-            if (expectedLen >= k) {
-                ArrayDeque testEdgeKmers = greedyExtendRight(graph, kmers.get(lastKmerFoundIndex), lookahead, expectedLen, bf);
-                if (testEdgeKmers.size() != expectedLen ||
-                        getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, lastKmerFoundIndex+1, numKmers)) < percentIdentity) {
-                    return false;
+        if (lastRepresentedKmerFoundIndex >= 0) {
+            if (lastRepresentedKmerFoundIndex < maxIndex) {
+                // check right edge kmers
+                int expectedLen = numKmers-lastRepresentedKmerFoundIndex-1;
+                if (expectedLen >= k) {                    
+                    ArrayDeque testEdgeKmers = greedyExtendRight(graph, kmers.get(lastRepresentedKmerFoundIndex), lookahead, expectedLen, bf);
+                    if (testEdgeKmers.size() != expectedLen ||
+                            getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, lastRepresentedKmerFoundIndex+1, numKmers)) < percentIdentity) {
+                        return false;
+                    }
                 }
             }
         }
