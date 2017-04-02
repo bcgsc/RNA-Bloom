@@ -3212,11 +3212,13 @@ public final class GraphUtils {
                                 }
                             }
                             
-                            for (int i=partnerIndex; i<numKmers; ++i) {
-                                if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-                                    if (distanceInversePI < ++numNotAssembled) {
-                                        assembled = false;
-                                        break;
+                            if (assembled) {
+                                for (int i=partnerIndex; i<numKmers; ++i) {
+                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+                                        if (distanceInversePI < ++numNotAssembled) {
+                                            assembled = false;
+                                            break;
+                                        }
                                     }
                                 }
                             }
@@ -3367,11 +3369,13 @@ public final class GraphUtils {
                                 }
                             }
                             
-                            for (int i=partnerIndex; i<numKmers; ++i) {
-                                if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-                                    if (distanceInversePI < ++numNotAssembled) {
-                                        assembled = false;
-                                        break;
+                            if (assembled) {
+                                for (int i=partnerIndex; i<numKmers; ++i) {
+                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+                                        if (distanceInversePI < ++numNotAssembled) {
+                                            assembled = false;
+                                            break;
+                                        }
                                     }
                                 }
                             }
