@@ -3104,7 +3104,7 @@ public final class GraphUtils {
             }
             
             if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
-                boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+                boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
                 
                 if (assembled) {
                     int numNotAssembled = 0;
@@ -3150,6 +3150,8 @@ public final class GraphUtils {
                                             HashSet<String> usedPartnerKmers) {
         
         final int distance = graph.getPairedKmerDistance();
+        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
+        
         int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
         
         // data structure to store visited kmers at defined depth
@@ -3193,6 +3195,37 @@ public final class GraphUtils {
                     
                     if (usedKmers.contains(cursorSeq) && usedPartnerKmers.contains(partnerSeq)) {
                         return false;
+                    }
+                                        
+                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+                        boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+
+                        if (assembled) {
+                            int numNotAssembled = 0;
+                            
+                            for (Kmer kmer : extension) {
+                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+                                    if (distanceInversePI < ++numNotAssembled) {
+                                        assembled = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            for (int i=partnerIndex; i<numKmers; ++i) {
+                                if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+                                    if (distanceInversePI < ++numNotAssembled) {
+                                        assembled = false;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (assembled) {
+                            // region already assembled, do not extend further
+                            return false;
+                        }
                     }
                     
                     kmers.addAll(extension);
@@ -3274,6 +3307,7 @@ public final class GraphUtils {
                                             HashSet<String> usedPartnerKmers) {
         
         final int distance = graph.getPairedKmerDistance();
+        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int maxDepth = maxLeftPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
         
         // data structure to store visited kmers at defined depth
@@ -3316,6 +3350,37 @@ public final class GraphUtils {
                     
                     if (usedKmers.contains(cursorSeq) && usedPartnerKmers.contains(partnerSeq)) {
                         return false;
+                    }
+                                        
+                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+                        boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+
+                        if (assembled) {
+                            int numNotAssembled = 0;
+                            
+                            for (Kmer kmer : extension) {
+                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+                                    if (distanceInversePI < ++numNotAssembled) {
+                                        assembled = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            for (int i=partnerIndex; i<numKmers; ++i) {
+                                if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+                                    if (distanceInversePI < ++numNotAssembled) {
+                                        assembled = false;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (assembled) {
+                            // region already assembled, do not extend further
+                            return false;
+                        }
                     }
                     
                     kmers.addAll(extension);
