@@ -2987,6 +2987,7 @@ public final class GraphUtils {
             
             kmers.add(cursor);
             
+            usedKmers.add(cursorSeq);
             usedPartnerKmers.add(partnerSeq);
             
             ++partnerIndex;
