@@ -3214,6 +3214,7 @@ public final class GraphUtils {
         HashSet<String> extensionKmers = new HashSet<>();
         
         Kmer cursor;
+        int maxPartnerIndex = numKmers - 1 - minNumPairs;
         while (!branchesStack.isEmpty()) {
             LinkedList<Kmer> branches = branchesStack.getLast();
             
@@ -3233,7 +3234,7 @@ public final class GraphUtils {
                 String cursorSeq = cursor.toString();
                 
                 if (partnerIndex >=0 &&
-                        depth < maxDepth &&
+                        partnerIndex <= maxPartnerIndex &&
 //                        partnerIndex+minNumPairs < kmers.size() && 
                         hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                     
@@ -3373,6 +3374,7 @@ public final class GraphUtils {
         HashSet<String> extensionKmers = new HashSet<>();
         
         Kmer cursor;
+        int maxPartnerIndex = numKmers - 1 - minNumPairs;
         while (!branchesStack.isEmpty()) {
             LinkedList<Kmer> branches = branchesStack.getLast();
             
@@ -3391,7 +3393,7 @@ public final class GraphUtils {
                 String cursorSeq = cursor.toString();
                 
                 if (partnerIndex >=0 &&
-                        depth < maxDepth &&
+                        partnerIndex <= maxPartnerIndex &&
 //                        partnerIndex+minNumPairs < kmers.size() && 
                         hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                     
