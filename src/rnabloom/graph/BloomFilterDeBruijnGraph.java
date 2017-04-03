@@ -515,6 +515,25 @@ public class BloomFilterDeBruijnGraph {
 //        }
         return false;
     }
+
+    public boolean hasAtLeastXPredecessors(Kmer kmer, int x) {
+        int result = 0;
+        
+        PredecessorsNTHashIterator itr = hashFunction.getPredecessorsNTHashIterator(dbgbfCbfMaxNumHash);
+        itr.start(kmer.hashVals, (char) kmer.bytes[kMinus1]);
+        long[] hVals = itr.hVals;
+        
+        for (char c : NUCLEOTIDES) {
+            itr.next(c);
+            if (dbgbf.lookup(hVals) && cbf.getCount(hVals) > 0) {
+                if (++result >= x) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
     
     public int getNumPredecessors(Kmer kmer) {
         int result = 0;
@@ -671,6 +690,25 @@ public class BloomFilterDeBruijnGraph {
 //            }
 //        }
 
+        return false;
+    }
+    
+    public boolean hasAtLeastXSuccessors(Kmer kmer, int x) {
+        int result = 0;
+
+        SuccessorsNTHashIterator itr = hashFunction.getSuccessorsHashIterator(dbgbfCbfMaxNumHash);
+        itr.start(kmer.hashVals, (char) kmer.bytes[0]);
+        long[] hVals = itr.hVals;
+        
+        for (char c : NUCLEOTIDES) {
+            itr.next(c);
+            if (dbgbf.lookup(hVals) && cbf.getCount(hVals) > 0) {
+                if (++result >= x) {
+                    return true;
+                }
+            }
+        }
+        
         return false;
     }
     
