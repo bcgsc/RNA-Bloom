@@ -2948,6 +2948,9 @@ public final class GraphUtils {
                         itr.remove();
                         usedKmers.remove(kmer.toString());
                     }
+                    else {
+                        break;
+                    }
                 }
                 
                 kmers.addAll(simpleExtension);
@@ -3097,6 +3100,9 @@ public final class GraphUtils {
                     if (assembledKmersBloomFilter.lookup(kmer.hashVals)) {
                         itr.remove();
                         usedKmers.remove(kmer.toString());
+                    }
+                    else {
+                        break;
                     }
                 }
                 
