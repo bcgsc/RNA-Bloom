@@ -2922,6 +2922,9 @@ public final class GraphUtils {
                             
         Kmer cursor = kmers.get(numKmers-1);
         ArrayDeque<Kmer> neighbors = graph.getSuccessors(cursor);
+        if (neighbors.isEmpty()) {
+            return false;
+        }
         
         Iterator<Kmer> itr;
         int partnerIndex = numKmers-distance;
@@ -2971,19 +2974,21 @@ public final class GraphUtils {
                         
             if (!areLeftKmers(kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                 // not enough supporting partners
-                break;
+                return true;
             }
-                        
+            
+            float minCovThreshold = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1) * 0.5f;
+            
             itr = neighbors.iterator();
             while (itr.hasNext()) {
                 kmer = itr.next();
-                if (!hasPairedRightKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                if (kmer.count < minCovThreshold || !hasPairedRightKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                     itr.remove();
                 }
             }
             
             if (neighbors.isEmpty()) {
-                break;
+                return true;
             }
             
             if (neighbors.size() == 1) {
@@ -2994,7 +2999,7 @@ public final class GraphUtils {
                 
                 if (cursor == null) {
                     // no good candidates
-                    break;
+                    return true;
                 }
             }
             
@@ -3041,7 +3046,7 @@ public final class GraphUtils {
             neighbors = graph.getSuccessors(cursor);
         }
         
-        return true;
+        return false;
     }
     
     private static boolean extendLeftWithPairedKmersBFS(ArrayList<Kmer> kmers, 
@@ -3062,6 +3067,9 @@ public final class GraphUtils {
         // Note that `kmers` are in reverse order already
         Kmer cursor = kmers.get(numKmers-1);
         ArrayDeque<Kmer> neighbors = graph.getPredecessors(cursor);
+        if (neighbors.isEmpty()) {
+            return false;
+        }
         
         Iterator<Kmer> itr;
         int partnerIndex = numKmers-distance;
@@ -3111,19 +3119,21 @@ public final class GraphUtils {
             
             if (!areRightKmers(kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                 // not enough supporting partners
-                break;
+                return true;
             }
+            
+            float minCovThreshold = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1) * 0.5f;
             
             itr = neighbors.iterator();
             while (itr.hasNext()) {
                 kmer = itr.next();
-                if (!hasPairedLeftKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                if (kmer.count < minCovThreshold || !hasPairedLeftKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
                     itr.remove();
                 }
             }
             
             if (neighbors.isEmpty()) {
-                break;
+                return true;
             }
             
             if (neighbors.size() == 1) {
@@ -3134,7 +3144,7 @@ public final class GraphUtils {
                 
                 if (cursor == null) {
                     // no good candidates
-                    break;
+                    return true;
                 }
             }
             
@@ -3181,7 +3191,7 @@ public final class GraphUtils {
             neighbors = graph.getPredecessors(cursor);
         }
         
-        return true;
+        return false;
     }
     
     public static boolean extendRightWithPairedKmersDFS(ArrayList<Kmer> kmers, 
@@ -3244,38 +3254,38 @@ public final class GraphUtils {
                         return false;
                     }
                                         
-                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
-                        boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
-
-                        if (assembled) {
-//                            int numNotAssembled = 0;
-                            
-                            for (Kmer kmer : extension) {
-                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
-//                                    if (distanceInversePI < ++numNotAssembled) {
-                                        assembled = false;
-                                        break;
+//                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+//                        boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+//
+//                        if (assembled) {
+////                            int numNotAssembled = 0;
+//                            
+//                            for (Kmer kmer : extension) {
+//                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+////                                    if (distanceInversePI < ++numNotAssembled) {
+//                                        assembled = false;
+//                                        break;
+////                                    }
+//                                }
+//                            }
+//                            
+//                            if (assembled) {
+//                                for (int i=partnerIndex; i<numKmers; ++i) {
+//                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+////                                        if (distanceInversePI < ++numNotAssembled) {
+//                                            assembled = false;
+//                                            break;
+////                                        }
 //                                    }
-                                }
-                            }
-                            
-                            if (assembled) {
-                                for (int i=partnerIndex; i<numKmers; ++i) {
-                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-//                                        if (distanceInversePI < ++numNotAssembled) {
-                                            assembled = false;
-                                            break;
-//                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if (assembled) {
-                            // region already assembled, do not extend further
-                            return false;
-                        }
-                    }
+//                                }
+//                            }
+//                        }
+//
+//                        if (assembled) {
+//                            // region already assembled, do not extend further
+//                            return false;
+//                        }
+//                    }
                     
                     kmers.addAll(extension);
                     kmers.add(cursor);
@@ -3406,29 +3416,29 @@ public final class GraphUtils {
                     if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
                         boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
 
-                        if (assembled) {
-//                            int numNotAssembled = 0;
-                            
-                            for (Kmer kmer : extension) {
-                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
-//                                    if (distanceInversePI < ++numNotAssembled) {
-                                        assembled = false;
-                                        break;
+//                        if (assembled) {
+////                            int numNotAssembled = 0;
+//                            
+//                            for (Kmer kmer : extension) {
+//                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+////                                    if (distanceInversePI < ++numNotAssembled) {
+//                                        assembled = false;
+//                                        break;
+////                                    }
+//                                }
+//                            }
+//                            
+//                            if (assembled) {
+//                                for (int i=partnerIndex; i<numKmers; ++i) {
+//                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+////                                        if (distanceInversePI < ++numNotAssembled) {
+//                                            assembled = false;
+//                                            break;
+////                                        }
 //                                    }
-                                }
-                            }
-                            
-                            if (assembled) {
-                                for (int i=partnerIndex; i<numKmers; ++i) {
-                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-//                                        if (distanceInversePI < ++numNotAssembled) {
-                                            assembled = false;
-                                            break;
-//                                        }
-                                    }
-                                }
-                            }
-                        }
+//                                }
+//                            }
+//                        }
 
                         if (assembled) {
                             // region already assembled, do not extend further
@@ -4243,6 +4253,8 @@ public final class GraphUtils {
             
             result.add(best);
             usedKmers.add(bestSeq);
+            
+            neighbors = graph.getSuccessors(best);
         }
         
         return result;
@@ -4294,8 +4306,9 @@ public final class GraphUtils {
             }
             
             result.addLast(best);
-            
             usedKmers.add(bestSeq);
+            
+            neighbors = graph.getPredecessors(best);
         }
         
         return result;
@@ -4586,7 +4599,7 @@ public final class GraphUtils {
                         else {
                             if (len < bestBranchLength - maxIndelSize) {
                                 // compare percent identity
-                                if (getPercentIdentity(assemble(b, k), bestBranchSeq.substring(bestBranchLength - (len+k-1))) < percentIdentity) {
+                                if (getPercentIdentity(assembleReverseOrder(b, k), bestBranchSeq.substring(bestBranchSeq.length() - (len+k-1))) < percentIdentity) {
                                     return result;
                                 }
                             }
