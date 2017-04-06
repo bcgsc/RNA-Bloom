@@ -2967,7 +2967,8 @@ public final class GraphUtils {
                     }
                 }
             }
-            else if (numKmers < distance) {
+            
+            if (numKmers < distance) {
                 // too short to have partners
                 return true;
             }
@@ -3114,7 +3115,8 @@ public final class GraphUtils {
                     }
                 }
             }
-            else if (numKmers < distance) {
+            
+            if (numKmers < distance) {
                 // too short to have partners
                 return true;
             }
