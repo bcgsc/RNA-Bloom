@@ -4342,20 +4342,20 @@ public final class GraphUtils {
         ArrayDeque<Kmer> result = new ArrayDeque<>();
         
         ArrayDeque<Kmer> neighbors = graph.getSuccessors(source);
-        Kmer best = source;
-        HashSet<String> backBranchesVisited = new HashSet<>(3);
+        Kmer best;
+//        HashSet<String> backBranchesVisited = new HashSet<>(3);
         
         int k = graph.getK();
         
         while (!neighbors.isEmpty()) {
-            /** look for back branches*/
-            for (Kmer s : graph.getLeftVariants(best)) {
-                if (!backBranchesVisited.contains(s.toString()) && hasDepthLeft(s, graph, maxTipLength)) {
-                    return result;
-                }
-            }
-            
-            backBranchesVisited.clear();
+//            /** look for back branches*/
+//            for (Kmer s : graph.getLeftVariants(best)) {
+//                if (!backBranchesVisited.contains(s.toString()) && hasDepthLeft(s, graph, maxTipLength)) {
+//                    return result;
+//                }
+//            }
+//            
+//            backBranchesVisited.clear();
             
             if (neighbors.size() == 1) {
                 best = neighbors.peek();
@@ -4484,9 +4484,9 @@ public final class GraphUtils {
                         usedKmers.add(best.toString());
                     }
                     
-                    for (ArrayDeque<Kmer> b : branches) {
-                        backBranchesVisited.add(b.peekLast().toString());
-                    }
+//                    for (ArrayDeque<Kmer> b : branches) {
+//                        backBranchesVisited.add(b.peekLast().toString());
+//                    }
                 }
             }
             
@@ -4512,20 +4512,20 @@ public final class GraphUtils {
         ArrayDeque<Kmer> result = new ArrayDeque<>();
         
         ArrayDeque<Kmer> neighbors = graph.getPredecessors(source);
-        Kmer best = source;
-        HashSet<String> backBranchesVisited = new HashSet<>(3);
+        Kmer best;
+//        HashSet<String> backBranchesVisited = new HashSet<>(3);
         
         int k = graph.getK();
         
         while (!neighbors.isEmpty()) {
-            /** look for back branches*/
-            for (Kmer s : graph.getRightVariants(best)) {
-                if (!backBranchesVisited.contains(s.toString()) && hasDepthRight(s, graph, maxTipLength)) {
-                    return result;
-                }
-            }
-            
-            backBranchesVisited.clear();
+//            /** look for back branches*/
+//            for (Kmer s : graph.getRightVariants(best)) {
+//                if (!backBranchesVisited.contains(s.toString()) && hasDepthRight(s, graph, maxTipLength)) {
+//                    return result;
+//                }
+//            }
+//            
+//            backBranchesVisited.clear();
             
             if (neighbors.size() == 1) {
                 best = neighbors.peek();
@@ -4651,9 +4651,9 @@ public final class GraphUtils {
                         usedKmers.add(best.toString());
                     }
                     
-                    for (ArrayDeque<Kmer> b : branches) {
-                        backBranchesVisited.add(b.peekLast().toString());
-                    }
+//                    for (ArrayDeque<Kmer> b : branches) {
+//                        backBranchesVisited.add(b.peekLast().toString());
+//                    }
                 }
             }
             
