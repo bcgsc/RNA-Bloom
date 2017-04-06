@@ -2945,24 +2945,26 @@ public final class GraphUtils {
                     itr.remove();
                 }
                 
-                kmers.addAll(simpleExtension);
-                numKmers = kmers.size();
-                
-                if (numKmers < distance) {
-                    // too short to have partners
-                    return true;
-                }
-                
-                partnerIndex += simpleExtension.size();
-                neighbors = graph.getSuccessors(simpleExtension.getLast());
-                
-                for (Kmer e : simpleExtension) {
-                    usedKmers.add(e.toString());
-                }
-                
-                // NOTE: kmer at `partnerIndex` will be paired with `cursor`
-                for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
-                    usedPartnerKmers.add(kmers.get(i).toString());
+                if (!simpleExtension.isEmpty()) {
+                    kmers.addAll(simpleExtension);
+                    numKmers = kmers.size();
+
+                    if (numKmers < distance) {
+                        // too short to have partners
+                        return true;
+                    }
+
+                    partnerIndex += simpleExtension.size();
+                    neighbors = graph.getSuccessors(simpleExtension.getLast());
+
+                    for (Kmer e : simpleExtension) {
+                        usedKmers.add(e.toString());
+                    }
+
+                    // NOTE: kmer at `partnerIndex` will be paired with `cursor`
+                    for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
+                        usedPartnerKmers.add(kmers.get(i).toString());
+                    }
                 }
             }
             else if (numKmers < distance) {
@@ -3090,24 +3092,26 @@ public final class GraphUtils {
                     itr.remove();
                 }
                 
-                kmers.addAll(simpleExtension);
-                numKmers = kmers.size();
-                
-                if (numKmers < distance) {
-                    // too short to have partners
-                    return true;
-                }
+                if (!simpleExtension.isEmpty()) {
+                    kmers.addAll(simpleExtension);
+                    numKmers = kmers.size();
 
-                partnerIndex += simpleExtension.size();
-                neighbors = graph.getPredecessors(simpleExtension.getLast());
-                
-                for (Kmer e : simpleExtension) {
-                    usedKmers.add(e.toString());
-                }
-                
-                // NOTE: kmer at `partnerIndex` will be paired with `cursor`
-                for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
-                    usedPartnerKmers.add(kmers.get(i).toString());
+                    if (numKmers < distance) {
+                        // too short to have partners
+                        return true;
+                    }
+
+                    partnerIndex += simpleExtension.size();
+                    neighbors = graph.getPredecessors(simpleExtension.getLast());
+
+                    for (Kmer e : simpleExtension) {
+                        usedKmers.add(e.toString());
+                    }
+
+                    // NOTE: kmer at `partnerIndex` will be paired with `cursor`
+                    for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
+                        usedPartnerKmers.add(kmers.get(i).toString());
+                    }
                 }
             }
             else if (numKmers < distance) {
