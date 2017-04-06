@@ -2941,16 +2941,8 @@ public final class GraphUtils {
                         
             if (!simpleExtension.isEmpty()) {
                 itr = simpleExtension.descendingIterator();
-
-                while(itr.hasNext()) {
-                    kmer = itr.next();
-                    if (assembledKmersBloomFilter.lookup(kmer.hashVals)) {
-                        itr.remove();
-                        usedKmers.remove(kmer.toString());
-                    }
-                    else {
-                        break;
-                    }
+                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
+                    itr.remove();
                 }
                 
                 kmers.addAll(simpleExtension);
@@ -3094,16 +3086,8 @@ public final class GraphUtils {
             
             if (!simpleExtension.isEmpty()) {
                 itr = simpleExtension.descendingIterator();
-                
-                while(itr.hasNext()) {
-                    kmer = itr.next();
-                    if (assembledKmersBloomFilter.lookup(kmer.hashVals)) {
-                        itr.remove();
-                        usedKmers.remove(kmer.toString());
-                    }
-                    else {
-                        break;
-                    }
+                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
+                    itr.remove();
                 }
                 
                 kmers.addAll(simpleExtension);
@@ -3544,33 +3528,43 @@ public final class GraphUtils {
         }
         
         // naive extend RIGHT
-        ArrayDeque<Kmer> simpleExtension = extendRight(kmers.get(kmers.size()-1),
-                                                        graph, 
-                                                        maxTipLength, 
-                                                        usedKmers, 
-                                                        maxIndelSize, 
-                                                        percentIdentity);
-        if (!simpleExtension.isEmpty()) {
-            kmers.addAll(simpleExtension);
-            for (Kmer e : simpleExtension) {
-                usedKmers.add(e.toString());
-            }
-        }
+//        ArrayDeque<Kmer> simpleExtension = extendRight(kmers.get(kmers.size()-1),
+//                                                        graph, 
+//                                                        maxTipLength, 
+//                                                        usedKmers, 
+//                                                        maxIndelSize, 
+//                                                        percentIdentity);
+//        if (!simpleExtension.isEmpty()) {
+//            Iterator<Kmer> itr = simpleExtension.descendingIterator();
+//            while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
+//                itr.remove();
+//            }
+//            
+//            kmers.addAll(simpleExtension);
+//            for (Kmer e : simpleExtension) {
+//                usedKmers.add(e.toString());
+//            }
+//        }
         
         // naive extend LEFT
         Collections.reverse(kmers);
-        simpleExtension = extendLeft(kmers.get(kmers.size()-1),
-                                        graph, 
-                                        maxTipLength, 
-                                        usedKmers, 
-                                        maxIndelSize, 
-                                        percentIdentity);
-        if (!simpleExtension.isEmpty()) {
-            kmers.addAll(simpleExtension);
-            for (Kmer e : simpleExtension) {
-                usedKmers.add(e.toString());
-            }
-        }
+//        simpleExtension = extendLeft(kmers.get(kmers.size()-1),
+//                                        graph, 
+//                                        maxTipLength, 
+//                                        usedKmers, 
+//                                        maxIndelSize, 
+//                                        percentIdentity);
+//        if (!simpleExtension.isEmpty()) {
+//            Iterator<Kmer> itr = simpleExtension.descendingIterator();
+//            while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
+//                itr.remove();
+//            }
+//            
+//            kmers.addAll(simpleExtension);
+//            for (Kmer e : simpleExtension) {
+//                usedKmers.add(e.toString());
+//            }
+//        }
         
         int distance = graph.getPairedKmerDistance();
         
