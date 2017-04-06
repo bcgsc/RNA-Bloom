@@ -2941,8 +2941,13 @@ public final class GraphUtils {
                         
             if (!simpleExtension.isEmpty()) {
                 itr = simpleExtension.descendingIterator();
-                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
-                    itr.remove();
+
+                while(itr.hasNext()) {
+                    kmer = itr.next();
+                    if (assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+                        itr.remove();
+                        usedKmers.remove(kmer.toString());
+                    }
                 }
                 
                 kmers.addAll(simpleExtension);
@@ -3086,8 +3091,13 @@ public final class GraphUtils {
             
             if (!simpleExtension.isEmpty()) {
                 itr = simpleExtension.descendingIterator();
-                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
-                    itr.remove();
+                
+                while(itr.hasNext()) {
+                    kmer = itr.next();
+                    if (assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+                        itr.remove();
+                        usedKmers.remove(kmer.toString());
+                    }
                 }
                 
                 kmers.addAll(simpleExtension);
