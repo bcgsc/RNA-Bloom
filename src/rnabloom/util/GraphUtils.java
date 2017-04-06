@@ -4475,7 +4475,14 @@ public final class GraphUtils {
                         usedKmers.add(nSeq);
                     }
                     
-                    best = result.peekLast();
+                    best = bestBranch.peekLast();
+                    neighbors = graph.getSuccessors(best);
+                    if (neighbors.size() == 1) {
+                        // bubble branches converge at this kmer
+                        best = neighbors.pop();
+                        result.add(best);
+                        usedKmers.add(best.toString());
+                    }
                     
                     for (ArrayDeque<Kmer> b : branches) {
                         backBranchesVisited.add(b.peekLast().toString());
@@ -4636,6 +4643,13 @@ public final class GraphUtils {
                     }
                     
                     best = bestBranch.peekLast();
+                    neighbors = graph.getPredecessors(best);
+                    if (neighbors.size() == 1) {
+                        // bubble branches converge at this kmer
+                        best = neighbors.pop();
+                        result.add(best);
+                        usedKmers.add(best.toString());
+                    }
                     
                     for (ArrayDeque<Kmer> b : branches) {
                         backBranchesVisited.add(b.peekLast().toString());
