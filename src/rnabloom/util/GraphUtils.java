@@ -2940,10 +2940,10 @@ public final class GraphUtils {
                                             percentIdentity);
                         
             if (!simpleExtension.isEmpty()) {
-//                itr = simpleExtension.descendingIterator();
-//                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
-//                    itr.remove();
-//                }
+                itr = simpleExtension.descendingIterator();
+                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
+                    itr.remove();
+                }
                 
                 kmers.addAll(simpleExtension);
                 numKmers = kmers.size();
@@ -3085,10 +3085,10 @@ public final class GraphUtils {
                                             percentIdentity);
             
             if (!simpleExtension.isEmpty()) {
-//                itr = simpleExtension.descendingIterator();
-//                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
-//                    itr.remove();
-//                }
+                itr = simpleExtension.descendingIterator();
+                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
+                    itr.remove();
+                }
                 
                 kmers.addAll(simpleExtension);
                 numKmers = kmers.size();
