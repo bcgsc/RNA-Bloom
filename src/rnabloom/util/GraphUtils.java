@@ -3254,38 +3254,38 @@ public final class GraphUtils {
                         return false;
                     }
                                         
-//                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
-//                        boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
-//
-//                        if (assembled) {
-////                            int numNotAssembled = 0;
-//                            
-//                            for (Kmer kmer : extension) {
-//                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
-////                                    if (distanceInversePI < ++numNotAssembled) {
-//                                        assembled = false;
-//                                        break;
-////                                    }
-//                                }
-//                            }
-//                            
-//                            if (assembled) {
-//                                for (int i=partnerIndex; i<numKmers; ++i) {
-//                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-////                                        if (distanceInversePI < ++numNotAssembled) {
-//                                            assembled = false;
-//                                            break;
-////                                        }
+                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+                        boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+
+                        if (assembled) {
+//                            int numNotAssembled = 0;
+                            
+                            for (Kmer kmer : extension) {
+                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+//                                    if (distanceInversePI < ++numNotAssembled) {
+                                        assembled = false;
+                                        break;
 //                                    }
-//                                }
-//                            }
-//                        }
-//
-//                        if (assembled) {
-//                            // region already assembled, do not extend further
-//                            return false;
-//                        }
-//                    }
+                                }
+                            }
+                            
+                            if (assembled) {
+                                for (int i=partnerIndex; i<numKmers; ++i) {
+                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+//                                        if (distanceInversePI < ++numNotAssembled) {
+                                            assembled = false;
+                                            break;
+//                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (assembled) {
+                            // region already assembled, do not extend further
+                            return false;
+                        }
+                    }
                     
                     kmers.addAll(extension);
                     kmers.add(cursor);
@@ -3416,29 +3416,29 @@ public final class GraphUtils {
                     if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
                         boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
 
-//                        if (assembled) {
-////                            int numNotAssembled = 0;
-//                            
-//                            for (Kmer kmer : extension) {
-//                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
-////                                    if (distanceInversePI < ++numNotAssembled) {
-//                                        assembled = false;
-//                                        break;
-////                                    }
-//                                }
-//                            }
-//                            
-//                            if (assembled) {
-//                                for (int i=partnerIndex; i<numKmers; ++i) {
-//                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-////                                        if (distanceInversePI < ++numNotAssembled) {
-//                                            assembled = false;
-//                                            break;
-////                                        }
+                        if (assembled) {
+//                            int numNotAssembled = 0;
+                            
+                            for (Kmer kmer : extension) {
+                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+//                                    if (distanceInversePI < ++numNotAssembled) {
+                                        assembled = false;
+                                        break;
 //                                    }
-//                                }
-//                            }
-//                        }
+                                }
+                            }
+                            
+                            if (assembled) {
+                                for (int i=partnerIndex; i<numKmers; ++i) {
+                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+//                                        if (distanceInversePI < ++numNotAssembled) {
+                                            assembled = false;
+                                            break;
+//                                        }
+                                    }
+                                }
+                            }
+                        }
 
                         if (assembled) {
                             // region already assembled, do not extend further
