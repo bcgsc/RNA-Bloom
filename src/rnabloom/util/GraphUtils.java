@@ -37,8 +37,22 @@ import static rnabloom.util.SeqUtils.isLowComplexity2;
  * @author gengar
  */
 public final class GraphUtils {
+
+    private static float getMinimumKmerCoverage(final Iterable<Kmer> kmers) {
+        float min = Float.MAX_VALUE;
+        
+        float c;
+        for (Kmer kmer : kmers) {
+            c = kmer.count;
+            if (c < min) {
+                min = c;
+            }
+        }
+        
+        return min;
+    }
     
-    public static float getMinimumKmerCoverage(final ArrayList<Kmer> kmers, int start, int end) {
+    private static float getMinimumKmerCoverage(final ArrayList<Kmer> kmers, int start, int end) {
         float min = kmers.get(start).count;
         
         float c;
@@ -2553,6 +2567,10 @@ public final class GraphUtils {
                                                 int minNumPairs) {
         final int numKmers = kmers.size();
         
+        float minCov = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-pairedKmerDistance), numKmers-1);
+        int k = graph.getK();
+        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(minCov), pairedKmerDistance-k);
+        
 //        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
 //        for (int i=0; i<covs.length; ++i) {
 //            covs[i] = kmers.get(numKmers-i-1).count;
@@ -2572,7 +2590,7 @@ public final class GraphUtils {
                 
         Kmer kmer, p;
         end += minNumPairs;
-        for (int i=start; i>=end; --i) {
+        for (int i=Math.min(start, numKmers-minAnchorDistanceFromEdge); i>=end; --i) {
             kmer = kmers.get(i);
             
             if (graph.lookupLeftKmer(kmer.hashVals) &&
@@ -2625,6 +2643,10 @@ public final class GraphUtils {
         
         final int numKmers = kmers.size();
         
+        float minCov = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-pairedKmerDistance), numKmers-1);
+        int k = graph.getK();
+        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(minCov), pairedKmerDistance-k);
+        
 //        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
 //        for (int i=0; i<covs.length; ++i) {
 //            covs[i] = kmers.get(numKmers-i-1).count;
@@ -2644,7 +2666,7 @@ public final class GraphUtils {
                 
         Kmer kmer, p;
         end += minNumPairs;
-        for (int i=start; i>=end; --i) {
+        for (int i=Math.min(start, numKmers-minAnchorDistanceFromEdge); i>=end; --i) {
             kmer = kmers.get(i);
             
             if (graph.lookupRightKmer(kmer.hashVals) &&
@@ -2955,8 +2977,7 @@ public final class GraphUtils {
                     }
 
                     partnerIndex += simpleExtension.size();
-                    neighbors = graph.getSuccessors(simpleExtension.getLast());
-
+                    
                     for (Kmer e : simpleExtension) {
                         usedKmers.add(e.toString());
                     }
@@ -2964,6 +2985,11 @@ public final class GraphUtils {
                     // NOTE: kmer at `partnerIndex` will be paired with `cursor`
                     for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
                         usedPartnerKmers.add(kmers.get(i).toString());
+                    }
+                    
+                    neighbors = graph.getSuccessors(simpleExtension.getLast());
+                    if (neighbors.isEmpty()) {
+                        return false;
                     }
                 }
             }
@@ -2980,30 +3006,58 @@ public final class GraphUtils {
                 return true;
             }
             
-            float minCovThreshold = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1) * 0.5f;
-            
+            float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
+            float minCovThreshold = minEdgeCoverage * 0.5f;
+            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
             itr = neighbors.iterator();
             while (itr.hasNext()) {
                 kmer = itr.next();
-                if (kmer.count < minCovThreshold || !hasPairedRightKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                
+                if (hasPairedRightKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                    pairedNeighbors.add(kmer);
+                    
+                    if (kmer.count < minCovThreshold) {
+                        itr.remove();
+                    }
+                }
+                else {
                     itr.remove();
                 }
             }
             
             if (neighbors.isEmpty()) {
-                return true;
+                Kmer highestCoverageNeighbor = greedyExtendRightOnce(graph, pairedNeighbors, lookahead);
+                if (highestCoverageNeighbor == null) {
+                    return true;
+                }
+                else {
+                    cursor = highestCoverageNeighbor;
+                }
             }
-            
-            if (neighbors.size() == 1) {
+            else if (neighbors.size() == 1) {
                 cursor = neighbors.pop();
             }
             else {
-                cursor = greedyExtendRightOnce(graph, neighbors, lookahead);
+                float minDiffCoverage = Float.MAX_VALUE;
                 
-                if (cursor == null) {
-                    // no good candidates
-                    return true;
+                float c,d;
+                for (Kmer n : neighbors) {
+                    c = getMaxMedianCoverageRight(graph, n, lookahead);
+                    if (c > 0) {
+                        d = Math.abs(minEdgeCoverage - c);
+                        if (d < minDiffCoverage) {
+                            minDiffCoverage = d;
+                            cursor = n;
+                        }
+                    }
                 }
+                
+//                cursor = greedyExtendRightOnce(graph, neighbors, lookahead);
+//                
+//                if (cursor == null) {
+//                    // no good candidates
+//                    return true;
+//                }
             }
             
             partner = kmers.get(partnerIndex);
@@ -3103,7 +3157,6 @@ public final class GraphUtils {
                     }
 
                     partnerIndex += simpleExtension.size();
-                    neighbors = graph.getPredecessors(simpleExtension.getLast());
 
                     for (Kmer e : simpleExtension) {
                         usedKmers.add(e.toString());
@@ -3112,6 +3165,11 @@ public final class GraphUtils {
                     // NOTE: kmer at `partnerIndex` will be paired with `cursor`
                     for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
                         usedPartnerKmers.add(kmers.get(i).toString());
+                    }
+                    
+                    neighbors = graph.getPredecessors(simpleExtension.getLast());
+                    if (neighbors.isEmpty()) {
+                        return false;
                     }
                 }
             }
@@ -3128,30 +3186,58 @@ public final class GraphUtils {
                 return true;
             }
             
-            float minCovThreshold = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1) * 0.5f;
-            
+            float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
+            float minCovThreshold = minEdgeCoverage * 0.5f;
+            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
             itr = neighbors.iterator();
             while (itr.hasNext()) {
                 kmer = itr.next();
-                if (kmer.count < minCovThreshold || !hasPairedLeftKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                
+                if (hasPairedLeftKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                    pairedNeighbors.add(kmer);
+                    
+                    if (kmer.count < minCovThreshold) {
+                        itr.remove();
+                    }
+                }
+                else {
                     itr.remove();
                 }
             }
             
             if (neighbors.isEmpty()) {
-                return true;
+                Kmer highestCoverageNeighbor = greedyExtendLeftOnce(graph, pairedNeighbors, lookahead);
+                if (highestCoverageNeighbor == null) {
+                    return true;
+                }
+                else {
+                    cursor = highestCoverageNeighbor;
+                }
             }
-            
-            if (neighbors.size() == 1) {
+            else if (neighbors.size() == 1) {
                 cursor = neighbors.pop();
             }
             else {
-                cursor = greedyExtendLeftOnce(graph, neighbors, lookahead);
+                float minDiffCoverage = Float.MAX_VALUE;
                 
-                if (cursor == null) {
-                    // no good candidates
-                    return true;
+                float c,d;
+                for (Kmer n : neighbors) {
+                    c = getMaxMedianCoverageLeft(graph, n, lookahead);
+                    if (c > 0) {
+                        d = Math.abs(minEdgeCoverage - c);
+                        if (d < minDiffCoverage) {
+                            minDiffCoverage = d;
+                            cursor = n;
+                        }
+                    }
                 }
+                
+//                cursor = greedyExtendLeftOnce(graph, neighbors, lookahead);
+//                
+//                if (cursor == null) {
+//                    // no good candidates
+//                    return true;
+//                }
             }
             
             partner = kmers.get(partnerIndex);
