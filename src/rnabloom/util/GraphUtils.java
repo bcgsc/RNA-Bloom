@@ -3008,13 +3008,13 @@ public final class GraphUtils {
             
             float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
             float minCovThreshold = minEdgeCoverage * 0.5f;
-            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
+//            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
             itr = neighbors.iterator();
             while (itr.hasNext()) {
                 kmer = itr.next();
                 
                 if (hasPairedRightKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                    pairedNeighbors.add(kmer);
+//                    pairedNeighbors.add(kmer);
                     
                     if (kmer.count < minCovThreshold) {
                         itr.remove();
@@ -3026,13 +3026,14 @@ public final class GraphUtils {
             }
             
             if (neighbors.isEmpty()) {
-                Kmer highestCoverageNeighbor = greedyExtendRightOnce(graph, pairedNeighbors, lookahead);
-                if (highestCoverageNeighbor == null) {
-                    return true;
-                }
-                else {
-                    cursor = highestCoverageNeighbor;
-                }
+                return true;
+//                Kmer highestCoverageNeighbor = greedyExtendRightOnce(graph, pairedNeighbors, lookahead);
+//                if (highestCoverageNeighbor == null) {
+//                    return true;
+//                }
+//                else {
+//                    cursor = highestCoverageNeighbor;
+//                }
             }
             else if (neighbors.size() == 1) {
                 cursor = neighbors.pop();
@@ -3188,13 +3189,13 @@ public final class GraphUtils {
             
             float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
             float minCovThreshold = minEdgeCoverage * 0.5f;
-            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
+//            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
             itr = neighbors.iterator();
             while (itr.hasNext()) {
                 kmer = itr.next();
                 
                 if (hasPairedLeftKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                    pairedNeighbors.add(kmer);
+//                    pairedNeighbors.add(kmer);
                     
                     if (kmer.count < minCovThreshold) {
                         itr.remove();
@@ -3206,13 +3207,14 @@ public final class GraphUtils {
             }
             
             if (neighbors.isEmpty()) {
-                Kmer highestCoverageNeighbor = greedyExtendLeftOnce(graph, pairedNeighbors, lookahead);
-                if (highestCoverageNeighbor == null) {
-                    return true;
-                }
-                else {
-                    cursor = highestCoverageNeighbor;
-                }
+                return true;
+//                Kmer highestCoverageNeighbor = greedyExtendLeftOnce(graph, pairedNeighbors, lookahead);
+//                if (highestCoverageNeighbor == null) {
+//                    return true;
+//                }
+//                else {
+//                    cursor = highestCoverageNeighbor;
+//                }
             }
             else if (neighbors.size() == 1) {
                 cursor = neighbors.pop();
@@ -4309,7 +4311,7 @@ public final class GraphUtils {
     }
     
     public static ArrayDeque<Kmer> naiveExtendRight(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
-        int k = graph.getK();
+//        int k = graph.getK();
         
         HashSet<String> usedKmers = new HashSet<>();
         
@@ -4363,7 +4365,7 @@ public final class GraphUtils {
     }
     
     public static ArrayDeque<Kmer> naiveExtendLeft(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<String> terminators) {        
-        int k = graph.getK();
+//        int k = graph.getK();
         
         HashSet<String> usedKmers = new HashSet<>();
         
