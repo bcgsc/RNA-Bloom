@@ -696,16 +696,16 @@ public class RNABloom {
     }
     
     private class Fragment {
-//        String left;
-//        String right;
+        String left;
+        String right;
         String seq;
         int length;
         float minCov;
         boolean isUnconnectedRead;
         
-        public Fragment(String seq, int length, float minCov, boolean isUnconnectedRead) {
-//            this.left = left;
-//            this.right = right;
+        public Fragment(String left, String right, String seq, int length, float minCov, boolean isUnconnectedRead) {
+            this.left = left;
+            this.right = right;
             this.seq = seq;
             this.length = length;
             this.minCov = minCov;
@@ -836,8 +836,8 @@ public class RNABloom {
                 while (true) {
                     fragment = fragments.poll(100, TimeUnit.MILLISECONDS);
 
-//                    fragment = "AAACATCTCAAGGCCTTTTCTTTTCTACAGGGACAGATTAATTGATGAGCGATAGAGTTTAGGTAGGAACTAGGAACTAGTCAAATAGGAAATTCAGAAGACAGAAGGTTACGTGATACAAGATCATGCCACTAAGATCTTGCAATGTGTGTAGAAGTATGTAGAAATGGCCGCCCCTTCTGTAAAGGGTAGAAAAATGTATAAAAGGGTAGTGGTAGGTTGAGAATCTTCAGTTTCCAACATGGATCTCGAACAACGTATTAAAGCTTACCGCTTCGTCGCCTACTCGGCCGTCGCCTTCTCCGTCGTCGCCGTTATCTCGGTGTGCGTCACTCTTCCAATGGTGTACAACTATGTCCACCATGTGAAGAGAACCATGCACTCCGAGATCAATTTCTGCAAGGGATCCGCCAAGGATATCTGGTCCGAGGTCAACCACCTTAAGGCCATCCCATCTGGAAACCGTACCGCCCGTCAAGCTGGATATGATGCTGGAGTCACCGGAGGATCTGCCTCTGCTGGAGGTTGCGACGCTTGCTGCCTTCCAGGAGCCGCTGGACCAGCTGGAACCCCAGGAAAGCCAGGACGCCCAGGAAAGCCAGGAGCACCAGGACTTCCAGGAAACCCAGGACGCCCACCACAGCAGCCATGTGAGCCAATCACCCCACCACCATGCAAGCCATGCCCAGCCGGACCAGCTGGAGCCCCAGGACCAGCAGGACCAGCCGGAGATGCCGGAGCCAACGGAAACCCAGGAGCCCCAGGAAACGACGGACAACCAGGAGCCCCAGGAAACAAGGGACCATCTGGACCAAACGGAAACCCAGGAGCCCCAGGAGCCCCAGGACAGCCAGGACAAGACGCTCCATCCGAGCCAATTACACCAGGAGCACCAGGACCAGCTGGACCAGCCGGACCACAAGGACCACCAGGAGCCCCAGGACAGCCAGGACACGATGGACAACCAGGAGCCCCAGGACCAAAGGGACCAAATGGAAACCCAGGAGCCCCAGGAGCCGACGGAAACCCAGGAGCCCCAGGACAAGCTGGAACTTCCGGAGGTGCCGGAGAGAAGGGAATCTGTCCAAAGTACTGCGCCATCGACGGAGGAGTCTTCTTCGAGGACGGAACTCGCCGTTAAATTTTATGAGAAATTCAACAATAAAATATTCTCTATTCATCAAAAA";
-                    
+//                    fragment = "AAAATGGACGAGAAACAACGCCTTCAGGCTTACCGCTTCGTCGCCTACTCGGCTGTTACCTTCTCCACTGTCGCAGTTTTCTCGCTGTGCATCACCCTTCCATTGGTGTACAACTATGTTGATGGAATCAAGACCCAGATCAACCATGAGATCAAGTTCTGCAAGCACTCTGCTCGTGACATTTTCGCTGAGGTGAACCACATCCGTGGATCTCCAAAGAACGCTTCCCGTTTCGCCCGTCAAGCTGGATATGGAACCGATGAGGCTGTTGAGACCGGAAACACCGGATCCCAAGGAGGATCATGCTCTGGATGCTGCCTTCCAGGAGCCGCTGGACCAGCCGGAACCCCAGGAAAGCCAGGAAGACCAGGACGTCCAGGAGCAGCTGGACTTCCAGGAAACCCAGGACGCCCACCAGCACAGCCATGTGAGCCAATCACCCCACCACCATGCAAGCCATGCCCACAAGGACCAGCTGGAGCCCCAGGAGCCCCAGGACCACAAGGAGATGCCGGAGCACCAGGACAAGCCGGACAAGGATCAGGAGCCGGAGCCCCAGGACCAGC";
+                                        
                     if (fragment == null) {
                         if (!keepGoing) {
                             break;
@@ -850,6 +850,17 @@ public class RNABloom {
                         
                         fragKmers = graph.getKmers(fragment);
 
+//                        correctedFragKmers = correctErrorsSE(fragKmers,
+//                                        graph, 
+//                                        lookahead,
+//                                        maxIndelSize,
+//                                        maxCovGradient, 
+//                                        covFPR,
+//                                        percentIdentity);
+//                        if (correctedFragKmers != null) {
+//                            fragKmers = correctedFragKmers;
+//                        }
+
                         if (!represented(fragKmers,
                                             graph,
                                             screeningBf,
@@ -858,7 +869,7 @@ public class RNABloom {
                                             percentIdentity)) {
 
                             extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs);
-
+                            
                             writer.write(fragment, fragKmers);
                         }
                     }
@@ -1004,7 +1015,7 @@ public class RNABloom {
                                         }
                                     }
 
-                                    outList.put(new Fragment(assemble(fragmentKmers, k), fragLength, minCov, false));
+                                    outList.put(new Fragment(left, right, assemble(fragmentKmers, k), fragLength, minCov, false));
                                 }
                             }
                             else {
@@ -1017,7 +1028,7 @@ public class RNABloom {
                                             minCov = kmer.count;
                                         }
                                     }
-                                    outList.put(new Fragment(assemble(leftKmers, k), leftKmers.size()+k-1, minCov, true));
+                                    outList.put(new Fragment(left, right, assemble(leftKmers, k), leftKmers.size()+k-1, minCov, true));
                                 }
 
                                 if (rightKmers.size() >= lookahead) {
@@ -1027,7 +1038,7 @@ public class RNABloom {
                                             minCov = kmer.count;
                                         }
                                     }
-                                    outList.put(new Fragment(assemble(rightKmers, k), rightKmers.size()+k-1, minCov, true));
+                                    outList.put(new Fragment(left, right, assemble(rightKmers, k), rightKmers.size()+k-1, minCov, true));
                                 }
                             }
                         }
@@ -1271,10 +1282,10 @@ public class RNABloom {
                                 graph.addPairedKmersFromSeq(frag.seq);
 
                                 if (frag.length >= longFragmentLengthThreshold) {
-                                    longSingletonsOut.write(Long.toString(++fragmentId), frag.seq);
+                                    longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                 }
                                 else {
-                                    shortSingletonsOut.write(Long.toString(++fragmentId), frag.seq);
+                                    shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                 }
                             }
                             else {
@@ -1284,10 +1295,10 @@ public class RNABloom {
                                     graph.addPairedKmersFromSeq(frag.seq);
 
                                     if (frag.length >= longFragmentLengthThreshold) {
-                                        longFragmentsOut[m].write(Long.toString(++fragmentId), frag.seq);
+                                        longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                     }
                                     else {
-                                        shortFragmentsOut[m].write(Long.toString(++fragmentId), frag.seq);
+                                        shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                     }
                                 }
                             }
@@ -1330,10 +1341,10 @@ public class RNABloom {
                                 if (frag.length >= shortestFragmentLengthAllowed) {
                                     if (frag.minCov == 1) {
                                         if (frag.length >= longFragmentLengthThreshold) {
-                                            longSingletonsOut.write(Long.toString(++fragmentId), frag.seq);
+                                            longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                         }
                                         else {
-                                            shortSingletonsOut.write(Long.toString(++fragmentId), frag.seq);
+                                            shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                         }
                                     }
                                     else {
@@ -1341,10 +1352,10 @@ public class RNABloom {
 
                                         if (m >= 0) {
                                             if (frag.length >= longFragmentLengthThreshold) {
-                                                longFragmentsOut[m].write(Long.toString(++fragmentId), frag.seq);
+                                                longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                             }
                                             else {
-                                                shortFragmentsOut[m].write(Long.toString(++fragmentId), frag.seq);
+                                                shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                             }
                                         }
                                     }
@@ -1366,10 +1377,10 @@ public class RNABloom {
                             graph.addPairedKmersFromSeq(frag.seq);
 
                             if (frag.length >= longFragmentLengthThreshold) {
-                                longSingletonsOut.write(Long.toString(++fragmentId), frag.seq);
+                                longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                             }
                             else {
-                                shortSingletonsOut.write(Long.toString(++fragmentId), frag.seq);
+                                shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                             }
                         }
                         else {
@@ -1377,10 +1388,10 @@ public class RNABloom {
 
                             if (m >= 0) { 
                                 if (frag.length >= longFragmentLengthThreshold) {
-                                    longFragmentsOut[m].write(Long.toString(++fragmentId), frag.seq);
+                                    longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                 }
                                 else {
-                                    shortFragmentsOut[m].write(Long.toString(++fragmentId), frag.seq);
+                                    shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                 }
                             }
                         }
@@ -1832,9 +1843,9 @@ public class RNABloom {
         // -mem 4 -left /home/gengar/test_data/SRR1360926/SRR1360926_2.fastq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926_1.fastq.gz -revcomp-right -stranded -name SRR1360926 -outdir /home/gengar/test_assemblies/SRR1360926
         // -mem 0.5  -left /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.2.fq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926.RNF213.1.fq.gz -revcomp-right -stranded -name RNF213 -outdir /home/gengar/test_assemblies/RNF213
         
-        // -t 12 -mem 7 -left /projects/btl2/kmnip/rna-bloom/example/SRX983106/SRR1957705_2.fastq.gz.trim.fq.gz -right /projects/btl2/kmnip/rna-bloom/example/SRX983106/SRR1957705_1.fastq.gz.trim.fq.gz -revcomp-right -stranded -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1957705/mar21
+        // -t 1 -pair 10 -mem 2 -left /projects/btl2/kmnip/rna-bloom/example/SRX983106/SRR1957705_2.fastq.gz.trim.fq.gz -right /projects/btl2/kmnip/rna-bloom/example/SRX983106/SRR1957705_1.fastq.gz.trim.fq.gz -revcomp-right -stranded -name SRR953119 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/c.elegans/SRR953119/apr07.debug
         // -mem 0.5 -left /projects/btl2/kmnip/rna-bloom/tests/GAPDH_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/tests/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/gapdh
-        // -mem 4 -left /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_2.fq -right /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_1.fq -revcomp-right -stranded -name SRR1360926 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1360926
+        // -mem 4 -left /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_2.fq.gz -right /projects/btl2/kmnip/rna-bloom/example/SRP043027/trimmed_mod_1.fq.gz -revcomp-right -stranded -name SRR1360926 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/SRR1360926
         // -mem 30 -left /projects/btl2/kmnip/ENCODE/MCF-7_nucleus_all_2.fq.gz -right /projects/btl2/kmnip/ENCODE/MCF-7_nucleus_all_1.fq.gz -revcomp-right -stranded -name mcf7 -outdir /projects/btl2/kmnip/rna-bloom/tests/java_assemblies/mcf7        
         // Based on: http://commons.apache.org/proper/commons-cli/usage.html
         CommandLineParser parser = new DefaultParser();
@@ -2195,7 +2206,7 @@ public class RNABloom {
             int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
-            int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "5"));
+            int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
             
             boolean saveGraph = true;
             boolean saveKmerPairs = true;
