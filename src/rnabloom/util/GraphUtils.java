@@ -22,15 +22,13 @@ import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
+import static rnabloom.util.SeqUtils.NUCLEOTIDES;
 import static rnabloom.util.SeqUtils.getFirstKmer;
 import static rnabloom.util.SeqUtils.getLastKmer;
 import static rnabloom.util.SeqUtils.getPercentIdentity;
 import static rnabloom.util.SeqUtils.isLowComplexity2;
 import static rnabloom.util.SeqUtils.overlapMaximally;
 import static rnabloom.util.SeqUtils.stringToBytes;
-import static rnabloom.util.SeqUtils.isLowComplexity2;
-import static rnabloom.util.SeqUtils.isLowComplexity2;
-import static rnabloom.util.SeqUtils.isLowComplexity2;
 
 /**
  *
@@ -76,6 +74,16 @@ public final class GraphUtils {
 
         return getMedian(covs);
     }
+    
+    public static float[] getMinMedMaxKmerCoverage(final ArrayList<Kmer> kmers) {        
+        int len = kmers.size();
+        float[] covs = new float[len];
+        for (int i=0; i<len; ++i) {
+            covs[i] = kmers.get(i).count;
+        }
+
+        return getMinMedMax(covs);
+    }    
     
     public static float getMedianKmerCoverage(final ArrayDeque<Kmer> kmers) {
         int numKmers = kmers.size();
@@ -881,6 +889,18 @@ public final class GraphUtils {
         return arr[halfLen];
     }    
     
+    public static float[] getMinMedMax(float[] arr) {
+        int len = arr.length;
+        float[] a = Arrays.copyOf(arr, len);
+        Arrays.sort(a);
+        int halfLen = len/2;
+        if (len % 2 == 0) {
+            return new float[]{a[0], (a[halfLen-1] + a[halfLen])/2.0f, a[len-1]};
+        }
+        
+        return new float[]{a[0], a[halfLen], a[len-1]};
+    }
+    
     public static float getMedian(float[] arr) {
         int len = arr.length;
         float[] a = Arrays.copyOf(arr, len);
@@ -1312,6 +1332,41 @@ public final class GraphUtils {
                                     }
                                 }
 //                            }
+                        }
+                    }
+                    else if (numBadKmersSince == k + 2) {
+                        // a SNV bubble
+                        Kmer leftEdgeKmer = kmers.get(i-numBadKmersSince);
+                        Kmer rightEdgeKmer = kmers.get(i-1);
+                        String left = leftEdgeKmer.toString();
+                        String right = rightEdgeKmer.toString();
+                        
+                        ArrayList<Kmer> bestKmers = null;
+                        float bestCov = Float.MIN_VALUE;
+                        
+                        ArrayList<Kmer> testKmers;
+                        float[] m3;
+                        for (char n : NUCLEOTIDES) {
+                            testKmers = graph.getKmers(left + n + right);
+                            m3 = getMinMedMaxKmerCoverage(testKmers);
+                            
+                            float medCov = m3[1];
+                            if (m3[0] > 0 && medCov > bestCov) {
+                                bestCov = medCov;
+                                bestKmers = testKmers;
+                            }
+                        }
+                        
+                        if (bestKmers != null & bestCov > 0) {
+                            // fill with best kmers
+                            kmers2.addAll(bestKmers);
+                            corrected = true;
+                        }
+                        else {
+                            // fill with original kmers
+                            for (int j=i-numBadKmersSince; j<i; ++j) {
+                                kmers2.add(kmers.get(j));
+                            }                            
                         }
                     }
                     else {
@@ -2567,9 +2622,9 @@ public final class GraphUtils {
                                                 int minNumPairs) {
         final int numKmers = kmers.size();
         
-        float minCov = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-pairedKmerDistance), numKmers-1);
-        int k = graph.getK();
-        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(minCov), pairedKmerDistance-k);
+//        float minCov = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-pairedKmerDistance), numKmers-1);
+//        int k = graph.getK();
+//        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(minCov), pairedKmerDistance-k);
         
 //        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
 //        for (int i=0; i<covs.length; ++i) {
@@ -2590,7 +2645,7 @@ public final class GraphUtils {
                 
         Kmer kmer, p;
         end += minNumPairs;
-        for (int i=Math.min(start, numKmers-minAnchorDistanceFromEdge); i>=end; --i) {
+        for (int i=start-minNumPairs; i>=end; --i) {
             kmer = kmers.get(i);
             
             if (graph.lookupLeftKmer(kmer.hashVals) &&
@@ -2643,9 +2698,9 @@ public final class GraphUtils {
         
         final int numKmers = kmers.size();
         
-        float minCov = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-pairedKmerDistance), numKmers-1);
-        int k = graph.getK();
-        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(minCov), pairedKmerDistance-k);
+//        float minCov = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-pairedKmerDistance), numKmers-1);
+//        int k = graph.getK();
+//        int minAnchorDistanceFromEdge = Math.min(k * RNABloom.getMinCoverageOrderOfMagnitude(minCov), pairedKmerDistance-k);
         
 //        float[] covs = new float[Math.min(pairedKmerDistance, numKmers)];
 //        for (int i=0; i<covs.length; ++i) {
@@ -2666,7 +2721,7 @@ public final class GraphUtils {
                 
         Kmer kmer, p;
         end += minNumPairs;
-        for (int i=Math.min(start, numKmers-minAnchorDistanceFromEdge); i>=end; --i) {
+        for (int i=start-minNumPairs; i>=end; --i) {
             kmer = kmers.get(i);
             
             if (graph.lookupRightKmer(kmer.hashVals) &&
@@ -3040,12 +3095,13 @@ public final class GraphUtils {
             }
             else {
                 float minDiffCoverage = Float.MAX_VALUE;
+                float edgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
                 
                 float c,d;
                 for (Kmer n : neighbors) {
                     c = getMaxMedianCoverageRight(graph, n, lookahead);
                     if (c > 0) {
-                        d = Math.abs(minEdgeCoverage - c);
+                        d = Math.abs(edgeCoverage - c);
                         if (d < minDiffCoverage) {
                             minDiffCoverage = d;
                             cursor = n;
@@ -3221,12 +3277,13 @@ public final class GraphUtils {
             }
             else {
                 float minDiffCoverage = Float.MAX_VALUE;
+                float edgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
                 
                 float c,d;
                 for (Kmer n : neighbors) {
                     c = getMaxMedianCoverageLeft(graph, n, lookahead);
                     if (c > 0) {
-                        d = Math.abs(minEdgeCoverage - c);
+                        d = Math.abs(edgeCoverage - c);
                         if (d < minDiffCoverage) {
                             minDiffCoverage = d;
                             cursor = n;
