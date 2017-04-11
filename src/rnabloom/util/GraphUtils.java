@@ -65,7 +65,7 @@ public final class GraphUtils {
     }
     
     public static float getMedianKmerCoverage(final ArrayList<Kmer> kmers, int start, int end) {
-        int range = end-start;
+        int range = end-start+1;
         
         float[] covs = new float[range];
         for (int i=0; i<range; ++i) {
@@ -1251,6 +1251,7 @@ public final class GraphUtils {
         int lastKmerIndex = numKmers-1;
         
         int k = graph.getK();
+        int expectedGapSize = k + 2;
         
 //        int kMinus1 = graph.getKMinus1();
 
@@ -1334,7 +1335,7 @@ public final class GraphUtils {
 //                            }
                         }
                     }
-                    else if (numBadKmersSince == k + 2) {
+                    else if (numBadKmersSince == expectedGapSize) {
                         // a SNV bubble
                         Kmer leftEdgeKmer = kmers.get(i-numBadKmersSince);
                         Kmer rightEdgeKmer = kmers.get(i-1);
@@ -1477,6 +1478,9 @@ public final class GraphUtils {
             }
         }
         
+        corrected = correctMismatches(kmers2, graph, covThreshold) || corrected;
+        
+        // look for low coverage SNV not yet corrected        
         if (corrected) {
             return kmers2;
         }
@@ -1485,6 +1489,84 @@ public final class GraphUtils {
         return null;
     }
     
+    public static boolean correctMismatches(ArrayList<Kmer> kmers,
+                                            BloomFilterDeBruijnGraph graph,
+                                            float covThreshold) {
+        boolean corrected = false;
+        int numKmers = kmers.size();
+        int k = graph.getK();
+        
+        Kmer kmer, left, right;
+        
+        // scan in the forward direction
+        for (int i=1; i<numKmers-k; ++i) {
+            kmer = kmers.get(i);
+            if (kmer.count < covThreshold) {
+                left = kmers.get(i-1);
+                if (left.count >= covThreshold) {
+                    right = kmers.get(i+k);
+                    if (right.count >= covThreshold) {
+                        String tail = graph.getPrefix(right.toString());
+                        ArrayList<Kmer> bestAlt = null;
+                        float bestCov = getMedianKmerCoverage(kmers, i, i+k-1);
+                        
+                        for (String var : graph.getRightVariants(kmer.toString())) {
+                            String alt = var + tail;
+                            ArrayList<Kmer> altKmers = graph.getKmers(alt);
+                            float[] m = getMinMedMaxKmerCoverage(altKmers);
+                            if (m[0] > 0 && m[1] > bestCov) {
+                                bestCov = m[1];
+                                bestAlt = altKmers;
+                            }
+                        }
+                        
+                        if (bestAlt != null) {
+                            for (int j=0; j<k; ++j) {
+                                kmers.set(i+j, bestAlt.get(j));
+                            }
+                            corrected = true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // scan in the reverse direction
+        for (int i=numKmers-2; i>=k; --i) {
+            kmer = kmers.get(i);
+            if (kmer.count < covThreshold) {
+                right = kmers.get(i+1);
+                if (right.count >= covThreshold) {
+                    left = kmers.get(i-k);
+                    if (left.count >= covThreshold) {
+                        String head = graph.getSuffix(left.toString());
+                        ArrayList<Kmer> bestAlt = null;
+                        float bestCov = getMedianKmerCoverage(kmers, i-k+1, i);
+                        
+                        for (String var : graph.getLeftVariants(kmer.toString())) {
+                            String alt = head + var;
+                            ArrayList<Kmer> altKmers = graph.getKmers(alt);
+                            float[] m = getMinMedMaxKmerCoverage(altKmers);
+                            if (m[0] > 0 && m[1] > bestCov) {
+                                bestCov = m[1];
+                                bestAlt = altKmers;
+                            }
+                        }
+                        
+                        if (bestAlt != null) {
+                            for (int j=0; j<k; --j) {
+                                kmers.set(i-k+1+j, bestAlt.get(j));
+                            }
+                            corrected = true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return corrected;
+    }
+            
     public static ArrayList<Kmer> correctErrorsSE(ArrayList<Kmer> kmers,
                                     BloomFilterDeBruijnGraph graph, 
                                     int lookahead,
