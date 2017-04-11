@@ -3073,7 +3073,8 @@ public final class GraphUtils {
                                             int minNumPairs,
                                             BloomFilter assembledKmersBloomFilter,
                                             HashSet<String> usedKmers,
-                                            HashSet<String> usedPartnerKmers) {
+                                            HashSet<String> usedPartnerKmers,
+                                            float maxCovGradient) {
         
         int distance = graph.getPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
@@ -3144,7 +3145,7 @@ public final class GraphUtils {
 //            }
             
             float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-            float minCovThreshold = (float) Math.floor(minEdgeCoverage * 0.5f);
+            float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
 //            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
             itr = neighbors.iterator();
             while (itr.hasNext()) {
@@ -3265,7 +3266,8 @@ public final class GraphUtils {
                                             int minNumPairs,
                                             BloomFilter assembledKmersBloomFilter,
                                             HashSet<String> usedKmers,
-                                            HashSet<String> usedPartnerKmers) {
+                                            HashSet<String> usedPartnerKmers,
+                                            float maxCovGradient) {
         
         int distance = graph.getPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
@@ -3337,7 +3339,7 @@ public final class GraphUtils {
 //            }
             
             float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-            float minCovThreshold = (float) Math.floor(minEdgeCoverage * 0.5f);
+            float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
 //            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
             itr = neighbors.iterator();
             while (itr.hasNext()) {
@@ -3775,7 +3777,8 @@ public final class GraphUtils {
                                             BloomFilter assembledKmersBloomFilter,
                                             int maxIndelSize,
                                             float percentIdentity,
-                                            int minNumPairs) {
+                                            int minNumPairs,
+                                            float maxCovGradient) {
         
         HashSet<String> usedKmers = new HashSet<>();
         for (Kmer kmer : kmers) {
@@ -3842,7 +3845,8 @@ public final class GraphUtils {
                                         minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers,
-                                        usedPartnerKmers);
+                                        usedPartnerKmers,
+                                        maxCovGradient);
             
             if (extendable) {
                 extendable = extendLeftWithPairedKmersDFS(kmers, 
@@ -3882,7 +3886,8 @@ public final class GraphUtils {
                                         minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers,
-                                        usedPartnerKmers);
+                                        usedPartnerKmers,
+                                        maxCovGradient);
             
             if (extendable) {
                 extendable = extendRightWithPairedKmersDFS(kmers, 
