@@ -2617,6 +2617,90 @@ public final class GraphUtils {
 //        return assembleString(kmers);
 //    }
     
+    private static LinkedList<Kmer> getSuccessorsRanked(Kmer source, BloomFilterDeBruijnGraph graph, int lookahead, float covThreshold) {
+        LinkedList<Kmer> results = new LinkedList<>();
+        LinkedList<Float> values = new LinkedList<>();
+        
+        ListIterator<Kmer> resultsItr;
+        ListIterator<Float> valuesItr;
+        
+        for (Kmer n : graph.getSuccessors(source)) {
+            if (n.count >= covThreshold) {
+                float c = getMaxMedianCoverageRight(graph, n, lookahead);
+
+                if (results.isEmpty()) {
+                    results.add(n);
+                    values.add(c);
+                }
+                else {
+                    resultsItr = results.listIterator();
+                    valuesItr = values.listIterator();
+
+                    float val;
+                    while (valuesItr.hasNext()) {
+                        resultsItr.next();
+                        val = valuesItr.next();
+
+                        if (c > val) {
+                            if (valuesItr.hasPrevious()) {
+                                resultsItr.previous();
+                                valuesItr.previous();
+                            }
+
+                            resultsItr.add(n);
+                            valuesItr.add(c);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return results;
+    }
+    
+    private static LinkedList<Kmer> getPredecessorsRanked(Kmer source, BloomFilterDeBruijnGraph graph, int lookahead, float covThreshold) {
+        LinkedList<Kmer> results = new LinkedList<>();
+        LinkedList<Float> values = new LinkedList<>();
+        
+        ListIterator<Kmer> resultsItr;
+        ListIterator<Float> valuesItr;
+        
+        for (Kmer n : graph.getPredecessors(source)) {
+            if (n.count >= covThreshold) {
+                float c = getMaxMedianCoverageLeft(graph, n, lookahead);
+
+                if (results.isEmpty()) {
+                    results.add(n);
+                    values.add(c);
+                }
+                else {
+                    resultsItr = results.listIterator();
+                    valuesItr = values.listIterator();
+
+                    float val;
+                    while (valuesItr.hasNext()) {
+                        resultsItr.next();
+                        val = valuesItr.next();
+
+                        if (c > val) {
+                            if (valuesItr.hasPrevious()) {
+                                resultsItr.previous();
+                                valuesItr.previous();
+                            }
+
+                            resultsItr.add(n);
+                            valuesItr.add(c);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return results;
+    }
+    
     private static LinkedList<Kmer> getSuccessorsRanked(Kmer source, BloomFilterDeBruijnGraph graph, int lookahead) {
         LinkedList<Kmer> results = new LinkedList<>();
         LinkedList<Float> values = new LinkedList<>();
@@ -3446,6 +3530,331 @@ public final class GraphUtils {
             ++numKmers;
             
             neighbors = graph.getPredecessors(cursor);
+        }
+        
+        return false;
+    }
+    
+    public static boolean extendRightWithPairedKmersDFS(ArrayList<Kmer> kmers, 
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int lookahead, 
+                                            int maxTipLength,
+                                            int maxIndelSize,
+                                            float percentIdentity,
+                                            int minNumPairs,
+                                            BloomFilter assembledKmersBloomFilter,
+                                            HashSet<String> usedKmers,
+                                            HashSet<String> usedPartnerKmers,
+                                            float maxCovGradient) {
+        
+        final int distance = graph.getPairedKmerDistance();
+//        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
+        int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
+        
+        // data structure to store visited kmers at defined depth
+        HashMap<String, ArrayDeque<Integer>> visitedKmers = new HashMap();
+                
+        int numKmers = kmers.size();
+        int depth = 0;
+        int partnerIndex = numKmers - distance + depth;
+        
+        float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
+        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
+        
+        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>();
+        branchesStack.add(getSuccessorsRanked(kmers.get(numKmers-1), graph, lookahead, minCovThreshold));
+        
+        ArrayDeque<Kmer> extension = new ArrayDeque<>();
+        HashSet<String> extensionKmers = new HashSet<>();
+        
+        Kmer cursor;
+        int maxPartnerIndex = numKmers - 1 - minNumPairs;
+        while (!branchesStack.isEmpty()) {
+            LinkedList<Kmer> branches = branchesStack.getLast();
+            
+            if (branches.isEmpty()) {
+                cursor = extension.pollLast();
+                
+                if (cursor != null) {
+                    extensionKmers.remove(cursor.toString());
+                }
+                
+                branchesStack.removeLast();
+                --depth;
+                --partnerIndex;
+            }
+            else {
+                cursor = branches.pop();
+                String cursorSeq = cursor.toString();
+                
+                if (partnerIndex >=0 &&
+                        partnerIndex <= maxPartnerIndex &&
+//                        partnerIndex+minNumPairs < kmers.size() && 
+                        hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                    
+                    String partnerSeq = kmers.get(partnerIndex).toString();
+                    
+                    if (usedKmers.contains(cursorSeq) && usedPartnerKmers.contains(partnerSeq)) {
+                        return false;
+                    }
+                                        
+                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+                        boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+
+                        if (assembled) {
+//                            int numNotAssembled = 0;
+                            
+                            for (Kmer kmer : extension) {
+                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+//                                    if (distanceInversePI < ++numNotAssembled) {
+                                        assembled = false;
+                                        break;
+//                                    }
+                                }
+                            }
+                            
+                            if (assembled) {
+                                for (int i=partnerIndex; i<numKmers; ++i) {
+                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+//                                        if (distanceInversePI < ++numNotAssembled) {
+                                            assembled = false;
+                                            break;
+//                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (assembled) {
+                            // region already assembled, do not extend further
+                            return false;
+                        }
+                    }
+                    
+                    kmers.addAll(extension);
+                    kmers.add(cursor);
+                    
+                    for (Kmer e : extension) {
+                        usedKmers.add(e.toString());
+                    }
+                    usedKmers.add(cursorSeq);
+                                        
+                    for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
+                        usedPartnerKmers.add(kmers.get(i).toString());
+                    }
+                    
+                    return true;
+                }
+                else if (depth < maxDepth &&
+                        (depth == 0 || !extensionKmers.contains(cursorSeq))) {
+                    
+                    if (graph.hasAtLeastXPredecessors(cursor, 2)) {
+                        // only consider kmers that may be visited from an alternative branch upstream
+                        
+                        ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursorSeq);
+                        if (visitedDepths == null) {
+                            visitedDepths = new ArrayDeque<>();
+                            visitedDepths.add(depth);
+                            
+                            visitedKmers.put(cursorSeq, visitedDepths);
+                            
+                            branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                            extension.add(cursor);
+                            extensionKmers.add(cursorSeq);
+                            ++depth;
+                            ++partnerIndex;
+                        }
+                        else {
+                            boolean visited = false;
+                            for (Integer d : visitedDepths) {
+                                if (d == depth) {
+                                    visited = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!visited) {
+                                visitedDepths.add(depth);
+
+                                branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                                extension.add(cursor);
+                                extensionKmers.add(cursorSeq);
+                                ++depth;
+                                ++partnerIndex;
+                            }
+                        }
+                    }
+                    else {
+                        branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                        extension.add(cursor);
+                        extensionKmers.add(cursorSeq);
+                        ++depth;
+                        ++partnerIndex;
+                    }
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    public static boolean extendLeftWithPairedKmersDFS(ArrayList<Kmer> kmers, 
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int lookahead, 
+                                            int maxTipLength,
+                                            int maxIndelSize,
+                                            float percentIdentity,
+                                            int minNumPairs,
+                                            BloomFilter assembledKmersBloomFilter,
+                                            HashSet<String> usedKmers,
+                                            HashSet<String> usedPartnerKmers,
+                                            float maxCovGradient) {
+        
+        final int distance = graph.getPairedKmerDistance();
+//        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
+        int maxDepth = maxLeftPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
+        
+        // data structure to store visited kmers at defined depth
+        HashMap<String, ArrayDeque<Integer>> visitedKmers = new HashMap();
+        
+        int numKmers = kmers.size();
+        int depth = 0;
+        int partnerIndex = numKmers - distance + depth;
+        
+        float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
+        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
+        
+        ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>();
+        branchesStack.add(getPredecessorsRanked(kmers.get(numKmers-1), graph, lookahead, minCovThreshold));
+        
+        ArrayDeque<Kmer> extension = new ArrayDeque<>();
+        HashSet<String> extensionKmers = new HashSet<>();
+        
+        Kmer cursor;
+        int maxPartnerIndex = numKmers - 1 - minNumPairs;
+        while (!branchesStack.isEmpty()) {
+            LinkedList<Kmer> branches = branchesStack.getLast();
+            
+            if (branches.isEmpty()) {
+                cursor = extension.pollLast();
+                if (cursor != null) {
+                    extensionKmers.remove(cursor.toString());
+                }
+                
+                branchesStack.removeLast();
+                --depth;
+                --partnerIndex;
+            }
+            else {
+                cursor = branches.pop();
+                String cursorSeq = cursor.toString();
+                
+                if (partnerIndex >=0 &&
+                        partnerIndex <= maxPartnerIndex &&
+//                        partnerIndex+minNumPairs < kmers.size() && 
+                        hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                    
+                    String partnerSeq = kmers.get(partnerIndex).toString();
+                    
+                    if (usedKmers.contains(cursorSeq) && usedPartnerKmers.contains(partnerSeq)) {
+                        return false;
+                    }
+                                        
+                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+                        boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+
+                        if (assembled) {
+//                            int numNotAssembled = 0;
+                            
+                            for (Kmer kmer : extension) {
+                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+//                                    if (distanceInversePI < ++numNotAssembled) {
+                                        assembled = false;
+                                        break;
+//                                    }
+                                }
+                            }
+                            
+                            if (assembled) {
+                                for (int i=partnerIndex; i<numKmers; ++i) {
+                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+//                                        if (distanceInversePI < ++numNotAssembled) {
+                                            assembled = false;
+                                            break;
+//                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (assembled) {
+                            // region already assembled, do not extend further
+                            return false;
+                        }
+                    }
+                    
+                    kmers.addAll(extension);
+                    kmers.add(cursor);
+                    
+                    for (Kmer e : extension) {
+                        usedKmers.add(e.toString());
+                    }
+                    usedKmers.add(cursorSeq);
+                    
+                    for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
+                        usedPartnerKmers.add(kmers.get(i).toString());
+                    }
+                    
+                    return true;
+                }
+                else if (depth < maxDepth &&
+                        (depth == 0 || !extensionKmers.contains(cursorSeq))) {
+                    
+                    if (graph.hasAtLeastXSuccessors(cursor, 2)) {
+                        // only consider kmers that may be visited from an alternative branch upstream
+                        
+                        ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursorSeq);
+                        if (visitedDepths == null) {
+                            visitedDepths = new ArrayDeque<>();
+                            visitedDepths.add(depth);
+                            
+                            visitedKmers.put(cursorSeq, visitedDepths);
+                            
+                            branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                            extension.add(cursor);
+                            extensionKmers.add(cursorSeq);
+                            ++depth;
+                            ++partnerIndex;
+                        }
+                        else {
+                            boolean visited = false;
+                            for (Integer d : visitedDepths) {
+                                if (d == depth) {
+                                    visited = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!visited) {
+                                visitedDepths.add(depth);
+
+                                branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                                extension.add(cursor);
+                                extensionKmers.add(cursorSeq);
+                                ++depth;
+                                ++partnerIndex;
+                            }
+                        }
+                    }
+                    else {
+                        branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                        extension.add(cursor);
+                        extensionKmers.add(cursorSeq);
+                        ++depth;
+                        ++partnerIndex;
+                    }
+                }
+            }
         }
         
         return false;
