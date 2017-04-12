@@ -4267,7 +4267,8 @@ public final class GraphUtils {
                                         minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers,
-                                        usedPartnerKmers);
+                                        usedPartnerKmers,
+                                        maxCovGradient);
             }
             else {
                 break;
@@ -4308,7 +4309,8 @@ public final class GraphUtils {
                                         minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers,
-                                        usedPartnerKmers);
+                                        usedPartnerKmers,
+                                        maxCovGradient);
             }
             else {
                 break;
