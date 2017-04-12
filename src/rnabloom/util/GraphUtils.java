@@ -3229,7 +3229,7 @@ public final class GraphUtils {
 //            }
             
             float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-            float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
+            float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);            
 //            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
             itr = neighbors.iterator();
             while (itr.hasNext()) {
@@ -3423,7 +3423,7 @@ public final class GraphUtils {
 //            }
             
             float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-            float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
+            float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);            
 //            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
             itr = neighbors.iterator();
             while (itr.hasNext()) {
@@ -3648,6 +3648,9 @@ public final class GraphUtils {
                 else if (depth < maxDepth &&
                         (depth == 0 || !extensionKmers.contains(cursorSeq))) {
                     
+                    float minExtensionCoverage = extension.isEmpty() ? minEdgeCoverage : Math.min(minEdgeCoverage, getMinimumKmerCoverage(extension));
+                    minCovThreshold = (float) Math.floor(minExtensionCoverage * maxCovGradient);
+                    
                     if (graph.hasAtLeastXPredecessors(cursor, 2)) {
                         // only consider kmers that may be visited from an alternative branch upstream
                         
@@ -3809,6 +3812,9 @@ public final class GraphUtils {
                 }
                 else if (depth < maxDepth &&
                         (depth == 0 || !extensionKmers.contains(cursorSeq))) {
+                    
+                    float minExtensionCoverage = extension.isEmpty() ? minEdgeCoverage : Math.min(minEdgeCoverage, getMinimumKmerCoverage(extension));
+                    minCovThreshold = (float) Math.floor(minExtensionCoverage * maxCovGradient);
                     
                     if (graph.hasAtLeastXSuccessors(cursor, 2)) {
                         // only consider kmers that may be visited from an alternative branch upstream
@@ -4268,7 +4274,7 @@ public final class GraphUtils {
                                         assembledKmersBloomFilter,
                                         usedKmers,
                                         usedPartnerKmers,
-                                        maxCovGradient);
+                                        0.1f);
             }
             else {
                 break;
@@ -4310,7 +4316,7 @@ public final class GraphUtils {
                                         assembledKmersBloomFilter,
                                         usedKmers,
                                         usedPartnerKmers,
-                                        maxCovGradient);
+                                        0.1f);
             }
             else {
                 break;
