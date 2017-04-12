@@ -1710,9 +1710,9 @@ public class RNABloom {
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads);
             }
 
-            System.out.println("Parsing fragments in `" + longSingletonsFasta + "`...");
-            writer.setOutputPrefix("01" + tag);
-            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads);            
+//            System.out.println("Parsing fragments in `" + longSingletonsFasta + "`...");
+//            writer.setOutputPrefix("01" + tag);
+//            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads);            
             
             tag = ".S.";
             for (int mag=shortFragmentsFastas.length-1; mag>=0; --mag) {
@@ -1725,9 +1725,9 @@ public class RNABloom {
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads);
             }
 
-            System.out.println("Parsing fragments in `" + shortSingletonsFasta + "`...");
-            writer.setOutputPrefix("01" + tag);
-            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads); 
+//            System.out.println("Parsing fragments in `" + shortSingletonsFasta + "`...");
+//            writer.setOutputPrefix("01" + tag);
+//            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads); 
             
             fout.close();
             foutShort.close();
