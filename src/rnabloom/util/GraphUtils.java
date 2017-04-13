@@ -4273,8 +4273,7 @@ public final class GraphUtils {
                                         minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers,
-                                        usedPartnerKmers,
-                                        0.1f);
+                                        usedPartnerKmers);
             }
             else {
                 break;
@@ -4315,8 +4314,7 @@ public final class GraphUtils {
                                         minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers,
-                                        usedPartnerKmers,
-                                        0.1f);
+                                        usedPartnerKmers);
             }
             else {
                 break;
