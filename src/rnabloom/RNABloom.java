@@ -1671,20 +1671,26 @@ public class RNABloom {
                                                 int sbfNumHash,
                                                 int numThreads,
                                                 int sampleSize,
-                                                int minTranscriptLength) {
+                                                int minTranscriptLength,
+                                                boolean createFragmentDBG) {
         
         long numFragmentsParsed = 0;
 
         try {
-            System.out.println("Creating graph from fragment kmers...");
-//            graph.getDbgbf().empty();
-//            insertIntoDeBruijnGraph(longFragmentsFastas);
-//            insertIntoDeBruijnGraph(shortFragmentsFastas);
-//            insertIntoDeBruijnGraph(longSingletonsFasta);
-//            insertIntoDeBruijnGraph(shortSingletonsFasta);
-        
-            dbgFPR = graph.getDbgbf().getFPR();
-            System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
+            if (createFragmentDBG) {
+                System.out.println("Creating graph from fragment kmers...");
+                
+                graph.getDbgbf().empty();
+                
+                insertIntoDeBruijnGraph(longFragmentsFastas);
+                insertIntoDeBruijnGraph(shortFragmentsFastas);
+                
+                insertIntoDeBruijnGraph(longSingletonsFasta);
+                insertIntoDeBruijnGraph(shortSingletonsFasta);
+                
+                dbgFPR = graph.getDbgbf().getFPR();
+                System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
+            }
             
             if (covFPR <= 0) {
                 covFPR = graph.getCbf().getFPR();
@@ -2097,6 +2103,13 @@ public class RNABloom {
                                     .build();
         options.addOption(optErrCorrItr);        
 
+        Option optFdbg = Option.builder("fdbg")
+                                    .longOpt("fdbg")
+                                    .desc("used only fragment kmers during transcript assembly")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optFdbg);
+        
         Option optMinKmerPairs = Option.builder("pair")
                                     .longOpt("pair")
                                     .desc("minimum number of consecutive kmer pairs for assembling transcripts")
@@ -2206,6 +2219,7 @@ public class RNABloom {
             int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
+            boolean createFragmentDBG = line.hasOption(optFdbg.getOpt());
             int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
             
             boolean saveGraph = true;
@@ -2373,7 +2387,8 @@ public class RNABloom {
                                                             sbfNumHash,
                                                             numThreads,
                                                             sampleSize,
-                                                            minTranscriptLength);
+                                                            minTranscriptLength,
+                                                            createFragmentDBG);
 
                 System.out.println("Transcripts assembled in `" + transcriptsFasta + "`");
                 System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
