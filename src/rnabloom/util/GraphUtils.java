@@ -512,7 +512,7 @@ public final class GraphUtils {
                     if (startIndex > 0) {
                                                 
                         if (lastRepresentedKmerFoundIndex < 0) {                            
-                            if (startIndex >= k) {
+                            if (startIndex >= k-1 || hasDepthLeft(kmers.get(0), graph, k-1-startIndex)) {
                                 // check left edge kmers
                                 ArrayDeque testEdgeKmers = greedyExtendLeft(graph, kmers.get(startIndex), lookahead, startIndex, bf);
                                 if (testEdgeKmers.size() != startIndex ||
@@ -576,7 +576,7 @@ public final class GraphUtils {
             if (lastRepresentedKmerFoundIndex < maxIndex) {
                 // check right edge kmers
                 int expectedLen = numKmers-lastRepresentedKmerFoundIndex-1;
-                if (expectedLen >= k) {                    
+                if (expectedLen >= k || hasDepthRight(kmers.get(numKmers-1), graph, k-expectedLen)) {                    
                     ArrayDeque testEdgeKmers = greedyExtendRight(graph, kmers.get(lastRepresentedKmerFoundIndex), lookahead, expectedLen, bf);
                     if (testEdgeKmers.size() != expectedLen ||
                             getPercentIdentity(assemble(testEdgeKmers, k), assemble(kmers, k, lastRepresentedKmerFoundIndex+1, numKmers)) < percentIdentity) {
