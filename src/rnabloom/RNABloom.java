@@ -1746,64 +1746,54 @@ public class RNABloom {
             System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments.");
         }
     }
-      
-    public void printFloatArray(float[] arr){
-        StringBuilder sb = new StringBuilder();
-        sb.append("[ ");
-        for (float f : arr) {
-            sb.append(f);
-            sb.append(" ");
+    
+    private static class MyTimer {
+        private final long globalStartTime;
+        private long startTime;
+        
+        public MyTimer() {
+            globalStartTime = System.currentTimeMillis();
+            startTime = globalStartTime;
         }
-        sb.append("]");
-        System.out.println(sb.toString());
-    }
-    
-    public void testErrorCorrection() {
-        int lookahead = 5;
-        float maxCovGradient = 0.5f;
-        int bound = 500; 
-        int maxIndelSize = 1; 
-        float covFPR = graph.getCbf().getFPR();
-        int minOverlap = 10;
-        int errorCorrectionIterations = 2;
-
-        String leftRead =  "GGTGGTCTCCTCTGACTTCAACAGCGACACCCACTCCTCCACCTTCGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTTGTCAAGCTCATTTCCTGG";
-        String rightRead = "AGCAAGAGCACAAGAGGAAGAGGGAGCCCCTCCCTGCTGGGGAGTCCCTGCCACACTAAGTCCCCCACCACACTGAATCTCCC";
         
-//        String leftRead =  "CAGTCAGCCGCATCTTCTTTTGCGTCGCCAGCCGAGCCACATCGCTCAGACACCATGGGGAAGGTGAAGGTCGGAGTCAACGGGTGAGTTCGCGGGTGGC";
-//        String rightRead = "CTGGGGGGCCCTGGGCTGCGACCGCCCCCGAACCGCGTCTACGAGCCTTGCGGGCTCCGGGTCTTTGCAGTCGTATGGGGGCAGGGTAGCTGTTCCCCGC";
+        public void start() {
+            startTime = System.currentTimeMillis();
+        }
         
-        System.out.println(leftRead);
-        System.out.println(rightRead);
+        public long elapsedTime() {
+            return (System.currentTimeMillis() - startTime) / 1000;
+        }
+                
+        public long totalElapsedTime() {
+            return (System.currentTimeMillis() - globalStartTime) / 1000;
+        }
         
-    }
-    
-    public void testInsertionCorrection() {
-        String seq =  "TGAAGCAGGCGTCGGAGGGCCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGAC";
-        String note = "                        ^                                                           ";
-        
-        int lookahead = 5;
-        int errorsallowed = 5;
-        
-        String corrected = correctErrors(seq, graph, lookahead, errorsallowed);
-        
-        System.out.println(seq);
-        System.out.println(note);
-        System.out.println(corrected);
-    }
-
-    
-    public void testMismatchCorrection() {
-        String seq =  "AGAGGGGTGATGTGGGGAGTACGCTGCAGGGCCTCACTCCTTTTGCAGACCACAGTCCATGCCATCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCATCCCTGCCTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCTTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCGTCTAGAAAAAC";
-        
-        int lookahead = 7;
-        float pid = 0.95f;
-        
-        String corrected = correctMismatches(seq, graph, lookahead, (int) Math.ceil((1.0f - pid) * seq.length()));
-
-        
-        System.out.println(seq);
-        System.out.println(corrected);
+        public static String hmsFormat(long seconds) {            
+            long hours = seconds / 3600;
+            
+            seconds = seconds % 3600;
+            
+            long minutes = seconds / 60;
+            
+            seconds = seconds % 60;
+            
+            StringBuilder sb = new StringBuilder();
+            
+            if (hours > 0) {
+                sb.append(hours);
+                sb.append("h ");
+            }
+            
+            if (minutes > 0) {
+                sb.append(minutes);
+                sb.append("m ");
+            }
+            
+            sb.append(seconds);
+            sb.append("s");
+            
+            return sb.toString();
+        }
     }
     
     public static void touch(File f) throws IOException {
@@ -1841,7 +1831,7 @@ public class RNABloom {
         final String FRAGMENTS_DONE = "FRAGMENTS.DONE";
         final String TRANSCRIPTS_DONE = "TRANSCRIPTS.DONE";
         
-        long globalStartTime = System.nanoTime();
+        MyTimer timer = new MyTimer();
         
         System.out.println("args: " + Arrays.toString(args));
         
@@ -2259,7 +2249,7 @@ public class RNABloom {
                 String[] forwardFastqs = new String[]{fastqLeft};
                 String[] backwardFastqs = new String[]{fastqRight};
                 
-                long startTime = System.nanoTime();
+                timer.start();
                 
                 assembler.createGraph(forwardFastqs, backwardFastqs, 
                         strandSpecific, 
@@ -2267,7 +2257,7 @@ public class RNABloom {
                         dbgbfNumHash, cbfNumHash, pkbfNumHash,
                         numThreads);
 
-                System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedTime()));
                 
                 if (saveGraph) {
                     System.out.println("Saving graph to file `" + graphFile + "`...");
@@ -2336,7 +2326,7 @@ public class RNABloom {
                     fragmentsFile.delete();
                 }
                 
-                long startTime = System.nanoTime();
+                timer.start();
                 
                 assembler.assembleFragmentsMultiThreaded(fqPairs, 
                         longFragmentsFastaPaths, 
@@ -2349,7 +2339,7 @@ public class RNABloom {
                         numThreads,
                         maxErrCorrItr);
 
-                System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedTime()));
                 
                 if (saveKmerPairs) {
                     System.out.println("Saving paired kmers Bloom filter to file...");
@@ -2375,7 +2365,7 @@ public class RNABloom {
                     shortTranscriptsFile.delete();
                 }
                 
-                long startTime = System.nanoTime();
+                timer.start();
                 
                 assembler.assembleTranscriptsMultiThreaded(longFragmentsFastaPaths, 
                                                             shortFragmentsFastaPaths,
@@ -2391,7 +2381,7 @@ public class RNABloom {
                                                             createFragmentDBG);
 
                 System.out.println("Transcripts assembled in `" + transcriptsFasta + "`");
-                System.out.println("Time elapsed: " + (System.nanoTime() - startTime) / Math.pow(10, 9) + " seconds");
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedTime()));
                 
                 try {
                     touch(txptsDoneStamp);
@@ -2406,6 +2396,6 @@ public class RNABloom {
             System.out.println("ERROR:" + exp.getMessage() );
         }
         
-        System.out.println("Total Runtime: " + (System.nanoTime() - globalStartTime) / Math.pow(10, 9) + " seconds");
+        System.out.println("Total Runtime: " + MyTimer.hmsFormat(timer.totalElapsedTime()));
     }
 }
