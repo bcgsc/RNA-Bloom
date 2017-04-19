@@ -1672,7 +1672,8 @@ public class RNABloom {
                                                 int numThreads,
                                                 int sampleSize,
                                                 int minTranscriptLength,
-                                                boolean createFragmentDBG) {
+                                                boolean createFragmentDBG,
+                                                boolean useSingletonFragments) {
         
         long numFragmentsParsed = 0;
 
@@ -1715,10 +1716,6 @@ public class RNABloom {
 
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads);
             }
-
-//            System.out.println("Parsing fragments in `" + longSingletonsFasta + "`...");
-//            writer.setOutputPrefix("01" + tag);
-//            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads);            
             
             tag = ".S.";
             for (int mag=shortFragmentsFastas.length-1; mag>=0; --mag) {
@@ -1731,9 +1728,15 @@ public class RNABloom {
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads);
             }
 
-//            System.out.println("Parsing fragments in `" + shortSingletonsFasta + "`...");
-//            writer.setOutputPrefix("01" + tag);
-//            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads); 
+            if (useSingletonFragments) {
+                System.out.println("Parsing fragments in `" + longSingletonsFasta + "`...");
+                writer.setOutputPrefix("01.L.");
+                numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads);
+
+                System.out.println("Parsing fragments in `" + shortSingletonsFasta + "`...");
+                writer.setOutputPrefix("01.S.");
+                numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads); 
+            }
             
             fout.close();
             foutShort.close();
@@ -2099,6 +2102,13 @@ public class RNABloom {
                                     .hasArg(false)
                                     .build();
         options.addOption(optFdbg);
+
+        Option optSingleton = Option.builder("1")
+                                    .longOpt("singleton")
+                                    .desc("assemble transcripts from singleton fragments")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optSingleton);
         
         Option optMinKmerPairs = Option.builder("pair")
                                     .longOpt("pair")
@@ -2210,6 +2220,7 @@ public class RNABloom {
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
             boolean createFragmentDBG = line.hasOption(optFdbg.getOpt());
+            boolean useSingletonFragments = line.hasOption(optSingleton.getOpt());
             int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
             
             boolean saveGraph = true;
@@ -2378,7 +2389,8 @@ public class RNABloom {
                                                             numThreads,
                                                             sampleSize,
                                                             minTranscriptLength,
-                                                            createFragmentDBG);
+                                                            createFragmentDBG,
+                                                            useSingletonFragments);
 
                 System.out.println("Transcripts assembled in `" + transcriptsFasta + "`");
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedTime()));
