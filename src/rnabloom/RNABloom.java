@@ -997,7 +997,7 @@ public class RNABloom {
 
                             if (!isLowComplexity2(leftKmers.get(leftKmers.size()-1).bytes) &&  
                                     !isLowComplexity2(rightKmers.get(0).bytes)) {
-                                fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap);
+                                fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap, maxCovGradient);
                             }
 
                             if (fragmentKmers != null) {

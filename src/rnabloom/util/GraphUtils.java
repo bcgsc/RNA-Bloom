@@ -663,6 +663,184 @@ public final class GraphUtils {
         return false;
     }
     
+    public static ArrayDeque<Kmer> getSimilarCoveragePath(BloomFilterDeBruijnGraph graph, 
+                                                        Kmer left, 
+                                                        Kmer right, 
+                                                        int bound, 
+                                                        int lookahead, 
+                                                        float leftCoverageThreshold, 
+                                                        float rightCoverageThreshold,
+                                                        float maxCovGradient) {
+        
+        HashSet<String> leftPathKmers = new HashSet<>(bound);
+        
+        /* extend right */
+        ArrayDeque<Kmer> leftPath = new ArrayDeque<>(bound);
+        Kmer best;
+        ArrayDeque<Kmer> neighbors;
+        
+        best = left;
+
+        for (int depth=0; depth < bound; ++depth) {
+            neighbors = graph.getSuccessors(best);
+
+            if (neighbors.isEmpty()) {
+                break;
+            }
+            else {
+                if (neighbors.size() == 1) {
+                    best = neighbors.peek();
+                }
+                else {
+                    Iterator<Kmer> itr = neighbors.iterator();
+                    while (itr.hasNext()) {
+                        if (itr.next().count < leftCoverageThreshold) {
+                            itr.remove();
+                        }
+                    }
+                    
+                    if (neighbors.isEmpty()) {
+                        break;
+                    }
+                    else if (neighbors.size() == 1) {
+                        best = neighbors.peek();
+                        
+                        float c = maxCovGradient * best.count;
+                        if (c < leftCoverageThreshold) {
+                            leftCoverageThreshold = c;
+                        }
+                    }
+                    else if (leftCoverageThreshold < rightCoverageThreshold) {
+                        itr = neighbors.iterator();
+                        while (itr.hasNext()) {
+                            if (itr.next().count < rightCoverageThreshold) {
+                                itr.remove();
+                            }
+                        }
+                        
+                        if (neighbors.size() == 1) {
+                            best = neighbors.peek();
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                    else {
+                        break;
+                    }
+                }
+
+                if (best.equals(right)) {
+                    return leftPath;
+                }
+                else {
+                    String seq = best.toString();
+                    if (leftPathKmers.contains(seq)) {
+                        break;
+                    }
+                    else {
+                        leftPathKmers.add(seq);
+                        leftPath.add(best);
+                    }
+                }
+            }
+        }
+        
+        HashSet<String> rightPathKmers = new HashSet<>(bound);
+        
+        /* not connected, search from right */
+        ArrayDeque<Kmer> rightPath = new ArrayDeque<>(bound);
+        best = right;
+        for (int depth=0; depth < bound; ++depth) {
+            neighbors = graph.getPredecessors(best);
+            
+            if (neighbors.isEmpty()) {
+                break;
+            }
+            else {
+                if (neighbors.size() == 1) {
+                    best = neighbors.peek();
+                }
+                else {
+                    Iterator<Kmer> itr = neighbors.iterator();
+                    while (itr.hasNext()) {
+                        if (itr.next().count < rightCoverageThreshold) {
+                            itr.remove();
+                        }
+                    }
+                    
+                    if (neighbors.isEmpty()) {
+                        break;
+                    }
+                    else if (neighbors.size() == 1) {
+                        best = neighbors.peek();
+                        
+                        float c = maxCovGradient * best.count;
+                        if (c < rightCoverageThreshold) {
+                            rightCoverageThreshold = c;
+                        }
+                    }
+                    else if (rightCoverageThreshold < leftCoverageThreshold) {
+                        itr = neighbors.iterator();
+                        while (itr.hasNext()) {
+                            if (itr.next().count < leftCoverageThreshold) {
+                                itr.remove();
+                            }
+                        }
+                        
+                        if (neighbors.size() == 1) {
+                            best = neighbors.peek();
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                    else {
+                        break;
+                    }
+                }
+                
+                if (best.equals(left)) {
+                    return rightPath;
+                }
+                else {
+                    String bestSeq = best.toString();
+                    if (rightPathKmers.contains(bestSeq)) {
+                        return null;
+                    }
+                    else if (leftPathKmers.contains(bestSeq)) {
+                        /* right path intersects the left path */
+                        
+                        if (isLowComplexity2(bestSeq)) {
+                            return null;
+                        }
+                        
+                        rightPath.addFirst(best);
+
+                        Iterator<Kmer> itr = leftPath.descendingIterator();
+                        Kmer kmer;
+                        while (itr.hasNext()) {
+                            kmer = itr.next();
+                            if (best.equals(kmer)) {
+                                while (itr.hasNext()) {
+                                    rightPath.addFirst(itr.next());
+                                }
+
+                                return rightPath;
+                            }
+                        }
+                    }
+                    else {
+                        rightPathKmers.add(bestSeq);
+                        rightPath.addFirst(best);
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+    
     /**
      * 
      * @param graph
@@ -2396,7 +2574,13 @@ public final class GraphUtils {
         return null;
     }
     
-    public static ArrayList<Kmer> overlapAndConnect(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, BloomFilterDeBruijnGraph graph, int bound, int lookahead, int minOverlap) {
+    public static ArrayList<Kmer> overlapAndConnect(ArrayList<Kmer> leftKmers, 
+                                                    ArrayList<Kmer> rightKmers, 
+                                                    BloomFilterDeBruijnGraph graph,
+                                                    int bound, 
+                                                    int lookahead,
+                                                    int minOverlap,
+                                                    float maxCovGradient) {
         int k = graph.getK();
         String leftSeq = assemble(leftKmers, k);
         String rightSeq = assemble(rightKmers, k);
@@ -2409,7 +2593,11 @@ public final class GraphUtils {
             Kmer rightFirstKmer = rightKmers.get(0);
 
             // 2. Attempt connect a path
-            ArrayDeque<Kmer> connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+//            ArrayDeque<Kmer> connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+
+            float leftCoverageThreshold = getMinimumKmerCoverage(leftKmers) * maxCovGradient;
+            float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
+            ArrayDeque<Kmer> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient);
 
             if (connectedPath != null) {
                 fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
