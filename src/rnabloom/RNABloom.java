@@ -1763,15 +1763,17 @@ public class RNABloom {
             startTime = System.currentTimeMillis();
         }
         
-        public long elapsedTime() {
-            return (System.currentTimeMillis() - startTime) / 1000;
+        public long elapsedMillis() {
+            return System.currentTimeMillis() - startTime;
         }
                 
-        public long totalElapsedTime() {
-            return (System.currentTimeMillis() - globalStartTime) / 1000;
+        public long totalElapsedMillis() {
+            return System.currentTimeMillis() - globalStartTime;
         }
         
-        public static String hmsFormat(long seconds) {            
+        public static String hmsFormat(long millis) {
+            long seconds = millis / 1000;
+            
             long hours = seconds / 3600;
             
             seconds = seconds % 3600;
@@ -1787,13 +1789,19 @@ public class RNABloom {
                 sb.append("h ");
             }
             
-            if (minutes > 0) {
+            if (minutes > 0 || hours > 0) {
                 sb.append(minutes);
                 sb.append("m ");
             }
-            
-            sb.append(seconds);
-            sb.append("s");
+                        
+            if (hours == 0 && minutes == 0) {
+                sb.append(millis/1000f);
+                sb.append("s");
+            }
+            else {
+                sb.append(seconds);
+                sb.append("s");
+            }
             
             return sb.toString();
         }
@@ -2268,7 +2276,7 @@ public class RNABloom {
                         dbgbfNumHash, cbfNumHash, pkbfNumHash,
                         numThreads);
 
-                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedTime()));
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
                 if (saveGraph) {
                     System.out.println("Saving graph to file `" + graphFile + "`...");
@@ -2350,7 +2358,7 @@ public class RNABloom {
                         numThreads,
                         maxErrCorrItr);
 
-                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedTime()));
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
                 if (saveKmerPairs) {
                     System.out.println("Saving paired kmers Bloom filter to file...");
@@ -2393,7 +2401,7 @@ public class RNABloom {
                                                             useSingletonFragments);
 
                 System.out.println("Transcripts assembled in `" + transcriptsFasta + "`");
-                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedTime()));
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
                 try {
                     touch(txptsDoneStamp);
@@ -2408,6 +2416,6 @@ public class RNABloom {
             System.out.println("ERROR:" + exp.getMessage() );
         }
         
-        System.out.println("Total Runtime: " + MyTimer.hmsFormat(timer.totalElapsedTime()));
+        System.out.println("Total Runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
     }
 }
