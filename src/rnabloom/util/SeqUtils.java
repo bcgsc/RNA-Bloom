@@ -691,15 +691,222 @@ public final class SeqUtils {
         
         return result;
     }
-       
+    
+    public static byte[] seqToBits(String seq) {
+        int len = seq.length();
+        int numFullBytes = len / 4;
+        int remainder = len % 4;
+        
+        int numBytes = numFullBytes;
+        if (remainder > 0) {
+            ++numBytes;
+        }
+        
+        byte[] bits = new byte[numBytes];
+        
+        for (int i=0; i<numFullBytes; ++i) {
+            byte b = 0;
+            int baseIndex = i*4;
+            for (int j=0; j<4; ++j) {
+                char c = seq.charAt(baseIndex + j);
+                
+                int bitIndex = 2*j;
+                
+                switch (c) {
+                    case 'A':
+                        // 00
+                        b &= ~(1 << bitIndex);
+                        b &= ~(1 << bitIndex+1);
+                        break;
+                    case 'C':
+                        // 01
+                        b &= ~(1 << bitIndex);
+                        b |= (1 << bitIndex+1);
+                        break;
+                    case 'G':
+                        // 10
+                        b |= (1 << bitIndex);
+                        b &= ~(1 << bitIndex+1);
+                        break;
+                    case 'T':
+                        // 11
+                        b |= (1 << bitIndex);
+                        b |= (1 << bitIndex+1);
+                        break;
+                }
+            }
+            bits[i] = b;
+        }
+        
+        if (remainder > 0) {
+            byte b = 0;
+            int baseIndex = numFullBytes*4;
+            for (int j=0; j<remainder; ++j) {
+                char c = seq.charAt(baseIndex + j);
+                
+                int bitIndex = 2*j;
+                
+                switch (c) {
+                    case 'A':
+                        // 00
+                        b &= ~(1 << bitIndex);
+                        b &= ~(1 << bitIndex+1);
+                        break;
+                    case 'C':
+                        // 01
+                        b &= ~(1 << bitIndex);
+                        b |= (1 << bitIndex+1);
+                        break;
+                    case 'G':
+                        // 10
+                        b |= (1 << bitIndex);
+                        b &= ~(1 << bitIndex+1);
+                        break;
+                    case 'T':
+                        // 11
+                        b |= (1 << bitIndex);
+                        b |= (1 << bitIndex+1);
+                        break;
+                }
+            }
+            bits[numFullBytes] = b;
+        }
+        
+        return bits;
+    }
+    
+    public static String bitsToSeq(byte[] bits, int len) {
+        StringBuilder sb = new StringBuilder(len);
+        
+        int numFullBytes = len / 4;
+        int remainder = len % 4;
+        
+        for (int i=0; i<numFullBytes; ++i) {
+            byte b = bits[i];
+            
+            for (int j=0; j<8; ++j) {
+                if ((b & (1 << j)) == 0) {
+                    if ((b & (1 << ++j)) == 0) {
+                        // 00
+                        sb.append('A');
+                    }
+                    else {
+                        // 01
+                        sb.append('C');
+                    }
+                }
+                else {
+                    if ((b & (1 << ++j)) == 0) {
+                        // 10
+                        sb.append('G');
+                    }
+                    else {
+                        // 11
+                        sb.append('T');
+                    }
+                }
+            }
+        }
+        
+        if (remainder > 0) {
+            byte b = bits[numFullBytes];
+            int numBits = 2*remainder;
+            for (int j=0; j<numBits; ++j) {
+                if ((b & (1 << j)) == 0) {
+                    if ((b & (1 << ++j)) == 0) {
+                        // 00
+                        sb.append('A');
+                    }
+                    else {
+                        // 01
+                        sb.append('C');
+                    }
+                }
+                else {
+                    if ((b & (1 << ++j)) == 0) {
+                        // 10
+                        sb.append('G');
+                    }
+                    else {
+                        // 11
+                        sb.append('T');
+                    }
+                }
+            }
+        }
+        
+        return sb.toString();
+    }
+    
+    public static char getNucleotide(byte[] bits, int len, int index) {
+        byte b = bits[index/4];
+        int bitIndex = 2 * (index % 4);
+        if ((b & (1 << bitIndex)) == 0) {
+            if ((b & (1 << ++bitIndex)) == 0) {
+                // 00
+                return 'A';
+            }
+            else {
+                // 01
+                return 'C';
+            }
+        }
+        else {
+            if ((b & (1 << ++bitIndex)) == 0) {
+                // 10
+                return 'G';
+            }
+            else {
+                // 11
+                return 'T';
+            }
+        }
+    }
+
+    public static void setNucleotide(byte[] bits, int len, int index, char c) {
+        int byteIndex = index/4;
+        byte b = bits[byteIndex];
+        int bitIndex = 2 * (index % 4);
+        
+        switch (c) {
+            case 'A':
+                // 00
+                b &= ~(1 << bitIndex);
+                b &= ~(1 << bitIndex+1);
+                break;
+            case 'C':
+                // 01
+                b &= ~(1 << bitIndex);
+                b |= (1 << bitIndex+1);
+                break;
+            case 'G':
+                // 10
+                b |= (1 << bitIndex);
+                b &= ~(1 << bitIndex+1);
+                break;
+            case 'T':
+                // 11
+                b |= (1 << bitIndex);
+                b |= (1 << bitIndex+1);
+                break;
+        }
+        
+        bits[byteIndex] = b;
+    }
+    
     public static void main(String[] args) {
-        String chars = "ACGTATGC";
-        int len = chars.length();
+        String chars = "TCGAGTTAAGCAGATGCTGACTGAT";
         
-        byte[] bytes = stringToBytes(chars, len);
-        byte[] bytes2 = shiftLeft(bytes, len);
-        bytes2[len-1] = (byte) 'M';
+        byte[] bits = seqToBits(chars);
         
-        System.out.println(bytesToString(bytes2, len));
+        for (byte b : bits) {
+            System.out.println(String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0'));
+        }
+                
+        System.out.println(chars);
+        System.out.println(bitsToSeq(bits, chars.length()));
+        
+        setNucleotide(bits, chars.length(), 2, 'A');
+        System.out.println(bitsToSeq(bits, chars.length()));
     }
 }
