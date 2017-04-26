@@ -463,6 +463,25 @@ public class BloomFilterDeBruijnGraph {
         public String toString() {
             return bytesToString(bytes, bytes.length);
         }
+        
+        @Override
+        public int hashCode(){
+            return (int) this.hashVals[0]; 
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            return Arrays.equals(this.bytes, ((Kmer) obj).bytes);
+        }
     }
     
     public String getPrefix(String kmer) {
