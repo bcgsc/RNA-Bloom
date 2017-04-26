@@ -22,13 +22,7 @@ import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
-import static rnabloom.util.SeqUtils.NUCLEOTIDES;
-import static rnabloom.util.SeqUtils.getFirstKmer;
-import static rnabloom.util.SeqUtils.getLastKmer;
-import static rnabloom.util.SeqUtils.getPercentIdentity;
-import static rnabloom.util.SeqUtils.isLowComplexity2;
-import static rnabloom.util.SeqUtils.overlapMaximally;
-import static rnabloom.util.SeqUtils.stringToBytes;
+import static rnabloom.util.SeqUtils.*;
 
 /**
  *

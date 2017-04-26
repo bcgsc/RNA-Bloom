@@ -15,26 +15,12 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysPartitionedBloomFilter;
-import rnabloom.bloom.hash.CanonicalHashFunction2;
-import rnabloom.bloom.hash.HashFunction2;
-import rnabloom.bloom.hash.LeftVariantsNTHashIterator;
-import rnabloom.bloom.hash.NTHashIterator;
-import rnabloom.bloom.hash.PredecessorsNTHashIterator;
-import rnabloom.bloom.hash.RightVariantsNTHashIterator;
-import rnabloom.bloom.hash.SuccessorsNTHashIterator;
+import rnabloom.bloom.hash.*;
 import rnabloom.util.SeqUtils.KmerSeqIterator;
-import static rnabloom.util.SeqUtils.NUCLEOTIDES;
-import static rnabloom.util.SeqUtils.NUCLEOTIDE_BYTES;
-import static rnabloom.util.SeqUtils.bytesToString;
-import static rnabloom.util.SeqUtils.getAltNucleotides;
-import static rnabloom.util.SeqUtils.getNumKmers;
-import static rnabloom.util.SeqUtils.shiftLeft;
-import static rnabloom.util.SeqUtils.shiftRight;
-import static rnabloom.util.SeqUtils.stringToBytes;
+import static rnabloom.util.SeqUtils.*;
 
 /**
  *
