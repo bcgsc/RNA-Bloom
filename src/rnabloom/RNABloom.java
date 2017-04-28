@@ -1003,18 +1003,28 @@ public class RNABloom {
                                 int fragLength = fragmentKmers.size() + k - 1;
 
                                 if (fragLength >= k + lookahead) {
-                                    if (this.storeKmerPairs) {
-                                        graph.addPairedKmers(fragmentKmers);
-                                    }
-
+                                    boolean hasComplexKmer = false;
+                                    
                                     float minCov = Float.MAX_VALUE;
                                     for (Kmer kmer : fragmentKmers) {
                                         if (kmer.count < minCov) {
                                             minCov = kmer.count;
                                         }
+                                        
+                                        if (!hasComplexKmer) {
+                                            if (!isLowComplexity2(kmer.bytes)) {
+                                                hasComplexKmer = true;
+                                            }
+                                        }
                                     }
 
-                                    outList.put(new Fragment(left, right, assemble(fragmentKmers, k), fragLength, minCov, false));
+                                    if (hasComplexKmer) {
+                                        if (this.storeKmerPairs) {
+                                            graph.addPairedKmers(fragmentKmers);
+                                        }
+                                        
+                                        outList.put(new Fragment(left, right, assemble(fragmentKmers, k), fragLength, minCov, false));
+                                    }
                                 }
                             }
                             else {
@@ -1022,22 +1032,44 @@ public class RNABloom {
                                 float minCov = Float.MAX_VALUE;
 
                                 if (leftKmers.size() >= lookahead) {
+                                    boolean hasComplexKmer = false;
+                                    
                                     for (Kmer kmer : leftKmers) {
                                         if (kmer.count < minCov) {
                                             minCov = kmer.count;
                                         }
+                                        
+                                        if (!hasComplexKmer) {
+                                            if (!isLowComplexity2(kmer.bytes)) {
+                                                hasComplexKmer = true;
+                                            }
+                                        }
                                     }
-                                    outList.put(new Fragment(left, right, assemble(leftKmers, k), leftKmers.size()+k-1, minCov, true));
+                                    
+                                    if (hasComplexKmer) {
+                                        outList.put(new Fragment(left, right, assemble(leftKmers, k), leftKmers.size()+k-1, minCov, true));
+                                    }
                                 }
 
                                 if (rightKmers.size() >= lookahead) {
+                                    boolean hasComplexKmer = false;
+                                    
                                     minCov = Float.MAX_VALUE;
                                     for (Kmer kmer : rightKmers) {
                                         if (kmer.count < minCov) {
                                             minCov = kmer.count;
                                         }
+                                        
+                                        if (!hasComplexKmer) {
+                                            if (!isLowComplexity2(kmer.bytes)) {
+                                                hasComplexKmer = true;
+                                            }
+                                        }
                                     }
-                                    outList.put(new Fragment(left, right, assemble(rightKmers, k), rightKmers.size()+k-1, minCov, true));
+                                    
+                                    if (hasComplexKmer) {
+                                        outList.put(new Fragment(left, right, assemble(rightKmers, k), rightKmers.size()+k-1, minCov, true));
+                                    }
                                 }
                             }
                         }
