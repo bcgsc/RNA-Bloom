@@ -686,7 +686,7 @@ public final class SeqUtils {
             }
             
             endPos = m.end();
-            result.add(seq.substring(startPos, endPos));
+            result.add(seq.substring(startPos, endPos).toUpperCase());
         }
         
         return result;
