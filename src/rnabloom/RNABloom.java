@@ -935,6 +935,8 @@ public class RNABloom {
         private int errorCorrectionIterations;
         private int leftReadLengthThreshold;
         private int rightReadLengthThreshold;
+        private int polyXMinLen;
+        private int polyXMaxMismatches;
         
         public FragmentAssembler(FastqReadPair p,
                                 ArrayBlockingQueue<Fragment> outList,
@@ -943,7 +945,9 @@ public class RNABloom {
                                 boolean storeKmerPairs, 
                                 int errorCorrectionIterations,
                                 int leftReadLengthThreshold,
-                                int rightReadLengthThreshold) {
+                                int rightReadLengthThreshold,
+                                int polyXMinLen,
+                                int polyXMaxMismatches) {
             
             this.p = p;
             this.outList = outList;
@@ -953,6 +957,8 @@ public class RNABloom {
             this.errorCorrectionIterations = errorCorrectionIterations;
             this.leftReadLengthThreshold = leftReadLengthThreshold;
             this.rightReadLengthThreshold = rightReadLengthThreshold;
+            this.polyXMinLen = polyXMinLen;
+            this.polyXMaxMismatches = polyXMaxMismatches;
         }
         
         @Override
@@ -961,7 +967,7 @@ public class RNABloom {
                 // connect segments of each read
                 String left = connect(p.left, graph, lookahead);
                 String right = connect(p.right, graph, lookahead);
-                right = chompRightPolyX(right, k, 2);
+                right = chompRightPolyX(right, polyXMinLen, polyXMaxMismatches);
 
                 if (left.length() >= this.leftReadLengthThreshold 
                         && right.length() >= this.rightReadLengthThreshold) { 
@@ -1253,6 +1259,8 @@ public class RNABloom {
 
                 int leftReadLengthThreshold = k;
                 int rightReadLengthThreshold = k;
+                int polyXMinLen = k;
+                int polyXMaxMismatches = Math.round(k*percentError);
                 
                 if (!pairedKmerDistanceIsSet) {
                                         
@@ -1268,7 +1276,10 @@ public class RNABloom {
                                                                 false,
                                                                 maxErrCorrIterations, 
                                                                 leftReadLengthThreshold,
-                                                                rightReadLengthThreshold));
+                                                                rightReadLengthThreshold,
+                                                                polyXMinLen,
+                                                                polyXMaxMismatches
+                            ));
                             
                             if (fragments.remainingCapacity() == 0) {
                                 break;
@@ -1356,7 +1367,10 @@ public class RNABloom {
                                                             true,
                                                             maxErrCorrIterations, 
                                                             leftReadLengthThreshold, 
-                                                            rightReadLengthThreshold));
+                                                            rightReadLengthThreshold,
+                                                            polyXMinLen,
+                                                            polyXMaxMismatches
+                        ));
 
                         if (fragments.remainingCapacity() <= numThreads) {
 
