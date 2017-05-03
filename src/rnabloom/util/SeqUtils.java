@@ -186,7 +186,7 @@ public final class SeqUtils {
     public static final float getGCContent(String seq) {
         return (float) getNumGC(seq) / seq.length();
     }
-
+    
     private static int nucleotideArrayIndex(byte b) {
         switch(b) {
             case CHAR_A_BYTE:
@@ -358,69 +358,67 @@ public final class SeqUtils {
         return false;
     }
     
-    public static final boolean isLowComplexity(String seq) {
-        
-        int length = seq.length();
-        int thresholdHi = Math.round(length * LOW_COMPLEXITY_THRESHOLD);
-        int thresholdLo = length - thresholdHi;
+    public static String chompRightPolyX(String seq, int minLen, int tolerance) {
+        int seqLen = seq.length();
         
         int numA = 0;
         int numC = 0;
         int numG = 0;
         int numT = 0;
         
-        PrimitiveIterator.OfInt itr = seq.chars().iterator();
-        int c;
-        while (itr.hasNext()) {
-            c = itr.nextInt();
-            switch(c) {
-                case CHAR_A_INT:
-                    ++numA;
+        int i, count;
+        for (i=seqLen-1; i>=0; --i) {
+            switch (seq.charAt(i)) {
+                case 'A':
+                    count = ++numA;
                     break;
-                case CHAR_C_INT:
-                    ++numC;
+                case 'C':
+                    count = ++numC;
                     break;
-                case CHAR_G_INT:
-                    ++numG;
+                case 'G':
+                    count = ++numG;
                     break;
-                case CHAR_T_INT:
-                    ++numT;
+                case 'T':
+                    count = ++numT;
                     break;
+                default:
+                    count = 0;
+            }
+        
+            if (count > tolerance && count < seqLen - i - tolerance) {
+                break;
             }
         }
         
-        return numA > thresholdHi || numC > thresholdHi || numG > thresholdHi || numT > thresholdHi ||
-               numA < thresholdLo || numC < thresholdLo || numG < thresholdLo || numT < thresholdLo ||
-               numA + numC > thresholdHi || numA + numG > thresholdHi || numA + numT > thresholdHi || 
-               numC + numG > thresholdHi || numC + numT > thresholdHi || numG + numT > thresholdHi;
-    }
-    
-    public static final boolean isLowComplexityLong(String seq) {
-        float gcp = getGCContent(seq);
-        // 87% GC-rich OR 89% AT-rich
-        return gcp > 0.87f || gcp <= 0.11f;
-    }
-    
-    public static final boolean isLowComplexityShort(String seq) {
-        // http://www.repeatmasker.org/webrepeatmaskerhelp.html
-        
-        PrimitiveIterator.OfInt itr = seq.chars().iterator();
-        int c;
-        int numGC = 0;
-        while (itr.hasNext()) {
-            c = itr.nextInt();
-            switch(c) {
-                case CHAR_C_INT:
-                    ++numGC;
-                    break;
-                case CHAR_G_INT:
-                    ++numGC;
-                    break;
+        if (++i < seqLen-minLen) {
+            char maxChar = 'A';
+            int maxCount = numA;
+            
+            if (numC > maxCount) {
+                maxChar = 'C';
+                maxCount = numC;
             }
+            
+            if (numG > maxCount) {
+                maxChar = 'G';
+                maxCount = numG;
+            }
+            
+            if (numT > maxCount) {
+                maxChar = 'T';
+//                maxCount = numT;
+            }
+            
+            for (int j=i+tolerance; j>i; --j) {
+                if (seq.charAt(j) != maxChar) {
+                    i = j+1;
+                }
+            }
+            
+            return seq.substring(0, i);
         }
         
-        // tolerate 1 mismatch
-        return numGC <= 1 || numGC >= seq.length()-1;
+        return seq;
     }
     
     public static final int getNumKmers(String seq, int k) {
@@ -895,18 +893,10 @@ public final class SeqUtils {
     }
     
     public static void main(String[] args) {
-        String chars = "TCGAGTTAAGCAGATGCTGACTGAT";
+        String seq = "TCGAGTTAAGCAGATGCTCAGTGACTGTAGCAGAGCTACTGTAGCCTAGCTGATATACTGATTGACTGATTTTTATAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         
-        byte[] bits = seqToBits(chars);
+        String seq2 = chompRightPolyX(seq, 35, 2);
         
-        for (byte b : bits) {
-            System.out.println(String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0'));
-        }
-                
-        System.out.println(chars);
-        System.out.println(bitsToSeq(bits, chars.length()));
-        
-        setNucleotide(bits, chars.length(), 2, 'A');
-        System.out.println(bitsToSeq(bits, chars.length()));
+        System.out.println(seq + "\n" + seq2);
     }
 }

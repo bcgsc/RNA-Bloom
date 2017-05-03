@@ -961,6 +961,7 @@ public class RNABloom {
                 // connect segments of each read
                 String left = connect(p.left, graph, lookahead);
                 String right = connect(p.right, graph, lookahead);
+                right = chompRightPolyX(right, k, 2);
 
                 if (left.length() >= this.leftReadLengthThreshold 
                         && right.length() >= this.rightReadLengthThreshold) { 
