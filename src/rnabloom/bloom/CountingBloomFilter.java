@@ -181,7 +181,8 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         n = pop count
         */
                 
-        return (float) pow(1 - exp((float)(-numHash * counts.popCount()) / size), numHash);
+//        return (float) pow(1 - exp((float)(-numHash * counts.popCount()) / size), numHash);
+        return (float) pow((double)(counts.popCount()) / (double)(size), numHash);
     }
  
     public long updatePopcount() {

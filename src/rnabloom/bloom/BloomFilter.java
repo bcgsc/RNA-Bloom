@@ -162,7 +162,8 @@ public class BloomFilter implements BloomFilterInterface {
         
         popcount = bitArray.popCount();
         
-        return (float) pow(1 - exp((float)(-numHash * popcount) / size), numHash);
+//        return (float) pow(1 - exp((float)(-numHash * popcount) / size), numHash);
+        return (float) pow((double)(popcount) / (double)(size), numHash);
     }
     
     public long updatePopcount() {

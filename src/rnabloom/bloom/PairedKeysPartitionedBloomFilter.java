@@ -253,14 +253,17 @@ public class PairedKeysPartitionedBloomFilter {
         n = pop count
         */
         
-        return (float) pow(1 - exp((float)(-numHash * bitArrayLeft.popCount()) / partitionSize), numHash);
+//        return (float) pow(1 - exp((float)(-numHash * bitArrayLeft.popCount()) / partitionSize), numHash);
+        return (float) pow((double)(bitArrayLeft.popCount()) / (double)(size), numHash);
     }
     
     public float getRightFPR() {        
-        return (float) pow(1 - exp((float)(-numHash * bitArrayRight.popCount()) / partitionSize), numHash);
+//        return (float) pow(1 - exp((float)(-numHash * bitArrayRight.popCount()) / partitionSize), numHash);
+        return (float) pow((double)(bitArrayRight.popCount()) / (double)(size), numHash);
     }
     
     public float getPairFPR() {        
-        return (float) pow(1 - exp((float)(-numHash * bitArrayPair.popCount()) / partitionSize), numHash);
+//        return (float) pow(1 - exp((float)(-numHash * bitArrayPair.popCount()) / partitionSize), numHash);
+        return (float) pow((double)(bitArrayPair.popCount()) / (double)(size), numHash);
     }
 }
