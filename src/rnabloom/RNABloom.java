@@ -1909,7 +1909,7 @@ public class RNABloom {
         Option optLeftReads = Option.builder("l")
                                     .longOpt("left")
                                     .desc("left reads file")
-                                    .hasArg(true)
+                                    .hasArgs()
                                     .argName("FILE")
                                     .build();
         options.addOption(optLeftReads);
@@ -1917,7 +1917,7 @@ public class RNABloom {
         Option optRightReads = Option.builder("r")
                                     .longOpt("right")
                                     .desc("right reads file")
-                                    .hasArg(true)
+                                    .hasArgs()
                                     .argName("FILE")
                                     .build();
         options.addOption(optRightReads);
@@ -2231,8 +2231,23 @@ public class RNABloom {
                 }
             }
             
-            String fastqLeft = line.getOptionValue(optLeftReads.getOpt());
-            String fastqRight = line.getOptionValue(optRightReads.getOpt());
+            String[] fastqsLeft = line.getOptionValues(optLeftReads.getOpt());
+            String[] fastqsRight = line.getOptionValues(optRightReads.getOpt());
+            
+            if (fastqsLeft.length == 0) {
+                System.out.println("ERROR: Please specify left read files!");
+                System.exit(1);
+            }
+
+            if (fastqsRight.length == 0) {
+                System.out.println("ERROR: Please specify right read files!");
+                System.exit(1);
+            }
+            
+            if (fastqsLeft.length != fastqsRight.length) {
+                System.out.println("ERROR: Read files are not paired properly!");
+                System.exit(1);
+            }
             
             boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
             boolean revCompRight = line.hasOption(optRevCompRight.getOpt());
@@ -2241,8 +2256,13 @@ public class RNABloom {
             int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "25"));
             int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
             int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "3"));
-                        
-            float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (new File(fastqLeft).length() * 0.5d / NUM_BYTES_1GB))));
+            
+            double leftReadFilesTotalBytes = 0;
+            for (String fq : fastqsLeft) {
+                leftReadFilesTotalBytes += new File(fq).length();
+            }
+            
+            float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (leftReadFilesTotalBytes * 0.5d / NUM_BYTES_1GB))));
             float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 7f)));
             float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 7f)));
             float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 5f / 7f)));
@@ -2310,9 +2330,29 @@ public class RNABloom {
                 System.out.println("Loading graph from file `" + graphFile + "`...");
                 assembler.restoreGraph(new File(graphFile));
             }
-            else {
-                String[] forwardFastqs = new String[]{fastqLeft};
-                String[] backwardFastqs = new String[]{fastqRight};
+            else {                
+                ArrayList<String> forwardFilesList = new ArrayList<>();
+                ArrayList<String> backwardFilesList = new ArrayList<>();
+                
+                if (revCompLeft) {
+                    backwardFilesList.addAll(Arrays.asList(fastqsLeft));
+                }
+                else {
+                    forwardFilesList.addAll(Arrays.asList(fastqsLeft));
+                }
+                
+                if (revCompRight) {
+                    backwardFilesList.addAll(Arrays.asList(fastqsRight));
+                }
+                else {
+                    forwardFilesList.addAll(Arrays.asList(fastqsRight));
+                }
+                
+                String[] forwardFastqs = new String[forwardFilesList.size()];
+                forwardFilesList.toArray(forwardFastqs);
+                
+                String[] backwardFastqs = new String[backwardFilesList.size()];
+                backwardFilesList.toArray(backwardFastqs);
                 
                 timer.start();
                 
@@ -2340,8 +2380,11 @@ public class RNABloom {
 //            assembler.testMismatchCorrection();
 //            System.exit(0);
             
-            FastqPair fqPair = new FastqPair(fastqLeft, fastqRight, revCompLeft, revCompRight);
-            FastqPair[] fqPairs = new FastqPair[]{fqPair};        
+
+            FastqPair[] fqPairs = new FastqPair[fastqsLeft.length];
+            for (int i=0; i<fastqsLeft.length; ++i) {
+                fqPairs[i] = new FastqPair(fastqsLeft[i], fastqsRight[i], revCompLeft, revCompRight);
+            }
 
             String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
                                             longFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
