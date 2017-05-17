@@ -3752,93 +3752,76 @@ public final class GraphUtils {
             else {
                 cursor = branches.pop();
                 
-                if (partnerIndex >=0 &&
-                        partnerIndex <= maxPartnerIndex &&
-//                        partnerIndex+minNumPairs < kmers.size() && 
-                        hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                                     
-                    if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
-                        return false;
-                    }
-                                        
-                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
-                        boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+                if (!isLowComplexity2(cursor.bytes)) {
+                    if (partnerIndex >=0 &&
+                            partnerIndex <= maxPartnerIndex &&
+    //                        partnerIndex+minNumPairs < kmers.size() && 
+                            hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
-                        if (assembled) {
-//                            int numNotAssembled = 0;
-                            
-                            for (Kmer kmer : extension) {
-                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
-//                                    if (distanceInversePI < ++numNotAssembled) {
-                                        assembled = false;
-                                        break;
-//                                    }
-                                }
-                            }
-                            
+                        if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
+                            return false;
+                        }
+
+                        if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+                            boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+
                             if (assembled) {
-                                for (int i=partnerIndex; i<numKmers; ++i) {
-                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-//                                        if (distanceInversePI < ++numNotAssembled) {
+    //                            int numNotAssembled = 0;
+
+                                for (Kmer kmer : extension) {
+                                    if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+    //                                    if (distanceInversePI < ++numNotAssembled) {
                                             assembled = false;
                                             break;
-//                                        }
+    //                                    }
+                                    }
+                                }
+
+                                if (assembled) {
+                                    for (int i=partnerIndex; i<numKmers; ++i) {
+                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+    //                                        if (distanceInversePI < ++numNotAssembled) {
+                                                assembled = false;
+                                                break;
+    //                                        }
+                                        }
                                     }
                                 }
                             }
+
+                            if (assembled) {
+                                // region already assembled, do not extend further
+                                return false;
+                            }
                         }
 
-                        if (assembled) {
-                            // region already assembled, do not extend further
-                            return false;
+                        kmers.addAll(extension);
+                        kmers.add(cursor);
+
+                        usedKmers.addAll(extension);
+                        usedKmers.add(cursor);
+
+                        for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
+                            usedPartnerKmers.add(kmers.get(i));
                         }
+
+                        return true;
                     }
-                    
-                    kmers.addAll(extension);
-                    kmers.add(cursor);
-                    
-                    usedKmers.addAll(extension);
-                    usedKmers.add(cursor);
-                                        
-                    for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
-                        usedPartnerKmers.add(kmers.get(i));
-                    }
-                    
-                    return true;
-                }
-                else if (depth < maxDepth &&
-                        (depth == 0 || !extensionKmers.contains(cursor))) {
-                    
-                    float minExtensionCoverage = extension.isEmpty() ? minEdgeCoverage : Math.min(minEdgeCoverage, getMinimumKmerCoverage(extension));
-                    minCovThreshold = (float) Math.floor(minExtensionCoverage * maxCovGradient);
-                    
-                    if (graph.hasAtLeastXPredecessors(cursor, 2)) {
-                        // only consider kmers that may be visited from an alternative branch upstream
-                        
-                        ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursor);
-                        if (visitedDepths == null) {
-                            visitedDepths = new ArrayDeque<>();
-                            visitedDepths.add(depth);
-                            
-                            visitedKmers.put(cursor, visitedDepths);
-                            
-                            branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead, minCovThreshold));
-                            extension.add(cursor);
-                            extensionKmers.add(cursor);
-                            ++depth;
-                            ++partnerIndex;
-                        }
-                        else {
-                            boolean visited = false;
-                            for (Integer d : visitedDepths) {
-                                if (d == depth) {
-                                    visited = true;
-                                    break;
-                                }
-                            }
-                            
-                            if (!visited) {
+                    else if (depth < maxDepth &&
+                            (depth == 0 || !extensionKmers.contains(cursor))) {
+
+                        float minExtensionCoverage = extension.isEmpty() ? minEdgeCoverage : Math.min(minEdgeCoverage, getMinimumKmerCoverage(extension));
+                        minCovThreshold = (float) Math.floor(minExtensionCoverage * maxCovGradient);
+
+                        if (graph.hasAtLeastXPredecessors(cursor, 2)) {
+                            // only consider kmers that may be visited from an alternative branch upstream
+
+                            ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursor);
+                            if (visitedDepths == null) {
+                                visitedDepths = new ArrayDeque<>();
                                 visitedDepths.add(depth);
+
+                                visitedKmers.put(cursor, visitedDepths);
 
                                 branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead, minCovThreshold));
                                 extension.add(cursor);
@@ -3846,14 +3829,33 @@ public final class GraphUtils {
                                 ++depth;
                                 ++partnerIndex;
                             }
+                            else {
+                                boolean visited = false;
+                                for (Integer d : visitedDepths) {
+                                    if (d == depth) {
+                                        visited = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!visited) {
+                                    visitedDepths.add(depth);
+
+                                    branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                                    extension.add(cursor);
+                                    extensionKmers.add(cursor);
+                                    ++depth;
+                                    ++partnerIndex;
+                                }
+                            }
                         }
-                    }
-                    else {
-                        branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead, minCovThreshold));
-                        extension.add(cursor);
-                        extensionKmers.add(cursor);
-                        ++depth;
-                        ++partnerIndex;
+                        else {
+                            branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                            extension.add(cursor);
+                            extensionKmers.add(cursor);
+                            ++depth;
+                            ++partnerIndex;
+                        }
                     }
                 }
             }
@@ -3912,93 +3914,76 @@ public final class GraphUtils {
             else {
                 cursor = branches.pop();
                 
-                if (partnerIndex >=0 &&
-                        partnerIndex <= maxPartnerIndex &&
-//                        partnerIndex+minNumPairs < kmers.size() && 
-                        hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                    
-                    if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
-                        return false;
-                    }
-                                        
-                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
-                        boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+                if (!isLowComplexity2(cursor.bytes)) {
+                    if (partnerIndex >=0 &&
+                            partnerIndex <= maxPartnerIndex &&
+    //                        partnerIndex+minNumPairs < kmers.size() && 
+                            hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
-                        if (assembled) {
-//                            int numNotAssembled = 0;
-                            
-                            for (Kmer kmer : extension) {
-                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
-//                                    if (distanceInversePI < ++numNotAssembled) {
-                                        assembled = false;
-                                        break;
-//                                    }
-                                }
-                            }
-                            
+                        if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
+                            return false;
+                        }
+
+                        if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+                            boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+
                             if (assembled) {
-                                for (int i=partnerIndex; i<numKmers; ++i) {
-                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-//                                        if (distanceInversePI < ++numNotAssembled) {
+    //                            int numNotAssembled = 0;
+
+                                for (Kmer kmer : extension) {
+                                    if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+    //                                    if (distanceInversePI < ++numNotAssembled) {
                                             assembled = false;
                                             break;
-//                                        }
+    //                                    }
+                                    }
+                                }
+
+                                if (assembled) {
+                                    for (int i=partnerIndex; i<numKmers; ++i) {
+                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+    //                                        if (distanceInversePI < ++numNotAssembled) {
+                                                assembled = false;
+                                                break;
+    //                                        }
+                                        }
                                     }
                                 }
                             }
+
+                            if (assembled) {
+                                // region already assembled, do not extend further
+                                return false;
+                            }
                         }
 
-                        if (assembled) {
-                            // region already assembled, do not extend further
-                            return false;
+                        kmers.addAll(extension);
+                        kmers.add(cursor);
+
+                        usedKmers.addAll(extension);
+                        usedKmers.add(cursor);
+
+                        for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
+                            usedPartnerKmers.add(kmers.get(i));
                         }
+
+                        return true;
                     }
-                    
-                    kmers.addAll(extension);
-                    kmers.add(cursor);
-                    
-                    usedKmers.addAll(extension);
-                    usedKmers.add(cursor);
-                    
-                    for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
-                        usedPartnerKmers.add(kmers.get(i));
-                    }
-                    
-                    return true;
-                }
-                else if (depth < maxDepth &&
-                        (depth == 0 || !extensionKmers.contains(cursor))) {
-                    
-                    float minExtensionCoverage = extension.isEmpty() ? minEdgeCoverage : Math.min(minEdgeCoverage, getMinimumKmerCoverage(extension));
-                    minCovThreshold = (float) Math.floor(minExtensionCoverage * maxCovGradient);
-                    
-                    if (graph.hasAtLeastXSuccessors(cursor, 2)) {
-                        // only consider kmers that may be visited from an alternative branch upstream
-                        
-                        ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursor);
-                        if (visitedDepths == null) {
-                            visitedDepths = new ArrayDeque<>();
-                            visitedDepths.add(depth);
-                            
-                            visitedKmers.put(cursor, visitedDepths);
-                            
-                            branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead, minCovThreshold));
-                            extension.add(cursor);
-                            extensionKmers.add(cursor);
-                            ++depth;
-                            ++partnerIndex;
-                        }
-                        else {
-                            boolean visited = false;
-                            for (Integer d : visitedDepths) {
-                                if (d == depth) {
-                                    visited = true;
-                                    break;
-                                }
-                            }
-                            
-                            if (!visited) {
+                    else if (depth < maxDepth &&
+                            (depth == 0 || !extensionKmers.contains(cursor))) {
+
+                        float minExtensionCoverage = extension.isEmpty() ? minEdgeCoverage : Math.min(minEdgeCoverage, getMinimumKmerCoverage(extension));
+                        minCovThreshold = (float) Math.floor(minExtensionCoverage * maxCovGradient);
+
+                        if (graph.hasAtLeastXSuccessors(cursor, 2)) {
+                            // only consider kmers that may be visited from an alternative branch upstream
+
+                            ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursor);
+                            if (visitedDepths == null) {
+                                visitedDepths = new ArrayDeque<>();
                                 visitedDepths.add(depth);
+
+                                visitedKmers.put(cursor, visitedDepths);
 
                                 branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead, minCovThreshold));
                                 extension.add(cursor);
@@ -4006,14 +3991,33 @@ public final class GraphUtils {
                                 ++depth;
                                 ++partnerIndex;
                             }
+                            else {
+                                boolean visited = false;
+                                for (Integer d : visitedDepths) {
+                                    if (d == depth) {
+                                        visited = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!visited) {
+                                    visitedDepths.add(depth);
+
+                                    branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                                    extension.add(cursor);
+                                    extensionKmers.add(cursor);
+                                    ++depth;
+                                    ++partnerIndex;
+                                }
+                            }
                         }
-                    }
-                    else {
-                        branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead, minCovThreshold));
-                        extension.add(cursor);
-                        extensionKmers.add(cursor);
-                        ++depth;
-                        ++partnerIndex;
+                        else {
+                            branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                            extension.add(cursor);
+                            extensionKmers.add(cursor);
+                            ++depth;
+                            ++partnerIndex;
+                        }
                     }
                 }
             }
@@ -4070,90 +4074,73 @@ public final class GraphUtils {
             else {
                 cursor = branches.pop();
                 
-                if (partnerIndex >=0 &&
-                        partnerIndex <= maxPartnerIndex &&
-//                        partnerIndex+minNumPairs < kmers.size() && 
-                        hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                                        
-                    if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
-                        return false;
-                    }
-                                        
-                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
-                        boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+                if (!isLowComplexity2(cursor.bytes)) {
+                    if (partnerIndex >=0 &&
+                            partnerIndex <= maxPartnerIndex &&
+    //                        partnerIndex+minNumPairs < kmers.size() && 
+                            hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
-                        if (assembled) {
-//                            int numNotAssembled = 0;
-                            
-                            for (Kmer kmer : extension) {
-                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
-//                                    if (distanceInversePI < ++numNotAssembled) {
-                                        assembled = false;
-                                        break;
-//                                    }
-                                }
-                            }
-                            
+                        if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
+                            return false;
+                        }
+
+                        if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+                            boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+
                             if (assembled) {
-                                for (int i=partnerIndex; i<numKmers; ++i) {
-                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-//                                        if (distanceInversePI < ++numNotAssembled) {
+    //                            int numNotAssembled = 0;
+
+                                for (Kmer kmer : extension) {
+                                    if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+    //                                    if (distanceInversePI < ++numNotAssembled) {
                                             assembled = false;
                                             break;
-//                                        }
+    //                                    }
+                                    }
+                                }
+
+                                if (assembled) {
+                                    for (int i=partnerIndex; i<numKmers; ++i) {
+                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+    //                                        if (distanceInversePI < ++numNotAssembled) {
+                                                assembled = false;
+                                                break;
+    //                                        }
+                                        }
                                     }
                                 }
                             }
+
+                            if (assembled) {
+                                // region already assembled, do not extend further
+                                return false;
+                            }
                         }
 
-                        if (assembled) {
-                            // region already assembled, do not extend further
-                            return false;
+                        kmers.addAll(extension);
+                        kmers.add(cursor);
+
+                        usedKmers.addAll(extension);
+                        usedKmers.add(cursor);
+
+                        for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
+                            usedPartnerKmers.add(kmers.get(i));
                         }
+
+                        return true;
                     }
-                    
-                    kmers.addAll(extension);
-                    kmers.add(cursor);
-                    
-                    usedKmers.addAll(extension);
-                    usedKmers.add(cursor);
-                                        
-                    for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
-                        usedPartnerKmers.add(kmers.get(i));
-                    }
-                    
-                    return true;
-                }
-                else if (depth < maxDepth &&
-                        (depth == 0 || !extensionKmers.contains(cursor))) {
-                    
-                    if (graph.hasAtLeastXPredecessors(cursor, 2)) {
-                        // only consider kmers that may be visited from an alternative branch upstream
-                        
-                        ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursor);
-                        if (visitedDepths == null) {
-                            visitedDepths = new ArrayDeque<>();
-                            visitedDepths.add(depth);
-                            
-                            visitedKmers.put(cursor, visitedDepths);
-                            
-                            branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
-                            extension.add(cursor);
-                            extensionKmers.add(cursor);
-                            ++depth;
-                            ++partnerIndex;
-                        }
-                        else {
-                            boolean visited = false;
-                            for (Integer d : visitedDepths) {
-                                if (d == depth) {
-                                    visited = true;
-                                    break;
-                                }
-                            }
-                            
-                            if (!visited) {
+                    else if (depth < maxDepth &&
+                            (depth == 0 || !extensionKmers.contains(cursor))) {
+
+                        if (graph.hasAtLeastXPredecessors(cursor, 2)) {
+                            // only consider kmers that may be visited from an alternative branch upstream
+
+                            ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursor);
+                            if (visitedDepths == null) {
+                                visitedDepths = new ArrayDeque<>();
                                 visitedDepths.add(depth);
+
+                                visitedKmers.put(cursor, visitedDepths);
 
                                 branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
                                 extension.add(cursor);
@@ -4161,14 +4148,33 @@ public final class GraphUtils {
                                 ++depth;
                                 ++partnerIndex;
                             }
+                            else {
+                                boolean visited = false;
+                                for (Integer d : visitedDepths) {
+                                    if (d == depth) {
+                                        visited = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!visited) {
+                                    visitedDepths.add(depth);
+
+                                    branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
+                                    extension.add(cursor);
+                                    extensionKmers.add(cursor);
+                                    ++depth;
+                                    ++partnerIndex;
+                                }
+                            }
                         }
-                    }
-                    else {
-                        branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
-                        extension.add(cursor);
-                        extensionKmers.add(cursor);
-                        ++depth;
-                        ++partnerIndex;
+                        else {
+                            branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
+                            extension.add(cursor);
+                            extensionKmers.add(cursor);
+                            ++depth;
+                            ++partnerIndex;
+                        }
                     }
                 }
             }
@@ -4224,90 +4230,73 @@ public final class GraphUtils {
             else {
                 cursor = branches.pop();
                 
-                if (partnerIndex >=0 &&
-                        partnerIndex <= maxPartnerIndex &&
-//                        partnerIndex+minNumPairs < kmers.size() && 
-                        hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                    
-                    if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
-                        return false;
-                    }
-                                        
-                    if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
-                        boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+                if (!isLowComplexity2(cursor.bytes)) {
+                    if (partnerIndex >=0 &&
+                            partnerIndex <= maxPartnerIndex &&
+    //                        partnerIndex+minNumPairs < kmers.size() && 
+                            hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
-                        if (assembled) {
-//                            int numNotAssembled = 0;
-                            
-                            for (Kmer kmer : extension) {
-                                if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
-//                                    if (distanceInversePI < ++numNotAssembled) {
-                                        assembled = false;
-                                        break;
-//                                    }
-                                }
-                            }
-                            
+                        if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
+                            return false;
+                        }
+
+                        if (assembledKmersBloomFilter.lookup(cursor.hashVals)) {
+                            boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+
                             if (assembled) {
-                                for (int i=partnerIndex; i<numKmers; ++i) {
-                                    if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
-//                                        if (distanceInversePI < ++numNotAssembled) {
+    //                            int numNotAssembled = 0;
+
+                                for (Kmer kmer : extension) {
+                                    if (!assembledKmersBloomFilter.lookup(kmer.hashVals)) {
+    //                                    if (distanceInversePI < ++numNotAssembled) {
                                             assembled = false;
                                             break;
-//                                        }
+    //                                    }
+                                    }
+                                }
+
+                                if (assembled) {
+                                    for (int i=partnerIndex; i<numKmers; ++i) {
+                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).hashVals)) {
+    //                                        if (distanceInversePI < ++numNotAssembled) {
+                                                assembled = false;
+                                                break;
+    //                                        }
+                                        }
                                     }
                                 }
                             }
+
+                            if (assembled) {
+                                // region already assembled, do not extend further
+                                return false;
+                            }
                         }
 
-                        if (assembled) {
-                            // region already assembled, do not extend further
-                            return false;
+                        kmers.addAll(extension);
+                        kmers.add(cursor);
+
+                        usedKmers.addAll(extension);
+                        usedKmers.add(cursor);
+
+                        for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
+                            usedPartnerKmers.add(kmers.get(i));
                         }
+
+                        return true;
                     }
-                    
-                    kmers.addAll(extension);
-                    kmers.add(cursor);
-                    
-                    usedKmers.addAll(extension);
-                    usedKmers.add(cursor);
-                    
-                    for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
-                        usedPartnerKmers.add(kmers.get(i));
-                    }
-                    
-                    return true;
-                }
-                else if (depth < maxDepth &&
-                        (depth == 0 || !extensionKmers.contains(cursor))) {
-                    
-                    if (graph.hasAtLeastXSuccessors(cursor, 2)) {
-                        // only consider kmers that may be visited from an alternative branch upstream
-                        
-                        ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursor);
-                        if (visitedDepths == null) {
-                            visitedDepths = new ArrayDeque<>();
-                            visitedDepths.add(depth);
-                            
-                            visitedKmers.put(cursor, visitedDepths);
-                            
-                            branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
-                            extension.add(cursor);
-                            extensionKmers.add(cursor);
-                            ++depth;
-                            ++partnerIndex;
-                        }
-                        else {
-                            boolean visited = false;
-                            for (Integer d : visitedDepths) {
-                                if (d == depth) {
-                                    visited = true;
-                                    break;
-                                }
-                            }
-                            
-                            if (!visited) {
+                    else if (depth < maxDepth &&
+                            (depth == 0 || !extensionKmers.contains(cursor))) {
+
+                        if (graph.hasAtLeastXSuccessors(cursor, 2)) {
+                            // only consider kmers that may be visited from an alternative branch upstream
+
+                            ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursor);
+                            if (visitedDepths == null) {
+                                visitedDepths = new ArrayDeque<>();
                                 visitedDepths.add(depth);
+
+                                visitedKmers.put(cursor, visitedDepths);
 
                                 branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
                                 extension.add(cursor);
@@ -4315,14 +4304,33 @@ public final class GraphUtils {
                                 ++depth;
                                 ++partnerIndex;
                             }
+                            else {
+                                boolean visited = false;
+                                for (Integer d : visitedDepths) {
+                                    if (d == depth) {
+                                        visited = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!visited) {
+                                    visitedDepths.add(depth);
+
+                                    branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
+                                    extension.add(cursor);
+                                    extensionKmers.add(cursor);
+                                    ++depth;
+                                    ++partnerIndex;
+                                }
+                            }
                         }
-                    }
-                    else {
-                        branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
-                        extension.add(cursor);
-                        extensionKmers.add(cursor);
-                        ++depth;
-                        ++partnerIndex;
+                        else {
+                            branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
+                            extension.add(cursor);
+                            extensionKmers.add(cursor);
+                            ++depth;
+                            ++partnerIndex;
+                        }
                     }
                 }
             }
