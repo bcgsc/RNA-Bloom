@@ -828,8 +828,8 @@ public class RNABloom {
         @Override
         public void run() {
             String fragment = null;
-//            ArrayList<Kmer> fragKmers;
-            ArrayList<Kmer> fragKmers, correctedFragKmers;
+            ArrayList<Kmer> fragKmers;
+//            ArrayList<Kmer> fragKmers, correctedFragKmers;
             
             try {
                 while (true) {
@@ -867,7 +867,7 @@ public class RNABloom {
                                             maxIndelSize,
                                             percentIdentity)) {
 
-                            extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
+                            extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
                             
                             writer.write(fragment, fragKmers);
                         }
