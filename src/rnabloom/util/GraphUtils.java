@@ -3832,7 +3832,7 @@ public final class GraphUtils {
                             else {
                                 boolean visited = false;
                                 for (Integer d : visitedDepths) {
-                                    if (d == depth) {
+                                    if (Math.abs(d - depth) <= maxIndelSize) {
                                         visited = true;
                                         break;
                                     }
@@ -3994,7 +3994,7 @@ public final class GraphUtils {
                             else {
                                 boolean visited = false;
                                 for (Integer d : visitedDepths) {
-                                    if (d == depth) {
+                                    if (Math.abs(d - depth) <= maxIndelSize) {
                                         visited = true;
                                         break;
                                     }
@@ -4151,7 +4151,7 @@ public final class GraphUtils {
                             else {
                                 boolean visited = false;
                                 for (Integer d : visitedDepths) {
-                                    if (d == depth) {
+                                    if (Math.abs(d - depth) <= maxIndelSize) {
                                         visited = true;
                                         break;
                                     }
@@ -4307,7 +4307,7 @@ public final class GraphUtils {
                             else {
                                 boolean visited = false;
                                 for (Integer d : visitedDepths) {
-                                    if (d == depth) {
+                                    if (Math.abs(d - depth) <= maxIndelSize) {
                                         visited = true;
                                         break;
                                     }
