@@ -9,20 +9,15 @@ import java.io.File;
 import java.io.IOException;
 import static java.lang.Math.pow;
 import java.text.NumberFormat;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
@@ -796,7 +791,7 @@ public class RNABloom {
                     screeningBf.add(kmer.hashVals);
                 }
 
-                String transcript = assemble(transcriptKmers, k);
+                String transcript = graph.assemble(transcriptKmers);
                 int len = transcript.length();
                 
                 if (len >= minTranscriptLength) {
@@ -1000,9 +995,9 @@ public class RNABloom {
 
                         if (!corrected || okToConnectPair(leftKmers, rightKmers)) {
                             ArrayList<Kmer> fragmentKmers = null;
-
-                            if (!isLowComplexity2(leftKmers.get(leftKmers.size()-1).bytes) &&  
-                                    !isLowComplexity2(rightKmers.get(0).bytes)) {
+                            
+                            if (!graph.isLowComplexity(leftKmers.get(leftKmers.size()-1)) &&  
+                                    !graph.isLowComplexity(rightKmers.get(0))) {
                                 fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap, maxCovGradient);
                             }
 
@@ -1019,7 +1014,7 @@ public class RNABloom {
                                         }
                                         
                                         if (!hasComplexKmer) {
-                                            if (!isLowComplexity2(kmer.bytes)) {
+                                            if (!graph.isLowComplexity(kmer)) {
                                                 hasComplexKmer = true;
                                             }
                                         }
@@ -1030,7 +1025,7 @@ public class RNABloom {
                                             graph.addPairedKmers(fragmentKmers);
                                         }
                                         
-                                        outList.put(new Fragment(left, right, assemble(fragmentKmers, k), fragLength, minCov, false));
+                                        outList.put(new Fragment(left, right, graph.assemble(fragmentKmers), fragLength, minCov, false));
                                     }
                                 }
                             }
@@ -1047,14 +1042,14 @@ public class RNABloom {
                                         }
                                         
                                         if (!hasComplexKmer) {
-                                            if (!isLowComplexity2(kmer.bytes)) {
+                                            if (!graph.isLowComplexity(kmer)) {
                                                 hasComplexKmer = true;
                                             }
                                         }
                                     }
                                     
                                     if (hasComplexKmer) {
-                                        outList.put(new Fragment(left, right, assemble(leftKmers, k), leftKmers.size()+k-1, minCov, true));
+                                        outList.put(new Fragment(left, right, graph.assemble(leftKmers), leftKmers.size()+k-1, minCov, true));
                                     }
                                 }
 
@@ -1068,14 +1063,14 @@ public class RNABloom {
                                         }
                                         
                                         if (!hasComplexKmer) {
-                                            if (!isLowComplexity2(kmer.bytes)) {
+                                            if (!graph.isLowComplexity(kmer)) {
                                                 hasComplexKmer = true;
                                             }
                                         }
                                     }
                                     
                                     if (hasComplexKmer) {
-                                        outList.put(new Fragment(left, right, assemble(rightKmers, k), rightKmers.size()+k-1, minCov, true));
+                                        outList.put(new Fragment(left, right, graph.assemble(rightKmers), rightKmers.size()+k-1, minCov, true));
                                     }
                                 }
                             }
