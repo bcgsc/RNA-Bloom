@@ -106,6 +106,7 @@ public class BloomFilterDeBruijnGraph {
                 case LABEL_K:
                     k = Integer.parseInt(val);
                     kMinus1 = k-1;
+                    bitsUtils = new KmerBitsUtils(k);
                     break;
                 case LABEL_STRANDED:
                     stranded = Boolean.parseBoolean(val);
