@@ -6,7 +6,6 @@
 package rnabloom.util;
 
 import java.util.AbstractCollection;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -689,7 +688,7 @@ public final class SeqUtils {
         
         return result;
     }
-    
+        
     public static byte[] seqToBits(String seq) {
         int len = seq.length();
         int numFullBytes = len / 4;
@@ -772,7 +771,7 @@ public final class SeqUtils {
         
         return bits;
     }
-    
+        
     public static String bitsToSeq(byte[] bits, int len) {
         StringBuilder sb = new StringBuilder(len);
         
