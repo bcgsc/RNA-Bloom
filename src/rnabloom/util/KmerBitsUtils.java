@@ -31,11 +31,12 @@ public class KmerBitsUtils {
         this.t2 = Math.round(k/2 * LOW_COMPLEXITY_THRESHOLD);
         this.t3 = Math.round(k/3 * LOW_COMPLEXITY_THRESHOLD);
     }
-    
-    public BitSet seqToBits(String seq) {
-        BitSet bits = new BitSet(numBits);
+
+    public static BitSet seqToBits(String seq) {
+        int len = seq.length();
+        BitSet bits = new BitSet(len);
         
-        for (int i=0; i<k; ++i) {
+        for (int i=0; i<len; ++i) {
             switch (seq.charAt(i)) {
                 case 'A':
                     // 00
@@ -58,7 +59,64 @@ public class KmerBitsUtils {
         return bits;
     }
     
-    public String bitsToSeq(BitSet bits) {
+    public static String bitsToSeq(BitSet bits) {
+        int numBits = bits.length();
+        int len = numBits/2;
+        StringBuilder sb = new StringBuilder(len);
+        
+        for (int i=0; i<numBits; ++i) {
+            if (bits.get(i)) {
+                if (bits.get(++i)) {
+                    // 11
+                    sb.append('T');
+                }
+                else {
+                    // 10
+                    sb.append('G');
+                }
+            }
+            else {
+                if (bits.get(++i)) {
+                    // 01
+                    sb.append('C');
+                }
+                else {
+                    // 00
+                    sb.append('A');
+                }
+            }
+        }
+        
+        return sb.toString();
+    }
+    
+    public BitSet kmerToBits(String kmer) {
+        BitSet bits = new BitSet(numBits);
+        
+        for (int i=0; i<k; ++i) {
+            switch (kmer.charAt(i)) {
+                case 'A':
+                    // 00
+                    break;
+                case 'C':
+                    // 01
+                    bits.set(2*i + 1);
+                    break;
+                case 'G':
+                    // 10
+                    bits.set(2*i);
+                    break;
+                case 'T':
+                    // 11
+                    bits.set(2*i, 2*i + 2);
+                    break;
+            }
+        }
+        
+        return bits;
+    }
+    
+    public String bitsToKmer(BitSet bits) {
         StringBuilder sb = new StringBuilder(k);
         
         for (int i=0; i<numBits; ++i) {
@@ -256,6 +314,8 @@ public class KmerBitsUtils {
         byte nf2[][]   = new byte[4][4];
         byte nf3[][][] = new byte[4][4][4];
         
+//        String seq = this.bitsToSeq(bits);
+        
         int c3 = getBaseRank(bits, 0);
         int c2 = getBaseRank(bits, 1);
         int c1 = getBaseRank(bits, 2);
@@ -313,5 +373,30 @@ public class KmerBitsUtils {
         }
         
         return false;
+    }
+    
+    public static void main(String[] args) {
+        String seq = "TCGAGTTAAGCAGATGCTCAGTGCC";
+        
+        KmerBitsUtils utils = new KmerBitsUtils(25);
+        
+        BitSet bits = utils.kmerToBits(seq);
+        
+        System.out.println(seq);
+        System.out.println(utils.bitsToKmer(bits));
+        
+        System.out.println(utils.getFirstBase(bits));
+        System.out.println(utils.getLastBase(bits));
+        System.out.println(utils.getBase(bits, 5));
+        
+        BitSet bitsLeftShifted = utils.shiftLeft(bits);
+        utils.setLastBase(bitsLeftShifted, 'G');
+        System.out.println(utils.bitsToKmer(bitsLeftShifted));
+        
+        BitSet bitsRightShifted = utils.shiftRight(bits);
+        utils.setFirstBase(bitsRightShifted, 'G');
+        System.out.println(utils.bitsToKmer(bitsRightShifted));
+        
+        System.out.println(utils.isLowComplexity(bits));
     }
 }
