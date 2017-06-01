@@ -1793,18 +1793,21 @@ public class RNABloom {
                 
                 graph.getDbgbf().empty();
                 
-                ArrayDeque<String> fragmentsFastas = new ArrayDeque<>(longFragmentsFastas.length + shortFragmentsFastas.length + 2);
-                fragmentsFastas.addAll(Arrays.asList(longFragmentsFastas));
-                fragmentsFastas.addAll(Arrays.asList(shortFragmentsFastas));
-                fragmentsFastas.add(longSingletonsFasta);
-                fragmentsFastas.add(shortSingletonsFasta);
-                insertIntoDeBruijnGraphMultiThreaded(fragmentsFastas, sampleSize, numThreads);
-                
-//                insertIntoDeBruijnGraph(longFragmentsFastas);
-//                insertIntoDeBruijnGraph(shortFragmentsFastas);
-//                insertIntoDeBruijnGraph(longSingletonsFasta);
-//                insertIntoDeBruijnGraph(shortSingletonsFasta);
-                
+                if (numThreads > 1) {
+                    ArrayDeque<String> fragmentsFastas = new ArrayDeque<>(longFragmentsFastas.length + shortFragmentsFastas.length + 2);
+                    fragmentsFastas.addAll(Arrays.asList(longFragmentsFastas));
+                    fragmentsFastas.addAll(Arrays.asList(shortFragmentsFastas));
+                    fragmentsFastas.add(longSingletonsFasta);
+                    fragmentsFastas.add(shortSingletonsFasta);
+                    insertIntoDeBruijnGraphMultiThreaded(fragmentsFastas, sampleSize, numThreads);
+                }
+                else {
+                    insertIntoDeBruijnGraph(longFragmentsFastas);
+                    insertIntoDeBruijnGraph(shortFragmentsFastas);
+                    insertIntoDeBruijnGraph(longSingletonsFasta);
+                    insertIntoDeBruijnGraph(shortSingletonsFasta);
+                }
+
                 dbgFPR = graph.getDbgbf().getFPR();
                 System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
             }
