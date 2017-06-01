@@ -16,14 +16,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysPartitionedBloomFilter;
 import rnabloom.bloom.hash.*;
 import rnabloom.util.KmerBitsUtils;
-import rnabloom.util.SeqUtils.KmerSeqIterator;
 import static rnabloom.util.SeqUtils.*;
 
 /**
@@ -1026,33 +1024,6 @@ public class BloomFilterDeBruijnGraph {
         }
         
         return minCount;
-    }
-        
-    public float[] getMinMedianMaxKmerCoverage(String seq) {
-        float[] minMedianMax = new float[3];
-        
-        KmerSeqIterator itr = new KmerSeqIterator(seq, k);
-        final int numKmers = itr.numKmers;
-        final int halfNumKmers = numKmers/2;
-        ArrayList<Float> counts = new ArrayList<>(numKmers);
-        
-        while (itr.hasNext()) {
-            counts.add(cbf.getCount(itr.next()));
-        }
-        
-        Collections.sort(counts);
-        
-        minMedianMax[0] = counts.get(0);
-        minMedianMax[2] = counts.get(numKmers-1);
-        
-        if (numKmers % 2 == 0) {
-            minMedianMax[1] = (counts.get(halfNumKmers) + counts.get(halfNumKmers -1))/2.0f;
-        }
-        else {
-            minMedianMax[1] = counts.get(halfNumKmers);
-        }
-        
-        return minMedianMax;
     }
         
     public boolean isValidSeq(String seq) {
