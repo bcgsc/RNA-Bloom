@@ -55,26 +55,26 @@ public final class FastqReader implements Iterator<FastqRecord> {
     }
     
     public void nextWithoutNameFunction() {
-        if (itr.hasNext()){
+//        if (itr.hasNext()){
             if (itr.next().charAt(0) != '@') {
                 throw new NoSuchElementException("Line 1 of FASTQ record is expected to start with '@'");
             }
             
             record.seq = itr.next();
             
-            if (! itr.next().startsWith("+")) {
+            if (itr.next().charAt(0) != '+') {
                 throw new NoSuchElementException("Line 3 of FASTQ record is expected to start with '+'");
             }
             
             record.qual = itr.next();
-        }
-        else {
-            throw new NoSuchElementException("End of file");
-        }
+//        }
+//        else {
+//            throw new NoSuchElementException("End of file");
+//        }
     }
     
     public FastqRecord nextWithoutName() {
-        if (itr.hasNext()){
+//        if (itr.hasNext()){
             FastqRecord fr = new FastqRecord();
             
             if (itr.next().charAt(0) != '@') {
@@ -83,19 +83,19 @@ public final class FastqReader implements Iterator<FastqRecord> {
             
             fr.seq = itr.next();
             
-            if (! itr.next().startsWith("+")) {
+            if (itr.next().charAt(0) != '+') {
                 throw new NoSuchElementException("Line 3 of FASTQ record is expected to start with '+'");
             }
             
             fr.qual = itr.next();
             
             return fr;
-        }
-        throw new NoSuchElementException("End of file");
+//        }
+//        throw new NoSuchElementException("End of file");
     }
 
     public void nextWithNameFunction() {
-        if (itr.hasNext()){
+//        if (itr.hasNext()){
             Matcher m = RECORD_NAME_PATTERN.matcher(itr.next());
             if (m.matches()) {
                 record.name = m.group(1);
@@ -106,19 +106,19 @@ public final class FastqReader implements Iterator<FastqRecord> {
             
             record.seq = itr.next();
             
-            if (! itr.next().startsWith("+")) {
+            if (itr.next().charAt(0) != '+') {
                 throw new NoSuchElementException("Line 3 of a FASTQ record is expected to start with '+'");
             }
             
             record.qual = itr.next();
-        }
-        else {
-            throw new NoSuchElementException("Reached the end of file");
-        }
+//        }
+//        else {
+//            throw new NoSuchElementException("Reached the end of file");
+//        }
     }
     
     public FastqRecord nextWithName() {
-        if (itr.hasNext()){
+//        if (itr.hasNext()){
             FastqRecord fr = new FastqRecord();
             
             Matcher m = RECORD_NAME_PATTERN.matcher(itr.next());
@@ -131,15 +131,15 @@ public final class FastqReader implements Iterator<FastqRecord> {
             
             fr.seq = itr.next();
             
-            if (! itr.next().startsWith("+")) {
+            if (itr.next().charAt(0) != '+') {
                 throw new NoSuchElementException("Line 3 of a FASTQ record is expected to start with '+'");
             }
             
             fr.qual = itr.next();
             
             return fr;
-        }
-        throw new NoSuchElementException("Reached the end of file");
+//        }
+//        throw new NoSuchElementException("Reached the end of file");
     }
         
     public void close() throws IOException {

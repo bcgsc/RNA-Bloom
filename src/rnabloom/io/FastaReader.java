@@ -50,14 +50,10 @@ public class FastaReader implements Iterator<String> {
 
     @Override
     public String next() {
-        if (itr.hasNext()){
-            if (! itr.next().startsWith(">")) {
-                throw new NoSuchElementException("Line 1 of a FASTA record is expected to start with '>'");
-            }
-            return itr.next();
+        if (itr.next().charAt(0) != '>') {
+            throw new NoSuchElementException("Line 1 of a FASTA record is expected to start with '>'");
         }
-        
-        throw new NoSuchElementException("Reached the end of file");
+        return itr.next();
     }
     
     public void close() throws IOException {
