@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import static java.lang.Math.pow;
 import java.text.NumberFormat;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -344,8 +345,76 @@ public class RNABloom {
         }
     }
     
-    private boolean isPolyA(String left, String right) {
-        return right.endsWith("AAAA") || (!graph.isStranded() && left.startsWith("TTTT"));
+    private void insertIntoDeBruijnGraphMultiThreaded(ArrayDeque<String> fragmentsFasta, int sampleSize, int numThreads) throws InterruptedException, IOException {
+        ArrayBlockingQueue<String> fragmentsQueue = new ArrayBlockingQueue<>(sampleSize, true);
+
+        FragmentDbgWorker[] workers = new FragmentDbgWorker[numThreads];
+        Thread[] threads = new Thread[numThreads];
+        for (int i=0; i<numThreads; ++i) {
+            workers[i] = new FragmentDbgWorker(fragmentsQueue);
+            threads[i] = new Thread(workers[i]);
+            threads[i].start();
+        }
+
+        for (String fa : fragmentsFasta) {
+            FastaReader fin = new FastaReader(fa);
+
+            while (fin.hasNext()) {
+                fragmentsQueue.put(fin.next());
+            }
+
+            fin.close();
+        }
+
+        for (FragmentDbgWorker w : workers) {
+            w.stopWhenEmpty();
+        }
+
+        for (Thread t : threads) {
+            t.join();
+        }
+    }
+    
+    private class FragmentDbgWorker implements Runnable {
+        private final ArrayBlockingQueue<String> fragments;
+        private boolean keepGoing = true;
+        
+        public FragmentDbgWorker(ArrayBlockingQueue<String> fragments) {
+            this.fragments = fragments;
+        }
+
+        public void stopWhenEmpty () {
+            keepGoing = false;
+        }
+        
+        @Override
+        public void run() {
+            NTHashIterator itr = graph.getHashIterator(graph.getDbgbfNumHash());
+            long[] hashVals = itr.hVals;
+            String fragment = null;
+            
+            try {
+                while (true) {
+                    fragment = fragments.poll(50, TimeUnit.MILLISECONDS);
+                                        
+                    if (fragment == null) {
+                        if (!keepGoing) {
+                            break;
+                        }
+                    }
+                    else {
+                        itr.start(fragment);
+                        while (itr.hasNext()) {
+                            itr.next();
+                            graph.addDbgOnly(hashVals);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        }
     }
     
 //    private boolean okToConnectPair(String left, String right) {
@@ -1724,11 +1793,17 @@ public class RNABloom {
                 
                 graph.getDbgbf().empty();
                 
-                insertIntoDeBruijnGraph(longFragmentsFastas);
-                insertIntoDeBruijnGraph(shortFragmentsFastas);
+                ArrayDeque<String> fragmentsFastas = new ArrayDeque<>(longFragmentsFastas.length + shortFragmentsFastas.length + 2);
+                fragmentsFastas.addAll(Arrays.asList(longFragmentsFastas));
+                fragmentsFastas.addAll(Arrays.asList(shortFragmentsFastas));
+                fragmentsFastas.add(longSingletonsFasta);
+                fragmentsFastas.add(shortSingletonsFasta);
+                insertIntoDeBruijnGraphMultiThreaded(fragmentsFastas, sampleSize, numThreads);
                 
-                insertIntoDeBruijnGraph(longSingletonsFasta);
-                insertIntoDeBruijnGraph(shortSingletonsFasta);
+//                insertIntoDeBruijnGraph(longFragmentsFastas);
+//                insertIntoDeBruijnGraph(shortFragmentsFastas);
+//                insertIntoDeBruijnGraph(longSingletonsFasta);
+//                insertIntoDeBruijnGraph(shortSingletonsFasta);
                 
                 dbgFPR = graph.getDbgbf().getFPR();
                 System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
