@@ -5,6 +5,7 @@
  */
 package rnabloom.util;
 
+import java.util.Arrays;
 import java.util.BitSet;
 
 /**
@@ -145,8 +146,7 @@ public class KmerBitsUtils {
         return sb.toString();
     }
     
-    private int getBaseRank(BitSet bits, int index) {
-        index *= 2; // bit index
+    private static int getBaseRank(BitSet bits, int index) {
         if (bits.get(index)) {
             if (bits.get(index+1)) {
                 // 11
@@ -317,8 +317,8 @@ public class KmerBitsUtils {
 //        String seq = this.bitsToSeq(bits);
         
         int c3 = getBaseRank(bits, 0);
-        int c2 = getBaseRank(bits, 1);
-        int c1 = getBaseRank(bits, 2);
+        int c2 = getBaseRank(bits, 2);
+        int c1 = getBaseRank(bits, 4);
         
         ++nf1[c3];
         ++nf1[c2];
@@ -329,7 +329,7 @@ public class KmerBitsUtils {
         
         ++nf3[c3][c2][c1];
                 
-        for (int i=3; i<k; ++i) {
+        for (int i=6; i<numBits; i+=2) {
             c3 = c2;
             c2 = c1;
             c1 = getBaseRank(bits, i);
@@ -374,7 +374,7 @@ public class KmerBitsUtils {
         
         return false;
     }
-    
+        
     public static void main(String[] args) {
         String seq = "TCGAGTTAAGCAGATGCTCAGTGCC";
         
