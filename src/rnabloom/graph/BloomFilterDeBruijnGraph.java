@@ -1069,7 +1069,7 @@ public class BloomFilterDeBruijnGraph {
 }
     
     public String assemble(ArrayDeque<Kmer> kmers) {
-        StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+        StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
         for (byte b : kmers.getFirst().bytes) {
             sb.append((char) b);
@@ -1083,7 +1083,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public String assemble(ArrayList<Kmer> kmers, int start, int end) {
-        StringBuilder sb = new StringBuilder(end - start + k - 1);
+        StringBuilder sb = new StringBuilder(end - start + kMinus1);
         
         for (byte b : kmers.get(start).bytes) {
             sb.append((char) b);
@@ -1097,7 +1097,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public String assembleReverseOrder(ArrayDeque<Kmer> kmers) {
-        StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+        StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
         Iterator<Kmer> itr = kmers.descendingIterator();
         
@@ -1113,7 +1113,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public String assemble(Collection<Kmer> kmers) {
-        StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+        StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
         Iterator<Kmer> itr = kmers.iterator();
         
@@ -1129,7 +1129,7 @@ public class BloomFilterDeBruijnGraph {
     }
   
     public String assembleFirstBase(Collection<Kmer> kmers) {
-        StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+        StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
         for (Kmer kmer : kmers) {
             sb.append((char) kmer.bytes[0]);
@@ -1139,7 +1139,7 @@ public class BloomFilterDeBruijnGraph {
     }
 
     public String assembleLastBase(Collection<Kmer> kmers) {
-        StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+        StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
         for (Kmer kmer : kmers) {
             sb.append((char) kmer.bytes[kMinus1]);
