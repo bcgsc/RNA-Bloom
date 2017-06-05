@@ -1068,18 +1068,15 @@ public class BloomFilterDeBruijnGraph {
         return result;
 }
     
-    public static String assemble(ArrayDeque<Kmer> kmers, int k) {
+    public String assemble(ArrayDeque<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
-
-        int lastIndex = k - 1;
         
-        byte[] bytes = kmers.getFirst().bytes;
-        for (int i=0; i<lastIndex; ++i) {
-            sb.append((char) bytes[i]);
+        for (byte b : kmers.getFirst().bytes) {
+            sb.append((char) b);
         }
         
         for (Kmer e : kmers) {
-            sb.append((char) e.bytes[lastIndex]);
+            sb.append((char) e.bytes[kMinus1]);
         }
         
         return sb.toString();
@@ -1087,15 +1084,13 @@ public class BloomFilterDeBruijnGraph {
     
     public String assemble(ArrayList<Kmer> kmers, int start, int end) {
         StringBuilder sb = new StringBuilder(end - start + k - 1);
-
-        int lastIndex = k - 1;
-        byte[] bytes = kmers.get(start).bytes;
-        for (int i=0; i<k; ++i) {
-            sb.append((char) bytes[i]);
+        
+        for (byte b : kmers.get(start).bytes) {
+            sb.append((char) b);
         }
         
         for (int i=start+1; i<end; ++i) {
-            sb.append((char) kmers.get(i).bytes[lastIndex]);
+            sb.append((char) kmers.get(i).bytes[kMinus1]);
         }
         
         return sb.toString();
@@ -1103,17 +1098,15 @@ public class BloomFilterDeBruijnGraph {
     
     public String assembleReverseOrder(ArrayDeque<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
-
-        int lastIndex = k - 1;  
         
         Iterator<Kmer> itr = kmers.descendingIterator();
-        byte[] bytes = itr.next().bytes;
-        for (int i=0; i<k; ++i) {
-            sb.append((char) bytes[i]);
+        
+        for (byte b : itr.next().bytes) {
+            sb.append((char) b);
         }
         
         while (itr.hasNext()) {
-            sb.append((char) itr.next().bytes[lastIndex]);
+            sb.append((char) itr.next().bytes[kMinus1]);
         }
         
         return sb.toString();
@@ -1121,38 +1114,23 @@ public class BloomFilterDeBruijnGraph {
     
     public String assemble(Collection<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
-
-        int lastIndex = k - 1;
         
         Iterator<Kmer> itr = kmers.iterator();
-        byte[] bytes = itr.next().bytes;
-        for (int i=0; i<k; ++i) {
-            sb.append((char) bytes[i]);
+        
+        for (byte b : itr.next().bytes) {
+            sb.append((char) b);
         }
         
         while (itr.hasNext()) {
-            sb.append((char) itr.next().bytes[lastIndex]);
+            sb.append((char) itr.next().bytes[kMinus1]);
         }
-
-        // surprisingly slower!
-//        int numKmers = kmers.size();
-//        int length = numKmers + k - 1;
-//        StringBuilder sb = new StringBuilder(length);
-//
-//        for (int i=0; i<numKmers; i+k) {
-//            sb.append(kmers.get(i).seq);
-//        }
-//
-//        int remainder = length % k;
-//        if (remainder > 0) {
-//            sb.append(kmers.get(numKmers-1).seq.substring(k-remainder));
-//        }
                 
         return sb.toString();
     }
   
     public String assembleFirstBase(Collection<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+        
         for (Kmer kmer : kmers) {
             sb.append((char) kmer.bytes[0]);
         }
@@ -1161,13 +1139,12 @@ public class BloomFilterDeBruijnGraph {
     }
 
     public String assembleLastBase(Collection<Kmer> kmers) {
-        int lastIndex = k-1;
-        
         StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+        
         for (Kmer kmer : kmers) {
-            sb.append((char) kmer.bytes[lastIndex]);
+            sb.append((char) kmer.bytes[kMinus1]);
         }
         
         return sb.toString();
-}
+    }
 }
