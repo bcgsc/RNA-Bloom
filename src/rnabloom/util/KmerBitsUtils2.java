@@ -15,36 +15,25 @@ import java.util.Random;
 public class KmerBitsUtils2 {
     private static final float LOW_COMPLEXITY_THRESHOLD = 0.87f;
     private static final int NUM_BITS_PER_BASE = 2;
-    private static final int NUM_BASE_PER_BYTE = Byte.SIZE / NUM_BITS_PER_BASE;
+    private static final int NUM_BASES_PER_BYTE = Byte.SIZE / NUM_BITS_PER_BASE;
     
     private final int k;
-    private final int numBits;
     private final int lastByteIndex, numBytes, numFullBytes, numRemainingBases, numRemainingBits;
-    private final int lastBaseByteIndex, lastBaseBitIndex1, lastBaseBitIndex2;
+    private final int lastBaseBitIndex1, lastBaseBitIndex2;
     private final int t1, t2, t3;
     
     private static final byte[] BIT_MASKS = new byte[]{(byte) 1, (byte) 2, (byte)(1<<2), (byte)(1<<3), (byte)(1<<4), (byte)(1<<5), (byte)(1<<6), (byte)(1<<7)};
     private static final byte[] NOT_BIT_MASKS = new byte[]{~(byte) 1, ~(byte) 2, ~(byte)(1<<2), ~(byte)(1<<3), ~(byte)(1<<4), ~(byte)(1<<5), ~(byte)(1<<6), ~(byte)(1<<7)};
-    
-    private static final byte BIT_MASK_0 = BIT_MASKS[0];
-    private static final byte BIT_MASK_1 = BIT_MASKS[1];
-    private static final byte BIT_MASK_6 = BIT_MASKS[6];
-    private static final byte BIT_MASK_7 = BIT_MASKS[7];
-    
-    private static final byte NOT_BIT_MASK_0 = NOT_BIT_MASKS[0];
-    private static final byte NOT_BIT_MASK_1 = NOT_BIT_MASKS[1];
-    private static final byte NOT_BIT_MASK_6 = NOT_BIT_MASKS[6];
-    private static final byte NOT_BIT_MASK_7 = NOT_BIT_MASKS[7];
 
+    private static final byte[][] BYTE_BASE_MASKS = getByteBaseMasks();
+    
     private final byte lastBaseBitMask1, lastBaseBitMask2, lastBaseNotBitMask1, lastBaseNotBitMask2;
 
     
     public KmerBitsUtils2(int k) {
         this.k = k;
-        this.numBits = k * NUM_BITS_PER_BASE;
-        
-        this.numFullBytes = k / NUM_BASE_PER_BYTE;
-        this.numRemainingBases = k % NUM_BASE_PER_BYTE;
+        this.numFullBytes = k / NUM_BASES_PER_BYTE;
+        this.numRemainingBases = k % NUM_BASES_PER_BYTE;
         this.numRemainingBits = NUM_BITS_PER_BASE * numRemainingBases;
         
         if (numRemainingBases > 0) {
@@ -66,113 +55,82 @@ public class KmerBitsUtils2 {
         this.lastBaseNotBitMask1 = NOT_BIT_MASKS[lastBaseBitIndex1];
         this.lastBaseNotBitMask2 = NOT_BIT_MASKS[lastBaseBitIndex2];
         
-        this.lastBaseByteIndex = numBytes - 1;
-        
         this.t1 = Math.round(k * LOW_COMPLEXITY_THRESHOLD);
         this.t2 = Math.round(k/2 * LOW_COMPLEXITY_THRESHOLD);
         this.t3 = Math.round(k/3 * LOW_COMPLEXITY_THRESHOLD);
+    }
+    
+    public static byte[][] getByteBaseMasks() {
+        byte[][] baseMasks = new byte[NUM_BASES_PER_BYTE][4];
+        
+        for (int i=0; i<NUM_BASES_PER_BYTE; ++i) {
+            // A
+            // do nothing
+            
+            // C
+            baseMasks[i][1] |= BIT_MASKS[i*2+1];
+            
+            // G
+            baseMasks[i][2] |= BIT_MASKS[i*2];
+
+            // T
+            baseMasks[i][3] |= BIT_MASKS[i*2];
+            baseMasks[i][3] |= BIT_MASKS[i*2+1];
+        }
+        
+        return baseMasks;
     }
     
     public byte[] kmerToBits(String kmer) {
         
         byte[] bits = new byte[numBytes];
         
-        for (int i=0; i<numFullBytes; ++i) {
-            byte b = 0;
-            int baseIndex = i * NUM_BASE_PER_BYTE;
-            for (int j=0; j<NUM_BASE_PER_BYTE; ++j) {
-                int bitIndex = j * NUM_BITS_PER_BASE;
-                
-                switch (kmer.charAt(baseIndex + j)) {
-                    case 'A':
-                        // 00
-//                        b &= ~(1 << bitIndex);
-//                        b &= ~(1 << bitIndex+1);
-                        break;
-                    case 'C':
-                        // 01
-//                        b &= ~(1 << bitIndex);
-                        b |= BIT_MASKS[bitIndex+1];
-                        break;
-                    case 'G':
-                        // 10
-                        b |= BIT_MASKS[bitIndex];
-//                        b &= ~(1 << bitIndex+1);
-                        break;
-                    case 'T':
-                        // 11
-                        b |= BIT_MASKS[bitIndex];
-                        b |= BIT_MASKS[bitIndex+1];
-                        break;
-                }
+        int byteIndex, baseIndex;
+        for (int i=0; i<k; ++i) {
+            byteIndex = i * NUM_BITS_PER_BASE / Byte.SIZE;
+            baseIndex = i % NUM_BASES_PER_BYTE;
+            
+            switch (kmer.charAt(i)) {
+                // A: do nothing
+                case 'C':
+                    // 01
+                    bits[byteIndex] |= BYTE_BASE_MASKS[baseIndex][1];
+                    break;
+                case 'G':
+                    // 10
+                    bits[byteIndex] |= BYTE_BASE_MASKS[baseIndex][2];
+                    break;
+                case 'T':
+                    // 11
+                    bits[byteIndex] |= BYTE_BASE_MASKS[baseIndex][3];
+                    break;
             }
-            bits[i] = b;
-        }
-        
-        if (numRemainingBases > 0) {
-            byte b = 0;
-            int baseIndex = numFullBytes * NUM_BASE_PER_BYTE;
-            for (int j=0; j<numRemainingBases; ++j) {
-                int bitIndex = j * NUM_BITS_PER_BASE;
-                
-                switch (kmer.charAt(baseIndex + j)) {
-                    case 'A':
-                        // 00
-//                        b &= ~(1 << bitIndex);
-//                        b &= ~(1 << bitIndex+1);
-                        break;
-                    case 'C':
-                        // 01
-//                        b &= ~(1 << bitIndex);
-                        b |= BIT_MASKS[bitIndex+1];
-                        break;
-                    case 'G':
-                        // 10
-                        b |= BIT_MASKS[bitIndex];
-//                        b &= ~(1 << bitIndex+1);
-                        break;
-                    case 'T':
-                        // 11
-                        b |= BIT_MASKS[bitIndex];
-                        b |= BIT_MASKS[bitIndex+1];
-                        break;
-                }
-            }
-            bits[numFullBytes] = b;
         }
         
         return bits;
     }
     
     public byte[] seqToBits(String seq, int start) {
-        
+        // get bits for kmer at start
         byte[] bits = new byte[numBytes];
         
         for (int i=0; i<numFullBytes; ++i) {
             byte b = 0;
-            for (int j=0; j<NUM_BASE_PER_BYTE; ++j) {
-                int bitIndex = j * NUM_BITS_PER_BASE;
+            for (int j=0; j<NUM_BASES_PER_BYTE; ++j) {
                 
                 switch (seq.charAt(start++)) {
-                    case 'A':
-                        // 00
-//                        b &= ~(1 << bitIndex);
-//                        b &= ~(1 << bitIndex+1);
-                        break;
+                    // A: do nothing
                     case 'C':
                         // 01
-//                        b &= ~(1 << bitIndex);
-                        b |= BIT_MASKS[bitIndex+1];
+                        b |= BYTE_BASE_MASKS[j][1];
                         break;
                     case 'G':
                         // 10
-                        b |= BIT_MASKS[bitIndex];
-//                        b &= ~(1 << bitIndex+1);
+                        b |= BYTE_BASE_MASKS[j][2];
                         break;
                     case 'T':
                         // 11
-                        b |= BIT_MASKS[bitIndex];
-                        b |= BIT_MASKS[bitIndex+1];
+                        b |= BYTE_BASE_MASKS[j][3];
                         break;
                 }
             }
@@ -182,28 +140,20 @@ public class KmerBitsUtils2 {
         if (numRemainingBases > 0) {
             byte b = 0;
             for (int j=0; j<numRemainingBases; ++j) {
-                int bitIndex = j * NUM_BITS_PER_BASE;
                 
                 switch (seq.charAt(start++)) {
-                    case 'A':
-                        // 00
-//                        b &= ~(1 << bitIndex);
-//                        b &= ~(1 << bitIndex+1);
-                        break;
+                    // A: do nothing
                     case 'C':
                         // 01
-//                        b &= ~(1 << bitIndex);
-                        b |= BIT_MASKS[bitIndex+1];
+                        b |= BYTE_BASE_MASKS[j][1];
                         break;
                     case 'G':
                         // 10
-                        b |= BIT_MASKS[bitIndex];
-//                        b &= ~(1 << bitIndex+1);
+                        b |= BYTE_BASE_MASKS[j][2];
                         break;
                     case 'T':
                         // 11
-                        b |= BIT_MASKS[bitIndex];
-                        b |= BIT_MASKS[bitIndex+1];
+                        b |= BYTE_BASE_MASKS[j][3];
                         break;
                 }
             }
@@ -334,7 +284,7 @@ public class KmerBitsUtils2 {
     }
     
     public char getBase(byte[] bits, int index) {
-        byte b = bits[index / NUM_BASE_PER_BYTE];
+        byte b = bits[index / NUM_BASES_PER_BYTE];
         int bitIndex = (index * NUM_BITS_PER_BASE) % Byte.SIZE;
         if ((b & BIT_MASKS[bitIndex]) == 0) {
             if ((b & BIT_MASKS[bitIndex+1]) == 0) {
@@ -383,7 +333,7 @@ public class KmerBitsUtils2 {
     }
     
     public char getLastBase(byte[] bits) {
-        byte b = bits[lastBaseByteIndex];
+        byte b = bits[lastByteIndex];
         if ((b & lastBaseBitMask1) == 0) {
             if ((b & lastBaseBitMask2) == 0) {
                 // 00
@@ -407,7 +357,7 @@ public class KmerBitsUtils2 {
     }
 
     public void setBase(byte[] bits, int index, char c) {
-        int byteIndex = index / NUM_BASE_PER_BYTE;
+        int byteIndex = index / NUM_BASES_PER_BYTE;
         byte b = bits[byteIndex];
         int bitIndex = (index * NUM_BITS_PER_BASE) % Byte.SIZE;
         
@@ -443,23 +393,23 @@ public class KmerBitsUtils2 {
         switch (c) {
             case 'A':
                 // 00
-                b &= NOT_BIT_MASK_0;
-                b &= NOT_BIT_MASK_1;
+                b &= NOT_BIT_MASKS[0];
+                b &= NOT_BIT_MASKS[1];
                 break;
             case 'C':
                 // 01
-                b &= NOT_BIT_MASK_0;
-                b |= BIT_MASK_1;
+                b &= NOT_BIT_MASKS[0];
+                b |= BIT_MASKS[1];
                 break;
             case 'G':
                 // 10
-                b |= BIT_MASK_0;
-                b &= NOT_BIT_MASK_1;
+                b |= BIT_MASKS[0];
+                b &= NOT_BIT_MASKS[1];
                 break;
             case 'T':
                 // 11
-                b |= BIT_MASK_0;
-                b |= BIT_MASK_1;
+                b |= BIT_MASKS[0];
+                b |= BIT_MASKS[1];
                 break;
         }
         
@@ -467,7 +417,7 @@ public class KmerBitsUtils2 {
     }
     
     public void setLastBase(byte[] bits, char c) {
-        byte b = bits[lastBaseByteIndex];
+        byte b = bits[lastByteIndex];
         
         switch (c) {
             case 'A':
@@ -492,7 +442,7 @@ public class KmerBitsUtils2 {
                 break;
         }
         
-        bits[lastBaseByteIndex] = b;
+        bits[lastByteIndex] = b;
     }
     
     public byte[] shiftLeft(byte[] bits) {
@@ -507,25 +457,25 @@ public class KmerBitsUtils2 {
             if ((b2 & 1) == 0) {
                 if ((b2 & 2) == 0) {
                     // 00
-                    b &= NOT_BIT_MASK_6;
-                    b &= NOT_BIT_MASK_7;
+                    b &= NOT_BIT_MASKS[6];
+                    b &= NOT_BIT_MASKS[7];
                 }
                 else {
                     // 01
-                    b &= NOT_BIT_MASK_6;
-                    b |= BIT_MASK_7;
+                    b &= NOT_BIT_MASKS[6];
+                    b |= BIT_MASKS[7];
                 }
             }
             else {
                 if ((b2 & 2) == 0) {
                     // 10
-                    b |= BIT_MASK_6;
-                    b &= NOT_BIT_MASK_7;
+                    b |= BIT_MASKS[6];
+                    b &= NOT_BIT_MASKS[7];
                 }
                 else {
                     // 11
-                    b |= BIT_MASK_6;
-                    b |= BIT_MASK_7;
+                    b |= BIT_MASKS[6];
+                    b |= BIT_MASKS[7];
                 }
             }
             
@@ -546,28 +496,28 @@ public class KmerBitsUtils2 {
             
             b <<= 2;
             
-            if ((b2 & BIT_MASK_6) == 0) {
-                if ((b2 & BIT_MASK_7) == 0) {
+            if ((b2 & BIT_MASKS[6]) == 0) {
+                if ((b2 & BIT_MASKS[7]) == 0) {
                     // 00
-                    b &= NOT_BIT_MASK_0;
-                    b &= NOT_BIT_MASK_1;
+                    b &= NOT_BIT_MASKS[0];
+                    b &= NOT_BIT_MASKS[1];
                 }
                 else {
                     // 01
-                    b &= NOT_BIT_MASK_0;
-                    b |= BIT_MASK_1;
+                    b &= NOT_BIT_MASKS[0];
+                    b |= BIT_MASKS[1];
                 }
             }
             else {
-                if ((b2 & BIT_MASK_7) == 0) {
+                if ((b2 & BIT_MASKS[7]) == 0) {
                     // 10
-                    b |= BIT_MASK_0;
-                    b &= NOT_BIT_MASK_1;
+                    b |= BIT_MASKS[0];
+                    b &= NOT_BIT_MASKS[1];
                 }
                 else {
                     // 11
-                    b |= BIT_MASK_0;
-                    b |= BIT_MASK_1;
+                    b |= BIT_MASKS[0];
+                    b |= BIT_MASKS[1];
                 }
             }
             
@@ -658,22 +608,26 @@ public class KmerBitsUtils2 {
     }
     
     public static void main(String[] args) {
-        char[] nucleotides = new char[] {'A', 'C', 'G', 'T'};
-        StringBuilder sb = new StringBuilder(50);
         Random r = new Random();
-        for (int i=0; i<50; ++i) {
+        char[] nucleotides = new char[] {'A', 'C', 'G', 'T'};
+        
+        int seqLen = r.nextInt(50);
+        StringBuilder sb = new StringBuilder(seqLen);
+
+        for (int i=0; i<seqLen; ++i) {
             sb.append(nucleotides[r.nextInt(4)]);
         }
+        String seq = sb.toString();
         
-        String seq = "CCCAGTAAACAAGCAAATCATGCAC";
+//        String seq = "CCCAGTAAACAAGCAAATCATGCAC";
         System.out.println(seq);
         
         KmerBitsUtils2 utils = new KmerBitsUtils2(seq.length());
         
         byte[] bits = utils.kmerToBits(seq);
         
-        byte[] newBits = utils.shiftRight(bits);
-        System.out.println(utils.bitsToKmer(newBits));
+//        byte[] newBits = utils.shiftRight(bits);
+        System.out.println(utils.bitsToKmer(bits));
         
         
     }
