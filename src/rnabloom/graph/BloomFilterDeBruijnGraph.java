@@ -20,7 +20,6 @@ import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysPartitionedBloomFilter;
 import rnabloom.bloom.hash.*;
-import rnabloom.util.KmerBitsUtils2;
 import static rnabloom.util.SeqUtils.*;
 
 /**
@@ -43,7 +42,7 @@ public class BloomFilterDeBruijnGraph {
     private int pairedKmersDistance = -1;
     private long pkbfNumBits;
     private int pkbfNumHash;
-    private KmerBitsUtils2 bitsUtils;
+//    private KmerBitsUtils2 bitsUtils;
     
     private final static String FILE_DESC_EXTENSION = ".desc";
     private final static String FILE_DBGBF_EXTENSION = ".dbgbf";
@@ -72,7 +71,7 @@ public class BloomFilterDeBruijnGraph {
                                     boolean stranded) {
         this.k = k;
         this.kMinus1 = k-1;
-        this.bitsUtils = new KmerBitsUtils2(k);
+//        this.bitsUtils = new KmerBitsUtils2(k);
         this.stranded = stranded;
         this.dbgbfNumHash = dbgbfNumHash;
         this.cbfNumHash = cbfNumHash;
@@ -103,7 +102,7 @@ public class BloomFilterDeBruijnGraph {
                 case LABEL_K:
                     k = Integer.parseInt(val);
                     kMinus1 = k-1;
-                    bitsUtils = new KmerBitsUtils2(k);
+//                    bitsUtils = new KmerBitsUtils2(k);
                     break;
                 case LABEL_STRANDED:
                     stranded = Boolean.parseBoolean(val);
@@ -287,7 +286,7 @@ public class BloomFilterDeBruijnGraph {
     }
         
     public boolean isLowComplexity(Kmer kmer) {
-        return bitsUtils.isLowComplexity(kmer.bits);
+        return isLowComplexity2(kmer.bytes);
     }
     
     public void add(String kmer) {
@@ -433,20 +432,20 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public class Kmer {
-        public byte[] bits;
+        public byte[] bytes;
         public float count;
         public long[] hashVals;
 //        public ArrayDeque<Kmer> predecessors = null;
 //        public ArrayDeque<Kmer> successors = null;
                 
         public Kmer(String seq, float count, long[] hashVals) {
-            this.bits = bitsUtils.kmerToBits(seq);
+            this.bytes = stringToBytes(seq, k);
             this.count = count;
             this.hashVals = Arrays.copyOf(hashVals, hashVals.length);
         }
         
         public Kmer(String seq, float count, long[] hashVals, boolean copyHashVals) {
-            this.bits = bitsUtils.kmerToBits(seq);
+            this.bytes = stringToBytes(seq, k);
             this.count = count;
             if (copyHashVals) {
                 this.hashVals = Arrays.copyOf(hashVals, hashVals.length);
@@ -456,19 +455,19 @@ public class BloomFilterDeBruijnGraph {
             }
         }
         
-        public Kmer(byte[] bits, float count, long[] hashVals) {
-            this.bits = bits;
+        public Kmer(byte[] bytes, float count, long[] hashVals) {
+            this.bytes = bytes;
             this.count = count;
             this.hashVals = Arrays.copyOf(hashVals, hashVals.length);
         }
         
         public boolean equals(Kmer other) {
-            return Arrays.equals(bits, other.bits);
+            return Arrays.equals(bytes, other.bytes);
         }
         
         @Override
         public String toString() {
-            return bitsUtils.bitsToKmer(bits);
+            return bytesToString(bytes, bytes.length);
         }
         
         @Override
@@ -487,7 +486,7 @@ public class BloomFilterDeBruijnGraph {
             if (getClass() != obj.getClass()) {
                 return false;
             }
-            return Arrays.equals(bits, ((Kmer)obj).bits);
+            return Arrays.equals(bytes, ((Kmer)obj).bytes);
         }
     }
     
@@ -509,7 +508,7 @@ public class BloomFilterDeBruijnGraph {
     
     public boolean hasPredecessors(Kmer kmer) {
         PredecessorsNTHashIterator itr = hashFunction.getPredecessorsNTHashIterator(dbgbfCbfMaxNumHash);
-        itr.start(kmer.hashVals, bitsUtils.getLastBase(kmer.bits));
+        itr.start(kmer.hashVals, (char) kmer.bytes[kMinus1]);
         long[] hVals = itr.hVals;
         
         for (char c : NUCLEOTIDES) {
@@ -532,7 +531,7 @@ public class BloomFilterDeBruijnGraph {
         int result = 0;
         
         PredecessorsNTHashIterator itr = hashFunction.getPredecessorsNTHashIterator(dbgbfCbfMaxNumHash);
-        itr.start(kmer.hashVals, bitsUtils.getLastBase(kmer.bits));
+        itr.start(kmer.hashVals, (char) kmer.bytes[kMinus1]);
         long[] hVals = itr.hVals;
         
         for (char c : NUCLEOTIDES) {
@@ -551,7 +550,7 @@ public class BloomFilterDeBruijnGraph {
         int result = 0;
         
         PredecessorsNTHashIterator itr = hashFunction.getPredecessorsNTHashIterator(dbgbfCbfMaxNumHash);
-        itr.start(kmer.hashVals, bitsUtils.getLastBase(kmer.bits));
+        itr.start(kmer.hashVals, (char) kmer.bytes[kMinus1]);
         long[] hVals = itr.hVals;
         
         for (char c : NUCLEOTIDES) {
@@ -579,19 +578,18 @@ public class BloomFilterDeBruijnGraph {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
   
         PredecessorsNTHashIterator itr = hashFunction.getPredecessorsNTHashIterator(dbgbfCbfMaxNumHash);
-        itr.start(kmer.hashVals, bitsUtils.getLastBase(kmer.bits));
+        itr.start(kmer.hashVals, (char) kmer.bytes[kMinus1]);
         long[] hVals = itr.hVals;
         
         float count;
-        byte[] shiftedBits = bitsUtils.shiftRight(kmer.bits);
         for (char c : NUCLEOTIDES) {
             itr.next(c);
             if (dbgbf.lookup(hVals)) {
                 count = cbf.getCount(hVals);
                 if (count > 0) {
-                    byte[] bits = bitsUtils.copyOf(shiftedBits);
-                    bitsUtils.setFirstBase(bits, c);
-                    result.add(new Kmer(bits, count, hVals));
+                    byte[] bytes = shiftRight(kmer.bytes, k);
+                    bytes[0] = (byte) c;
+                    result.add(new Kmer(bytes, count, hVals));
                 }
             }
         }
@@ -633,19 +631,18 @@ public class BloomFilterDeBruijnGraph {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
                        
         PredecessorsNTHashIterator itr = hashFunction.getPredecessorsNTHashIterator(dbgbfCbfMaxNumHash);
-        itr.start(kmer.hashVals, bitsUtils.getLastBase(kmer.bits));
+        itr.start(kmer.hashVals, (char) kmer.bytes[kMinus1]);
         long[] hVals = itr.hVals;
         
         float count;
-        byte[] shiftedBits = bitsUtils.shiftRight(kmer.bits);
         for (char c : NUCLEOTIDES) {
             itr.next(c);
             if (bf.lookup(hVals) && dbgbf.lookup(hVals)) {
                 count = cbf.getCount(hVals);
                 if (count > 0) {
-                    byte[] bits =  bitsUtils.copyOf(shiftedBits);
-                    bitsUtils.setFirstBase(bits, c);
-                    result.add(new Kmer(bits, count, hVals));
+                    byte[] bytes = shiftRight(kmer.bytes, k);
+                    bytes[0] = (byte) c;
+                    result.add(new Kmer(bytes, count, hVals));
                 }
             }
         }
@@ -687,7 +684,7 @@ public class BloomFilterDeBruijnGraph {
 
     public boolean hasSuccessors(Kmer kmer) {
         SuccessorsNTHashIterator itr = hashFunction.getSuccessorsHashIterator(dbgbfCbfMaxNumHash);
-        itr.start(kmer.hashVals, bitsUtils.getFirstBase(kmer.bits));
+        itr.start(kmer.hashVals, (char) kmer.bytes[0]);
         long[] hVals = itr.hVals;
         
         for (char c : NUCLEOTIDES) {
@@ -711,7 +708,7 @@ public class BloomFilterDeBruijnGraph {
         int result = 0;
 
         SuccessorsNTHashIterator itr = hashFunction.getSuccessorsHashIterator(dbgbfCbfMaxNumHash);
-        itr.start(kmer.hashVals, bitsUtils.getFirstBase(kmer.bits));
+        itr.start(kmer.hashVals, (char) kmer.bytes[0]);
         long[] hVals = itr.hVals;
         
         for (char c : NUCLEOTIDES) {
@@ -730,7 +727,7 @@ public class BloomFilterDeBruijnGraph {
         int result = 0;
 
         SuccessorsNTHashIterator itr = hashFunction.getSuccessorsHashIterator(dbgbfCbfMaxNumHash);
-        itr.start(kmer.hashVals, bitsUtils.getFirstBase(kmer.bits));
+        itr.start(kmer.hashVals, (char) kmer.bytes[0]);
         long[] hVals = itr.hVals;
         
         for (char c : NUCLEOTIDES) {
@@ -757,19 +754,18 @@ public class BloomFilterDeBruijnGraph {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         SuccessorsNTHashIterator itr = hashFunction.getSuccessorsHashIterator(dbgbfCbfMaxNumHash);
-        itr.start(kmer.hashVals, bitsUtils.getFirstBase(kmer.bits));
+        itr.start(kmer.hashVals, (char) kmer.bytes[0]);
         long[] hVals = itr.hVals;
         
         float count;
-        byte[] shiftedBits = bitsUtils.shiftLeft(kmer.bits);
         for (char c : NUCLEOTIDES) {
             itr.next(c);
             if (dbgbf.lookup(hVals)) {
                 count = cbf.getCount(hVals);
                 if (count > 0) {
-                    byte[] bits = bitsUtils.copyOf(shiftedBits);
-                    bitsUtils.setLastBase(bits, c);
-                    result.add(new Kmer(bits, count, hVals));
+                    byte[] bytes = shiftLeft(kmer.bytes, k);
+                    bytes[kMinus1] = (byte) c;
+                    result.add(new Kmer(bytes, count, hVals));
                 }
             }
         }
@@ -811,19 +807,18 @@ public class BloomFilterDeBruijnGraph {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
 
         SuccessorsNTHashIterator itr = hashFunction.getSuccessorsHashIterator(dbgbfCbfMaxNumHash);
-        itr.start(kmer.hashVals, bitsUtils.getFirstBase(kmer.bits));
+        itr.start(kmer.hashVals, (char) kmer.bytes[0]);
         long[] hVals = itr.hVals;
         
         float count;
-        byte[] shiftedBits = bitsUtils.shiftLeft(kmer.bits);
         for (char c : NUCLEOTIDES) {
             itr.next(c);
             if (bf.lookup(hVals) && dbgbf.lookup(hVals)) {
                 count = cbf.getCount(hVals);
                 if (count > 0) {
-                    byte[] bits = bitsUtils.copyOf(shiftedBits);
-                    bitsUtils.setLastBase(bits, c);
-                    result.add(new Kmer(bits, count, hVals));
+                    byte[] bytes = shiftLeft(kmer.bytes, k);
+                    bytes[kMinus1] = (byte) c;
+                    result.add(new Kmer(bytes, count, hVals));
                 }
             }
         }
@@ -867,18 +862,19 @@ public class BloomFilterDeBruijnGraph {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         LeftVariantsNTHashIterator itr = hashFunction.getLeftVariantsNTHashIterator(dbgbfCbfMaxNumHash);
-        char charOut = bitsUtils.getFirstBase(kmer.bits);
+        char charOut = (char) kmer.bytes[0];
         itr.start(kmer.hashVals, charOut);
         long[] hVals = itr.hVals;
         
+        byte[] bytes;
         float count;
         for (char charIn : getAltNucleotides(charOut)) {
             itr.next(charIn);
             count = getCount(hVals);
             if (count > 0) {
-                byte[] bits = bitsUtils.copyOf(kmer.bits);
-                bitsUtils.setFirstBase(bits, charIn);
-                result.add(new Kmer(bits, count, hVals));
+                bytes = Arrays.copyOf(kmer.bytes, k);
+                bytes[0] = (byte) charIn;
+                result.add(new Kmer(bytes, count, hVals));
             }
         }
         
@@ -919,18 +915,19 @@ public class BloomFilterDeBruijnGraph {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         RightVariantsNTHashIterator itr = hashFunction.getRightVariantsNTHashIterator(dbgbfCbfMaxNumHash);
-        char charOut = bitsUtils.getLastBase(kmer.bits);
+        char charOut = (char) kmer.bytes[kMinus1];
         itr.start(kmer.hashVals, charOut);
         long[] hVals = itr.hVals;
         
+        byte[] bytes;
         float count;
         for (char charIn : getAltNucleotides(charOut)) {
             itr.next(charIn);
             count = getCount(hVals);
             if (count > 0) {
-                byte[] bits = bitsUtils.copyOf(kmer.bits);
-                bitsUtils.setLastBase(bits, charIn);
-                result.add(new Kmer(bits, count, hVals));
+                bytes = Arrays.copyOf(kmer.bytes, k);
+                bytes[kMinus1] = (byte) charIn;
+                result.add(new Kmer(bytes, count, hVals));
             }
         }
         
@@ -1051,6 +1048,8 @@ public class BloomFilterDeBruijnGraph {
     public ArrayList<Kmer> getKmers(String seq) {        
         ArrayList<Kmer> result = new ArrayList<>();
         
+        byte[] bytes = stringToBytes(seq, seq.length());
+        
         NTHashIterator itr = getHashIterator();
         itr.start(seq);
         long[] hVals = itr.hVals;
@@ -1059,26 +1058,28 @@ public class BloomFilterDeBruijnGraph {
             itr.next();
             i = itr.getPos();
             if (dbgbf.lookup(hVals)) {
-                result.add(new Kmer(bitsUtils.seqToBits(seq, i), cbf.getCount(hVals), hVals));
+                result.add(new Kmer(Arrays.copyOfRange(bytes, i, i+k), cbf.getCount(hVals), hVals));
             }
             else {
-                result.add(new Kmer(bitsUtils.seqToBits(seq, i), 0f, hVals));
+                result.add(new Kmer(Arrays.copyOfRange(bytes, i, i+k), 0f, hVals));
             }
         }
         
         return result;
-    }
+}
     
-    public String assemble(ArrayDeque<Kmer> kmers) {
+    public static String assemble(ArrayDeque<Kmer> kmers, int k) {
         StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+
+        int lastIndex = k - 1;
         
-        byte[] bits = kmers.getFirst().bits;
-        for (int i=0; i<kMinus1; ++i) {
-            sb.append(bitsUtils.getBase(bits, i));
+        byte[] bytes = kmers.getFirst().bytes;
+        for (int i=0; i<lastIndex; ++i) {
+            sb.append((char) bytes[i]);
         }
         
         for (Kmer e : kmers) {
-            sb.append(bitsUtils.getLastBase(e.bits));
+            sb.append((char) e.bytes[lastIndex]);
         }
         
         return sb.toString();
@@ -1087,13 +1088,14 @@ public class BloomFilterDeBruijnGraph {
     public String assemble(ArrayList<Kmer> kmers, int start, int end) {
         StringBuilder sb = new StringBuilder(end - start + k - 1);
 
-        byte[] bits = kmers.get(start).bits;
+        int lastIndex = k - 1;
+        byte[] bytes = kmers.get(start).bytes;
         for (int i=0; i<k; ++i) {
-            sb.append(bitsUtils.getBase(bits, i));
+            sb.append((char) bytes[i]);
         }
         
         for (int i=start+1; i<end; ++i) {
-            sb.append(bitsUtils.getLastBase(kmers.get(i).bits));
+            sb.append((char) kmers.get(i).bytes[lastIndex]);
         }
         
         return sb.toString();
@@ -1101,15 +1103,17 @@ public class BloomFilterDeBruijnGraph {
     
     public String assembleReverseOrder(ArrayDeque<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+
+        int lastIndex = k - 1;  
         
         Iterator<Kmer> itr = kmers.descendingIterator();
-        byte[] bits = itr.next().bits;
+        byte[] bytes = itr.next().bytes;
         for (int i=0; i<k; ++i) {
-            sb.append(bitsUtils.getBase(bits, i));
+            sb.append((char) bytes[i]);
         }
         
         while (itr.hasNext()) {
-            sb.append(bitsUtils.getLastBase(itr.next().bits));
+            sb.append((char) itr.next().bytes[lastIndex]);
         }
         
         return sb.toString();
@@ -1117,15 +1121,17 @@ public class BloomFilterDeBruijnGraph {
     
     public String assemble(Collection<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
+
+        int lastIndex = k - 1;
         
         Iterator<Kmer> itr = kmers.iterator();
-        byte[] bits = itr.next().bits;
+        byte[] bytes = itr.next().bytes;
         for (int i=0; i<k; ++i) {
-            sb.append(bitsUtils.getBase(bits, i));
+            sb.append((char) bytes[i]);
         }
         
         while (itr.hasNext()) {
-            sb.append(bitsUtils.getLastBase(itr.next().bits));
+            sb.append((char) itr.next().bytes[lastIndex]);
         }
 
         // surprisingly slower!
@@ -1144,22 +1150,24 @@ public class BloomFilterDeBruijnGraph {
                 
         return sb.toString();
     }
-    
+  
     public String assembleFirstBase(Collection<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
         for (Kmer kmer : kmers) {
-            sb.append(bitsUtils.getFirstBase(kmer.bits));
+            sb.append((char) kmer.bytes[0]);
         }
         
         return sb.toString();
     }
 
     public String assembleLastBase(Collection<Kmer> kmers) {
+        int lastIndex = k-1;
+        
         StringBuilder sb = new StringBuilder(kmers.size() + k - 1);
         for (Kmer kmer : kmers) {
-            sb.append(bitsUtils.getLastBase(kmer.bits));
+            sb.append((char) kmer.bytes[lastIndex]);
         }
         
         return sb.toString();
-    }
+}
 }
