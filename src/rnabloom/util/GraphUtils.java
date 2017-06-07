@@ -3501,7 +3501,7 @@ public final class GraphUtils {
         
         final int distance = graph.getPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
-        int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
+        int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, distance/2, assembledKmersBloomFilter, minNumPairs);
         
         // data structure to store visited kmers at defined depth
         HashMap<Kmer, ArrayDeque<Integer>> visitedKmers = new HashMap<>();
@@ -3664,7 +3664,7 @@ public final class GraphUtils {
         
         final int distance = graph.getPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
-        int maxDepth = maxLeftPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
+        int maxDepth = maxLeftPartnerSearchDepth2(kmers, graph, distance/2, assembledKmersBloomFilter, minNumPairs);
         
         // data structure to store visited kmers at defined depth
         HashMap<Kmer, ArrayDeque<Integer>> visitedKmers = new HashMap<>();
