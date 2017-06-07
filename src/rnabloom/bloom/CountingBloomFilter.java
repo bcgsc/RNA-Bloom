@@ -134,7 +134,8 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         
         // increment the smallest count
         if (min <= MANTI_MASK ||
-                (int) (random() * Integer.MAX_VALUE) % (1 << ((min >> MANTISSA) - 1)) == 0) {
+                (min < Byte.MAX_VALUE &&
+                (int) (random() * Integer.MAX_VALUE) % (1 << ((min >> MANTISSA) - 1)) == 0)) {
             byte updated = (byte) (min + 1);
             
             // update min count only
