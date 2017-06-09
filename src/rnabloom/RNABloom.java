@@ -933,7 +933,7 @@ public class RNABloom {
 
                             extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
                             
-                            transcripts.add(new Transcript(fragment, fragKmers));
+                            transcripts.put(new Transcript(fragment, fragKmers));
                         }
                     }
                 }
