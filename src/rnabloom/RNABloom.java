@@ -778,11 +778,11 @@ public class RNABloom {
     
     private class Transcript {
         String fragment;
-        String transcript;
+        ArrayList<Kmer> transcriptKmers;
         
-        public Transcript(String fragment, String transcript) {
+        public Transcript(String fragment, ArrayList<Kmer> transcriptKmers) {
             this.fragment = fragment;
-            this.transcript = transcript;
+            this.transcriptKmers = transcriptKmers;
         }
     }
     
@@ -848,7 +848,7 @@ public class RNABloom {
             this.prefix = prefix;
         }
         
-        public synchronized void write(String fragment, ArrayList<Kmer> transcriptKmers) throws IOException {
+        public void write(String fragment, ArrayList<Kmer> transcriptKmers) throws IOException {
             if (!represented(transcriptKmers,
                                 graph,
                                 screeningBf,
@@ -876,13 +876,13 @@ public class RNABloom {
     private class TranscriptAssemblyWorker implements Runnable {
         
         private final ArrayBlockingQueue<String> fragments;
-        private final TranscriptWriter writer;
+        private final ArrayBlockingQueue<Transcript> transcripts;
         private boolean keepGoing = true;
         
         public TranscriptAssemblyWorker(ArrayBlockingQueue<String> fragments,
-                                        TranscriptWriter writer) {
+                                        ArrayBlockingQueue<Transcript> transcripts) {
             this.fragments = fragments;
-            this.writer = writer;
+            this.transcripts = transcripts;
         }
 
         public void stopWhenEmpty () {
@@ -933,8 +933,48 @@ public class RNABloom {
 
                             extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
                             
-                            writer.write(fragment, fragKmers);
+                            transcripts.add(new Transcript(fragment, fragKmers));
                         }
+                    }
+                }
+            }
+            catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+    }
+    
+    private class TranscriptWriterWorker implements Runnable {
+        
+        private final ArrayBlockingQueue<Transcript> transcripts;
+        private final TranscriptWriter writer;
+        private boolean keepGoing = true;
+        
+        public TranscriptWriterWorker(ArrayBlockingQueue<Transcript> transcripts,
+                                        TranscriptWriter writer) {
+            this.transcripts = transcripts;
+            this.writer = writer;
+        }
+
+        public void stopWhenEmpty () {
+            keepGoing = false;
+        }
+        
+        @Override
+        public void run() {
+            Transcript t = null;
+            
+            try {
+                while (true) {
+                    t = transcripts.poll(10, TimeUnit.MICROSECONDS);
+                                        
+                    if (t == null) {
+                        if (!keepGoing) {
+                            break;
+                        }
+                    }
+                    else {
+                        writer.write(t.fragment, t.transcriptKmers);
                     }
                 }
             }
@@ -1744,14 +1784,19 @@ public class RNABloom {
         FastaReader fin = new FastaReader(fragmentsFasta);
 
         ArrayBlockingQueue<String> fragmentsQueue = new ArrayBlockingQueue<>(sampleSize, true);
-
+        ArrayBlockingQueue<Transcript> transcriptsQueue = new ArrayBlockingQueue<>(sampleSize, true);
+        
         TranscriptAssemblyWorker[] workers = new TranscriptAssemblyWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
         for (int i=0; i<numThreads; ++i) {
-            workers[i] = new TranscriptAssemblyWorker(fragmentsQueue, writer);
+            workers[i] = new TranscriptAssemblyWorker(fragmentsQueue, transcriptsQueue);
             threads[i] = new Thread(workers[i]);
             threads[i].start();
         }
+        
+        TranscriptWriterWorker writerWorker = new TranscriptWriterWorker(transcriptsQueue, writer);
+        Thread writerThread = new Thread(writerWorker);
+        writerThread.start();
 
         while (fin.hasNext()) {
             ++numFragmentsParsed;
@@ -1768,6 +1813,9 @@ public class RNABloom {
             t.join();
         }
 
+        writerWorker.stopWhenEmpty();
+        writerThread.join();
+        
         return numFragmentsParsed;
     }
     
