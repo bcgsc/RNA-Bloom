@@ -3132,13 +3132,10 @@ public final class GraphUtils {
             return false;
         }
         
-        Iterator<Kmer> itr;
         int partnerIndex = numKmers-distance;
-        Kmer kmer, partner;
-        ArrayDeque<Kmer> simpleExtension;
         
         while (!neighbors.isEmpty()) {
-            simpleExtension = extendRight(cursor,
+            ArrayDeque<Kmer> simpleExtension = extendRight(cursor,
                                             graph, 
                                             maxTipLength, 
                                             usedKmers, 
@@ -3146,7 +3143,7 @@ public final class GraphUtils {
                                             percentIdentity);
                         
             if (!simpleExtension.isEmpty()) {
-                itr = simpleExtension.descendingIterator();
+                Iterator<Kmer> itr = simpleExtension.descendingIterator();
                 while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
                     itr.remove();
                 }
@@ -3191,9 +3188,9 @@ public final class GraphUtils {
             float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
             float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);            
 //            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
-            itr = neighbors.iterator();
+            Iterator<Kmer> itr = neighbors.iterator();
             while (itr.hasNext()) {
-                kmer = itr.next();
+                Kmer kmer = itr.next();
 
                 if (kmer.count < minCovThreshold) {
                     itr.remove();
@@ -3255,7 +3252,7 @@ public final class GraphUtils {
                 }
             }
             
-            partner = kmers.get(partnerIndex);
+            Kmer partner = kmers.get(partnerIndex);
             
             if (usedKmers.contains(cursor) &&
                     usedPartnerKmers.contains(partner)){
@@ -3321,13 +3318,10 @@ public final class GraphUtils {
             return false;
         }
         
-        Iterator<Kmer> itr;
         int partnerIndex = numKmers-distance;
-        Kmer kmer, partner;
-        ArrayDeque<Kmer> simpleExtension;
         
         while (!neighbors.isEmpty()) {
-            simpleExtension = extendLeft(cursor,
+            ArrayDeque<Kmer> simpleExtension = extendLeft(cursor,
                                             graph, 
                                             maxTipLength, 
                                             usedKmers, 
@@ -3335,7 +3329,7 @@ public final class GraphUtils {
                                             percentIdentity);
             
             if (!simpleExtension.isEmpty()) {
-                itr = simpleExtension.descendingIterator();
+                Iterator<Kmer> itr = simpleExtension.descendingIterator();
                 while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
                     itr.remove();
                 }
@@ -3380,9 +3374,9 @@ public final class GraphUtils {
             float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
             float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);            
 //            ArrayDeque<Kmer> pairedNeighbors = new ArrayDeque<>(4);
-            itr = neighbors.iterator();
+            Iterator<Kmer> itr = neighbors.iterator();
             while (itr.hasNext()) {
-                kmer = itr.next();
+                Kmer kmer = itr.next();
 
                 if (kmer.count < minCovThreshold) {
                     itr.remove();
@@ -3444,7 +3438,7 @@ public final class GraphUtils {
                 }
             }
             
-            partner = kmers.get(partnerIndex);
+            Kmer partner = kmers.get(partnerIndex);
             
             if (usedKmers.contains(cursor) &&
                     usedPartnerKmers.contains(partner)){
@@ -3519,13 +3513,12 @@ public final class GraphUtils {
         ArrayDeque<Kmer> extension = new ArrayDeque<>();
         HashSet<Kmer> extensionKmers = new HashSet<>();
         
-        Kmer cursor;
         int maxPartnerIndex = numKmers - 1 - minNumPairs;
         while (!branchesStack.isEmpty()) {
             LinkedList<Kmer> branches = branchesStack.getLast();
             
             if (branches.isEmpty()) {
-                cursor = extension.pollLast();
+                Kmer cursor = extension.pollLast();
                 
                 if (cursor != null) {
                     extensionKmers.remove(cursor);
@@ -3536,7 +3529,7 @@ public final class GraphUtils {
                 --partnerIndex;
             }
             else {
-                cursor = branches.pop();
+                Kmer cursor = branches.pop();
                 
                 if (!graph.isLowComplexity(cursor)) {
                     if (partnerIndex >=0 &&
@@ -3682,13 +3675,12 @@ public final class GraphUtils {
         ArrayDeque<Kmer> extension = new ArrayDeque<>();
         HashSet<Kmer> extensionKmers = new HashSet<>();
         
-        Kmer cursor;
         int maxPartnerIndex = numKmers - 1 - minNumPairs;
         while (!branchesStack.isEmpty()) {
             LinkedList<Kmer> branches = branchesStack.getLast();
             
             if (branches.isEmpty()) {
-                cursor = extension.pollLast();
+                Kmer cursor = extension.pollLast();
                 if (cursor != null) {
                     extensionKmers.remove(cursor);
                 }
@@ -3698,7 +3690,7 @@ public final class GraphUtils {
                 --partnerIndex;
             }
             else {
-                cursor = branches.pop();
+                Kmer cursor = branches.pop();
                 
                 if (!graph.isLowComplexity(cursor)) {
                     if (partnerIndex >=0 &&
