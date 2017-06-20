@@ -1079,8 +1079,9 @@ public class RNABloom {
                     ArrayList<Kmer> leftKmers = graph.getKmers(left);
                     ArrayList<Kmer> rightKmers = graph.getKmers(right);
 
-                    if (okToConnectPair(leftKmers, rightKmers)) {
-                        boolean corrected = false;
+                    if (!leftKmers.isEmpty() && !rightKmers.isEmpty()) {
+//                    if (okToConnectPair(leftKmers, rightKmers)) {
+//                        boolean corrected = false;
 
                         if (this.errorCorrectionIterations > 0) {
 
@@ -1096,13 +1097,13 @@ public class RNABloom {
                                                                 percentIdentity);
 
                             if (correctedReadPair.corrected) {
-                                corrected = true;
+//                                corrected = true;
                                 leftKmers = correctedReadPair.leftKmers;
                                 rightKmers = correctedReadPair.rightKmers;
                             }
                         }
 
-                        if (!corrected || okToConnectPair(leftKmers, rightKmers)) {
+//                        if (!corrected || okToConnectPair(leftKmers, rightKmers)) {
                             ArrayList<Kmer> fragmentKmers = null;
                             
                             if (!graph.isLowComplexity(leftKmers.get(leftKmers.size()-1)) &&  
@@ -1183,7 +1184,7 @@ public class RNABloom {
                                     }
                                 }
                             }
-                        }
+//                        }
                     }
                 }
             }
