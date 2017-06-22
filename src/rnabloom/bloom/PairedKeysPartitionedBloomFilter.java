@@ -234,6 +234,12 @@ public class PairedKeysPartitionedBloomFilter {
         this.bitArrayPair.destroy();
     }
     
+    public void empty() {
+        this.bitArrayLeft.empty();
+        this.bitArrayRight.empty();
+        this.bitArrayPair.empty();
+    }
+    
     public boolean equivalent(PairedKeysPartitionedBloomFilter bf) {
         return this.size == bf.size && 
                 this.numHash == bf.numHash && 
