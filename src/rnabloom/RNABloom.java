@@ -1788,7 +1788,7 @@ public class RNABloom {
         }
     }
     
-    private long assembleTranscriptsMultiThreadedHelper(String fragmentsFasta, TranscriptWriter writer, int sampleSize, int numThreads, boolean checkExtensionAssembled) throws InterruptedException, IOException {
+    private long extendFragmentsMultiThreadedHelper(String fragmentsFasta, TranscriptWriter writer, int sampleSize, int numThreads, boolean checkExtensionAssembled) throws InterruptedException, IOException {
         long numFragmentsParsed = 0;
         FastaReader fin = new FastaReader(fragmentsFasta);
 
@@ -1828,38 +1828,46 @@ public class RNABloom {
         return numFragmentsParsed;
     }
     
-    public void extendFragmentsMultiThreaded(String[] longFragmentsFastas, 
+    public void assembleTransfragsMultiThreaded(String[] longFragmentsFastas, 
                                                 String[] shortFragmentsFastas,
                                                 String[] outFastasLong,
                                                 String[] outFastasShort,
-                                                long sbfNumBits, 
+                                                long sbfNumBits,
                                                 int sbfNumHash,
                                                 int numThreads,
-                                                int sampleSize,
-                                                int minTranscriptLength) {
+                                                int sampleSize) {
         
         long numFragmentsParsed = 0;
+        
+        int minTransfragLength = graph.getPairedKmerDistance() + k + minNumKmerPairs;
+        
+        boolean emptyScreeningBf = false;
+        if (screeningBf == null) {
+            screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
+            emptyScreeningBf = true;
+        }
 
         try {
             System.out.println("Extending fragments...");
-                    
-//            screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
             
             for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
                 graph.clearDbgbf();
-                screeningBf.empty();
+                
+                if (!emptyScreeningBf) {
+                    screeningBf.empty();
+                }
                 
                 FastaWriter fout = new FastaWriter(outFastasLong[mag], false);
                 FastaWriter foutShort = new FastaWriter(outFastasShort[mag], false);
-                TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength);
+                TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTransfragLength);
                 
                 String fragmentsFasta = longFragmentsFastas[mag];
                 System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
-                numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, false);
                 
                 fragmentsFasta = shortFragmentsFastas[mag];
                 System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
-                numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, false);
                 
                 fout.close();
                 foutShort.close();
@@ -1889,29 +1897,27 @@ public class RNABloom {
         long numFragmentsParsed = 0;
 
         try {
-            if (createFragmentDBG) {
-                System.out.println("Creating graph from fragment kmers...");
-                
-                graph.getDbgbf().empty();
-                
-                if (numThreads > 1) {
-                    ArrayDeque<String> fragmentsFastas = new ArrayDeque<>(longFragmentsFastas.length + shortFragmentsFastas.length + 2);
-                    fragmentsFastas.addAll(Arrays.asList(longFragmentsFastas));
-                    fragmentsFastas.addAll(Arrays.asList(shortFragmentsFastas));
-                    fragmentsFastas.add(longSingletonsFasta);
-                    fragmentsFastas.add(shortSingletonsFasta);
-                    insertIntoDeBruijnGraphMultiThreaded(fragmentsFastas, sampleSize, numThreads);
-                }
-                else {
-                    insertIntoDeBruijnGraph(longFragmentsFastas);
-                    insertIntoDeBruijnGraph(shortFragmentsFastas);
-                    insertIntoDeBruijnGraph(longSingletonsFasta);
-                    insertIntoDeBruijnGraph(shortSingletonsFasta);
-                }
+            System.out.println("Creating graph from fragment kmers...");
 
-                dbgFPR = graph.getDbgbf().getFPR();
-                System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
+            graph.getDbgbf().empty();
+
+            if (numThreads > 1) {
+                ArrayDeque<String> fragmentsFastas = new ArrayDeque<>(longFragmentsFastas.length + shortFragmentsFastas.length + 2);
+                fragmentsFastas.addAll(Arrays.asList(longFragmentsFastas));
+                fragmentsFastas.addAll(Arrays.asList(shortFragmentsFastas));
+                fragmentsFastas.add(longSingletonsFasta);
+                fragmentsFastas.add(shortSingletonsFasta);
+                insertIntoDeBruijnGraphMultiThreaded(fragmentsFastas, sampleSize, numThreads);
             }
+            else {
+                insertIntoDeBruijnGraph(longFragmentsFastas);
+                insertIntoDeBruijnGraph(shortFragmentsFastas);
+                insertIntoDeBruijnGraph(longSingletonsFasta);
+                insertIntoDeBruijnGraph(shortSingletonsFasta);
+            }
+
+            dbgFPR = graph.getDbgbf().getFPR();
+            System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
             
             if (covFPR <= 0) {
                 covFPR = graph.getCbf().getFPR();
@@ -1924,7 +1930,12 @@ public class RNABloom {
             FastaWriter foutShort = new FastaWriter(outFastaShort, false);
             TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength);
             
-            screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
+            if (screeningBf == null) {
+                screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
+            }
+            else {
+                screeningBf.empty();
+            }
             
             String tag = ".L.";
             for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
@@ -1934,7 +1945,7 @@ public class RNABloom {
 
                 System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
 
-                numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true);
             }
             
             tag = ".S.";
@@ -1945,17 +1956,17 @@ public class RNABloom {
 
                 System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
 
-                numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true);
             }
 
             if (useSingletonFragments) {
                 System.out.println("Parsing fragments in `" + longSingletonsFasta + "`...");
                 writer.setOutputPrefix("01.L.");
-                numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads, true);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads, true);
 
                 System.out.println("Parsing fragments in `" + shortSingletonsFasta + "`...");
                 writer.setOutputPrefix("01.S.");
-                numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads, true); 
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads, true); 
             }
             
             fout.close();
@@ -2060,6 +2071,7 @@ public class RNABloom {
         final String STARTED = "STARTED";
         final String DBG_DONE = "DBG.DONE";
         final String FRAGMENTS_DONE = "FRAGMENTS.DONE";
+        final String TRANSFRAGS_DONE = "TRANSFRAGS.DONE";
         final String TRANSCRIPTS_DONE = "TRANSCRIPTS.DONE";
         
         MyTimer timer = new MyTimer();
@@ -2375,16 +2387,19 @@ public class RNABloom {
             String outdir = line.getOptionValue(optOutdir.getOpt(), System.getProperty("user.dir") + File.separator + name + "_assembly");
             /**@TODO evaluate whether out dir is a valid dir */
             
-            String longFragmentsFastaPrefix = outdir + File.separator + name + ".fragments.long.";
-            String shortFragmentsFastaPrefix = outdir + File.separator + name + ".fragments.short.";
-            String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
-            String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short.fa";
+            String longFragmentsFastaPrefix =   outdir + File.separator + name + ".fragments.long.";
+            String shortFragmentsFastaPrefix =  outdir + File.separator + name + ".fragments.short.";
+            String longTransfragsFastaPrefix =  outdir + File.separator + name + ".transfrags.long.";
+            String shortTransfragsFastaPrefix = outdir + File.separator + name + ".transfrags.short.";
+            String transcriptsFasta =           outdir + File.separator + name + ".transcripts.fa";
+            String shortTranscriptsFasta =      outdir + File.separator + name + ".transcripts.short.fa";
 //            String tmpFasta = outdir + File.separator + name + ".tmp.fa";
             String graphFile = outdir + File.separator + name + ".graph";
             
             File startedStamp = new File(outdir + File.separator + STARTED);
             File dbgDoneStamp = new File(outdir + File.separator + DBG_DONE);
             File fragsDoneStamp = new File(outdir + File.separator + FRAGMENTS_DONE);
+            File txfgsDoneStamp = new File(outdir + File.separator + TRANSFRAGS_DONE);
             File txptsDoneStamp = new File(outdir + File.separator + TRANSCRIPTS_DONE);
             
             if (forceOverwrite) {
@@ -2398,6 +2413,10 @@ public class RNABloom {
                 
                 if (fragsDoneStamp.exists()) {
                     fragsDoneStamp.delete();
+                }
+                
+                if (txfgsDoneStamp.exists()) {
+                    txfgsDoneStamp.delete();
                 }
                 
                 if (txptsDoneStamp.exists()) {
@@ -2635,6 +2654,56 @@ public class RNABloom {
                 }
             }
 
+            String[] longTransfragsFastaPaths = {longTransfragsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                            longTransfragsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                            longTransfragsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                            longTransfragsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                            longTransfragsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                            longTransfragsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            
+            String[] shortTransfragsFastaPaths = {shortTransfragsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            
+            if (forceOverwrite || !txfgsDoneStamp.exists()) {
+                
+                for (String transfragsFasta : longTransfragsFastaPaths) {
+                    File transfragsFile = new File(transfragsFasta);
+                    if (transfragsFile.exists()) {
+                        transfragsFile.delete();
+                    }
+                }
+                
+                for (String transfragsFasta : shortTransfragsFastaPaths) {
+                    File transfragsFile = new File(transfragsFasta);
+                    if (transfragsFile.exists()) {
+                        transfragsFile.delete();
+                    }
+                }
+                                
+                timer.start();
+                
+                assembler.assembleTransfragsMultiThreaded(longFragmentsFastaPaths, 
+                                                        shortFragmentsFastaPaths,
+                                                        longTransfragsFastaPaths,
+                                                        shortTransfragsFastaPaths,
+                                                        sbfSize,
+                                                        sbfNumHash,
+                                                        numThreads,
+                                                        sampleSize);
+
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                
+                try {
+                    touch(txfgsDoneStamp);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+            
             if (forceOverwrite || !txptsDoneStamp.exists()) {
                 
                 File transcriptsFile = new File(transcriptsFasta);
@@ -2649,8 +2718,8 @@ public class RNABloom {
                 
                 timer.start();
                 
-                assembler.assembleTranscriptsMultiThreaded(longFragmentsFastaPaths, 
-                                                            shortFragmentsFastaPaths,
+                assembler.assembleTranscriptsMultiThreaded(longTransfragsFastaPaths, 
+                                                            shortTransfragsFastaPaths,
                                                             longSingletonsFastaPath,
                                                             shortSingletonsFastaPath,
                                                             transcriptsFasta, 
