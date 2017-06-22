@@ -165,6 +165,10 @@ public class BloomFilterDeBruijnGraph {
         return cbfNumHash;
     }
     
+    public int getPkbfNumHash () {
+        return pkbfNumHash;
+    }
+    
     public int getMaxNumHash() {
         return dbgbfCbfMaxNumHash;
     }
@@ -179,6 +183,10 @@ public class BloomFilterDeBruijnGraph {
     
     public void clearDbgbf() {
         dbgbf.empty();
+    }
+    
+    public void clearPkbf() {
+        pkbf.empty();
     }
 
     public void destroyDbgbf() {
@@ -336,6 +344,10 @@ public class BloomFilterDeBruijnGraph {
         for (int i=0; i<upperBound; ++i) {
             pkbf.add(kmers.get(i).hashVals, kmers.get(i+pairedKmersDistance).hashVals);
         }
+    }
+    
+    public void addPairedKmers(long[] left, long[] right) {
+        pkbf.add(left, right);
     }
     
 //    public void addFragmentKmersAndPairedKmersFromSeq(String seq) {

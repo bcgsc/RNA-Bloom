@@ -53,4 +53,8 @@ public class NTHashIterator {
     public int getPos() {
         return pos;
     }
+    
+    public int getMax() {
+        return max;
+    }
 }

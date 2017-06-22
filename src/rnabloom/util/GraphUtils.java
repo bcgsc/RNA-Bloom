@@ -475,6 +475,7 @@ public final class GraphUtils {
                                     final BloomFilter bf,
                                     final int lookahead,
                                     final int maxIndelSize,
+                                    final int maxTipLength,
                                     final float percentIdentity) {
         int numKmers = kmers.size();
         int maxIndex = numKmers - 1;
@@ -504,7 +505,7 @@ public final class GraphUtils {
                     if (startIndex > 0) {
                                                 
                         if (lastRepresentedKmerFoundIndex < 0) {                            
-                            if (startIndex >= k-1 || graph.hasPredecessors(kmers.get(0))) {
+                            if (startIndex >= maxTipLength || graph.hasPredecessors(kmers.get(0))) {
                                 // check left edge kmers
                                 ArrayDeque testEdgeKmers = greedyExtendLeft(graph, kmers.get(startIndex), lookahead, startIndex, bf);
                                 if (testEdgeKmers.size() != startIndex ||
@@ -568,7 +569,7 @@ public final class GraphUtils {
             if (lastRepresentedKmerFoundIndex < maxIndex) {
                 // check right edge kmers
                 int expectedLen = numKmers-lastRepresentedKmerFoundIndex-1;
-                if (expectedLen >= k || graph.hasSuccessors(kmers.get(numKmers-1))) {                    
+                if (expectedLen >= maxTipLength || graph.hasSuccessors(kmers.get(numKmers-1))) {                    
                     ArrayDeque testEdgeKmers = greedyExtendRight(graph, kmers.get(lastRepresentedKmerFoundIndex), lookahead, expectedLen, bf);
                     if (testEdgeKmers.size() != expectedLen ||
                             getPercentIdentity(graph.assemble(testEdgeKmers), graph.assemble(kmers, lastRepresentedKmerFoundIndex+1, numKmers)) < percentIdentity) {
@@ -3049,7 +3050,8 @@ public final class GraphUtils {
         
         partner = kmers.get(partnerFromIndex);
         
-        if (graph.lookupKmerPair(partner.hashVals, source.hashVals)) {
+        if (graph.lookupKmerPair(partner.hashVals, source.hashVals) &&
+                (!graph.isLowComplexity(partner) || !graph.isLowComplexity(source))) {
             
             ArrayDeque<Kmer> frontier = graph.getSuccessors(source);
             ArrayDeque<Kmer> newFrontier = new ArrayDeque();
@@ -3064,11 +3066,14 @@ public final class GraphUtils {
                     return false;
                 }
 
+                boolean partnerIsLowComplexity = graph.isLowComplexity(partner);
+                
                 itr = frontier.iterator();
                 while (itr.hasNext()) {
                     kmer = itr.next();
                     if (graph.lookupRightKmer(kmer.hashVals) && 
-                            graph.lookupKmerPairing(partner.hashVals, kmer.hashVals)) {
+                            graph.lookupKmerPairing(partner.hashVals, kmer.hashVals) &&
+                            (!partnerIsLowComplexity || !graph.isLowComplexity(kmer))) {
                         newFrontier.addAll(graph.getSuccessors(kmer));
                     }
 
@@ -3101,7 +3106,8 @@ public final class GraphUtils {
         
         partner = kmers.get(partnerFromIndex);
         
-        if (graph.lookupKmerPair(source.hashVals, partner.hashVals)) {
+        if (graph.lookupKmerPair(source.hashVals, partner.hashVals) &&
+                (!graph.isLowComplexity(source) || !graph.isLowComplexity(partner))) {
             
             ArrayDeque<Kmer> frontier = graph.getPredecessors(source);
             ArrayDeque<Kmer> newFrontier = new ArrayDeque<>();
@@ -3115,12 +3121,15 @@ public final class GraphUtils {
                 if (!graph.lookupRightKmer(partner.hashVals)) {
                     return false;
                 }
+                
+                boolean partnerIsLowComplexity = graph.isLowComplexity(partner);
 
                 itr = frontier.iterator();
                 while (itr.hasNext()) {
                     kmer = itr.next();
                     if (graph.lookupLeftKmer(kmer.hashVals) && 
-                            graph.lookupKmerPairing(kmer.hashVals, partner.hashVals)) {
+                            graph.lookupKmerPairing(kmer.hashVals, partner.hashVals) &&
+                            (!partnerIsLowComplexity || !graph.isLowComplexity(kmer))) {
                         newFrontier.addAll(graph.getPredecessors(kmer));
                     }
 
@@ -3821,7 +3830,7 @@ public final class GraphUtils {
             else {
                 Kmer cursor = branches.pop();
                 
-                if (!graph.isLowComplexity(cursor)) {
+//                if (!graph.isLowComplexity(cursor)) {
                     if (partnerIndex >=0 &&
                             partnerIndex <= maxPartnerIndex &&
     //                        partnerIndex+minNumPairs < kmers.size() && 
@@ -3926,7 +3935,7 @@ public final class GraphUtils {
                             ++partnerIndex;
                         }
                     }
-                }
+//                }
             }
         }
         
@@ -3982,7 +3991,7 @@ public final class GraphUtils {
             else {
                 Kmer cursor = branches.pop();
                 
-                if (!graph.isLowComplexity(cursor)) {
+//                if (!graph.isLowComplexity(cursor)) {
                     if (partnerIndex >=0 &&
                             partnerIndex <= maxPartnerIndex &&
     //                        partnerIndex+minNumPairs < kmers.size() && 
@@ -4087,7 +4096,7 @@ public final class GraphUtils {
                             ++partnerIndex;
                         }
                     }
-                }
+//                }
             }
         }
         
