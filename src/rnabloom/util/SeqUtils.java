@@ -694,6 +694,6 @@ public final class SeqUtils {
         
         String seq2 = chompRightPolyX(seq, 35, 2);
         
-        System.out.println(seq + "\n" + seq2);
+        System.out.println(seq + "\n" + seq2);        
     }
 }
