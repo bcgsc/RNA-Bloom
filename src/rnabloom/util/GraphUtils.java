@@ -3179,8 +3179,7 @@ public final class GraphUtils {
                                             float percentIdentity,
                                             int minNumPairs,
                                             HashSet<Kmer> usedKmers,
-                                            HashSet<Kmer> usedPartnerKmers,
-                                            float maxCovGradient) {
+                                            HashSet<Kmer> usedPartnerKmers) {
         
         int distance = graph.getPairedKmerDistance();
         int numKmers = kmers.size();
@@ -3202,33 +3201,26 @@ public final class GraphUtils {
                                             percentIdentity);
                         
             if (!simpleExtension.isEmpty()) {
-                Iterator<Kmer> itr = simpleExtension.descendingIterator();
-                while(itr.hasNext()) {
-                    itr.remove();
+                kmers.addAll(simpleExtension);
+                numKmers = kmers.size();
+
+                if (numKmers < distance) {
+                    // too short to have partners
+                    return true;
                 }
-                
-                if (!simpleExtension.isEmpty()) {
-                    kmers.addAll(simpleExtension);
-                    numKmers = kmers.size();
 
-                    if (numKmers < distance) {
-                        // too short to have partners
-                        return true;
-                    }
+                partnerIndex += simpleExtension.size();
 
-                    partnerIndex += simpleExtension.size();
-                    
-                    usedKmers.addAll(simpleExtension);
+                usedKmers.addAll(simpleExtension);
 
-                    // NOTE: kmer at `partnerIndex` will be paired with `cursor`
-                    for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
-                        usedPartnerKmers.add(kmers.get(i));
-                    }
-                    
-                    neighbors = graph.getSuccessors(simpleExtension.getLast());
-                    if (neighbors.isEmpty()) {
-                        return false;
-                    }
+                // NOTE: kmer at `partnerIndex` will be paired with `cursor`
+                for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
+                    usedPartnerKmers.add(kmers.get(i));
+                }
+
+                neighbors = graph.getSuccessors(simpleExtension.getLast());
+                if (neighbors.isEmpty()) {
+                    return false;
                 }
             }
             
@@ -3238,18 +3230,7 @@ public final class GraphUtils {
             }
             
             cursor = null;
-            
-            float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-            float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);       
-            Iterator<Kmer> itr = neighbors.iterator();
-            while (itr.hasNext()) {
-                Kmer kmer = itr.next();
-
-                if (kmer.count < minCovThreshold) {
-                    itr.remove();
-                }
-            }
-            
+                        
             if (neighbors.isEmpty()) {
                 return true;
             }
@@ -3261,19 +3242,16 @@ public final class GraphUtils {
                     // not enough supporting partners
                     return true;
                 }
-                
-                float minDiffCoverage = Float.MAX_VALUE;
-                float edgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
-                
-                float c,d;
+                                
                 for (Kmer n : neighbors) {
                     if (hasPairedRightKmers(n, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                        c = getMaxMedianCoverageRight(graph, n, lookahead);
+                        float c = getMaxMedianCoverageRight(graph, n, lookahead);
                         if (c > 0) {
-                            d = Math.abs(edgeCoverage - c);
-                            if (d < minDiffCoverage) {
-                                minDiffCoverage = d;
+                            if (cursor == null) {
                                 cursor = n;
+                            }
+                            else {
+                                return true;
                             }
                         }
                     }
@@ -3315,8 +3293,7 @@ public final class GraphUtils {
                                             float percentIdentity,
                                             int minNumPairs,
                                             HashSet<Kmer> usedKmers,
-                                            HashSet<Kmer> usedPartnerKmers,
-                                            float maxCovGradient) {
+                                            HashSet<Kmer> usedPartnerKmers) {
         
         int distance = graph.getPairedKmerDistance();
         int numKmers = kmers.size();
@@ -3337,35 +3314,28 @@ public final class GraphUtils {
                                             usedKmers, 
                                             maxIndelSize, 
                                             percentIdentity);
-            
+ 
             if (!simpleExtension.isEmpty()) {
-                Iterator<Kmer> itr = simpleExtension.descendingIterator();
-                while(itr.hasNext()) {
-                    itr.remove();
+                kmers.addAll(simpleExtension);
+                numKmers = kmers.size();
+
+                if (numKmers < distance) {
+                    // too short to have partners
+                    return true;
                 }
-                
-                if (!simpleExtension.isEmpty()) {
-                    kmers.addAll(simpleExtension);
-                    numKmers = kmers.size();
 
-                    if (numKmers < distance) {
-                        // too short to have partners
-                        return true;
-                    }
+                partnerIndex += simpleExtension.size();
 
-                    partnerIndex += simpleExtension.size();
+                usedKmers.addAll(simpleExtension);
 
-                    usedKmers.addAll(simpleExtension);
+                // NOTE: kmer at `partnerIndex` will be paired with `cursor`
+                for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
+                    usedPartnerKmers.add(kmers.get(i));
+                }
 
-                    // NOTE: kmer at `partnerIndex` will be paired with `cursor`
-                    for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
-                        usedPartnerKmers.add(kmers.get(i));
-                    }
-                    
-                    neighbors = graph.getPredecessors(simpleExtension.getLast());
-                    if (neighbors.isEmpty()) {
-                        return false;
-                    }
+                neighbors = graph.getPredecessors(simpleExtension.getLast());
+                if (neighbors.isEmpty()) {
+                    return false;
                 }
             }
             
@@ -3375,20 +3345,7 @@ public final class GraphUtils {
             }
             
             cursor = null;
-            
-            float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-            float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);        
-            Iterator<Kmer> itr = neighbors.iterator();
-            while (itr.hasNext()) {
-                Kmer kmer = itr.next();
-
-                if (kmer.count < minCovThreshold) {
-                    itr.remove();
-                }
-                
-
-            }
-            
+                        
             if (neighbors.isEmpty()) {
                 return true;
             }
@@ -3401,18 +3358,15 @@ public final class GraphUtils {
                     return true;
                 }
                 
-                float minDiffCoverage = Float.MAX_VALUE;
-                float edgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
-                
-                float c,d;
                 for (Kmer n : neighbors) {
                     if (hasPairedLeftKmers(n, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                        c = getMaxMedianCoverageLeft(graph, n, lookahead);
+                        float c = getMaxMedianCoverageLeft(graph, n, lookahead);
                         if (c > 0) {
-                            d = Math.abs(edgeCoverage - c);
-                            if (d < minDiffCoverage) {
-                                minDiffCoverage = d;
+                            if (cursor == null) {
                                 cursor = n;
+                            }
+                            else {
+                                return true;
                             }
                         }
                     }
@@ -4148,8 +4102,7 @@ public final class GraphUtils {
                                             float percentIdentity,
                                             int minNumPairs,
                                             HashSet<Kmer> usedKmers,
-                                            HashSet<Kmer> usedPartnerKmers,
-                                            float maxCovGradient) {
+                                            HashSet<Kmer> usedPartnerKmers) {
         
         final int distance = graph.getPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
@@ -4162,11 +4115,8 @@ public final class GraphUtils {
         int depth = 0;
         int partnerIndex = numKmers - distance + depth;
         
-        float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
-        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
-        
         ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>();
-        branchesStack.add(getSuccessorsRanked(kmers.get(numKmers-1), graph, lookahead, minCovThreshold));
+        branchesStack.add(getSuccessorsRanked(kmers.get(numKmers-1), graph, lookahead));
         
         ArrayDeque<Kmer> extension = new ArrayDeque<>();
         HashSet<Kmer> extensionKmers = new HashSet<>();
@@ -4214,9 +4164,6 @@ public final class GraphUtils {
                     else if (depth < maxDepth &&
                             (depth == 0 || !extensionKmers.contains(cursor))) {
 
-                        float minExtensionCoverage = extension.isEmpty() ? minEdgeCoverage : Math.min(minEdgeCoverage, getMinimumKmerCoverage(extension));
-                        minCovThreshold = (float) Math.floor(minExtensionCoverage * maxCovGradient);
-
                         if (graph.hasAtLeastXPredecessors(cursor, 2)) {
                             // only consider kmers that may be visited from an alternative branch upstream
 
@@ -4227,7 +4174,7 @@ public final class GraphUtils {
 
                                 visitedKmers.put(cursor, visitedDepths);
 
-                                branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                                branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
                                 extension.add(cursor);
                                 extensionKmers.add(cursor);
                                 ++depth;
@@ -4245,7 +4192,7 @@ public final class GraphUtils {
                                 if (!visited) {
                                     visitedDepths.add(depth);
 
-                                    branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                                    branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
                                     extension.add(cursor);
                                     extensionKmers.add(cursor);
                                     ++depth;
@@ -4254,7 +4201,7 @@ public final class GraphUtils {
                             }
                         }
                         else {
-                            branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                            branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
                             extension.add(cursor);
                             extensionKmers.add(cursor);
                             ++depth;
@@ -4276,8 +4223,7 @@ public final class GraphUtils {
                                             float percentIdentity,
                                             int minNumPairs,
                                             HashSet<Kmer> usedKmers,
-                                            HashSet<Kmer> usedPartnerKmers,
-                                            float maxCovGradient) {
+                                            HashSet<Kmer> usedPartnerKmers) {
         
         final int distance = graph.getPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
@@ -4289,12 +4235,9 @@ public final class GraphUtils {
         int numKmers = kmers.size();
         int depth = 0;
         int partnerIndex = numKmers - distance + depth;
-        
-        float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
-        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
-        
+                
         ArrayDeque<LinkedList<Kmer>> branchesStack = new ArrayDeque<>();
-        branchesStack.add(getPredecessorsRanked(kmers.get(numKmers-1), graph, lookahead, minCovThreshold));
+        branchesStack.add(getPredecessorsRanked(kmers.get(numKmers-1), graph, lookahead));
         
         ArrayDeque<Kmer> extension = new ArrayDeque<>();
         HashSet<Kmer> extensionKmers = new HashSet<>();
@@ -4341,9 +4284,6 @@ public final class GraphUtils {
                     else if (depth < maxDepth &&
                             (depth == 0 || !extensionKmers.contains(cursor))) {
 
-                        float minExtensionCoverage = extension.isEmpty() ? minEdgeCoverage : Math.min(minEdgeCoverage, getMinimumKmerCoverage(extension));
-                        minCovThreshold = (float) Math.floor(minExtensionCoverage * maxCovGradient);
-
                         if (graph.hasAtLeastXSuccessors(cursor, 2)) {
                             // only consider kmers that may be visited from an alternative branch upstream
 
@@ -4354,7 +4294,7 @@ public final class GraphUtils {
 
                                 visitedKmers.put(cursor, visitedDepths);
 
-                                branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                                branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
                                 extension.add(cursor);
                                 extensionKmers.add(cursor);
                                 ++depth;
@@ -4372,7 +4312,7 @@ public final class GraphUtils {
                                 if (!visited) {
                                     visitedDepths.add(depth);
 
-                                    branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                                    branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
                                     extension.add(cursor);
                                     extensionKmers.add(cursor);
                                     ++depth;
@@ -4381,7 +4321,7 @@ public final class GraphUtils {
                             }
                         }
                         else {
-                            branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead, minCovThreshold));
+                            branchesStack.add(getPredecessorsRanked(cursor, graph, lookahead));
                             extension.add(cursor);
                             extensionKmers.add(cursor);
                             ++depth;
@@ -4708,14 +4648,13 @@ public final class GraphUtils {
         return false;
     }
     
-    public static void extendWithPairedKmers2(ArrayList<Kmer> kmers, 
+    public static void extendWithPairedKmersBFS(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int lookahead, 
                                             int maxTipLength,
                                             int maxIndelSize,
                                             float percentIdentity,
-                                            int minNumPairs,
-                                            float maxCovGradient) {
+                                            int minNumPairs) {
         
         HashSet<Kmer> usedKmers = new HashSet<>(kmers);
         
@@ -4731,10 +4670,7 @@ public final class GraphUtils {
             usedPartnerKmers.add(kmers.get(i));
         }
         
-        boolean extendable = true;
-        
-        while (extendable) {
-            extendable = extendLeftWithPairedKmersBFS(kmers, 
+        boolean extendable = extendLeftWithPairedKmersBFS(kmers, 
                                         graph, 
                                         lookahead, 
                                         maxTipLength,
@@ -4742,25 +4678,7 @@ public final class GraphUtils {
                                         percentIdentity,
                                         minNumPairs,
                                         usedKmers,
-                                        usedPartnerKmers,
-                                        maxCovGradient);
-            
-            if (extendable) {
-                extendable = extendLeftWithPairedKmersDFS(kmers, 
-                                        graph, 
-                                        lookahead, 
-                                        maxTipLength,
-                                        maxIndelSize,
-                                        percentIdentity,
-                                        minNumPairs,
-                                        usedKmers,
-                                        usedPartnerKmers,
-                                        maxCovGradient);
-            }
-            else {
-                break;
-            }
-        }
+                                        usedPartnerKmers);
         
         Collections.reverse(kmers);
         
@@ -4771,10 +4689,7 @@ public final class GraphUtils {
             usedPartnerKmers.add(kmers.get(i));
         }
         
-        extendable = true;
-        
-        while (extendable) {
-            extendable = extendRightWithPairedKmersBFS(kmers, 
+        extendable = extendRightWithPairedKmersBFS(kmers, 
                                         graph, 
                                         lookahead, 
                                         maxTipLength,
@@ -4782,25 +4697,7 @@ public final class GraphUtils {
                                         percentIdentity,
                                         minNumPairs,
                                         usedKmers,
-                                        usedPartnerKmers,
-                                        maxCovGradient);
-            
-            if (extendable) {
-                extendable = extendRightWithPairedKmersDFS(kmers, 
-                                        graph, 
-                                        lookahead, 
-                                        maxTipLength,
-                                        maxIndelSize,
-                                        percentIdentity,
-                                        minNumPairs,
-                                        usedKmers,
-                                        usedPartnerKmers,
-                                        maxCovGradient);
-            }
-            else {
-                break;
-            }
-        }
+                                        usedPartnerKmers);
     }
     
     public static void extendWithPairedKmers2(ArrayList<Kmer> kmers, 

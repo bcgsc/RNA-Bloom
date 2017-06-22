@@ -126,6 +126,14 @@ public class RNABloom {
         }
     }
 
+    public void restoreDbg(File f) {
+        try {
+            dbgFPR = graph.getDbgbfFPR();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+    
     public int addKmersFromFastq(String fastq, boolean stranded, boolean reverseComplement, int numHash) throws IOException {
         int numReads = 0;
         
@@ -848,6 +856,30 @@ public class RNABloom {
             this.prefix = prefix;
         }
         
+        public void write(ArrayList<Kmer> transcriptKmers) throws IOException {
+            if (!represented(transcriptKmers,
+                                graph,
+                                screeningBf,
+                                lookahead,
+                                maxIndelSize,
+                                percentIdentity)) {
+
+                for (Kmer kmer : transcriptKmers) {
+                    screeningBf.add(kmer.hashVals);
+                }
+
+                String transcript = graph.assemble(transcriptKmers);
+                int len = transcript.length();
+                
+                if (len >= minTranscriptLength) {
+                    fout.write(prefix +  Long.toString(++cid) + " l=" + len, transcript);
+                }
+                else {
+                    foutShort.write(prefix +  Long.toString(++cid) + " l=" + len, transcript);
+                }
+            }
+        }
+        
         public void write(String fragment, ArrayList<Kmer> transcriptKmers) throws IOException {
             if (!represented(transcriptKmers,
                                 graph,
@@ -940,7 +972,7 @@ public class RNABloom {
                                                 maxIndelSize,
                                                 percentIdentity)) {
 
-                                extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+                                extendWithPairedKmersBFS(fragKmers, graph, lookahead, maxTipLength, maxIndelSize, percentIdentity, minNumKmerPairs);
 
                                 transcripts.put(new Transcript(fragment, fragKmers));
                             }
@@ -982,7 +1014,7 @@ public class RNABloom {
                         }
                     }
                     else {
-                        writer.write(t.fragment, t.transcriptKmers);
+                        writer.write(t.transcriptKmers);
                     }
                 }
             }
@@ -1841,10 +1873,11 @@ public class RNABloom {
         
         int minTransfragLength = graph.getPairedKmerDistance() + k + minNumKmerPairs;
         
-        boolean emptyScreeningBf = false;
         if (screeningBf == null) {
             screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
-            emptyScreeningBf = true;
+        }
+        else {
+            screeningBf.empty();
         }
 
         try {
@@ -1853,21 +1886,21 @@ public class RNABloom {
             for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
                 graph.clearDbgbf();
                 
-                if (!emptyScreeningBf) {
-                    screeningBf.empty();
-                }
+                String longFragsFasta = longFragmentsFastas[mag];
+                String shortFragsFasta = shortFragmentsFastas[mag];
+                
+                insertIntoDeBruijnGraph(longFragsFasta);
+                insertIntoDeBruijnGraph(shortFragsFasta);
                 
                 FastaWriter fout = new FastaWriter(outFastasLong[mag], false);
                 FastaWriter foutShort = new FastaWriter(outFastasShort[mag], false);
                 TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTransfragLength);
                 
-                String fragmentsFasta = longFragmentsFastas[mag];
-                System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, false);
+                System.out.println("Parsing fragments in `" + longFragsFasta + "`...");
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longFragsFasta, writer, sampleSize, numThreads, false);
                 
-                fragmentsFasta = shortFragmentsFastas[mag];
-                System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, false);
+                System.out.println("Parsing fragments in `" + shortFragsFasta + "`...");
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, false);
                 
                 fout.close();
                 foutShort.close();
@@ -1886,6 +1919,7 @@ public class RNABloom {
                                                 String shortSingletonsFasta,
                                                 String outFasta,
                                                 String outFastaShort,
+                                                String graphFile,
                                                 long sbfNumBits, 
                                                 int sbfNumHash,
                                                 int numThreads,
@@ -1897,23 +1931,31 @@ public class RNABloom {
         long numFragmentsParsed = 0;
 
         try {
-            System.out.println("Creating graph from fragment kmers...");
 
-            graph.getDbgbf().empty();
+            if (createFragmentDBG) {
+                System.out.println("Creating graph from fragment kmers...");
+                
+                graph.getDbgbf().empty();
 
-            if (numThreads > 1) {
-                ArrayDeque<String> fragmentsFastas = new ArrayDeque<>(longFragmentsFastas.length + shortFragmentsFastas.length + 2);
-                fragmentsFastas.addAll(Arrays.asList(longFragmentsFastas));
-                fragmentsFastas.addAll(Arrays.asList(shortFragmentsFastas));
-                fragmentsFastas.add(longSingletonsFasta);
-                fragmentsFastas.add(shortSingletonsFasta);
-                insertIntoDeBruijnGraphMultiThreaded(fragmentsFastas, sampleSize, numThreads);
+                if (numThreads > 1) {
+                    ArrayDeque<String> fragmentsFastas = new ArrayDeque<>(longFragmentsFastas.length + shortFragmentsFastas.length + 2);
+                    fragmentsFastas.addAll(Arrays.asList(longFragmentsFastas));
+                    fragmentsFastas.addAll(Arrays.asList(shortFragmentsFastas));
+                    fragmentsFastas.add(longSingletonsFasta);
+                    fragmentsFastas.add(shortSingletonsFasta);
+                    insertIntoDeBruijnGraphMultiThreaded(fragmentsFastas, sampleSize, numThreads);
+                }
+                else {
+                    insertIntoDeBruijnGraph(longFragmentsFastas);
+                    insertIntoDeBruijnGraph(shortFragmentsFastas);
+                    insertIntoDeBruijnGraph(longSingletonsFasta);
+                    insertIntoDeBruijnGraph(shortSingletonsFasta);
+                }
             }
             else {
-                insertIntoDeBruijnGraph(longFragmentsFastas);
-                insertIntoDeBruijnGraph(shortFragmentsFastas);
-                insertIntoDeBruijnGraph(longSingletonsFasta);
-                insertIntoDeBruijnGraph(shortSingletonsFasta);
+                System.out.println("Restoring graph from file...");
+                
+                restoreDbg(new File(graphFile));
             }
 
             dbgFPR = graph.getDbgbf().getFPR();
@@ -2724,6 +2766,7 @@ public class RNABloom {
                                                             shortSingletonsFastaPath,
                                                             transcriptsFasta, 
                                                             shortTranscriptsFasta,
+                                                            graphFile,
                                                             sbfSize,
                                                             sbfNumHash,
                                                             numThreads,
