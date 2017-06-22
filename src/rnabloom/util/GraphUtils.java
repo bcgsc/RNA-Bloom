@@ -3049,7 +3049,8 @@ public final class GraphUtils {
         
         partner = kmers.get(partnerFromIndex);
         
-        if (graph.lookupKmerPair(partner.hashVals, source.hashVals)) {
+        if (graph.lookupKmerPair(partner.hashVals, source.hashVals) &&
+                (!graph.isLowComplexity(partner) || !graph.isLowComplexity(source))) {
             
             ArrayDeque<Kmer> frontier = graph.getSuccessors(source);
             ArrayDeque<Kmer> newFrontier = new ArrayDeque();
@@ -3064,11 +3065,14 @@ public final class GraphUtils {
                     return false;
                 }
 
+                boolean partnerIsLowComplexity = graph.isLowComplexity(partner);
+                
                 itr = frontier.iterator();
                 while (itr.hasNext()) {
                     kmer = itr.next();
                     if (graph.lookupRightKmer(kmer.hashVals) && 
-                            graph.lookupKmerPairing(partner.hashVals, kmer.hashVals)) {
+                            graph.lookupKmerPairing(partner.hashVals, kmer.hashVals) &&
+                            (!partnerIsLowComplexity || !graph.isLowComplexity(kmer))) {
                         newFrontier.addAll(graph.getSuccessors(kmer));
                     }
 
@@ -3101,7 +3105,8 @@ public final class GraphUtils {
         
         partner = kmers.get(partnerFromIndex);
         
-        if (graph.lookupKmerPair(source.hashVals, partner.hashVals)) {
+        if (graph.lookupKmerPair(source.hashVals, partner.hashVals) &&
+                (!graph.isLowComplexity(source) || !graph.isLowComplexity(partner))) {
             
             ArrayDeque<Kmer> frontier = graph.getPredecessors(source);
             ArrayDeque<Kmer> newFrontier = new ArrayDeque<>();
@@ -3115,12 +3120,15 @@ public final class GraphUtils {
                 if (!graph.lookupRightKmer(partner.hashVals)) {
                     return false;
                 }
+                
+                boolean partnerIsLowComplexity = graph.isLowComplexity(partner);
 
                 itr = frontier.iterator();
                 while (itr.hasNext()) {
                     kmer = itr.next();
                     if (graph.lookupLeftKmer(kmer.hashVals) && 
-                            graph.lookupKmerPairing(kmer.hashVals, partner.hashVals)) {
+                            graph.lookupKmerPairing(kmer.hashVals, partner.hashVals) &&
+                            (!partnerIsLowComplexity || !graph.isLowComplexity(kmer))) {
                         newFrontier.addAll(graph.getPredecessors(kmer));
                     }
 
@@ -3821,7 +3829,7 @@ public final class GraphUtils {
             else {
                 Kmer cursor = branches.pop();
                 
-                if (!graph.isLowComplexity(cursor)) {
+//                if (!graph.isLowComplexity(cursor)) {
                     if (partnerIndex >=0 &&
                             partnerIndex <= maxPartnerIndex &&
     //                        partnerIndex+minNumPairs < kmers.size() && 
@@ -3926,7 +3934,7 @@ public final class GraphUtils {
                             ++partnerIndex;
                         }
                     }
-                }
+//                }
             }
         }
         
@@ -3982,7 +3990,7 @@ public final class GraphUtils {
             else {
                 Kmer cursor = branches.pop();
                 
-                if (!graph.isLowComplexity(cursor)) {
+//                if (!graph.isLowComplexity(cursor)) {
                     if (partnerIndex >=0 &&
                             partnerIndex <= maxPartnerIndex &&
     //                        partnerIndex+minNumPairs < kmers.size() && 
@@ -4087,7 +4095,7 @@ public final class GraphUtils {
                             ++partnerIndex;
                         }
                     }
-                }
+//                }
             }
         }
         
