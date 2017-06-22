@@ -2530,7 +2530,7 @@ public class RNABloom {
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
             boolean createFragmentDBG = line.hasOption(optFdbg.getOpt());
             boolean useSingletonFragments = line.hasOption(optSingleton.getOpt());
-            int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
+            int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "5"));
             
             boolean saveGraph = true;
             boolean saveKmerPairs = true;
