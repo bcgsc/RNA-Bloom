@@ -332,6 +332,37 @@ public class RNABloom {
 
         fin.close();
     }
+
+    public void insertIntoDeBruijnGraphAndPairedKmers(String fasta) throws IOException {
+        
+        int maxNumhash = Math.max(graph.getDbgbfNumHash(), graph.getPkbfNumHash());
+        int pairedKmersDistance = graph.getPairedKmerDistance();
+        
+        NTHashIterator itr = graph.getHashIterator(maxNumhash);
+        long[] hashVals = itr.hVals;
+        
+        FastaReader fin = new FastaReader(fasta);
+
+        while (fin.hasNext()) {
+            itr.start(fin.next());
+            
+            long[][] allHashVals = new long[itr.getMax()][maxNumhash];
+            
+            while (itr.hasNext()) {
+                itr.next();
+                graph.addDbgOnly(hashVals);
+                
+                allHashVals[itr.getPos()] = Arrays.copyOf(hashVals, maxNumhash);
+            }
+            
+            final int upperBound = allHashVals.length - pairedKmersDistance;
+            for (int i=0; i<upperBound; ++i) {
+                graph.addPairedKmers(allHashVals[i], allHashVals[i+pairedKmersDistance]);
+            }
+        }
+
+        fin.close();
+    }
     
     public void insertIntoDeBruijnGraph(String[] fastas) throws IOException { 
         
