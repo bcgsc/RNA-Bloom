@@ -346,7 +346,7 @@ public class RNABloom {
         while (fin.hasNext()) {
             itr.start(fin.next());
             
-            long[][] allHashVals = new long[itr.getMax()][maxNumhash];
+            long[][] allHashVals = new long[itr.getMax()+1][maxNumhash];
             
             while (itr.hasNext()) {
                 itr.next();
@@ -893,6 +893,7 @@ public class RNABloom {
                                 screeningBf,
                                 lookahead,
                                 maxIndelSize,
+                                maxTipLength,
                                 percentIdentity)) {
 
                 for (Kmer kmer : transcriptKmers) {
@@ -917,6 +918,7 @@ public class RNABloom {
                                 screeningBf,
                                 lookahead,
                                 maxIndelSize,
+                                maxTipLength,
                                 percentIdentity)) {
 
                 for (Kmer kmer : transcriptKmers) {
@@ -975,6 +977,7 @@ public class RNABloom {
                                                 screeningBf,
                                                 lookahead,
                                                 maxIndelSize,
+                                                maxTipLength,
                                                 percentIdentity)) {
 
                                 extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
@@ -1001,6 +1004,7 @@ public class RNABloom {
                                                 screeningBf,
                                                 lookahead,
                                                 maxIndelSize,
+                                                maxTipLength,
                                                 percentIdentity)) {
 
                                 extendWithPairedKmersBFS(fragKmers, graph, lookahead, maxTipLength, maxIndelSize, percentIdentity, minNumKmerPairs);
@@ -1920,7 +1924,8 @@ public class RNABloom {
                 String longFragsFasta = longFragmentsFastas[mag];
                 String shortFragsFasta = shortFragmentsFastas[mag];
                 
-                insertIntoDeBruijnGraph(longFragsFasta);
+                graph.clearPkbf();
+                insertIntoDeBruijnGraphAndPairedKmers(longFragsFasta);
                 insertIntoDeBruijnGraph(shortFragsFasta);
                 
                 FastaWriter fout = new FastaWriter(outFastasLong[mag], false);
@@ -1989,6 +1994,8 @@ public class RNABloom {
                 restoreDbg(new File(graphFile));
             }
 
+            graph.restorePkbf(new File(graphFile));
+            
             dbgFPR = graph.getDbgbf().getFPR();
             System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
             
