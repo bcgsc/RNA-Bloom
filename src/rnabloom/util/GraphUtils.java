@@ -3187,8 +3187,7 @@ public final class GraphUtils {
                                             int maxIndelSize,
                                             float percentIdentity,
                                             int minNumPairs,
-                                            HashSet<Kmer> usedKmers,
-                                            HashSet<Kmer> usedPartnerKmers) {
+                                            HashSet<Kmer> usedKmers) {
         
         int distance = graph.getPairedKmerDistance();
         int numKmers = kmers.size();
@@ -3221,11 +3220,6 @@ public final class GraphUtils {
                 partnerIndex += simpleExtension.size();
 
                 usedKmers.addAll(simpleExtension);
-
-                // NOTE: kmer at `partnerIndex` will be paired with `cursor`
-                for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
-                    usedPartnerKmers.add(kmers.get(i));
-                }
 
                 neighbors = graph.getSuccessors(simpleExtension.getLast());
                 if (neighbors.isEmpty()) {
@@ -3274,16 +3268,19 @@ public final class GraphUtils {
             
             Kmer partner = kmers.get(partnerIndex);
             
-            if (usedKmers.contains(cursor) &&
-                    usedPartnerKmers.contains(partner)){
-                // loop, do not extend further
-                return false;
+            if (usedKmers.contains(cursor)) {
+                int i = kmers.size();
+                while (--i >= distance) {
+                    if (cursor.equals(kmers.get(i)) &&
+                            partner.equals(kmers.get(i-distance))) {
+                        return false;
+                    }
+                }
             }
             
             kmers.add(cursor);
             
             usedKmers.add(cursor);
-            usedPartnerKmers.add(partner);
             
             ++partnerIndex;
             ++numKmers;
@@ -3301,8 +3298,7 @@ public final class GraphUtils {
                                             int maxIndelSize,
                                             float percentIdentity,
                                             int minNumPairs,
-                                            HashSet<Kmer> usedKmers,
-                                            HashSet<Kmer> usedPartnerKmers) {
+                                            HashSet<Kmer> usedKmers) {
         
         int distance = graph.getPairedKmerDistance();
         int numKmers = kmers.size();
@@ -3336,11 +3332,6 @@ public final class GraphUtils {
                 partnerIndex += simpleExtension.size();
 
                 usedKmers.addAll(simpleExtension);
-
-                // NOTE: kmer at `partnerIndex` will be paired with `cursor`
-                for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
-                    usedPartnerKmers.add(kmers.get(i));
-                }
 
                 neighbors = graph.getPredecessors(simpleExtension.getLast());
                 if (neighbors.isEmpty()) {
@@ -3389,16 +3380,19 @@ public final class GraphUtils {
             
             Kmer partner = kmers.get(partnerIndex);
             
-            if (usedKmers.contains(cursor) &&
-                    usedPartnerKmers.contains(partner)){
-                // loop, do not extend further
-                return false;
+            if (usedKmers.contains(cursor)) {
+                int i = kmers.size();
+                while (--i >= distance) {
+                    if (cursor.equals(kmers.get(i)) &&
+                            partner.equals(kmers.get(i-distance))) {
+                        return false;
+                    }
+                }
             }
                         
             kmers.add(cursor);
             
             usedKmers.add(cursor);
-            usedPartnerKmers.add(partner);
                         
             ++partnerIndex;
             ++numKmers;
@@ -4669,15 +4663,8 @@ public final class GraphUtils {
         
         // naive extend LEFT
         Collections.reverse(kmers);
-        
-        int distance = graph.getPairedKmerDistance();
-        
+                
         // extend with paired kmers LEFT
-        
-        HashSet<Kmer> usedPartnerKmers = new HashSet<>();
-        for (int i=kmers.size()-1-distance; i>=0; --i) {
-            usedPartnerKmers.add(kmers.get(i));
-        }
         
         boolean extendable = extendLeftWithPairedKmersBFS(kmers, 
                                         graph, 
@@ -4686,17 +4673,11 @@ public final class GraphUtils {
                                         maxIndelSize,
                                         percentIdentity,
                                         minNumPairs,
-                                        usedKmers,
-                                        usedPartnerKmers);
+                                        usedKmers);
         
         Collections.reverse(kmers);
         
         // extend with paired kmers RIGHT
-        
-        usedPartnerKmers.clear();
-        for (int i=kmers.size()-1-distance; i>=0; --i) {
-            usedPartnerKmers.add(kmers.get(i));
-        }
         
         extendable = extendRightWithPairedKmersBFS(kmers, 
                                         graph, 
@@ -4705,8 +4686,8 @@ public final class GraphUtils {
                                         maxIndelSize,
                                         percentIdentity,
                                         minNumPairs,
-                                        usedKmers,
-                                        usedPartnerKmers);
+                                        usedKmers);
+        
     }
     
     public static void extendWithPairedKmers2(ArrayList<Kmer> kmers, 
