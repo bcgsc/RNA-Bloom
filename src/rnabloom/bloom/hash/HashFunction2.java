@@ -41,6 +41,10 @@ public class HashFunction2 {
         return new NTHashIterator(k, numHash);
     }
     
+    public PairedNTHashIterator getPairedHashIterator(final int numHash, final int distance) {
+        return new PairedNTHashIterator(k, numHash, distance);
+    }
+    
     public SuccessorsNTHashIterator getSuccessorsHashIterator(final int numHash) {
         return new SuccessorsNTHashIterator(k, numHash);
     }

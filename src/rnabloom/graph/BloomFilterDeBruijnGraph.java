@@ -1057,6 +1057,10 @@ public class BloomFilterDeBruijnGraph {
         return hashFunction.getHashIterator(numHash);
     }
     
+    public PairedNTHashIterator getPairedHashIterator() {
+        return hashFunction.getPairedHashIterator(this.pkbfNumHash, this.pairedKmersDistance);
+    }
+    
     public ArrayList<Kmer> getKmers(String seq) {        
         ArrayList<Kmer> result = new ArrayList<>();
         
