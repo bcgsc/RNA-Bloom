@@ -31,6 +31,7 @@ import org.apache.commons.cli.ParseException;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.hash.CanonicalNTHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
+import rnabloom.bloom.hash.PairedNTHashIterator;
 import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.BloomFilterDeBruijnGraph.Kmer;
@@ -334,30 +335,30 @@ public class RNABloom {
     }
 
     public void insertIntoDeBruijnGraphAndPairedKmers(String fasta) throws IOException {
-        
-        int maxNumhash = Math.max(graph.getDbgbfNumHash(), graph.getPkbfNumHash());
-        int pairedKmersDistance = graph.getPairedKmerDistance();
-        
-        NTHashIterator itr = graph.getHashIterator(maxNumhash);
+                
+        NTHashIterator itr = graph.getHashIterator(graph.getDbgbfNumHash());
         long[] hashVals = itr.hVals;
+
+        PairedNTHashIterator pItr = graph.getPairedHashIterator();
+        long[] hashVals1 = pItr.hVals1;
+        long[] hashVals2 = pItr.hVals2;
         
         FastaReader fin = new FastaReader(fasta);
-
+        
+        String seq;
         while (fin.hasNext()) {
-            itr.start(fin.next());
+            seq = fin.next();
             
-            long[][] allHashVals = new long[itr.getMax()+1][maxNumhash];
-            
+            itr.start(seq);
             while (itr.hasNext()) {
                 itr.next();
                 graph.addDbgOnly(hashVals);
-                
-                allHashVals[itr.getPos()] = Arrays.copyOf(hashVals, maxNumhash);
             }
             
-            final int upperBound = allHashVals.length - pairedKmersDistance;
-            for (int i=0; i<upperBound; ++i) {
-                graph.addPairedKmers(allHashVals[i], allHashVals[i+pairedKmersDistance]);
+            pItr.start(seq);
+            while (pItr.hasNext()) {
+                pItr.next();
+                graph.addPairedKmers(hashVals1, hashVals2);
             }
         }
 

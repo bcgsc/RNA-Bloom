@@ -41,7 +41,7 @@ public class PairedNTHashIterator {
     public void next() {
         if (pos == -1) {
             NTM64(seq.subSequence(0, k), k, h, hVals1);
-            NTM64(seq.subSequence(d, k), k, h, hVals2);
+            NTM64(seq.subSequence(d, d+k), k, h, hVals2);
         }
         else if (pos < max) {
             NTM64(seq.charAt(pos), seq.charAt(pos+k), k, h, hVals1, kMod64);
