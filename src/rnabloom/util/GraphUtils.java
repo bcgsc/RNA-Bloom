@@ -3181,8 +3181,7 @@ public final class GraphUtils {
     }
     
     private static boolean extendRightWithPairedKmersBFS(ArrayList<Kmer> kmers, 
-                                            BloomFilterDeBruijnGraph graph, 
-                                            int lookahead, 
+                                            BloomFilterDeBruijnGraph graph,
                                             int maxTipLength,
                                             int maxIndelSize,
                                             float percentIdentity,
@@ -3210,6 +3209,8 @@ public final class GraphUtils {
                         
             if (!simpleExtension.isEmpty()) {
                 kmers.addAll(simpleExtension);
+                usedKmers.addAll(simpleExtension);
+                
                 numKmers = kmers.size();
 
                 if (numKmers < distance) {
@@ -3218,8 +3219,6 @@ public final class GraphUtils {
                 }
 
                 partnerIndex += simpleExtension.size();
-
-                usedKmers.addAll(simpleExtension);
 
                 neighbors = graph.getSuccessors(simpleExtension.getLast());
                 if (neighbors.isEmpty()) {
@@ -3235,7 +3234,7 @@ public final class GraphUtils {
             cursor = null;
                         
             if (neighbors.isEmpty()) {
-                return true;
+                return false;
             }
             else if (neighbors.size() == 1) {
                 cursor = neighbors.pop();
@@ -3248,14 +3247,11 @@ public final class GraphUtils {
                                 
                 for (Kmer n : neighbors) {
                     if (hasPairedRightKmers(n, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                        float c = getMaxMedianCoverageRight(graph, n, lookahead);
-                        if (c > 0) {
-                            if (cursor == null) {
-                                cursor = n;
-                            }
-                            else {
-                                return true;
-                            }
+                        if (cursor == null) {
+                            cursor = n;
+                        }
+                        else {
+                            return true;
                         }
                     }
                 }
@@ -3279,7 +3275,6 @@ public final class GraphUtils {
             }
             
             kmers.add(cursor);
-            
             usedKmers.add(cursor);
             
             ++partnerIndex;
@@ -3292,8 +3287,7 @@ public final class GraphUtils {
     }
     
     private static boolean extendLeftWithPairedKmersBFS(ArrayList<Kmer> kmers, 
-                                            BloomFilterDeBruijnGraph graph, 
-                                            int lookahead, 
+                                            BloomFilterDeBruijnGraph graph,
                                             int maxTipLength,
                                             int maxIndelSize,
                                             float percentIdentity,
@@ -3322,6 +3316,8 @@ public final class GraphUtils {
  
             if (!simpleExtension.isEmpty()) {
                 kmers.addAll(simpleExtension);
+                usedKmers.addAll(simpleExtension);
+                
                 numKmers = kmers.size();
 
                 if (numKmers < distance) {
@@ -3330,8 +3326,6 @@ public final class GraphUtils {
                 }
 
                 partnerIndex += simpleExtension.size();
-
-                usedKmers.addAll(simpleExtension);
 
                 neighbors = graph.getPredecessors(simpleExtension.getLast());
                 if (neighbors.isEmpty()) {
@@ -3347,7 +3341,7 @@ public final class GraphUtils {
             cursor = null;
                         
             if (neighbors.isEmpty()) {
-                return true;
+                return false;
             }
             else if (neighbors.size() == 1) {
                 cursor = neighbors.pop();
@@ -3360,14 +3354,11 @@ public final class GraphUtils {
                 
                 for (Kmer n : neighbors) {
                     if (hasPairedLeftKmers(n, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                        float c = getMaxMedianCoverageLeft(graph, n, lookahead);
-                        if (c > 0) {
-                            if (cursor == null) {
-                                cursor = n;
-                            }
-                            else {
-                                return true;
-                            }
+                        if (cursor == null) {
+                            cursor = n;
+                        }
+                        else {
+                            return true;
                         }
                     }
                 }
@@ -3391,7 +3382,6 @@ public final class GraphUtils {
             }
                         
             kmers.add(cursor);
-            
             usedKmers.add(cursor);
                         
             ++partnerIndex;
@@ -3443,6 +3433,8 @@ public final class GraphUtils {
                 
                 if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
+                    usedKmers.addAll(simpleExtension);
+                    
                     numKmers = kmers.size();
 
                     if (numKmers < distance) {
@@ -3451,8 +3443,6 @@ public final class GraphUtils {
                     }
 
                     partnerIndex += simpleExtension.size();
-                    
-                    usedKmers.addAll(simpleExtension);
 
                     // NOTE: kmer at `partnerIndex` will be paired with `cursor`
                     for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
@@ -3629,6 +3619,8 @@ public final class GraphUtils {
                 
                 if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
+                    usedKmers.addAll(simpleExtension);
+                    
                     numKmers = kmers.size();
 
                     if (numKmers < distance) {
@@ -3637,8 +3629,6 @@ public final class GraphUtils {
                     }
 
                     partnerIndex += simpleExtension.size();
-
-                    usedKmers.addAll(simpleExtension);
 
                     // NOTE: kmer at `partnerIndex` will be paired with `cursor`
                     for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
@@ -4667,8 +4657,7 @@ public final class GraphUtils {
         // extend with paired kmers LEFT
         
         boolean extendable = extendLeftWithPairedKmersBFS(kmers, 
-                                        graph, 
-                                        lookahead, 
+                                        graph,
                                         maxTipLength,
                                         maxIndelSize,
                                         percentIdentity,
@@ -4680,8 +4669,7 @@ public final class GraphUtils {
         // extend with paired kmers RIGHT
         
         extendable = extendRightWithPairedKmersBFS(kmers, 
-                                        graph, 
-                                        lookahead, 
+                                        graph,
                                         maxTipLength,
                                         maxIndelSize,
                                         percentIdentity,

@@ -1007,7 +1007,7 @@ public class RNABloom {
                                                 maxIndelSize,
                                                 maxTipLength,
                                                 percentIdentity)) {
-
+                                
                                 extendWithPairedKmersBFS(fragKmers, graph, lookahead, maxTipLength, maxIndelSize, percentIdentity, minNumKmerPairs);
 
                                 transcripts.put(new Transcript(fragment, fragKmers));
