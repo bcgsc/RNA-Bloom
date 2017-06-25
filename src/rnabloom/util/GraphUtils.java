@@ -3209,7 +3209,6 @@ public final class GraphUtils {
                         
             if (!simpleExtension.isEmpty()) {
                 kmers.addAll(simpleExtension);
-                usedKmers.addAll(simpleExtension);
                 
                 numKmers = kmers.size();
 
@@ -3316,7 +3315,6 @@ public final class GraphUtils {
  
             if (!simpleExtension.isEmpty()) {
                 kmers.addAll(simpleExtension);
-                usedKmers.addAll(simpleExtension);
                 
                 numKmers = kmers.size();
 
@@ -3433,7 +3431,7 @@ public final class GraphUtils {
                 
                 if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
-                    usedKmers.addAll(simpleExtension);
+////                    usedKmers.addAll(simpleExtension);
                     
                     numKmers = kmers.size();
 
@@ -3619,7 +3617,7 @@ public final class GraphUtils {
                 
                 if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
-                    usedKmers.addAll(simpleExtension);
+//                    usedKmers.addAll(simpleExtension);
                     
                     numKmers = kmers.size();
 
@@ -5490,11 +5488,9 @@ public final class GraphUtils {
     public static ArrayDeque<Kmer> extendRight(Kmer source,
                                             BloomFilterDeBruijnGraph graph, 
                                             int maxTipLength, 
-                                            HashSet<Kmer> terminators, 
+                                            HashSet<Kmer> usedKmers, 
                                             int maxIndelSize, 
                                             float percentIdentity) {
-        
-        HashSet<Kmer> usedKmers = new HashSet<>();
         
         ArrayDeque<Kmer> result = new ArrayDeque<>();
         
@@ -5517,7 +5513,7 @@ public final class GraphUtils {
             if (neighbors.size() == 1) {
                 best = neighbors.peek();
                 
-                if (terminators.contains(best) || usedKmers.contains(best)) {
+                if (usedKmers.contains(best)) {
                     return result;
                 }
                 else {
@@ -5525,7 +5521,7 @@ public final class GraphUtils {
                     usedKmers.add(best);
                 }
                 
-                ArrayDeque<Kmer> b = naiveExtendRight(best, graph, maxTipLength, terminators);
+                ArrayDeque<Kmer> b = naiveExtendRight(best, graph, maxTipLength, usedKmers);
                 
                 if (!b.isEmpty()) {
                     for (Kmer kmer : b) {
@@ -5547,7 +5543,7 @@ public final class GraphUtils {
                 float maxCov = -1;
                 for (Kmer n : neighbors) {
                     if (hasDepthRight(n, graph, maxTipLength)) {
-                        ArrayDeque<Kmer> b = naiveExtendRight(n, graph, maxTipLength, terminators);
+                        ArrayDeque<Kmer> b = naiveExtendRight(n, graph, maxTipLength, usedKmers);
                         
                         if (b.size() < maxTipLength) {
                             // indicates too many branches; can't resolve
@@ -5655,11 +5651,9 @@ public final class GraphUtils {
     public static ArrayDeque<Kmer> extendLeft(Kmer source,
                                             BloomFilterDeBruijnGraph graph, 
                                             int maxTipLength, 
-                                            HashSet<Kmer> terminators, 
+                                            HashSet<Kmer> usedKmers, 
                                             int maxIndelSize, 
                                             float percentIdentity) {
-        
-        HashSet<Kmer> usedKmers = new HashSet<>();
         
         ArrayDeque<Kmer> result = new ArrayDeque<>();
         
@@ -5682,13 +5676,13 @@ public final class GraphUtils {
             if (neighbors.size() == 1) {
                 best = neighbors.peek();
                 
-                if (terminators.contains(best) || usedKmers.contains(best)) {
+                if (usedKmers.contains(best)) {
                     return result;
                 }
                 
                 result.add(best);
                 
-                ArrayDeque<Kmer> b = naiveExtendLeft(best, graph, maxTipLength, terminators);
+                ArrayDeque<Kmer> b = naiveExtendLeft(best, graph, maxTipLength, usedKmers);
                 
                 if (!b.isEmpty()) {
                     for (Kmer kmer : b) {
@@ -5711,7 +5705,7 @@ public final class GraphUtils {
                 float maxCov = -1;
                 for (Kmer n : neighbors) {
                     if (hasDepthLeft(n, graph, maxTipLength)) {
-                        ArrayDeque<Kmer> b = naiveExtendLeft(n, graph, maxTipLength, terminators);
+                        ArrayDeque<Kmer> b = naiveExtendLeft(n, graph, maxTipLength, usedKmers);
                         if (b.size() < maxTipLength) {
                             // indicates too many branches; can't resolve
                             return result;
