@@ -1863,7 +1863,7 @@ public class RNABloom {
         FastaReader fin = new FastaReader(fragmentsFasta);
 
         ArrayBlockingQueue<String> fragmentsQueue = new ArrayBlockingQueue<>(sampleSize, true);
-        ArrayBlockingQueue<Transcript> transcriptsQueue = new ArrayBlockingQueue<>(sampleSize, true);
+        ArrayBlockingQueue<Transcript> transcriptsQueue = new ArrayBlockingQueue<>(numThreads*2, true);
         
         TranscriptAssemblyWorker[] workers = new TranscriptAssemblyWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
