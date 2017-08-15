@@ -1936,8 +1936,8 @@ public class RNABloom {
                 System.out.println("Parsing fragments in `" + longFragsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(longFragsFasta, writer, sampleSize, numThreads, false);
                 
-                System.out.println("Parsing fragments in `" + shortFragsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, false);
+//                System.out.println("Parsing fragments in `" + shortFragsFasta + "`...");
+//                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, false);
                 
                 fout.close();
                 foutShort.close();

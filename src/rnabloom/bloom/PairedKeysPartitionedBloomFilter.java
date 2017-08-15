@@ -228,6 +228,32 @@ public class PairedKeysPartitionedBloomFilter {
         return true;
     }
 
+    public boolean lookupAndAdd(final long[] hashValsLeft, final long[] hashValsRight) {
+        boolean found = true;
+        
+        for (int h=0; h<numHash; ++h) {
+            if (!bitArrayLeft.getAndSet(getIndex(hashValsLeft[h]))) {
+                found = false;
+            }
+        }
+        
+        for (int h=0; h<numHash; ++h) {
+            if (!bitArrayRight.getAndSet(getIndex(hashValsRight[h]))) {
+                found = false;
+            }
+        }
+        
+        long[] hashVals = hashFunction.getHashValues(hashValsLeft, hashValsRight, numHash);
+        
+        for (int h=0; h<numHash; ++h) {
+            if (!bitArrayPair.getAndSet(getIndex(hashVals[h]))) {
+                found = false;
+            }
+        }
+        
+        return found;
+    }
+    
     public void destroy() {
         this.bitArrayLeft.destroy();
         this.bitArrayRight.destroy();

@@ -337,13 +337,32 @@ public class BloomFilterDeBruijnGraph {
             pkbf.add(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
         }
     }
-    
+        
     public void addPairedKmers(ArrayList<Kmer> kmers) {
         // add paired kmers
         final int upperBound = kmers.size() - pairedKmersDistance;
         for (int i=0; i<upperBound; ++i) {
             pkbf.add(kmers.get(i).hashVals, kmers.get(i+pairedKmersDistance).hashVals);
         }
+    }
+    
+    public boolean lookupAndAddPairedKmers(ArrayList<Kmer> kmers) {
+        // add paired kmers
+        boolean found = true;
+        
+        final int upperBound = kmers.size() - pairedKmersDistance;
+        for (int i=0; i<upperBound; ++i) {
+            if (found) {
+                if (!pkbf.lookupAndAdd(kmers.get(i).hashVals, kmers.get(i+pairedKmersDistance).hashVals) ) {
+                    found = false;
+                } 
+            }
+            else {
+                pkbf.add(kmers.get(i).hashVals, kmers.get(i+pairedKmersDistance).hashVals);
+            }
+        }
+        
+        return found;
     }
     
     public void addPairedKmers(long[] left, long[] right) {
