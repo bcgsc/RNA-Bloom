@@ -438,6 +438,24 @@ public class NTHash {
     }
     
     /**
+     * Generate multiple hash values using the base hash value
+     * @param bVal      the base hash value
+     * @param k         length of kmer
+     * @param m         number of hash values
+     * @param hVal      array to store hash values
+     */
+    public static void NTM64(long bVal, long[] hVal, final int k, final int m) {
+        hVal[0] = bVal;
+        
+        long tVal;
+        for(int i=1; i<m; ++i) {
+            tVal = bVal * (i ^ k * multiSeed);
+            tVal ^= tVal >>> multiShift;
+            hVal[i] = tVal;
+        }
+    }
+    
+    /**
      * Multihash ntBase
      * @param kmerSeq   kmer to be hashed
      * @param k         length of kmer
@@ -445,14 +463,7 @@ public class NTHash {
      * @param hVal      array to store hash values
      */
     public static void NTM64(final CharSequence kmerSeq, final int k, final int m, final long[] hVal) {
-        long bVal, tVal;
-        bVal = NTP64(kmerSeq, k);
-        hVal[0] = bVal;
-        for(int i=1; i<m; ++i) {
-            tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >>> multiShift;
-            hVal[i] = tVal;
-        }
+        NTM64(NTP64(kmerSeq, k), hVal, k, m);
     }
 
     /**
@@ -463,14 +474,7 @@ public class NTHash {
      * @param hVal      array to store hash values
      */
     public static void NTM64RC(final CharSequence kmerSeq, final int k, final int m, final long[] hVal) {
-        long bVal, tVal;
-        bVal = NTP64RC(kmerSeq, k);
-        hVal[0] = bVal;
-        for(int i=1; i<m; ++i) {
-            tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >>> multiShift;
-            hVal[i] = tVal;
-        }
+        NTM64(NTP64RC(kmerSeq, k), hVal, k, m);
     }
     
     /**
@@ -480,48 +484,42 @@ public class NTHash {
      * @param k         length of kmer
      * @param m         number of hash values to generate
      * @param hVal      array to store hash values
+     * @param kMod64    k % 64
      */
     public static void NTM64(final char charOut, final char charIn, final int k, final int m, final long[] hVal, final int kMod64) {
-        long bVal, tVal;
-        bVal = Long.rotateLeft(hVal[0], 1) ^ msTab[charOut][kMod64] ^ msTab[charIn][0];
-        hVal[0] = bVal;
-        for(int i=1; i<m; ++i) {
-            tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >>> multiShift;
-            hVal[i] = tVal;
-        }
+        NTM64(Long.rotateLeft(hVal[0], 1) ^ msTab[charOut][kMod64] ^ msTab[charIn][0], hVal, k, m);
     }
     
-    /**
-     * Multihash ntHash for sliding k-mers
-     * @param charOut   nucleotide to remove from the left
-     * @param charIns    nucleotides to add to the right
-     * @param k         length of kmer
-     * @param m         number of hash values to generate
-     * @param hVal      array to store hash values
-     * @param kMod64
-     * @return hash values for each nucleotide added
-     */
-    public static long[][] NTM64(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal, final int kMod64) {
-        long bVal, tVal;
-        
-        final long tmpVal = Long.rotateLeft(hVal[0], 1) ^ msTab[charOut][kMod64];
-        
-        int numIns = charIns.length;
-        final long[][] results = new long[numIns][m];
-        
-        for (int c=0; c<numIns; ++c) {
-            bVal = tmpVal ^ msTab[charIns[c]][0];
-            results[c][0] = bVal;
-            for(int i=1; i<m; ++i) {
-                tVal = bVal * (i ^ k * multiSeed);
-                tVal ^= tVal >>> multiShift;
-                results[c][i] = tVal;
-            }
-        }
-        
-        return results;
-    }
+//    /**
+//     * Multihash ntHash for sliding k-mers
+//     * @param charOut   nucleotide to remove from the left
+//     * @param charIns    nucleotides to add to the right
+//     * @param k         length of kmer
+//     * @param m         number of hash values to generate
+//     * @param hVal      array to store hash values
+//     * @param kMod64
+//     * @return hash values for each nucleotide added
+//     */
+//    public static long[][] NTM64(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal, final int kMod64) {
+//        long bVal, tVal;
+//        
+//        final long tmpVal = Long.rotateLeft(hVal[0], 1) ^ msTab[charOut][kMod64];
+//        
+//        int numIns = charIns.length;
+//        final long[][] results = new long[numIns][m];
+//        
+//        for (int c=0; c<numIns; ++c) {
+//            bVal = tmpVal ^ msTab[charIns[c]][0];
+//            results[c][0] = bVal;
+//            for(int i=1; i<m; ++i) {
+//                tVal = bVal * (i ^ k * multiSeed);
+//                tVal ^= tVal >>> multiShift;
+//                results[c][i] = tVal;
+//            }
+//        }
+//        
+//        return results;
+//    }
     
     /**
      * Multihash ntHash for sliding reverse-complement k-mers
@@ -532,14 +530,7 @@ public class NTHash {
      * @param hVal      array to store hash values
      */
     public static void NTM64RC(final char charOut, final char charIn, final int k, final int m, final long[] hVal) {
-        long bVal, tVal;
-        bVal = Long.rotateRight(hVal[0], 1) ^ Long.rotateRight(seedTab[charOut&cpOff], 1) ^ Long.rotateLeft(seedTab[charIn&cpOff], k-1);
-        hVal[0] = bVal;
-        for(int i=1; i<m; ++i) {
-            tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >>> multiShift;
-            hVal[i] = tVal;
-        }
+        NTM64(Long.rotateRight(hVal[0], 1) ^ Long.rotateRight(seedTab[charOut&cpOff], 1) ^ Long.rotateLeft(seedTab[charIn&cpOff], k-1), hVal, k, m);
     }
     
     /**
@@ -549,49 +540,42 @@ public class NTHash {
      * @param k         length of kmer
      * @param m         number of hash values to generate
      * @param hVal      array to store hash values
-     * @param kMinus1Mod64
+     * @param kMinus1Mod64  (k-1) % 64
      */
     public static void NTM64B(final char charOut, final char charIn, final int k, final int m, final long[] hVal, final int kMinus1Mod64) {
-        long bVal, tVal;
-        bVal = Long.rotateRight(hVal[0], 1) ^ msTab[charOut][63] ^ msTab[charIn][kMinus1Mod64];
-        hVal[0] = bVal;
-        for(int i=1; i<m; ++i) {
-            tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >>> multiShift;
-            hVal[i] = tVal;
-        }
+        NTM64(Long.rotateRight(hVal[0], 1) ^ msTab[charOut][63] ^ msTab[charIn][kMinus1Mod64], hVal, k, m);
     }
     
-    /**
-     * Multihash ntHash for backward-sliding k-mers
-     * @param charOut   nucleotide to remove from the right
-     * @param charIns    nucleotides to add to the left
-     * @param k         length of kmer
-     * @param m         number of hash values to generate
-     * @param hVal      array to store hash values
-     * @param kMinus1Mod64
-     * @return hash values for each nucleotide added
-     */
-    public static long[][] NTM64B(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal, final int kMinus1Mod64) {
-        long bVal, tVal;
-        
-        final long tmpVal = Long.rotateRight(hVal[0], 1) ^ msTab[charOut][63];
-        
-        int numIns = charIns.length;
-        final long[][] results = new long[numIns][m];
-        
-        for (int c=0; c<numIns; ++c) {
-            bVal = tmpVal ^ msTab[charIns[c]][kMinus1Mod64];
-            results[c][0] = bVal;
-            for(int i=1; i<m; ++i) {
-                tVal = bVal * (i ^ k * multiSeed);
-                tVal ^= tVal >>> multiShift;
-                results[c][i] = tVal;
-            }
-        }
-        
-        return results;
-    }
+//    /**
+//     * Multihash ntHash for backward-sliding k-mers
+//     * @param charOut   nucleotide to remove from the right
+//     * @param charIns    nucleotides to add to the left
+//     * @param k         length of kmer
+//     * @param m         number of hash values to generate
+//     * @param hVal      array to store hash values
+//     * @param kMinus1Mod64
+//     * @return hash values for each nucleotide added
+//     */
+//    public static long[][] NTM64B(final char charOut, final char[] charIns, final int k, final int m, final long[] hVal, final int kMinus1Mod64) {
+//        long bVal, tVal;
+//        
+//        final long tmpVal = Long.rotateRight(hVal[0], 1) ^ msTab[charOut][63];
+//        
+//        int numIns = charIns.length;
+//        final long[][] results = new long[numIns][m];
+//        
+//        for (int c=0; c<numIns; ++c) {
+//            bVal = tmpVal ^ msTab[charIns[c]][kMinus1Mod64];
+//            results[c][0] = bVal;
+//            for(int i=1; i<m; ++i) {
+//                tVal = bVal * (i ^ k * multiSeed);
+//                tVal ^= tVal >>> multiShift;
+//                results[c][i] = tVal;
+//            }
+//        }
+//        
+//        return results;
+//    }
     
     /**
      * Canonical Multihash ntBase
@@ -601,14 +585,7 @@ public class NTHash {
      * @param hVal      array to store hash values
      */
     public static void NTMC64(final CharSequence kmerSeq, final int k, final int m, final long[] hVal) {
-        long bVal, tVal;
-        bVal = NTPC64(kmerSeq, k);
-        hVal[0] = bVal;
-        for(int i=1; i<m; ++i) {
-            tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >>> multiShift;
-            hVal[i] = tVal;
-        }
+        NTM64(NTPC64(kmerSeq, k), hVal, k, m);
     }
  
     /**
@@ -619,15 +596,8 @@ public class NTHash {
      * @param frhVals   array to store the forward and reverse strand hash values of the kmer
      * @param hVal      array to store hash values
      */
-    public static void NTMC64(final CharSequence kmerSeq, final int k, final int m, final long[] frhVals, final long[] hVal) {
-        long bVal, tVal;
-        bVal = NTPC64(kmerSeq, k, frhVals);
-        hVal[0] = bVal;
-        for(int i=1; i<m; ++i) {
-            tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >>> multiShift;
-            hVal[i] = tVal;
-        }
+    public static void NTMC64(final CharSequence kmerSeq, final int k, final int m, final long[] frhVals, final long[] hVal) {        
+        NTM64(NTPC64(kmerSeq, k, frhVals), hVal, k, m);
     }
 
     /**
@@ -640,14 +610,7 @@ public class NTHash {
      * @param hVal      array to store hash values
      */
     public static void NTMC64(final char charOut, final char charIn, final int k, final int m, final long[] frhVals, final long[] hVal) {
-        long bVal, tVal;
-        bVal = NTPC64(charOut, charIn, k, frhVals);
-        hVal[0] = bVal;
-        for(int i=1; i<m; ++i) {
-            tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >>> multiShift;
-            hVal[i] = tVal;
-        }
+        NTM64(NTPC64(charOut, charIn, k, frhVals), hVal, k, m);
     }
 
     /**
@@ -660,14 +623,7 @@ public class NTHash {
      * @param hVal      array to store hash values
      */
     public static void NTMC64B(final char charOut, final char charIn, final int k, final int m, final long[] frhVals, final long[] hVal) {
-        long bVal, tVal;
-        bVal = NTPC64B(charOut, charIn, k, frhVals);
-        hVal[0] = bVal;
-        for(int i=1; i<m; ++i) {
-            tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >>> multiShift;
-            hVal[i] = tVal;
-        }
+        NTM64(NTPC64B(charOut, charIn, k, frhVals), hVal, k, m);
     }
         
 //    public static void main(String[] args) {
