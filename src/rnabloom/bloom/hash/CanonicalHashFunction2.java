@@ -6,8 +6,6 @@
 package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.NTHash.NTMC64;
-import static rnabloom.util.SeqUtils.NUCLEOTIDES;
-import static rnabloom.util.SeqUtils.smallestStrand;
 
 /**
  *
