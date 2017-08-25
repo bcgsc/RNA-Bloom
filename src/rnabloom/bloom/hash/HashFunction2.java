@@ -5,7 +5,12 @@
  */
 package rnabloom.bloom.hash;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import static rnabloom.bloom.hash.NTHash.NTM64;
+import rnabloom.graph.BloomFilterDeBruijnGraph;
+import rnabloom.graph.Kmer2;
+import static rnabloom.util.SeqUtils.stringToBytes;
 
 
 /**
@@ -23,12 +28,36 @@ public class HashFunction2 {
         this.kMinus1Mod64 = (k-1)%64;
     }
     
-    public void getHashValues(final CharSequence kmer,
+    public Kmer2 getKmer(final String kmer, final int numHash, BloomFilterDeBruijnGraph graph) {
+        long[] hVals = new long[numHash];
+        NTM64(kmer, k, numHash, hVals);
+        return new Kmer2(kmer, k, graph.getCount(hVals), hVals[0]);
+    }
+    
+    public ArrayList<Kmer2> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayList<Kmer2> result = new ArrayList<>();
+        
+        byte[] bytes = stringToBytes(seq, seq.length());
+        
+        NTHashIterator itr = new NTHashIterator(k, numHash);
+        itr.start(seq);
+        long[] hVals = itr.hVals;
+        int i;
+        while (itr.hasNext()) {
+            itr.next();
+            i = itr.getPos();
+            result.add(new Kmer2(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), hVals[0]));
+        }
+        
+        return result;
+    }
+    
+    public void getHashValues(final String kmer,
                               final int numHash,
                               final long[] out) {
         NTM64(kmer, k, numHash, out);
     }
-    
+            
 //    public long[][] getSuccessorsHashValues(final int numHash, final long[] hVals, final char leftMostNucleotide) {
 //        return NTM64(leftMostNucleotide, NUCLEOTIDES, k, numHash, hVals, kMod64);
 //    }
@@ -45,24 +74,24 @@ public class HashFunction2 {
         return new PairedNTHashIterator(k, numHash, distance);
     }
     
-    public SuccessorsNTHashIterator getSuccessorsHashIterator(final int numHash) {
-        return new SuccessorsNTHashIterator(k, numHash);
-    }
-    
-    public PredecessorsNTHashIterator getPredecessorsNTHashIterator(final int numHash) {
-        return new PredecessorsNTHashIterator(k, numHash);
-    }
-    
-    public LeftVariantsNTHashIterator getLeftVariantsNTHashIterator(final int numHash) {
-        return new LeftVariantsNTHashIterator(k, numHash);
-    }
-    
-    public RightVariantsNTHashIterator getRightVariantsNTHashIterator(final int numHash) {
-        return new RightVariantsNTHashIterator(k, numHash);
-    }
+//    public SuccessorsNTHashIterator getSuccessorsHashIterator(final int numHash) {
+//        return new SuccessorsNTHashIterator(k, numHash);
+//    }
+//    
+//    public PredecessorsNTHashIterator getPredecessorsNTHashIterator(final int numHash) {
+//        return new PredecessorsNTHashIterator(k, numHash);
+//    }
+//    
+//    public LeftVariantsNTHashIterator getLeftVariantsNTHashIterator(final int numHash) {
+//        return new LeftVariantsNTHashIterator(k, numHash);
+//    }
+//    
+//    public RightVariantsNTHashIterator getRightVariantsNTHashIterator(final int numHash) {
+//        return new RightVariantsNTHashIterator(k, numHash);
+//    }
         
-    public long[] getHashValues(final CharSequence kmer1,
-                                final CharSequence kmer2,
+    public long[] getHashValues(final String kmer1,
+                                final String kmer2,
                                 final int numHash) {
         final long[] hashVals1 = new long[numHash];
         //murmurhash3_x64_128(kmer1.getBytes(), 0, k, seed, numHash, hashVals1);

@@ -5,7 +5,13 @@
  */
 package rnabloom.bloom.hash;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import static rnabloom.bloom.hash.NTHash.NTMC64;
+import rnabloom.graph.BloomFilterDeBruijnGraph;
+import rnabloom.graph.CanonicalKmer;
+import rnabloom.graph.Kmer2;
+import static rnabloom.util.SeqUtils.stringToBytes;
 
 /**
  *
@@ -17,7 +23,35 @@ public class CanonicalHashFunction2 extends HashFunction2 {
     }
     
     @Override
-    public void getHashValues(final CharSequence kmer,
+    public Kmer2 getKmer(final String kmer, final int numHash, BloomFilterDeBruijnGraph graph) {
+        long[] frhval = new long[2];
+        long[] hVals = new long[numHash];
+        NTMC64(kmer, k, numHash, frhval, hVals);
+        return new CanonicalKmer(kmer, k, graph.getCount(hVals), frhval[0], frhval[1]);
+    }
+    
+    @Override
+    public ArrayList<Kmer2> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayList<Kmer2> result = new ArrayList<>();
+        
+        byte[] bytes = stringToBytes(seq, seq.length());
+        
+        CanonicalNTHashIterator itr = new CanonicalNTHashIterator(k, numHash);
+        itr.start(seq);
+        long[] hVals = itr.hVals;
+        long[] frhval = itr.frhval;
+        int i;
+        while (itr.hasNext()) {
+            itr.next();
+            i = itr.getPos();
+            result.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), frhval[0], frhval[1]));
+        }
+        
+        return result;
+    }
+    
+    @Override
+    public void getHashValues(final String kmer,
                               final int numHash,
                               final long[] out) {
         NTMC64(kmer, k, numHash, out);
@@ -28,9 +62,10 @@ public class CanonicalHashFunction2 extends HashFunction2 {
         return new CanonicalNTHashIterator(k, numHash);
     }
     
-    /** @TODO canonical NTHashIterators for non-strand specific data
-     *  @TODO method for combining two set of hash values 
-    */
+    @Override
+    public PairedNTHashIterator getPairedHashIterator(final int numHash, final int distance) {
+        return new CanonicalPairedNTHashIterator(k, numHash, distance);
+    }
     
 
     

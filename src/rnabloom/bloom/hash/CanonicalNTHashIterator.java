@@ -12,7 +12,7 @@ import static rnabloom.bloom.hash.NTHash.NTMC64;
  * @author kmnip
  */
 public class CanonicalNTHashIterator extends NTHashIterator {
-    private final long[] frhval = new long[2];
+    protected final long[] frhval = new long[2];
 
     public CanonicalNTHashIterator(int k, int h) {
         super(k, h);

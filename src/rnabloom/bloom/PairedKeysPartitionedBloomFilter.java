@@ -162,9 +162,7 @@ public class PairedKeysPartitionedBloomFilter {
         }
     }
     
-    public void add(final long[] hashValsLeft, final long[] hashValsRight) {
-        long[] hashValsPair = hashFunction.getHashValues(hashValsLeft, hashValsRight, numHash);
-        
+    public void add(final long[] hashValsLeft, final long[] hashValsRight, final long[] hashValsPair) {
         for (int h=0; h<numHash; ++h) {
             bitArrayLeft.set(getIndex(hashValsLeft[h]));
             bitArrayRight.set(getIndex(hashValsRight[h]));
@@ -184,16 +182,14 @@ public class PairedKeysPartitionedBloomFilter {
         }
     }
     
-    public void addPair(final long[] hashValsLeft, final long[] hashValsRight) {
-        long[] hashVals = hashFunction.getHashValues(hashValsLeft, hashValsRight, numHash);
-        
+    public void addPair(final long[] hashVals) {
         for (int h=0; h<numHash; ++h) {
             bitArrayPair.set(getIndex(hashVals[h]));
         }
     }
     
-    public boolean lookup(final long[] hashValsLeft, final long[] hashValsRight) {
-        return lookupLeft(hashValsLeft) && lookupRight(hashValsRight) && lookupPair(hashValsLeft, hashValsRight);
+    public boolean lookup(final long[] hashValsLeft, final long[] hashValsRight, final long[] hashValsPair) {
+        return lookupLeft(hashValsLeft) && lookupRight(hashValsRight) && lookupPair(hashValsPair);
     }
     
     public boolean lookupLeft(final long[] hashVals) {
@@ -216,9 +212,7 @@ public class PairedKeysPartitionedBloomFilter {
         return true;
     }
     
-    public boolean lookupPair(final long[] hashValsLeft, final long[] hashValsRight) {
-        long[] hashVals = hashFunction.getHashValues(hashValsLeft, hashValsRight, numHash);
-                
+    public boolean lookupPair(final long[] hashVals) {
         for (int h=0; h<numHash; ++h) {
             if (!bitArrayPair.get(getIndex(hashVals[h]))) {
                 return false;

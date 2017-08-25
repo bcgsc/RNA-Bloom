@@ -5,9 +5,8 @@
  */
 package rnabloom.bloom.hash;
 
+import static rnabloom.bloom.hash.NTHash.NTM64;
 import static rnabloom.bloom.hash.NTHash.msTab;
-import static rnabloom.bloom.hash.NTHash.multiSeed;
-import static rnabloom.bloom.hash.NTHash.multiShift;
 
 /**
  *
@@ -15,28 +14,21 @@ import static rnabloom.bloom.hash.NTHash.multiShift;
  */
 public class RightVariantsNTHashIterator {
     protected int k;
-    protected int h;
-    public long[] hVals = null;
     protected long tmpVal;
+    protected int numHash;
+    public long[] hVals;
     
-    public RightVariantsNTHashIterator(final int k, final int h) {
+    public RightVariantsNTHashIterator(final int k, final int numHash) {
         this.k = k;
-        this.h = h;
-        this.hVals = new long[h];
+        this.numHash = numHash;
+        this.hVals = new long[numHash];
     }
     
-    public void start(final long[] hVals, char charOut) {
-        tmpVal = hVals[0] ^ msTab[charOut][0];
+    public void start(final long fHashVal, final char charOut) {
+        tmpVal = fHashVal ^ msTab[charOut][0];
     }
     
-    public void next(char charIn) {
-        long bVal = tmpVal ^ msTab[charIn][0];
-        hVals[0] = bVal;
-        long tVal;
-        for(int i=1; i<h; ++i) {
-            tVal = bVal * (i ^ k * multiSeed);
-            tVal ^= tVal >>> multiShift;
-            hVals[i] = tVal;
-        }
+    public void next(final char charIn) {
+        NTM64(tmpVal ^ msTab[charIn][0], hVals, k, numHash);
     }
 }
