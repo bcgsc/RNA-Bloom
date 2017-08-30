@@ -373,6 +373,9 @@ public final class GraphUtils {
                         bestKmer = kmer;
                         bestCov = c;
                     }
+                    else if (c == bestCov && kmer.count > bestKmer.count) {
+                        bestKmer = kmer;
+                    }
                 }
                 return bestKmer;
             }
@@ -380,11 +383,11 @@ public final class GraphUtils {
     }
     
     public static Kmer2 greedyExtendRightOnce(final BloomFilterDeBruijnGraph graph, final Kmer2 source, final int lookahead) {
-        return greedyExtendRightOnce(graph, source.getPredecessors(graph.getK(), graph.getMaxNumHash(), graph), lookahead);
+        return greedyExtendRightOnce(graph, source.getSuccessors(graph.getK(), graph.getMaxNumHash(), graph), lookahead);
     }
     
     public static Kmer2 greedyExtendRightOnce(final BloomFilterDeBruijnGraph graph, final Kmer2 source, final int lookahead, BloomFilter bf) {
-        return greedyExtendRightOnce(graph, source.getPredecessors(graph.getK(), graph.getMaxNumHash(), graph), lookahead, bf);
+        return greedyExtendRightOnce(graph, source.getSuccessors(graph.getK(), graph.getMaxNumHash(), graph), lookahead, bf);
     }
     
     public static Kmer2 greedyExtendRightOnce(final BloomFilterDeBruijnGraph graph,
@@ -406,6 +409,9 @@ public final class GraphUtils {
                     if (c > bestCov) {
                         bestKmer = kmer;
                         bestCov = c;
+                    }
+                    else if (c == bestCov && kmer.count > bestKmer.count) {
+                        bestKmer = kmer;
                     }
                 }
                 return bestKmer;
@@ -429,6 +435,9 @@ public final class GraphUtils {
                     if (c > bestCov) {
                         bestKmer = kmer;
                         bestCov = c;
+                    }
+                    else if (c == bestCov && kmer.count > bestKmer.count) {
+                        bestKmer = kmer;
                     }
                 }
                 return bestKmer;
@@ -463,6 +472,9 @@ public final class GraphUtils {
                     if (c > bestCov) {
                         bestKmer = kmer;
                         bestCov = c;
+                    }
+                    else if (c == bestCov && kmer.count > bestKmer.count) {
+                        bestKmer = kmer;
                     }
                 }
                 return bestKmer;
@@ -506,9 +518,9 @@ public final class GraphUtils {
                     if (startIndex > 0) {
                                                 
                         if (lastRepresentedKmerFoundIndex < 0) {                            
-                            if (startIndex >= maxTipLength || kmers.get(0).hasPredecessors(graph.getK(), graph.getMaxNumHash(), graph)) {
+                            if (startIndex >= maxTipLength) {
                                 // check left edge kmers
-                                ArrayDeque testEdgeKmers = greedyExtendLeft(graph, kmers.get(startIndex), lookahead, startIndex, bf);
+                                ArrayDeque<Kmer2> testEdgeKmers = greedyExtendLeft(graph, kmers.get(startIndex), lookahead, startIndex, bf);
                                 if (testEdgeKmers.size() != startIndex ||
                                         getPercentIdentity(graph.assemble(testEdgeKmers), graph.assemble(kmers, 0, startIndex)) < percentIdentity) {
                                     return false;
@@ -570,8 +582,8 @@ public final class GraphUtils {
             if (lastRepresentedKmerFoundIndex < maxIndex) {
                 // check right edge kmers
                 int expectedLen = numKmers-lastRepresentedKmerFoundIndex-1;
-                if (expectedLen >= maxTipLength || kmers.get(numKmers-1).hasSuccessors(k, numHash, graph)) {                    
-                    ArrayDeque testEdgeKmers = greedyExtendRight(graph, kmers.get(lastRepresentedKmerFoundIndex), lookahead, expectedLen, bf);
+                if (expectedLen >= maxTipLength) {                    
+                    ArrayDeque<Kmer2> testEdgeKmers = greedyExtendRight(graph, kmers.get(lastRepresentedKmerFoundIndex), lookahead, expectedLen, bf);
                     if (testEdgeKmers.size() != expectedLen ||
                             getPercentIdentity(graph.assemble(testEdgeKmers), graph.assemble(kmers, lastRepresentedKmerFoundIndex+1, numKmers)) < percentIdentity) {
                         return false;
@@ -4746,49 +4758,10 @@ public final class GraphUtils {
                                             float maxCovGradient) {
         
         HashSet<Kmer2> usedKmers = new HashSet<>(kmers);
-        
-        // naive extend RIGHT
-//        ArrayDeque<Kmer2> simpleExtension = extendRight(kmers.get(kmers.size()-1),
-//                                                        graph, 
-//                                                        maxTipLength, 
-//                                                        usedKmers, 
-//                                                        maxIndelSize, 
-//                                                        percentIdentity);
-//        if (!simpleExtension.isEmpty()) {
-//            Iterator<Kmer2> itr = simpleExtension.descendingIterator();
-//            while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
-//                itr.remove();
-//            }
-//            
-//            kmers.addAll(simpleExtension);
-//            for (Kmer e : simpleExtension) {
-//                usedKmers.add(e.toString());
-//            }
-//        }
-        
-        // naive extend LEFT
-        Collections.reverse(kmers);
-//        simpleExtension = extendLeft(kmers.get(kmers.size()-1),
-//                                        graph, 
-//                                        maxTipLength, 
-//                                        usedKmers, 
-//                                        maxIndelSize, 
-//                                        percentIdentity);
-//        if (!simpleExtension.isEmpty()) {
-//            Iterator<Kmer2> itr = simpleExtension.descendingIterator();
-//            while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().hashVals)) {
-//                itr.remove();
-//            }
-//            
-//            kmers.addAll(simpleExtension);
-//            for (Kmer e : simpleExtension) {
-//                usedKmers.add(e.toString());
-//            }
-//        }
-        
         int distance = graph.getPairedKmerDistance();
         
         // extend with paired kmers LEFT
+        Collections.reverse(kmers);
         
         HashSet<Kmer2> usedPartnerKmers = new HashSet<>();
         for (int i=kmers.size()-1-distance; i>=0; --i) {
@@ -4798,19 +4771,19 @@ public final class GraphUtils {
         boolean extendable = true;
         
         while (extendable) {
-            extendable = extendLeftWithPairedKmersBFS(kmers, 
-                                        graph, 
-                                        lookahead, 
-                                        maxTipLength,
-                                        maxIndelSize,
-                                        percentIdentity,
-                                        minNumPairs,
-                                        assembledKmersBloomFilter,
-                                        usedKmers,
-                                        usedPartnerKmers,
-                                        maxCovGradient);
-            
-            if (extendable) {
+//            extendable = extendLeftWithPairedKmersBFS(kmers, 
+//                                        graph, 
+//                                        lookahead, 
+//                                        maxTipLength,
+//                                        maxIndelSize,
+//                                        percentIdentity,
+//                                        minNumPairs,
+//                                        assembledKmersBloomFilter,
+//                                        usedKmers,
+//                                        usedPartnerKmers,
+//                                        maxCovGradient);
+//            
+//            if (extendable) {
                 extendable = extendLeftWithPairedKmersDFS(kmers, 
                                         graph, 
                                         lookahead, 
@@ -4822,10 +4795,10 @@ public final class GraphUtils {
                                         usedKmers,
                                         usedPartnerKmers,
                                         maxCovGradient);
-            }
-            else {
-                break;
-            }
+//            }
+//            else {
+//                break;
+//            }
         }
         
         Collections.reverse(kmers);
@@ -4840,19 +4813,19 @@ public final class GraphUtils {
         extendable = true;
         
         while (extendable) {
-            extendable = extendRightWithPairedKmersBFS(kmers, 
-                                        graph, 
-                                        lookahead, 
-                                        maxTipLength,
-                                        maxIndelSize,
-                                        percentIdentity,
-                                        minNumPairs,
-                                        assembledKmersBloomFilter,
-                                        usedKmers,
-                                        usedPartnerKmers,
-                                        maxCovGradient);
-            
-            if (extendable) {
+//            extendable = extendRightWithPairedKmersBFS(kmers, 
+//                                        graph, 
+//                                        lookahead, 
+//                                        maxTipLength,
+//                                        maxIndelSize,
+//                                        percentIdentity,
+//                                        minNumPairs,
+//                                        assembledKmersBloomFilter,
+//                                        usedKmers,
+//                                        usedPartnerKmers,
+//                                        maxCovGradient);
+//            
+//            if (extendable) {
                 extendable = extendRightWithPairedKmersDFS(kmers, 
                                         graph, 
                                         lookahead, 
@@ -4864,10 +4837,10 @@ public final class GraphUtils {
                                         usedKmers,
                                         usedPartnerKmers,
                                         maxCovGradient);
-            }
-            else {
-                break;
-            }
+//            }
+//            else {
+//                break;
+//            }
         }
     }
    
