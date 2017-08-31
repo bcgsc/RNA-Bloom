@@ -1362,6 +1362,15 @@ public class RNABloom {
         }
     }
     
+    public void setupKmerScreeningBloomFilter(long sbfNumBits, int sbfNumHash) {
+        if (screeningBf == null) {
+            screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
+        }
+        else {
+            screeningBf.empty();
+        }
+    }
+    
     public void assembleFragmentsMultiThreaded(FastqPair[] fastqs, 
                                                 String[] longFragmentsFastaPaths,
                                                 String[] shortFragmentsFastaPaths,
@@ -1658,7 +1667,8 @@ public class RNABloom {
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
             
-            System.out.println("Paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100 + " %");
+            System.out.println("Paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100   + " %");
+            System.out.println("Screening Bloom filter FPR:    " + screeningBf.getFPR() * 100 + " %");
         }        
     }
     
@@ -1901,21 +1911,12 @@ public class RNABloom {
                                                 String[] shortFragmentsFastas,
                                                 String[] outFastasLong,
                                                 String[] outFastasShort,
-                                                long sbfNumBits,
-                                                int sbfNumHash,
                                                 int numThreads,
                                                 int sampleSize) {
         
         long numFragmentsParsed = 0;
         
         int minTransfragLength = graph.getPairedKmerDistance() + k + minNumKmerPairs;
-        
-        if (screeningBf == null) {
-            screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
-        }
-        else {
-            screeningBf.empty();
-        }
 
         try {
             System.out.println("Extending fragments...");
@@ -1943,11 +1944,12 @@ public class RNABloom {
                 fout.close();
                 foutShort.close();
             }
-                        
+            
         } catch (Exception ex) {
             ex.printStackTrace();
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments.");
+            System.out.println("Screening Bloom filter FPR:      " + screeningBf.getFPR() * 100 + " %");
         }
     }
     
@@ -1958,8 +1960,6 @@ public class RNABloom {
                                                 String outFasta,
                                                 String outFastaShort,
                                                 String graphFile,
-                                                long sbfNumBits, 
-                                                int sbfNumHash,
                                                 int numThreads,
                                                 int sampleSize,
                                                 int minTranscriptLength,
@@ -2011,14 +2011,7 @@ public class RNABloom {
             FastaWriter fout = new FastaWriter(outFasta, false);
             FastaWriter foutShort = new FastaWriter(outFastaShort, false);
             TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength);
-            
-            if (screeningBf == null) {
-                screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
-            }
-            else {
-                screeningBf.empty();
-            }
-            
+                        
             String tag = ".L.";
             for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
                 writer.setOutputPrefix("E" + mag + tag);
@@ -2054,12 +2047,11 @@ public class RNABloom {
             fout.close();
             foutShort.close();
             
-            System.out.println("Screening Bloom filter FPR:      " + screeningBf.getFPR() * 100 + " %");
-            screeningBf.destroy();
         } catch (Exception ex) {
             ex.printStackTrace();
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments.");
+            System.out.println("Screening Bloom filter FPR:      " + screeningBf.getFPR() * 100 + " %");
         }
     }
     
@@ -2711,6 +2703,8 @@ public class RNABloom {
                 
                 timer.start();
                 
+                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                
                 assembler.assembleFragmentsMultiThreaded(fqPairs, 
                         longFragmentsFastaPaths, 
                         shortFragmentsFastaPaths,
@@ -2768,12 +2762,12 @@ public class RNABloom {
                                 
                 timer.start();
                 
+                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                
                 assembler.assembleTransfragsMultiThreaded(longFragmentsFastaPaths, 
                                                         shortFragmentsFastaPaths,
                                                         longTransfragsFastaPaths,
                                                         shortTransfragsFastaPaths,
-                                                        sbfSize,
-                                                        sbfNumHash,
                                                         numThreads,
                                                         sampleSize);
 
@@ -2800,6 +2794,8 @@ public class RNABloom {
                 
                 timer.start();
                 
+                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                
                 assembler.assembleTranscriptsMultiThreaded(longTransfragsFastaPaths, 
                                                             shortTransfragsFastaPaths,
                                                             longSingletonsFastaPath,
@@ -2807,8 +2803,6 @@ public class RNABloom {
                                                             transcriptsFasta, 
                                                             shortTranscriptsFasta,
                                                             graphFile,
-                                                            sbfSize,
-                                                            sbfNumHash,
                                                             numThreads,
                                                             sampleSize,
                                                             minTranscriptLength,
