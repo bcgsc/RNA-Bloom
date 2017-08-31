@@ -952,6 +952,7 @@ public class RNABloom {
                                         boolean includeNaiveExtensions) {
             this.fragments = fragments;
             this.transcripts = transcripts;
+            this.includeNaiveExtensions = includeNaiveExtensions;
         }
 
         public void stopWhenEmpty () {
