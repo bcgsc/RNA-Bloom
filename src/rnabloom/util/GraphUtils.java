@@ -15,7 +15,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
-import rnabloom.RNABloom;
 import rnabloom.RNABloom.ReadPair;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
@@ -4747,7 +4746,7 @@ public final class GraphUtils {
         
     }
     
-    public static void extendWithPairedKmers2(ArrayList<Kmer2> kmers, 
+    public static void extendWithPairedKmers(ArrayList<Kmer2> kmers, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int lookahead, 
                                             int maxTipLength,
@@ -4771,19 +4770,19 @@ public final class GraphUtils {
         boolean extendable = true;
         
         while (extendable) {
-//            extendable = extendLeftWithPairedKmersBFS(kmers, 
-//                                        graph, 
-//                                        lookahead, 
-//                                        maxTipLength,
-//                                        maxIndelSize,
-//                                        percentIdentity,
-//                                        minNumPairs,
-//                                        assembledKmersBloomFilter,
-//                                        usedKmers,
-//                                        usedPartnerKmers,
-//                                        maxCovGradient);
-//            
-//            if (extendable) {
+            extendable = extendLeftWithPairedKmersBFS(kmers, 
+                                        graph, 
+                                        lookahead, 
+                                        maxTipLength,
+                                        maxIndelSize,
+                                        percentIdentity,
+                                        minNumPairs,
+                                        assembledKmersBloomFilter,
+                                        usedKmers,
+                                        usedPartnerKmers,
+                                        maxCovGradient);
+            
+            if (extendable) {
                 extendable = extendLeftWithPairedKmersDFS(kmers, 
                                         graph, 
                                         lookahead, 
@@ -4795,10 +4794,10 @@ public final class GraphUtils {
                                         usedKmers,
                                         usedPartnerKmers,
                                         maxCovGradient);
-//            }
-//            else {
-//                break;
-//            }
+            }
+            else {
+                break;
+            }
         }
         
         Collections.reverse(kmers);
@@ -4813,19 +4812,19 @@ public final class GraphUtils {
         extendable = true;
         
         while (extendable) {
-//            extendable = extendRightWithPairedKmersBFS(kmers, 
-//                                        graph, 
-//                                        lookahead, 
-//                                        maxTipLength,
-//                                        maxIndelSize,
-//                                        percentIdentity,
-//                                        minNumPairs,
-//                                        assembledKmersBloomFilter,
-//                                        usedKmers,
-//                                        usedPartnerKmers,
-//                                        maxCovGradient);
-//            
-//            if (extendable) {
+            extendable = extendRightWithPairedKmersBFS(kmers, 
+                                        graph, 
+                                        lookahead, 
+                                        maxTipLength,
+                                        maxIndelSize,
+                                        percentIdentity,
+                                        minNumPairs,
+                                        assembledKmersBloomFilter,
+                                        usedKmers,
+                                        usedPartnerKmers,
+                                        maxCovGradient);
+            
+            if (extendable) {
                 extendable = extendRightWithPairedKmersDFS(kmers, 
                                         graph, 
                                         lookahead, 
@@ -4837,13 +4836,76 @@ public final class GraphUtils {
                                         usedKmers,
                                         usedPartnerKmers,
                                         maxCovGradient);
-//            }
-//            else {
-//                break;
-//            }
+            }
+            else {
+                break;
+            }
         }
     }
-   
+
+    public static void extendWithPairedKmersDFS(ArrayList<Kmer2> kmers, 
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int lookahead, 
+                                            int maxTipLength,
+                                            BloomFilter assembledKmersBloomFilter,
+                                            int maxIndelSize,
+                                            float percentIdentity,
+                                            int minNumPairs,
+                                            float maxCovGradient) {
+        
+        HashSet<Kmer2> usedKmers = new HashSet<>(kmers);
+        int distance = graph.getPairedKmerDistance();
+        
+        // extend with paired kmers LEFT
+        Collections.reverse(kmers);
+        
+        HashSet<Kmer2> usedPartnerKmers = new HashSet<>();
+        for (int i=kmers.size()-1-distance; i>=0; --i) {
+            usedPartnerKmers.add(kmers.get(i));
+        }
+        
+        boolean extendable = true;
+        
+        while (extendable) {
+            extendable = extendLeftWithPairedKmersDFS(kmers, 
+                                    graph, 
+                                    lookahead, 
+                                    maxTipLength,
+                                    maxIndelSize,
+                                    percentIdentity,
+                                    minNumPairs,
+                                    assembledKmersBloomFilter,
+                                    usedKmers,
+                                    usedPartnerKmers,
+                                    maxCovGradient);
+        }
+        
+        Collections.reverse(kmers);
+        
+        // extend with paired kmers RIGHT
+        
+        usedPartnerKmers.clear();
+        for (int i=kmers.size()-1-distance; i>=0; --i) {
+            usedPartnerKmers.add(kmers.get(i));
+        }
+        
+        extendable = true;
+        
+        while (extendable) {
+            extendable = extendRightWithPairedKmersDFS(kmers, 
+                                    graph, 
+                                    lookahead, 
+                                    maxTipLength,
+                                    maxIndelSize,
+                                    percentIdentity,
+                                    minNumPairs,
+                                    assembledKmersBloomFilter,
+                                    usedKmers,
+                                    usedPartnerKmers,
+                                    maxCovGradient);
+        }
+    }
+    
 /*
     public static void extendWithPairedKmers(ArrayList<Kmer2> kmers, 
                                             BloomFilterDeBruijnGraph graph, 

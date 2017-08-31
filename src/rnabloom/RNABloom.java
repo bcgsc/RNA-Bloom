@@ -945,9 +945,11 @@ public class RNABloom {
         private final ArrayBlockingQueue<String> fragments;
         private final ArrayBlockingQueue<Transcript> transcripts;
         private boolean keepGoing = true;
+        private boolean includeNaiveExtensions = false;
         
         public TranscriptAssemblyWorker(ArrayBlockingQueue<String> fragments,
-                                        ArrayBlockingQueue<Transcript> transcripts) {
+                                        ArrayBlockingQueue<Transcript> transcripts,
+                                        boolean includeNaiveExtensions) {
             this.fragments = fragments;
             this.transcripts = transcripts;
         }
@@ -959,28 +961,57 @@ public class RNABloom {
         @Override
         public void run() {
             try {
-                while (true) {
-                    String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
+                if (includeNaiveExtensions) {
+                    while (true) {
+                        String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
 
-                    if (fragment == null) {
-                        if (!keepGoing) {
-                            break;
+                        if (fragment == null) {
+                            if (!keepGoing) {
+                                break;
+                            }
+                        }
+                        else {
+                            ArrayList<Kmer2> fragKmers = graph.getKmers(fragment);
+
+                            if (!represented(fragKmers,
+                                                graph,
+                                                screeningBf,
+                                                lookahead,
+                                                maxIndelSize,
+                                                maxTipLength,
+                                                percentIdentity)) {
+
+                                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+
+                                transcripts.put(new Transcript(fragment, fragKmers));
+                            }
                         }
                     }
-                    else {
-                        ArrayList<Kmer2> fragKmers = graph.getKmers(fragment);
+                }
+                else {
+                    while (true) {
+                        String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
 
-                        if (!represented(fragKmers,
-                                            graph,
-                                            screeningBf,
-                                            lookahead,
-                                            maxIndelSize,
-                                            maxTipLength,
-                                            percentIdentity)) {
+                        if (fragment == null) {
+                            if (!keepGoing) {
+                                break;
+                            }
+                        }
+                        else {
+                            ArrayList<Kmer2> fragKmers = graph.getKmers(fragment);
 
-                            extendWithPairedKmers2(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+                            if (!represented(fragKmers,
+                                                graph,
+                                                screeningBf,
+                                                lookahead,
+                                                maxIndelSize,
+                                                maxTipLength,
+                                                percentIdentity)) {
 
-                            transcripts.put(new Transcript(fragment, fragKmers));
+                                extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+
+                                transcripts.put(new Transcript(fragment, fragKmers));
+                            }
                         }
                     }
                 }
@@ -1825,7 +1856,7 @@ public class RNABloom {
         }
     }
     
-    private long extendFragmentsMultiThreadedHelper(String fragmentsFasta, TranscriptWriter writer, int sampleSize, int numThreads) throws InterruptedException, IOException {
+    private long extendFragmentsMultiThreadedHelper(String fragmentsFasta, TranscriptWriter writer, int sampleSize, int numThreads, boolean includeNaiveExtensions) throws InterruptedException, IOException {
         long numFragmentsParsed = 0;
         FastaReader fin = new FastaReader(fragmentsFasta);
 
@@ -1835,7 +1866,7 @@ public class RNABloom {
         TranscriptAssemblyWorker[] workers = new TranscriptAssemblyWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
         for (int i=0; i<numThreads; ++i) {
-            workers[i] = new TranscriptAssemblyWorker(fragmentsQueue, transcriptsQueue);
+            workers[i] = new TranscriptAssemblyWorker(fragmentsQueue, transcriptsQueue, includeNaiveExtensions);
             threads[i] = new Thread(workers[i]);
             threads[i].start();
         }
@@ -1903,10 +1934,10 @@ public class RNABloom {
                 TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTransfragLength);
                 
                 System.out.println("Parsing fragments in `" + longFragsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longFragsFasta, writer, sampleSize, numThreads);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longFragsFasta, writer, sampleSize, numThreads, false);
                 
                 System.out.println("Parsing fragments in `" + shortFragsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, false);
                 
                 fout.close();
                 foutShort.close();
@@ -1995,7 +2026,7 @@ public class RNABloom {
 
                 System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
 
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true);
             }
             
             tag = ".S.";
@@ -2006,17 +2037,17 @@ public class RNABloom {
 
                 System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
 
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true);
             }
 
             if (useSingletonFragments) {
                 System.out.println("Parsing fragments in `" + longSingletonsFasta + "`...");
                 writer.setOutputPrefix("01.L.");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads, true);
 
                 System.out.println("Parsing fragments in `" + shortSingletonsFasta + "`...");
                 writer.setOutputPrefix("01.S.");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads); 
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads, true); 
             }
             
             fout.close();
