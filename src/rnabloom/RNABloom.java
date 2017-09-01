@@ -1559,7 +1559,7 @@ public class RNABloom {
                                                             fragments,
                                                             newBound, 
                                                             minOverlap, 
-                                                            true, // store paired k-mers
+                                                            false, // do not store paired k-mers
                                                             maxErrCorrIterations, 
                                                             leftReadLengthThreshold, 
                                                             rightReadLengthThreshold,
@@ -1580,9 +1580,9 @@ public class RNABloom {
                                 }
                                 
                                 if (frag.length >= shortestFragmentLengthAllowed) {
-                                    ArrayList<Kmer2> kmers = graph.getKmers(frag.seq);
+                                    ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
                                     
-                                    if (!containsAllKmers(screeningBf, kmers) && !graph.containsAllPairedKmers(kmers)) {
+                                    if (!containsAllKmers(screeningBf, fragKmers) && !graph.containsAllPairedKmers(fragKmers)) {
                                         if (frag.minCov == 1) {
                                             if (frag.length >= longFragmentLengthThreshold) {
                                                 longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
@@ -1618,23 +1618,31 @@ public class RNABloom {
                 while (!fragments.isEmpty()) {
                     frag = fragments.poll();
                     if (frag.length >= shortestFragmentLengthAllowed) {
-                        if (frag.minCov == 1) {
-                            if (frag.length >= longFragmentLengthThreshold) {
-                                longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
-                            }
-                            else {
-                                shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
-                            }
-                        }
-                        else {
-                            m = getMinCoverageOrderOfMagnitude(frag.minCov);
+                        ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
+                        
+                        if (!containsAllKmers(screeningBf, fragKmers) && !graph.containsAllPairedKmers(fragKmers)) {
+                            if (frag.minCov == 1) {
+                                graph.addPairedKmers(fragKmers);
 
-                            if (m >= 0) { 
                                 if (frag.length >= longFragmentLengthThreshold) {
-                                    longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                    longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                 }
                                 else {
-                                    shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                    shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                }
+                            }
+                            else {
+                                m = getMinCoverageOrderOfMagnitude(frag.minCov);
+
+                                if (m >= 0) {
+                                    graph.addPairedKmers(fragKmers);
+
+                                    if (frag.length >= longFragmentLengthThreshold) {
+                                        longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                    }
+                                    else {
+                                        shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                    }
                                 }
                             }
                         }
