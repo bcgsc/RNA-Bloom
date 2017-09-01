@@ -13,7 +13,6 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import static java.lang.Math.exp;
 import static java.lang.Math.pow;
 import rnabloom.bloom.buffer.AbstractLargeBitBuffer;
 import rnabloom.bloom.buffer.BufferComparator;
@@ -162,6 +161,12 @@ public class PairedKeysPartitionedBloomFilter {
         }
     }
     
+    public void add(final long hashValLeft, final long hashValRight, final long hashValPair) {        
+        add(hashFunction.getHashValues(hashValLeft, numHash),
+            hashFunction.getHashValues(hashValRight, numHash),
+            hashFunction.getHashValues(hashValPair, numHash));
+    }
+    
     public void add(final long[] hashValsLeft, final long[] hashValsRight, final long[] hashValsPair) {
         for (int h=0; h<numHash; ++h) {
             bitArrayLeft.set(getIndex(hashValsLeft[h]));
@@ -170,28 +175,32 @@ public class PairedKeysPartitionedBloomFilter {
         }
     }
     
-    public void addLeft(final long[] hashVals) {
-        for (int h=0; h<numHash; ++h) {
-            bitArrayLeft.set(getIndex(hashVals[h]));
-        }
-    }
+//    public void addLeft(final long[] hashVals) {
+//        for (int h=0; h<numHash; ++h) {
+//            bitArrayLeft.set(getIndex(hashVals[h]));
+//        }
+//    }
+//    
+//    public void addRight(final long[] hashVals) {
+//        for (int h=0; h<numHash; ++h) {
+//            bitArrayRight.set(getIndex(hashVals[h]));
+//        }
+//    }
+//    
+//    public void addPair(final long[] hashVals) {
+//        for (int h=0; h<numHash; ++h) {
+//            bitArrayPair.set(getIndex(hashVals[h]));
+//        }
+//    }
     
-    public void addRight(final long[] hashVals) {
-        for (int h=0; h<numHash; ++h) {
-            bitArrayRight.set(getIndex(hashVals[h]));
-        }
-    }
-    
-    public void addPair(final long[] hashVals) {
-        for (int h=0; h<numHash; ++h) {
-            bitArrayPair.set(getIndex(hashVals[h]));
-        }
+    public boolean lookup(final long hashValLeft, final long hashValRight, final long hashValPair) {
+        return lookupLeft(hashValLeft) && lookupRight(hashValRight) && lookupPair(hashValPair);
     }
     
     public boolean lookup(final long[] hashValsLeft, final long[] hashValsRight, final long[] hashValsPair) {
         return lookupLeft(hashValsLeft) && lookupRight(hashValsRight) && lookupPair(hashValsPair);
     }
-    
+        
     public boolean lookupLeft(final long[] hashVals) {
         for (int h=0; h<numHash; ++h) {
             if (!bitArrayLeft.get(getIndex(hashVals[h]))) {
@@ -222,6 +231,18 @@ public class PairedKeysPartitionedBloomFilter {
         return true;
     }
 
+    public boolean lookupLeft(final long hashVal) {
+        return lookupLeft(hashFunction.getHashValues(hashVal, numHash));
+    }
+    
+    public boolean lookupRight(final long hashVal) {
+        return lookupRight(hashFunction.getHashValues(hashVal, numHash));
+    }
+
+    public boolean lookupPair(final long hashVal) {
+        return lookupPair(hashFunction.getHashValues(hashVal, numHash));
+    }
+    
     public boolean lookupAndAdd(final long[] hashValsLeft, final long[] hashValsRight) {
         boolean found = true;
         
