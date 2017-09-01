@@ -13,7 +13,6 @@ import rnabloom.bloom.hash.LeftVariantsNTHashIterator;
 import rnabloom.bloom.hash.PredecessorsNTHashIterator;
 import rnabloom.bloom.hash.SuccessorsNTHashIterator;
 import rnabloom.bloom.hash.RightVariantsNTHashIterator;
-import static rnabloom.bloom.hash.NTHash.NTM64;
 import static rnabloom.util.SeqUtils.NUCLEOTIDES;
 import static rnabloom.util.SeqUtils.bytesToString;
 import static rnabloom.util.SeqUtils.stringToBytes;
@@ -45,18 +44,10 @@ public class Kmer2 {
         return fHashVal;
     }
     
-    public long[] getHashValues(int len, int numHash) {
-        long[] hVals = new long[numHash];
-        NTM64(getHash(), hVals, len, numHash);
-        return hVals;
+    public long getKmerPairHashValue(Kmer2 rightPartner) {
+        return combineHashValues(this.fHashVal, rightPartner.fHashVal);
     }
-    
-    public long[] getKmerPairHashValues(int len, int numHash, Kmer2 rightPartner) {
-        long[] hVals = new long[numHash];
-        NTM64(combineHashValues(this.fHashVal, rightPartner.fHashVal), hVals, len, numHash);
-        return hVals;
-    }
-            
+                
     public boolean equals(Kmer2 other) {
         return Arrays.equals(bytes, other.bytes);
     }

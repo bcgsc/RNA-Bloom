@@ -338,8 +338,11 @@ public class BloomFilterDeBruijnGraph {
     public void addPairedKmersFromSeq(String seq) {
         // add paired kmers
         final int upperBound = getNumKmers(seq, k) - pairedKmersDistance;
-        for (int i=0; i<upperBound; ++i) {
-            pkbf.add(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
+        
+        if (upperBound > 0) {
+            for (int i=0; i<upperBound; ++i) {
+                pkbf.add(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
+            }
         }
     }
         
@@ -348,16 +351,42 @@ public class BloomFilterDeBruijnGraph {
         
         // add paired kmers
         final int upperBound = kmers.size() - pairedKmersDistance;
+        
+        if (upperBound > 0) {
+            for (int i=0; i<upperBound; ++i) {
+                left = kmers.get(i);
+                right = kmers.get(i+pairedKmersDistance);
+
+                pkbf.add(left.getHash(),
+                        right.getHash(),
+                        left.getKmerPairHashValue(right));
+            }
+        }
+    }
+     
+    public boolean containsAllPairedKmers(ArrayList<Kmer2> kmers) {
+        Kmer2 left, right;
+        
+        // add paired kmers
+        final int upperBound = kmers.size() - pairedKmersDistance;
+        
+        if (upperBound <= 0) {
+            return false;
+        }
+        
         for (int i=0; i<upperBound; ++i) {
             left = kmers.get(i);
             right = kmers.get(i+pairedKmersDistance);
             
-            pkbf.add(left.getHashValues(k, pkbfNumHash),
-                    right.getHashValues(k, pkbfNumHash),
-                    left.getKmerPairHashValues(k, pkbfNumHash, right));
+            if (!pkbf.lookup(left.getHash(),
+                            right.getHash(),
+                            left.getKmerPairHashValue(right))) {
+                return false;
+            }
         }
-    }
         
+        return true;
+    }
     
 //    public void addFragmentKmersAndPairedKmersFromSeq(String seq) {
 //        final int numKmers = getNumKmers(seq, k);
@@ -387,6 +416,14 @@ public class BloomFilterDeBruijnGraph {
 //        return pkbf.lookup(kmer1, kmer2);
 //    }
     
+    public boolean lookupLeftKmer(final long hashVal) {
+        return pkbf.lookupLeft(hashVal);
+    }
+
+    public boolean lookupRightKmer(final long hashVal) {
+        return pkbf.lookupRight(hashVal);
+    }
+    
     public boolean lookupLeftKmer(final long[] hashVals) {
         return pkbf.lookupLeft(hashVals);
     }
@@ -396,13 +433,13 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public boolean lookupKmerPair(Kmer2 left, Kmer2 right) {
-        return pkbf.lookup(left.getHashValues(k, pkbfNumHash),
-                right.getHashValues(k, pkbfNumHash),
-                left.getKmerPairHashValues(k, pkbfNumHash, right));
+        return pkbf.lookup(left.getHash(),
+                            right.getHash(),
+                            left.getKmerPairHashValue(right));
     }
     
     public boolean lookupKmerPairing(Kmer2 left, Kmer2 right) {
-        return pkbf.lookupPair(left.getKmerPairHashValues(k, pkbfNumHash, right));
+        return pkbf.lookupPair(left.getKmerPairHashValue(right));
     }
     
     public boolean contains(String kmer) {

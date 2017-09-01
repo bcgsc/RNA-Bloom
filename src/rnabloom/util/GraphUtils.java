@@ -481,6 +481,21 @@ public final class GraphUtils {
         }
     }
     
+    public static boolean containsAllKmers(final BloomFilter bf,
+                                final ArrayList<Kmer2> kmers) {
+        if (kmers.isEmpty()) {
+            return false;
+        }
+        
+        for (Kmer2 kmer : kmers) {
+            if (kmer == null || !bf.lookup(kmer.getHash())) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
     public static boolean represented(final ArrayList<Kmer2> kmers,
                                     final BloomFilterDeBruijnGraph graph,
                                     final BloomFilter bf,
@@ -499,11 +514,11 @@ public final class GraphUtils {
         
         for (int i=0; i<numKmers; ++i) {
             
-            if (bf.lookup(kmers.get(i).getHashValues(k, numHash))) {
+            if (bf.lookup(kmers.get(i).getHash())) {
                 int startIndex = i;
                 int endIndex = i;
                 for (int j=i+1; j<numKmers; ++j) {
-                    if (bf.lookup(kmers.get(j).getHashValues(k, numHash))) {
+                    if (bf.lookup(kmers.get(j).getHash())) {
                         endIndex = j;
                     }
                     else {
@@ -541,13 +556,13 @@ public final class GraphUtils {
                             
                             if (numMissing > 0) {
                                 for (int j=0; j<numMissing; ++j) {
-                                    if (left == 0 || !bf.lookup(kmers.get(--left).getHashValues(k, numHash))) {
+                                    if (left == 0 || !bf.lookup(kmers.get(--left).getHash())) {
                                         break;
                                     }
                                 }
 
                                 for (int j=0; j<numMissing; ++j) {
-                                    if (right == maxIndex || !bf.lookup(kmers.get(++right).getHashValues(k, numHash))) {
+                                    if (right == maxIndex || !bf.lookup(kmers.get(++right).getHash())) {
                                         break;
                                     }
                                 }
@@ -616,7 +631,7 @@ public final class GraphUtils {
             kmersInFrontier.clear();
             newFrontier = new ArrayDeque<>();
             for (Kmer2 kmer : frontier) {
-                if (bf.lookup(kmer.getHashValues(k, numHash))) {
+                if (bf.lookup(kmer.getHash())) {
                     for (Kmer2 s : kmer.getSuccessors(k, numHash, graph)) {
                         String seq = s.toString();
                         if (!kmersInFrontier.contains(seq)) { 
@@ -638,7 +653,7 @@ public final class GraphUtils {
             kmersInFrontier.clear();
             newFrontier = new ArrayDeque<>();
             for (Kmer2 kmer : frontier) {
-                if (bf.lookup(kmer.getHashValues(k, numHash))) {
+                if (bf.lookup(kmer.getHash())) {
                     if (kmer.equals(right)) {
                         return true;
                     }
@@ -661,7 +676,7 @@ public final class GraphUtils {
         }
         
         for (Kmer2 kmer : frontier) {
-            if (bf.lookup(kmer.getHashValues(k, numHash))) {
+            if (bf.lookup(kmer.getHash())) {
                 if (kmer.equals(right)) {
                     return true;
                 }
@@ -2806,7 +2821,7 @@ public final class GraphUtils {
         int start;
 
         for (start=numKmers-1; start>=end; --start) {
-            if (!assembledKmersBloomFilter.lookup(kmers.get(start).getHashValues(k, numHash))) {
+            if (!assembledKmersBloomFilter.lookup(kmers.get(start).getHash())) {
                 break;
             }
         }
@@ -2816,12 +2831,12 @@ public final class GraphUtils {
         for (int i=start-minNumPairs; i>=end; --i) {
             kmer = kmers.get(i);
             
-            if (graph.lookupLeftKmer(kmer.getHashValues(k, numHash)) &&
+            if (graph.lookupLeftKmer(kmer.getHash()) &&
                     !graph.isLowComplexity(kmer)) {
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
                     p = kmers.get(i-j);
-                    if (!graph.lookupLeftKmer(p.getHashValues(k, numHash)) ||
+                    if (!graph.lookupLeftKmer(p.getHash()) ||
                             graph.isLowComplexity(p)) {
                         i=j;
                         break;
@@ -2884,7 +2899,7 @@ public final class GraphUtils {
         int start;
 
         for (start=numKmers-1; start>=end; --start) {
-            if (!assembledKmersBloomFilter.lookup(kmers.get(start).getHashValues(k, numHash))) {
+            if (!assembledKmersBloomFilter.lookup(kmers.get(start).getHash())) {
                 break;
             }
         }
@@ -2894,12 +2909,12 @@ public final class GraphUtils {
         for (int i=start-minNumPairs; i>=end; --i) {
             kmer = kmers.get(i);
             
-            if (graph.lookupRightKmer(kmer.getHashValues(k, numHash)) &&
+            if (graph.lookupRightKmer(kmer.getHash()) &&
                     !graph.isLowComplexity(kmer)) {
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
                     p = kmers.get(i-j);
-                    if (!graph.lookupRightKmer(p.getHashValues(k, numHash)) ||
+                    if (!graph.lookupRightKmer(p.getHash()) ||
                             graph.isLowComplexity(p)) {
                         i=j;
                         break;
@@ -2949,12 +2964,12 @@ public final class GraphUtils {
         for (int i=numKmers-1-minNumPairs; i>=end; --i) {
             kmer = kmers.get(i);
             
-            if (graph.lookupLeftKmer(kmer.getHashValues(k, numHash)) &&
+            if (graph.lookupLeftKmer(kmer.getHash()) &&
                     !graph.isLowComplexity(kmer)) {
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
                     p = kmers.get(i-j);
-                    if (!graph.lookupLeftKmer(p.getHashValues(k, numHash)) ||
+                    if (!graph.lookupLeftKmer(p.getHash()) ||
                             graph.isLowComplexity(p)) {
                         i=j;
                         break;
@@ -2986,12 +3001,12 @@ public final class GraphUtils {
         for (int i=numKmers-1-minNumPairs; i>=end; --i) {
             kmer = kmers.get(i);
             
-            if (graph.lookupRightKmer(kmer.getHashValues(k, numHash)) &&
+            if (graph.lookupRightKmer(kmer.getHash()) &&
                     !graph.isLowComplexity(kmer)) {
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
                     p = kmers.get(i-j);
-                    if (!graph.lookupRightKmer(p.getHashValues(k, numHash)) ||
+                    if (!graph.lookupRightKmer(p.getHash()) ||
                             graph.isLowComplexity(p)) {
                         i=j;
                         break;
@@ -3111,7 +3126,7 @@ public final class GraphUtils {
             for (int i=partnerFromIndex+1; i<partnerToIndex; ++i) {
                 partner = kmers.get(i);
 
-                if (!graph.lookupLeftKmer(partner.getHashValues(k, numHash))) {
+                if (!graph.lookupLeftKmer(partner.getHash())) {
                     return false;
                 }
 
@@ -3120,7 +3135,7 @@ public final class GraphUtils {
                 itr = frontier.iterator();
                 while (itr.hasNext()) {
                     kmer = itr.next();
-                    if (graph.lookupRightKmer(kmer.getHashValues(k, numHash)) && 
+                    if (graph.lookupRightKmer(kmer.getHash()) && 
                             graph.lookupKmerPairing(partner, kmer) &&
                             (!partnerIsLowComplexity || !graph.isLowComplexity(kmer))) {
                         newFrontier.addAll(kmer.getSuccessors(k, numHash, graph));
@@ -3169,7 +3184,7 @@ public final class GraphUtils {
             for (int i=partnerFromIndex+1; i<partnerToIndex; ++i) {
                 partner = kmers.get(i);
 
-                if (!graph.lookupRightKmer(partner.getHashValues(k, numHash))) {
+                if (!graph.lookupRightKmer(partner.getHash())) {
                     return false;
                 }
                 
@@ -3178,7 +3193,7 @@ public final class GraphUtils {
                 itr = frontier.iterator();
                 while (itr.hasNext()) {
                     kmer = itr.next();
-                    if (graph.lookupLeftKmer(kmer.getHashValues(k, numHash)) && 
+                    if (graph.lookupLeftKmer(kmer.getHash()) && 
                             graph.lookupKmerPairing(kmer, partner) &&
                             (!partnerIsLowComplexity || !graph.isLowComplexity(kmer))) {
                         newFrontier.addAll(kmer.getPredecessors(k, numHash, graph));
@@ -3206,12 +3221,9 @@ public final class GraphUtils {
     private static boolean areLeftKmers(ArrayList<Kmer2> kmers, 
                                         int fromIndex,
                                         int toIndex,
-                                        BloomFilterDeBruijnGraph graph) {
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
-        
+                                        BloomFilterDeBruijnGraph graph) {        
         for (int i=fromIndex; i<toIndex; ++i) {
-            if (!graph.lookupLeftKmer(kmers.get(i).getHashValues(k, numHash))) {
+            if (!graph.lookupLeftKmer(kmers.get(i).getHash())) {
                 return false;
             }
         }
@@ -3223,11 +3235,8 @@ public final class GraphUtils {
                                         int fromIndex,
                                         int toIndex,
                                         BloomFilterDeBruijnGraph graph) {
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
-        
         for (int i=fromIndex; i<toIndex; ++i) {
-            if (!graph.lookupRightKmer(kmers.get(i).getHashValues(k, numHash))) {
+            if (!graph.lookupRightKmer(kmers.get(i).getHash())) {
                 return false;
             }
         }
@@ -3486,7 +3495,7 @@ public final class GraphUtils {
                         
             if (!simpleExtension.isEmpty()) {
                 Iterator<Kmer2> itr = simpleExtension.descendingIterator();
-                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHashValues(k, numHash))) {
+                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
                     itr.remove();
                 }
                 
@@ -3602,13 +3611,13 @@ public final class GraphUtils {
                 return false;
             }
             
-            if (assembledKmersBloomFilter.lookup(cursor.getHashValues(k, numHash))) {
+            if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
                 boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
                 
                 if (assembled) {
 //                    int numNotAssembled = 0;
                     for (int i=partnerIndex; i<numKmers; ++i) {
-                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHashValues(k, numHash))) {
+                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHash())) {
 //                            if (distanceInversePI < ++numNotAssembled) {
                                 assembled = false;
                                 break;
@@ -3674,7 +3683,7 @@ public final class GraphUtils {
             
             if (!simpleExtension.isEmpty()) {
                 Iterator<Kmer2> itr = simpleExtension.descendingIterator();
-                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHashValues(k, numHash))) {
+                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
                     itr.remove();
                 }
                 
@@ -3790,13 +3799,13 @@ public final class GraphUtils {
                 return false;
             }
             
-            if (assembledKmersBloomFilter.lookup(cursor.getHashValues(k, numHash))) {
+            if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
                 boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
                 
                 if (assembled) {
 //                    int numNotAssembled = 0;
                     for (int i=partnerIndex; i<numKmers; ++i) {
-                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHashValues(k, numHash))) {
+                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHash())) {
 //                            if (distanceInversePI < ++numNotAssembled) {
                                 assembled = false;
                                 break;
@@ -3887,14 +3896,14 @@ public final class GraphUtils {
                             return false;
                         }
 
-                        if (assembledKmersBloomFilter.lookup(cursor.getHashValues(k, numHash))) {
+                        if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
                             boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
 
                             if (assembled) {
     //                            int numNotAssembled = 0;
 
                                 for (Kmer2 kmer : extension) {
-                                    if (!assembledKmersBloomFilter.lookup(kmer.getHashValues(k, numHash))) {
+                                    if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
     //                                    if (distanceInversePI < ++numNotAssembled) {
                                             assembled = false;
                                             break;
@@ -3904,7 +3913,7 @@ public final class GraphUtils {
 
                                 if (assembled) {
                                     for (int i=partnerIndex; i<numKmers; ++i) {
-                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHashValues(k, numHash))) {
+                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHash())) {
     //                                        if (distanceInversePI < ++numNotAssembled) {
                                                 assembled = false;
                                                 break;
@@ -4049,14 +4058,14 @@ public final class GraphUtils {
                             return false;
                         }
 
-                        if (assembledKmersBloomFilter.lookup(cursor.getHashValues(k, numHash))) {
+                        if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
                             boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
 
                             if (assembled) {
     //                            int numNotAssembled = 0;
 
                                 for (Kmer2 kmer : extension) {
-                                    if (!assembledKmersBloomFilter.lookup(kmer.getHashValues(k, numHash))) {
+                                    if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
     //                                    if (distanceInversePI < ++numNotAssembled) {
                                             assembled = false;
                                             break;
@@ -4066,7 +4075,7 @@ public final class GraphUtils {
 
                                 if (assembled) {
                                     for (int i=partnerIndex; i<numKmers; ++i) {
-                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHashValues(k, numHash))) {
+                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHash())) {
     //                                        if (distanceInversePI < ++numNotAssembled) {
                                                 assembled = false;
                                                 break;
@@ -4453,14 +4462,14 @@ public final class GraphUtils {
                             return false;
                         }
 
-                        if (assembledKmersBloomFilter.lookup(cursor.getHashValues(k, numHash))) {
+                        if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
                             boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
 
                             if (assembled) {
     //                            int numNotAssembled = 0;
 
                                 for (Kmer2 kmer : extension) {
-                                    if (!assembledKmersBloomFilter.lookup(kmer.getHashValues(k, numHash))) {
+                                    if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
     //                                    if (distanceInversePI < ++numNotAssembled) {
                                             assembled = false;
                                             break;
@@ -4470,7 +4479,7 @@ public final class GraphUtils {
 
                                 if (assembled) {
                                     for (int i=partnerIndex; i<numKmers; ++i) {
-                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHashValues(k, numHash))) {
+                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHash())) {
     //                                        if (distanceInversePI < ++numNotAssembled) {
                                                 assembled = false;
                                                 break;
@@ -4610,14 +4619,14 @@ public final class GraphUtils {
                             return false;
                         }
 
-                        if (assembledKmersBloomFilter.lookup(cursor.getHashValues(k, numHash))) {
+                        if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
                             boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
 
                             if (assembled) {
     //                            int numNotAssembled = 0;
 
                                 for (Kmer2 kmer : extension) {
-                                    if (!assembledKmersBloomFilter.lookup(kmer.getHashValues(k, numHash))) {
+                                    if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
     //                                    if (distanceInversePI < ++numNotAssembled) {
                                             assembled = false;
                                             break;
@@ -4627,7 +4636,7 @@ public final class GraphUtils {
 
                                 if (assembled) {
                                     for (int i=partnerIndex; i<numKmers; ++i) {
-                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHashValues(k, numHash))) {
+                                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHash())) {
     //                                        if (distanceInversePI < ++numNotAssembled) {
                                                 assembled = false;
                                                 break;

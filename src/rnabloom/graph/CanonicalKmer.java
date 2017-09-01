@@ -13,7 +13,6 @@ import rnabloom.bloom.hash.CanonicalPredecessorsNTHashIterator;
 import rnabloom.bloom.hash.CanonicalRightVariantsNTHashIterator;
 import rnabloom.bloom.hash.CanonicalSuccessorsNTHashIterator;
 import static rnabloom.bloom.hash.HashFunction2.combineHashValues;
-import static rnabloom.bloom.hash.NTHash.NTM64;
 import static rnabloom.util.SeqUtils.NUCLEOTIDES;
 import static rnabloom.util.SeqUtils.getAltNucleotides;
 import static rnabloom.util.SeqUtils.shiftLeft;
@@ -43,40 +42,17 @@ public class CanonicalKmer extends Kmer2 {
     }
     
     @Override
-    public long[] getHashValues(int len, int numHash) {
-        long[] hVals = new long[numHash];
-        NTM64(getHash(), hVals, len, numHash);
-        return hVals;
-    }
-    
-    @Override
-    public long[] getKmerPairHashValues(int len, int numHash, Kmer2 rightPartner) {
-        long[] hVals = new long[numHash];
+    public long getKmerPairHashValue(Kmer2 rightPartner) {
         if (rightPartner instanceof CanonicalKmer) {
-            NTM64(Math.min(combineHashValues(fHashVal, rightPartner.fHashVal), combineHashValues(((CanonicalKmer) rightPartner).rHashVal, rHashVal)), hVals, len, numHash);
+            return getKmerPairHashValue((CanonicalKmer) rightPartner);
         }
-        else {
-            NTM64(combineHashValues(this.fHashVal, rightPartner.fHashVal), hVals, len, numHash);
-        }
-        return hVals;
+        
+        return combineHashValues(this.fHashVal, rightPartner.fHashVal);
     }
     
-    public long[] getKmerPairHashValues(int len, int numHash, CanonicalKmer rightPartner) {
-        long[] hVals = new long[numHash];
-        NTM64(Math.min(combineHashValues(fHashVal, rightPartner.fHashVal), combineHashValues(rightPartner.rHashVal, rHashVal)), hVals, len, numHash);
-        return hVals;
-    }
-    
-    public long[] getFHashValues(int len, int numHash) {
-        long[] hVals = new long[numHash];
-        NTM64(fHashVal, hVals, len, numHash);
-        return hVals;
-    }
-    
-    public long[] getRHashValues(int len, int numHash) {
-        long[] hVals = new long[numHash];
-        NTM64(rHashVal, hVals, len, numHash);
-        return hVals;
+    public long getKmerPairHashValue(CanonicalKmer rightPartner) {
+        return Math.min(combineHashValues(fHashVal, rightPartner.fHashVal),
+                            combineHashValues(rightPartner.rHashVal, rHashVal));
     }
     
     @Override
