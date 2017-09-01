@@ -56,7 +56,7 @@ public class CanonicalHashFunction2 extends HashFunction2 {
                               final long[] out) {
         NTMC64(kmer, k, numHash, out);
     }
-    
+        
     @Override
     public NTHashIterator getHashIterator(final int numHash) {
         return new CanonicalNTHashIterator(k, numHash);

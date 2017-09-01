@@ -57,6 +57,18 @@ public class HashFunction2 {
                               final long[] out) {
         NTM64(kmer, k, numHash, out);
     }
+    
+    /**
+     * Generate multiple hash values using the base hash value
+     * @param hVal - the base hash value
+     * @param numHash - the number of hash values in total, including the base value
+     * @return - array of hash values
+     */
+    public long[] getHashValues(final long hVal, final int numHash) {
+        long[] hVals = new long[numHash];
+        NTM64(hVal, hVals, k, numHash);
+        return hVals;
+    }
             
 //    public long[][] getSuccessorsHashValues(final int numHash, final long[] hVals, final char leftMostNucleotide) {
 //        return NTM64(leftMostNucleotide, NUCLEOTIDES, k, numHash, hVals, kMod64);
