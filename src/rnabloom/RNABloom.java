@@ -1514,7 +1514,7 @@ public class RNABloom {
                         if (frag.length >= shortestFragmentLengthAllowed) {
                             ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
                             
-                            if (!containsAllKmers(screeningBf, fragKmers) && !graph.containsAllPairedKmers(fragKmers)) {
+                            if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                                 if (frag.minCov == 1) {
                                     graph.addPairedKmers(fragKmers);
 
@@ -1590,7 +1590,7 @@ public class RNABloom {
                                 if (frag.length >= shortestFragmentLengthAllowed) {
                                     ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
                                     
-                                    if (!containsAllKmers(screeningBf, fragKmers) && !graph.containsAllPairedKmers(fragKmers)) {
+                                    if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                                         if (frag.minCov == 1) {
                                             graph.addPairedKmers(fragKmers);
                                             
@@ -1640,7 +1640,7 @@ public class RNABloom {
                     if (frag.length >= shortestFragmentLengthAllowed) {
                         ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
                         
-                        if (!containsAllKmers(screeningBf, fragKmers) && !graph.containsAllPairedKmers(fragKmers)) {
+                        if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                             if (frag.minCov == 1) {
                                 graph.addPairedKmers(fragKmers);
 
