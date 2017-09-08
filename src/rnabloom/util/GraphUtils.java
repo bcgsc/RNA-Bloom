@@ -867,6 +867,91 @@ public final class GraphUtils {
         return null;
     }
     
+    public static ArrayDeque<Kmer2> findPath(BloomFilterDeBruijnGraph graph, Kmer2 left, Kmer2 right, int bound, int lookahead) {
+        int k = graph.getK();
+        int numHash = graph.getMaxNumHash();
+                
+        // data structure to store visited kmers at defined depth
+        HashMap<Kmer2, ArrayDeque<Integer>> visitedKmers = new HashMap<>();
+                
+        int depth = 0;
+        
+        ArrayDeque<LinkedList<Kmer2>> branchesStack = new ArrayDeque<>();
+        branchesStack.add(getSuccessorsRanked(left, graph, lookahead));
+        
+        ArrayDeque<Kmer2> extension = new ArrayDeque<>();
+        HashSet<Kmer2> extensionKmers = new HashSet<>();
+        
+        while (!branchesStack.isEmpty()) {
+            LinkedList<Kmer2> branches = branchesStack.getLast();
+            
+            if (branches.isEmpty()) {
+                Kmer2 cursor = extension.pollLast();
+                
+                if (cursor != null) {
+                    extensionKmers.remove(cursor);
+                }
+                
+                branchesStack.removeLast();
+                --depth;
+            }
+            else {
+                Kmer2 cursor = branches.pop();
+                
+                if (cursor.equals(right)) {
+                    return extension;
+                }
+                
+                if (depth < bound && !extensionKmers.contains(cursor)) {
+                    if (cursor.hasAtLeastXPredecessors(k, numHash, graph, 2)) {
+                        // these kmers may be visited from an alternative branch upstream
+
+                        ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursor);
+                        if (visitedDepths == null) {
+                            visitedDepths = new ArrayDeque<>();
+                            visitedDepths.add(depth);
+
+                            visitedKmers.put(cursor, visitedDepths);
+
+                            branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
+                            extension.add(cursor);
+                            extensionKmers.add(cursor);
+                            ++depth;
+                        }
+                        else {
+                            boolean visited = false;
+                            
+                            // check whether depth may be off by 1 due to an indel
+                            for (Integer d : visitedDepths) {
+                                if (Math.abs(d - depth) <= 1) {
+                                    visited = true;
+                                    break;
+                                }
+                            }
+
+                            if (!visited) {
+                                visitedDepths.add(depth);
+
+                                branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
+                                extension.add(cursor);
+                                extensionKmers.add(cursor);
+                                ++depth;
+                            }
+                        }
+                    }
+                    else {
+                        branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
+                        extension.add(cursor);
+                        extensionKmers.add(cursor);
+                        ++depth;
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+    
     /**
      * 
      * @param graph
@@ -1451,7 +1536,7 @@ public final class GraphUtils {
         
         boolean corrected = false;
         int numKmers = kmers.size();
-        int lastKmerIndex = numKmers-1;
+//        int lastKmerIndex = numKmers-1;
         
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
@@ -1465,9 +1550,7 @@ public final class GraphUtils {
         for (int i=0; i<numKmers; ++i) {
             kmer = kmers.get(i);
             
-            if (kmer.count >= covThreshold &&
-                    (i==0 || kmers.get(i-1).count >= covThreshold) &&
-                    (i==lastKmerIndex || kmers.get(i+1).count >= covThreshold)) {
+            if (kmer.count >= covThreshold) {
                 
                 if (numBadKmersSince > 0) {
                     if (kmers2.isEmpty()) {
@@ -1537,6 +1620,9 @@ public final class GraphUtils {
                                     }
                                 }
 //                            }
+                        }
+                        else {
+                            corrected = true;
                         }
                     }
                     else if (numBadKmersSince == expectedGapSize) {
@@ -1679,6 +1765,9 @@ public final class GraphUtils {
                         }
                     }
 //                }
+            }
+            else {
+                corrected = true;
             }
         }
         
@@ -2395,7 +2484,6 @@ public final class GraphUtils {
                                                     int lookahead,
                                                     int minOverlap,
                                                     float maxCovGradient) {
-        int k = graph.getK();
         String leftSeq = graph.assemble(leftKmers);
         String rightSeq = graph.assemble(rightKmers);
 
@@ -2412,7 +2500,12 @@ public final class GraphUtils {
             float leftCoverageThreshold = getMinimumKmerCoverage(leftKmers) * maxCovGradient;
             float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
             ArrayDeque<Kmer2> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient);
-
+            
+            if (connectedPath == null) {
+//                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+                connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+            }
+            
             if (connectedPath != null) {
                 fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
                 fragmentKmers.addAll(leftKmers);
