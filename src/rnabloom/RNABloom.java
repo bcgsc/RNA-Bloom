@@ -1161,7 +1161,14 @@ public class RNABloom {
 //                        boolean corrected = false;
 
                         if (this.errorCorrectionIterations > 0) {
-
+                            
+//                            if (left.equals("GCTCCCTTGGGTATATGGTAACCTTGTGTCCCTCAATATGGTCCTGTCCCCATCTCCCCCCCACCCCCATAGGCGAGATCCCTCCAAAATCAAGTGGGGC") &&
+//                                    right.equals("GGGAGGGGAAGCTGACTCAGCCCTGCAAAGGCAGGACCCGGGTTCATAACTGTCTGCTTCTCTGCTGTAGGCTCATTTGCAGGGGGGAGCCAAAAGGGTC")) {
+//                                System.out.println("here");
+//                            }
+//
+//                            System.out.println(left + " " + right);
+                            
                             ReadPair correctedReadPair = correctErrorsPE(leftKmers,
                                                                 rightKmers,
                                                                 graph, 
@@ -1217,48 +1224,39 @@ public class RNABloom {
                                 }
                             }
                             else {
-                                // write unconnected reads to file
+                                // this is an unconnected read pair
                                 float minCov = Float.MAX_VALUE;
-
+                                
+                                boolean hasComplexLeftKmer = false;
+                                
                                 if (leftKmers.size() >= lookahead) {
-                                    boolean hasComplexKmer = false;
-                                    
                                     for (Kmer2 kmer : leftKmers) {
                                         if (kmer.count < minCov) {
                                             minCov = kmer.count;
                                         }
                                         
-                                        if (!hasComplexKmer) {
-                                            if (!graph.isLowComplexity(kmer)) {
-                                                hasComplexKmer = true;
-                                            }
+                                        if (!hasComplexLeftKmer && !graph.isLowComplexity(kmer)) {
+                                            hasComplexLeftKmer = true;
                                         }
                                     }
-                                    
-                                    if (hasComplexKmer) {
-                                        outList.put(new Fragment(left, right, graph.assemble(leftKmers), leftKmers.size()+k-1, minCov, true));
-                                    }
                                 }
-
+                                
+                                boolean hasComplexRightKmer = false;
+                                
                                 if (rightKmers.size() >= lookahead) {
-                                    boolean hasComplexKmer = false;
-                                    
-                                    minCov = Float.MAX_VALUE;
                                     for (Kmer2 kmer : rightKmers) {
                                         if (kmer.count < minCov) {
                                             minCov = kmer.count;
                                         }
                                         
-                                        if (!hasComplexKmer) {
-                                            if (!graph.isLowComplexity(kmer)) {
-                                                hasComplexKmer = true;
-                                            }
+                                        if (!hasComplexRightKmer && !graph.isLowComplexity(kmer)) {
+                                            hasComplexRightKmer = true;
                                         }
                                     }
-                                    
-                                    if (hasComplexKmer) {
-                                        outList.put(new Fragment(left, right, graph.assemble(rightKmers), rightKmers.size()+k-1, minCov, true));
-                                    }
+                                }
+                                
+                                if (hasComplexLeftKmer || hasComplexRightKmer) {
+                                    outList.put(new Fragment(left, right, null, 0, minCov, true));
                                 }
                             }
 //                        }
@@ -1376,6 +1374,7 @@ public class RNABloom {
                                                 String[] shortFragmentsFastaPaths,
                                                 String longSingletonsFasta,
                                                 String shortSingletonsFasta,
+                                                String unconnectedReadsFasta,
                                                 int bound,
                                                 int minOverlap,
                                                 int sampleSize, 
@@ -1399,6 +1398,7 @@ public class RNABloom {
         graph.initializePairKmersBloomFilter();
         
         long fragmentId = 0;
+        long unconnectedReadId = 0;
         long readPairsParsed = 0;
         
         int maxTasksQueueSize = numThreads;
@@ -1431,6 +1431,7 @@ public class RNABloom {
             
             FastaWriter longSingletonsOut = new FastaWriter(longSingletonsFasta, true);
             FastaWriter shortSingletonsOut = new FastaWriter(shortSingletonsFasta, true);
+            FastaWriter unconnectedReadsOut = new FastaWriter(unconnectedReadsFasta, true);
             
             FastqReadPair p;
             ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
@@ -1511,39 +1512,46 @@ public class RNABloom {
                     Fragment frag;
                     while (!fragments.isEmpty()) {
                         frag = fragments.poll();
-                        if (frag.length >= shortestFragmentLengthAllowed) {
-                            ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
-                            
-                            if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
-                                if (frag.minCov == 1) {
-                                    graph.addPairedKmers(fragKmers);
+                        
+                        if (frag.isUnconnectedRead) {
+                            unconnectedReadsOut.write(Long.toString(++unconnectedReadId) + "L " + Float.toString(frag.minCov), frag.left);
+                            unconnectedReadsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
+                        }
+                        else {
+                            if (frag.length >= shortestFragmentLengthAllowed) {
+                                ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
 
-                                    if (frag.length >= longFragmentLengthThreshold) {
-                                        for (Kmer2 kmer : fragKmers) {
-                                            screeningBf.add(kmer.getHash());
-                                        }
-                                        
-                                        longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
-                                    }
-                                    else {
-                                        shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
-                                    }
-                                }
-                                else {
-                                    m = getMinCoverageOrderOfMagnitude(frag.minCov);
-
-                                    if (m >= 0) {
+                                if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
+                                    if (frag.minCov == 1) {
                                         graph.addPairedKmers(fragKmers);
-                                        
+
                                         if (frag.length >= longFragmentLengthThreshold) {
                                             for (Kmer2 kmer : fragKmers) {
                                                 screeningBf.add(kmer.getHash());
                                             }
-                                            
-                                            longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+
+                                            longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                         }
                                         else {
-                                            shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                            shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                        }
+                                    }
+                                    else {
+                                        m = getMinCoverageOrderOfMagnitude(frag.minCov);
+
+                                        if (m >= 0) {
+                                            graph.addPairedKmers(fragKmers);
+
+                                            if (frag.length >= longFragmentLengthThreshold) {
+                                                for (Kmer2 kmer : fragKmers) {
+                                                    screeningBf.add(kmer.getHash());
+                                                }
+
+                                                longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                            }
+                                            else {
+                                                shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                            }
                                         }
                                     }
                                 }
@@ -1587,39 +1595,45 @@ public class RNABloom {
                                     break;
                                 }
                                 
-                                if (frag.length >= shortestFragmentLengthAllowed) {
-                                    ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
-                                    
-                                    if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
-                                        if (frag.minCov == 1) {
-                                            graph.addPairedKmers(fragKmers);
-                                            
-                                            if (frag.length >= longFragmentLengthThreshold) {
-                                                for (Kmer2 kmer : fragKmers) {
-                                                    screeningBf.add(kmer.getHash());
-                                                } 
-                                                
-                                                longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
-                                            }
-                                            else {
-                                                shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
-                                            }
-                                        }
-                                        else {
-                                            m = getMinCoverageOrderOfMagnitude(frag.minCov);
+                                if (frag.isUnconnectedRead) {
+                                    unconnectedReadsOut.write(Long.toString(++unconnectedReadId) + "L " + Float.toString(frag.minCov), frag.left);
+                                    unconnectedReadsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
+                                }
+                                else {
+                                    if (frag.length >= shortestFragmentLengthAllowed) {
+                                        ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
 
-                                            if (m >= 0) {
+                                        if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
+                                            if (frag.minCov == 1) {
                                                 graph.addPairedKmers(fragKmers);
-                                                
+
                                                 if (frag.length >= longFragmentLengthThreshold) {
                                                     for (Kmer2 kmer : fragKmers) {
                                                         screeningBf.add(kmer.getHash());
-                                                    }
-                                                    
-                                                    longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    } 
+
+                                                    longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                                 }
                                                 else {
-                                                    shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                }
+                                            }
+                                            else {
+                                                m = getMinCoverageOrderOfMagnitude(frag.minCov);
+
+                                                if (m >= 0) {
+                                                    graph.addPairedKmers(fragKmers);
+
+                                                    if (frag.length >= longFragmentLengthThreshold) {
+                                                        for (Kmer2 kmer : fragKmers) {
+                                                            screeningBf.add(kmer.getHash());
+                                                        }
+
+                                                        longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    }
+                                                    else {
+                                                        shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    }
                                                 }
                                             }
                                         }
@@ -1637,39 +1651,46 @@ public class RNABloom {
                 Fragment frag;
                 while (!fragments.isEmpty()) {
                     frag = fragments.poll();
-                    if (frag.length >= shortestFragmentLengthAllowed) {
-                        ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
-                        
-                        if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
-                            if (frag.minCov == 1) {
-                                graph.addPairedKmers(fragKmers);
+                    
+                    if (frag.isUnconnectedRead) {
+                        unconnectedReadsOut.write(Long.toString(++unconnectedReadId) + "L " + Float.toString(frag.minCov), frag.left);
+                        unconnectedReadsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
+                    }
+                    else {
+                        if (frag.length >= shortestFragmentLengthAllowed) {
+                            ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
 
-                                if (frag.length >= longFragmentLengthThreshold) {
-                                    for (Kmer2 kmer : fragKmers) {
-                                        screeningBf.add(kmer.getHash());
-                                    }
-                                                
-                                    longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
-                                }
-                                else {
-                                    shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
-                                }
-                            }
-                            else {
-                                m = getMinCoverageOrderOfMagnitude(frag.minCov);
-
-                                if (m >= 0) {
+                            if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
+                                if (frag.minCov == 1) {
                                     graph.addPairedKmers(fragKmers);
 
                                     if (frag.length >= longFragmentLengthThreshold) {
                                         for (Kmer2 kmer : fragKmers) {
                                             screeningBf.add(kmer.getHash());
                                         }
-                                        
-                                        longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+
+                                        longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                     }
                                     else {
-                                        shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                        shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                    }
+                                }
+                                else {
+                                    m = getMinCoverageOrderOfMagnitude(frag.minCov);
+
+                                    if (m >= 0) {
+                                        graph.addPairedKmers(fragKmers);
+
+                                        if (frag.length >= longFragmentLengthThreshold) {
+                                            for (Kmer2 kmer : fragKmers) {
+                                                screeningBf.add(kmer.getHash());
+                                            }
+
+                                            longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                        }
+                                        else {
+                                            shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                        }
                                     }
                                 }
                             }
@@ -1693,6 +1714,7 @@ public class RNABloom {
 //                }
 //            }
             
+            unconnectedReadsOut.close();
             longSingletonsOut.close();
             shortSingletonsOut.close();
 
@@ -2505,6 +2527,7 @@ public class RNABloom {
             
             String longFragmentsFastaPrefix =   outdir + File.separator + name + ".fragments.long.";
             String shortFragmentsFastaPrefix =  outdir + File.separator + name + ".fragments.short.";
+            String unconnectedReadsFastaPath =           outdir + File.separator + name + ".unconnected.fa";
             String longTransfragsFastaPrefix =  outdir + File.separator + name + ".transfrags.long.";
             String shortTransfragsFastaPrefix = outdir + File.separator + name + ".transfrags.short.";
             String transcriptsFasta =           outdir + File.separator + name + ".transcripts.fa";
@@ -2743,6 +2766,11 @@ public class RNABloom {
                     fragmentsFile.delete();
                 }
                 
+                fragmentsFile = new File(unconnectedReadsFastaPath);
+                if (fragmentsFile.exists()) {
+                    fragmentsFile.delete();
+                }
+                
                 timer.start();
                 
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
@@ -2752,6 +2780,7 @@ public class RNABloom {
                         shortFragmentsFastaPaths,
                         longSingletonsFastaPath,
                         shortSingletonsFastaPath,
+                        unconnectedReadsFastaPath,
                         bound, 
                         minOverlap,
                         sampleSize,
