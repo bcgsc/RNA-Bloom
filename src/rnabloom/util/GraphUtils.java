@@ -2501,10 +2501,10 @@ public final class GraphUtils {
             float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
             ArrayDeque<Kmer2> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient);
             
-            if (connectedPath == null) {
-//                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
-                connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
-            }
+//            if (connectedPath == null) {
+////                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+//                connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+//            }
             
             if (connectedPath != null) {
                 fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
