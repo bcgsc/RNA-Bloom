@@ -1162,8 +1162,8 @@ public class RNABloom {
 
                         if (this.errorCorrectionIterations > 0) {
                             
-//                            if (left.equals("GCTCCCTTGGGTATATGGTAACCTTGTGTCCCTCAATATGGTCCTGTCCCCATCTCCCCCCCACCCCCATAGGCGAGATCCCTCCAAAATCAAGTGGGGC") &&
-//                                    right.equals("GGGAGGGGAAGCTGACTCAGCCCTGCAAAGGCAGGACCCGGGTTCATAACTGTCTGCTTCTCTGCTGTAGGCTCATTTGCAGGGGGGAGCCAAAAGGGTC")) {
+//                            if (left.equals("GGCGTCTTCACCACCATGGAGAAGGCTGGGGCTCATTTGCAGGGGGGAGCCAAAAGGGTCATCATCTCTGCCCCCTCTGCTGACGCCCCCATGTTCGTCA") &&
+//                                    right.equals("CGCCCCCATGTTCGTCATGGGTGTGAACCATGAGAAGTATGACAACAGCCTCAAGATCATCAGCAATGCCTCCTGCACCACCAACTGCTTAGCACCCCTG")) {
 //                                System.out.println("here");
 //                            }
 //
@@ -1372,9 +1372,10 @@ public class RNABloom {
     public void assembleFragmentsMultiThreaded(FastqPair[] fastqs, 
                                                 String[] longFragmentsFastaPaths,
                                                 String[] shortFragmentsFastaPaths,
+                                                String[] unconnectedReadsFastaPaths,
                                                 String longSingletonsFasta,
                                                 String shortSingletonsFasta,
-                                                String unconnectedReadsFasta,
+                                                String unconnectedSingletonsFasta,
                                                 int bound,
                                                 int minOverlap,
                                                 int sampleSize, 
@@ -1428,10 +1429,17 @@ public class RNABloom {
                                                                 new FastaWriter(shortFragmentsFastaPaths[3], true),
                                                                 new FastaWriter(shortFragmentsFastaPaths[4], true),
                                                                 new FastaWriter(shortFragmentsFastaPaths[5], true)};
+
+            FastaWriter[] unconnectedReadsOut = new FastaWriter[]{new FastaWriter(unconnectedReadsFastaPaths[0], true),
+                                                                new FastaWriter(unconnectedReadsFastaPaths[1], true),
+                                                                new FastaWriter(unconnectedReadsFastaPaths[2], true),
+                                                                new FastaWriter(unconnectedReadsFastaPaths[3], true),
+                                                                new FastaWriter(unconnectedReadsFastaPaths[4], true),
+                                                                new FastaWriter(unconnectedReadsFastaPaths[5], true)};
             
             FastaWriter longSingletonsOut = new FastaWriter(longSingletonsFasta, true);
             FastaWriter shortSingletonsOut = new FastaWriter(shortSingletonsFasta, true);
-            FastaWriter unconnectedReadsOut = new FastaWriter(unconnectedReadsFasta, true);
+            FastaWriter unconnectedSingletonsOut = new FastaWriter(unconnectedSingletonsFasta, true);
             
             FastqReadPair p;
             ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
@@ -1514,8 +1522,15 @@ public class RNABloom {
                         frag = fragments.poll();
                         
                         if (frag.isUnconnectedRead) {
-                            unconnectedReadsOut.write(Long.toString(++unconnectedReadId) + "L " + Float.toString(frag.minCov), frag.left);
-                            unconnectedReadsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
+                            if (frag.minCov == 1) {
+                                unconnectedSingletonsOut.write(Long.toString(++unconnectedReadId) + "L ", frag.left);
+                                unconnectedSingletonsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
+                            }
+                            else {
+                                m = getMinCoverageOrderOfMagnitude(frag.minCov);
+                                unconnectedReadsOut[m].write(Long.toString(++unconnectedReadId) + "L ", frag.left);
+                                unconnectedReadsOut[m].write(Long.toString(unconnectedReadId) + "R", frag.right);
+                            }
                         }
                         else {
                             if (frag.length >= shortestFragmentLengthAllowed) {
@@ -1596,8 +1611,15 @@ public class RNABloom {
                                 }
                                 
                                 if (frag.isUnconnectedRead) {
-                                    unconnectedReadsOut.write(Long.toString(++unconnectedReadId) + "L " + Float.toString(frag.minCov), frag.left);
-                                    unconnectedReadsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
+                                    if (frag.minCov == 1) {
+                                        unconnectedSingletonsOut.write(Long.toString(++unconnectedReadId) + "L ", frag.left);
+                                        unconnectedSingletonsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
+                                    }
+                                    else {
+                                        m = getMinCoverageOrderOfMagnitude(frag.minCov);
+                                        unconnectedReadsOut[m].write(Long.toString(++unconnectedReadId) + "L ", frag.left);
+                                        unconnectedReadsOut[m].write(Long.toString(unconnectedReadId) + "R", frag.right);
+                                    }
                                 }
                                 else {
                                     if (frag.length >= shortestFragmentLengthAllowed) {
@@ -1653,8 +1675,15 @@ public class RNABloom {
                     frag = fragments.poll();
                     
                     if (frag.isUnconnectedRead) {
-                        unconnectedReadsOut.write(Long.toString(++unconnectedReadId) + "L " + Float.toString(frag.minCov), frag.left);
-                        unconnectedReadsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
+                        if (frag.minCov == 1) {
+                            unconnectedSingletonsOut.write(Long.toString(++unconnectedReadId) + "L ", frag.left);
+                            unconnectedSingletonsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
+                        }
+                        else {
+                            m = getMinCoverageOrderOfMagnitude(frag.minCov);
+                            unconnectedReadsOut[m].write(Long.toString(++unconnectedReadId) + "L ", frag.left);
+                            unconnectedReadsOut[m].write(Long.toString(unconnectedReadId) + "R", frag.right);
+                        }
                     }
                     else {
                         if (frag.length >= shortestFragmentLengthAllowed) {
@@ -1714,7 +1743,7 @@ public class RNABloom {
 //                }
 //            }
             
-            unconnectedReadsOut.close();
+            unconnectedSingletonsOut.close();
             longSingletonsOut.close();
             shortSingletonsOut.close();
 
@@ -1723,6 +1752,10 @@ public class RNABloom {
             }
             
             for (FastaWriter out : shortFragmentsOut) {
+                out.close();
+            }
+            
+            for (FastaWriter out : unconnectedReadsOut) {
                 out.close();
             }
             
@@ -2525,13 +2558,13 @@ public class RNABloom {
             String outdir = line.getOptionValue(optOutdir.getOpt(), System.getProperty("user.dir") + File.separator + name + "_assembly");
             /**@TODO evaluate whether out dir is a valid dir */
             
-            String longFragmentsFastaPrefix =   outdir + File.separator + name + ".fragments.long.";
-            String shortFragmentsFastaPrefix =  outdir + File.separator + name + ".fragments.short.";
-            String unconnectedReadsFastaPath =           outdir + File.separator + name + ".unconnected.fa";
-            String longTransfragsFastaPrefix =  outdir + File.separator + name + ".transfrags.long.";
-            String shortTransfragsFastaPrefix = outdir + File.separator + name + ".transfrags.short.";
-            String transcriptsFasta =           outdir + File.separator + name + ".transcripts.fa";
-            String shortTranscriptsFasta =      outdir + File.separator + name + ".transcripts.short.fa";
+            String longFragmentsFastaPrefix =    outdir + File.separator + name + ".fragments.long.";
+            String shortFragmentsFastaPrefix =   outdir + File.separator + name + ".fragments.short.";
+            String unconnectedReadsFastaPrefix = outdir + File.separator + name + ".unconnected.";
+            String longTransfragsFastaPrefix =   outdir + File.separator + name + ".transfrags.long.";
+            String shortTransfragsFastaPrefix =  outdir + File.separator + name + ".transfrags.short.";
+            String transcriptsFasta =            outdir + File.separator + name + ".transcripts.fa";
+            String shortTranscriptsFasta =       outdir + File.separator + name + ".transcripts.short.fa";
 //            String tmpFasta = outdir + File.separator + name + ".tmp.fa";
             String graphFile = outdir + File.separator + name + ".graph";
             
@@ -2732,8 +2765,16 @@ public class RNABloom {
                                             shortFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
                                             shortFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
             
+            String[] unconnectedReadsFastaPaths = {unconnectedReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            
             String longSingletonsFastaPath = longFragmentsFastaPrefix + "01.fa";
             String shortSingletonsFastaPath = shortFragmentsFastaPrefix + "01.fa";
+            String unconnectedSingletonsFastaPath = unconnectedReadsFastaPrefix + "01.fa";
             
             if (!forceOverwrite && fragsDoneStamp.exists()) {
                 System.out.println("Restoring paired kmers Bloom filter from file...");
@@ -2756,6 +2797,13 @@ public class RNABloom {
                     }
                 }
                 
+                for (String fragmentsFasta : unconnectedReadsFastaPaths) {
+                    fragmentsFile = new File(fragmentsFasta);
+                    if (fragmentsFile.exists()) {
+                        fragmentsFile.delete();
+                    }
+                }
+                
                 fragmentsFile = new File(longSingletonsFastaPath);
                 if (fragmentsFile.exists()) {
                     fragmentsFile.delete();
@@ -2766,7 +2814,7 @@ public class RNABloom {
                     fragmentsFile.delete();
                 }
                 
-                fragmentsFile = new File(unconnectedReadsFastaPath);
+                fragmentsFile = new File(unconnectedSingletonsFastaPath);
                 if (fragmentsFile.exists()) {
                     fragmentsFile.delete();
                 }
@@ -2778,9 +2826,10 @@ public class RNABloom {
                 assembler.assembleFragmentsMultiThreaded(fqPairs, 
                         longFragmentsFastaPaths, 
                         shortFragmentsFastaPaths,
+                        unconnectedReadsFastaPaths,
                         longSingletonsFastaPath,
                         shortSingletonsFastaPath,
-                        unconnectedReadsFastaPath,
+                        unconnectedSingletonsFastaPath,
                         bound, 
                         minOverlap,
                         sampleSize,
