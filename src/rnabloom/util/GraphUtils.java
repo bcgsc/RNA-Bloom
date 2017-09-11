@@ -1942,7 +1942,7 @@ public final class GraphUtils {
             float c;
             for (int i=startIndex-1; i>=0; --i) {
                 c = covs[i];
-                if (leftCovThreshold * maxCovGradient > c) {
+                if (leftCovThreshold * maxCovGradient >= c) {
                     leftThresholdFound = true;
                     break;
                 }
@@ -1968,7 +1968,7 @@ public final class GraphUtils {
             float rightCovThreshold = covs[startIndex];
             for (int i=startIndex-1; i>=0; --i) {
                 c = covs[i];
-                if (rightCovThreshold * maxCovGradient > c) {
+                if (rightCovThreshold * maxCovGradient >= c) {
                     rightThresholdFound = true;
                     break;
                 }
@@ -1994,7 +1994,6 @@ public final class GraphUtils {
                     }
 
                     // correct right read
-                    rightCorrected = false;
                     ArrayList<Kmer2> rightKmers2 = correctErrorHelper(rightKmers,
                                                                     graph, 
                                                                     lookahead,
