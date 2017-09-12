@@ -216,7 +216,7 @@ public final class SeqUtils {
         }
     }
     
-    private static final float LOW_COMPLEXITY_THRESHOLD = 0.87f;
+    private static final float LOW_COMPLEXITY_THRESHOLD = 0.95f;
     
     public static final boolean isLowComplexity2(byte[] bytes) {
         byte nf1[]     = new byte[4];
@@ -690,10 +690,11 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        String seq = "TCGAGTTAAGCAGATGCTCAGTGACTGTAGCAGAGCTACTGTAGCCTAGCTGATATACTGATTGACTGATTTTTATAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATGAAGAAAAA";
+        String left = "CCATAGCCAGCCCTCCGTCACCTCTTCACCGCACCCTCGGACTGCCCCAAGGCCCCCGCCGCCGCTCCAGCGCCGCGCAGCCACCGCCGCCGCCGCCGCC";
+        String right = "GCAGCCACCGCCGCCGCCGCCGCCTCTCCTTAGTCGCCGCCATGACGACCGCGTCCACCTCGCAGGTGCGCCAGAACTACCACCAGGACTCAGAGGCCAC";
         
-        String seq2 = chompRightPolyX(seq, 35, 2);
+        String frag = overlapMaximally(left, right, 10);
         
-        System.out.println(seq + "\n" + seq2);        
+        System.out.println(frag);        
     }
 }
