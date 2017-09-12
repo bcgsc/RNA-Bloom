@@ -1162,8 +1162,8 @@ public class RNABloom {
 
                         if (this.errorCorrectionIterations > 0) {
                             
-//                            if (left.equals("GGCGTCTTCACCACCATGGAGAAGGCTGGGGCTCATTTGCAGGGGGGAGCCAAAAGGGTCATCATCTCTGCCCCCTCTGCTGACGCCCCCATGTTCGTCA") &&
-//                                    right.equals("CGCCCCCATGTTCGTCATGGGTGTGAACCATGAGAAGTATGACAACAGCCTCAAGATCATCAGCAATGCCTCCTGCACCACCAACTGCTTAGCACCCCTG")) {
+//                            if (left.equals("CTCACGTATTCCCCCAGGTTTACATGTTCCAATATGATTCCACCCATGGCAAATTCCATGGCACCGTCAAGGCTGAGAACGGGAAGCTTGTCATCAATGG") &&
+//                                    right.equals("TGGAAGAAATGTGCTTTGGGGAGGCAACTAGGATGGTGTGGCTCCCTTGGGTATATGGTAACCTTGTGTCCCTCAATATGGTCCTGTCCCCATCTCCCCC")) {
 //                                System.out.println("here");
 //                            }
 //
@@ -1368,7 +1368,7 @@ public class RNABloom {
             screeningBf.empty();
         }
     }
-    
+        
     public void assembleFragmentsMultiThreaded(FastqPair[] fastqs, 
                                                 String[] longFragmentsFastaPaths,
                                                 String[] shortFragmentsFastaPaths,
@@ -1583,8 +1583,10 @@ public class RNABloom {
                     ++readPairsParsed;
                     
                     // ignore read pairs when more than half of raw read length were trimmed for each read
-                    if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
-                            p.originalRightLength > 2*p.numRightBasesTrimmed) {
+//                    if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
+//                            p.originalRightLength > 2*p.numRightBasesTrimmed) {
+                    
+                    if (!p.left.isEmpty() && !p.right.isEmpty()) {
                         
                         service.submit(new FragmentAssembler(p,
                                                             fragments,
@@ -2006,6 +2008,7 @@ public class RNABloom {
     
     public void assembleTransfragsMultiThreaded(String[] longFragmentsFastas, 
                                                 String[] shortFragmentsFastas,
+                                                String[] unconnectedReadsFastas,
                                                 String[] outFastasLong,
                                                 String[] outFastasShort,
                                                 int numThreads,
@@ -2023,20 +2026,22 @@ public class RNABloom {
                 
                 String longFragsFasta = longFragmentsFastas[mag];
                 String shortFragsFasta = shortFragmentsFastas[mag];
+                String unconnectedReadsFasta = unconnectedReadsFastas[mag];
                 
                 graph.clearPkbf();
                 insertIntoDeBruijnGraphAndPairedKmers(longFragsFasta);
                 insertIntoDeBruijnGraph(shortFragsFasta);
+                insertIntoDeBruijnGraph(unconnectedReadsFasta);
                 
                 FastaWriter fout = new FastaWriter(outFastasLong[mag], false);
                 FastaWriter foutShort = new FastaWriter(outFastasShort[mag], false);
                 TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTransfragLength);
                 
                 System.out.println("Parsing fragments in `" + longFragsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longFragsFasta, writer, sampleSize, numThreads, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longFragsFasta, writer, sampleSize, numThreads, true);
                 
                 System.out.println("Parsing fragments in `" + shortFragsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, true);
                 
                 fout.close();
                 foutShort.close();
@@ -2054,6 +2059,7 @@ public class RNABloom {
                                                 String[] shortFragmentsFastas,
                                                 String longSingletonsFasta,
                                                 String shortSingletonsFasta,
+                                                String unconnectedSingletonsFasta,
                                                 String outFasta,
                                                 String outFastaShort,
                                                 String graphFile,
@@ -2078,6 +2084,7 @@ public class RNABloom {
                     fragmentsFastas.addAll(Arrays.asList(shortFragmentsFastas));
                     fragmentsFastas.add(longSingletonsFasta);
                     fragmentsFastas.add(shortSingletonsFasta);
+                    fragmentsFastas.add(unconnectedSingletonsFasta);
                     insertIntoDeBruijnGraphMultiThreaded(fragmentsFastas, sampleSize, numThreads);
                 }
                 else {
@@ -2085,6 +2092,7 @@ public class RNABloom {
                     insertIntoDeBruijnGraph(shortFragmentsFastas);
                     insertIntoDeBruijnGraph(longSingletonsFasta);
                     insertIntoDeBruijnGraph(shortSingletonsFasta);
+                    insertIntoDeBruijnGraph(unconnectedSingletonsFasta);
                 }
             }
             else {
@@ -2886,6 +2894,7 @@ public class RNABloom {
                 
                 assembler.assembleTransfragsMultiThreaded(longFragmentsFastaPaths, 
                                                         shortFragmentsFastaPaths,
+                                                        unconnectedReadsFastaPaths,
                                                         longTransfragsFastaPaths,
                                                         shortTransfragsFastaPaths,
                                                         numThreads,
@@ -2920,6 +2929,7 @@ public class RNABloom {
                                                             shortTransfragsFastaPaths,
                                                             longSingletonsFastaPath,
                                                             shortSingletonsFastaPath,
+                                                            unconnectedSingletonsFastaPath,
                                                             transcriptsFasta, 
                                                             shortTranscriptsFasta,
                                                             graphFile,

@@ -50,10 +50,10 @@ public class FastqPairReader implements Iterator<FastqReadPair> {
     public final class FastqReadPair {
         public ArrayList<String> left; // left segments
         public ArrayList<String> right; // right segments
-        public int originalLeftLength;
-        public int originalRightLength;
-        public int numLeftBasesTrimmed;
-        public int numRightBasesTrimmed;
+//        public int originalLeftLength;
+//        public int originalRightLength;
+//        public int numLeftBasesTrimmed;
+//        public int numRightBasesTrimmed;
     }
 
     @Override
@@ -78,21 +78,21 @@ public class FastqPairReader implements Iterator<FastqReadPair> {
 
         p.left = filterFastq(frLeft, qualPattern);
         
-        int numBasesTrimmed = frLeft.seq.length();
-        p.originalLeftLength = numBasesTrimmed;
-        for (String s : p.left) {
-            numBasesTrimmed -= s.length();
-        }
-        p.numLeftBasesTrimmed = numBasesTrimmed;
+//        int numBasesTrimmed = frLeft.seq.length();
+//        p.originalLeftLength = numBasesTrimmed;
+//        for (String s : p.left) {
+//            numBasesTrimmed -= s.length();
+//        }
+//        p.numLeftBasesTrimmed = numBasesTrimmed;
         
         p.right = filterFastq(frRight, qualPattern);
         
-        numBasesTrimmed = frRight.seq.length();
-        p.originalRightLength = numBasesTrimmed;
-        for (String s : p.right) {
-            numBasesTrimmed -= s.length();
-        }
-        p.numRightBasesTrimmed = numBasesTrimmed;
+//        numBasesTrimmed = frRight.seq.length();
+//        p.originalRightLength = numBasesTrimmed;
+//        for (String s : p.right) {
+//            numBasesTrimmed -= s.length();
+//        }
+//        p.numRightBasesTrimmed = numBasesTrimmed;
         
         return p;
     }
