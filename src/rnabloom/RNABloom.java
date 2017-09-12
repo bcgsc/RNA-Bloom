@@ -1526,10 +1526,13 @@ public class RNABloom {
                                 unconnectedSingletonsOut.write(Long.toString(++unconnectedReadId) + "L ", frag.left);
                                 unconnectedSingletonsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
                             }
-                            else {
+                            else if (frag.minCov > 1)  {
                                 m = getMinCoverageOrderOfMagnitude(frag.minCov);
-                                unconnectedReadsOut[m].write(Long.toString(++unconnectedReadId) + "L ", frag.left);
-                                unconnectedReadsOut[m].write(Long.toString(unconnectedReadId) + "R", frag.right);
+                                
+                                if (m >= 0) {
+                                    unconnectedReadsOut[m].write(Long.toString(++unconnectedReadId) + "L ", frag.left);
+                                    unconnectedReadsOut[m].write(Long.toString(unconnectedReadId) + "R", frag.right);
+                                }
                             }
                         }
                         else {
@@ -1551,7 +1554,7 @@ public class RNABloom {
                                             shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                         }
                                     }
-                                    else {
+                                    else if (frag.minCov > 1)  {
                                         m = getMinCoverageOrderOfMagnitude(frag.minCov);
 
                                         if (m >= 0) {
@@ -1617,10 +1620,13 @@ public class RNABloom {
                                         unconnectedSingletonsOut.write(Long.toString(++unconnectedReadId) + "L ", frag.left);
                                         unconnectedSingletonsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
                                     }
-                                    else {
+                                    else if (frag.minCov > 1) {
                                         m = getMinCoverageOrderOfMagnitude(frag.minCov);
-                                        unconnectedReadsOut[m].write(Long.toString(++unconnectedReadId) + "L ", frag.left);
-                                        unconnectedReadsOut[m].write(Long.toString(unconnectedReadId) + "R", frag.right);
+                                        
+                                        if (m >= 0) {
+                                            unconnectedReadsOut[m].write(Long.toString(++unconnectedReadId) + "L ", frag.left);
+                                            unconnectedReadsOut[m].write(Long.toString(unconnectedReadId) + "R", frag.right);
+                                        }
                                     }
                                 }
                                 else {
@@ -1642,7 +1648,7 @@ public class RNABloom {
                                                     shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                                 }
                                             }
-                                            else {
+                                            else if (frag.minCov > 1) {
                                                 m = getMinCoverageOrderOfMagnitude(frag.minCov);
 
                                                 if (m >= 0) {
@@ -1681,10 +1687,13 @@ public class RNABloom {
                             unconnectedSingletonsOut.write(Long.toString(++unconnectedReadId) + "L ", frag.left);
                             unconnectedSingletonsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
                         }
-                        else {
+                        else if (frag.minCov > 1) {
                             m = getMinCoverageOrderOfMagnitude(frag.minCov);
-                            unconnectedReadsOut[m].write(Long.toString(++unconnectedReadId) + "L ", frag.left);
-                            unconnectedReadsOut[m].write(Long.toString(unconnectedReadId) + "R", frag.right);
+                            
+                            if (m >= 0) {
+                                unconnectedReadsOut[m].write(Long.toString(++unconnectedReadId) + "L ", frag.left);
+                                unconnectedReadsOut[m].write(Long.toString(unconnectedReadId) + "R", frag.right);
+                            }
                         }
                     }
                     else {
@@ -1706,7 +1715,7 @@ public class RNABloom {
                                         shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                     }
                                 }
-                                else {
+                                else if (frag.minCov > 1)  {
                                     m = getMinCoverageOrderOfMagnitude(frag.minCov);
 
                                     if (m >= 0) {
