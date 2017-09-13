@@ -3381,6 +3381,7 @@ public final class GraphUtils {
                             cursor = n;
                         }
                         else {
+                            // too many candidates
                             return true;
                         }
                     }
@@ -3404,8 +3405,13 @@ public final class GraphUtils {
                 
                 if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
                     for (int i=partnerIndex; i<numKmers; ++i) {
-                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHash())) {
-                            return false;
+                        if (assembledKmersBloomFilter.lookup(kmers.get(i).getHash())) {
+                            if (i == numKmers-1) {
+                                return false;
+                            }
+                        }
+                        else {
+                            break;
                         }
                     }
                 }
@@ -3599,8 +3605,13 @@ public final class GraphUtils {
                 
                 if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
                     for (int i=partnerIndex; i<numKmers; ++i) {
-                        if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHash())) {
-                            return false;
+                        if (assembledKmersBloomFilter.lookup(kmers.get(i).getHash())) {
+                            if (i == numKmers-1) {
+                                return false;
+                            }
+                        }
+                        else {
+                            break;
                         }
                     }
                 }
