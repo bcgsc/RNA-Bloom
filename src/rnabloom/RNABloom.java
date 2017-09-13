@@ -58,6 +58,7 @@ public class RNABloom {
     private int k;
     private int kMinus1;
 //    private boolean strandSpecific;
+    private Pattern acgtPattern;
     private Pattern qualPatternDBG;
     private Pattern qualPatternFrag;
     private Pattern homoPolymerKmerPattern;
@@ -79,6 +80,7 @@ public class RNABloom {
     public RNABloom(int k, int qDBG, int qFrag) {
         this.k = k;
         this.kMinus1 = k-1;
+        this.acgtPattern = getNucleotideCharsPattern(k);
         this.qualPatternDBG = getPhred33Pattern(qDBG, k);
         this.qualPatternFrag = getPhred33Pattern(qFrag, k);
         this.homoPolymerKmerPattern = getHomoPolymerPattern(k);
@@ -211,22 +213,26 @@ public class RNABloom {
             try {
                 FastqReader fr = new FastqReader(fastq, false);
                 FastqRecord record = fr.record;
-                Matcher m = qualPatternDBG.matcher("");
+                Matcher mQual = qualPatternDBG.matcher("");
+                Matcher mSeq = acgtPattern.matcher("");
                 long[] hashVals = itr.hVals;
                 
                 while (fr.hasNext()) {
                     ++numReads;
                     
                     fr.nextWithoutNameFunction();
-                    m.reset(record.qual);
+                    mQual.reset(record.qual);
                     
-                    while (m.find()) {
-                        itr.start(record.seq.substring(m.start(), m.end()));
-                        while (itr.hasNext()) {
-                            itr.next();
-//                            if (screeningBf.lookupThenAdd(hashVals)) {
-                                graph.add(hashVals);
-//                            }
+                    while (mQual.find()) {
+                        mSeq.reset(record.seq.substring(mQual.start(), mQual.end()));
+                        while (mSeq.find()) {
+                            itr.start(mSeq.group());
+                            while (itr.hasNext()) {
+                                itr.next();
+    //                            if (screeningBf.lookupThenAdd(hashVals)) {
+                                    graph.add(hashVals);
+    //                            }
+                            }
                         }
                     }
                 }
@@ -1256,7 +1262,7 @@ public class RNABloom {
                                 }
                                 
                                 if (hasComplexLeftKmer || hasComplexRightKmer) {
-                                    outList.put(new Fragment(left, right, null, 0, minCov, true));
+                                    outList.put(new Fragment(graph.assemble(leftKmers), graph.assemble(rightKmers), null, 0, minCov, true));
                                 }
                             }
 //                        }
@@ -1454,7 +1460,7 @@ public class RNABloom {
                 lin = new FastqReader(fqPair.leftFastq, true);
                 rin = new FastqReader(fqPair.rightFastq, true);
 
-                fqpr = new FastqPairReader(lin, rin, qualPatternFrag, fqPair.leftRevComp, fqPair.rightRevComp);
+                fqpr = new FastqPairReader(lin, rin, qualPatternFrag, acgtPattern, fqPair.leftRevComp, fqPair.rightRevComp);
                 System.out.println("Parsing `" + fqPair.leftFastq + "` and `" + fqPair.rightFastq + "`...");
 
                 int leftReadLengthThreshold = k;

@@ -657,7 +657,9 @@ public final class SeqUtils {
         return true;
     }
         
-    public static ArrayList<String> filterFastq(FastqRecord fq, Pattern qualPattern) {
+    public static ArrayList<String> filterFastq(FastqRecord fq, Pattern qualPattern, Pattern seqPattern) {
+        /*@TODO keep ACGT only*/
+        
         Matcher m = qualPattern.matcher(fq.qual);
         String seq = fq.seq;
         

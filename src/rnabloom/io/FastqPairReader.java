@@ -23,10 +23,12 @@ public class FastqPairReader implements Iterator<FastqReadPair> {
     private final FastqReader leftReader;
     private final FastqReader rightReader;
     private final Pattern qualPattern;
+    private final Pattern seqPattern;
     private final Supplier<FastqReadPair> nextFunction;
                 
-    public FastqPairReader(FastqReader leftReader, FastqReader rightReader, Pattern qualPattern, boolean revCompLeft, boolean revCompRight) {
+    public FastqPairReader(FastqReader leftReader, FastqReader rightReader, Pattern qualPattern, Pattern seqPattern, boolean revCompLeft, boolean revCompRight) {
         this.qualPattern = qualPattern;
+        this.seqPattern = seqPattern;
         this.leftReader = leftReader;
         this.rightReader = rightReader;
         if (revCompLeft) { 
@@ -76,7 +78,7 @@ public class FastqPairReader implements Iterator<FastqReadPair> {
             throw new NoSuchElementException("Inconsistent record names: \"" + frLeft.name + "\" and \"" + frRight.name + "\"");
         }
 
-        p.left = filterFastq(frLeft, qualPattern);
+        p.left = filterFastq(frLeft, qualPattern, seqPattern);
         
 //        int numBasesTrimmed = frLeft.seq.length();
 //        p.originalLeftLength = numBasesTrimmed;
@@ -85,7 +87,7 @@ public class FastqPairReader implements Iterator<FastqReadPair> {
 //        }
 //        p.numLeftBasesTrimmed = numBasesTrimmed;
         
-        p.right = filterFastq(frRight, qualPattern);
+        p.right = filterFastq(frRight, qualPattern, seqPattern);
         
 //        numBasesTrimmed = frRight.seq.length();
 //        p.originalRightLength = numBasesTrimmed;
