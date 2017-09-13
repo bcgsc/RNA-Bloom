@@ -2047,10 +2047,10 @@ public class RNABloom {
                 TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTransfragLength);
                 
                 System.out.println("Parsing fragments in `" + longFragsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longFragsFasta, writer, sampleSize, numThreads, true);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longFragsFasta, writer, sampleSize, numThreads, false);
                 
                 System.out.println("Parsing fragments in `" + shortFragsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, true);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, false);
                 
                 fout.close();
                 foutShort.close();
