@@ -58,7 +58,7 @@ public class RNABloom {
     private int k;
     private int kMinus1;
 //    private boolean strandSpecific;
-    private Pattern acgtPattern;
+    private Pattern seqPattern;
     private Pattern qualPatternDBG;
     private Pattern qualPatternFrag;
     private Pattern homoPolymerKmerPattern;
@@ -80,7 +80,7 @@ public class RNABloom {
     public RNABloom(int k, int qDBG, int qFrag) {
         this.k = k;
         this.kMinus1 = k-1;
-        this.acgtPattern = getNucleotideCharsPattern(k);
+        this.seqPattern = getNucleotideCharsPattern(k);
         this.qualPatternDBG = getPhred33Pattern(qDBG, k);
         this.qualPatternFrag = getPhred33Pattern(qFrag, k);
         this.homoPolymerKmerPattern = getHomoPolymerPattern(k);
@@ -180,18 +180,21 @@ public class RNABloom {
 //        return numReads;
 //    }
 
-    public class FastqParser implements Runnable {
+    public class SeqToGraphWorker implements Runnable {
+//        public final static int FASTA_FILE = 1;
+//        public final static int FASTQ_FILE = 2;
+        
         private final int id;
-        
-        private final String fastq;
-        
+        private final String path;
         private final NTHashIterator itr;
         private int numReads = 0;
         private boolean successful = false;
         
-        public FastqParser(int id, String fastq, boolean stranded, boolean reverseComplement, int numHash) {
+        public SeqToGraphWorker(int id, String path, boolean stranded, boolean reverseComplement, int numHash) {
+            /*@TODO: Support FASTA files*/
+            
             this.id = id;
-            this.fastq = fastq;
+            this.path = path;
             
             if (stranded) {
                 if (reverseComplement) {
@@ -208,13 +211,13 @@ public class RNABloom {
         
         @Override
         public void run() {
-            System.out.println("[" + id + "] Parsing `" + fastq + "`...");
+            System.out.println("[" + id + "] Parsing `" + path + "`...");
             
             try {
-                FastqReader fr = new FastqReader(fastq, false);
+                FastqReader fr = new FastqReader(path, false);
                 FastqRecord record = fr.record;
                 Matcher mQual = qualPatternDBG.matcher("");
-                Matcher mSeq = acgtPattern.matcher("");
+                Matcher mSeq = seqPattern.matcher("");
                 long[] hashVals = itr.hVals;
                 
                 while (fr.hasNext()) {
@@ -239,7 +242,7 @@ public class RNABloom {
                 fr.close();
                 
                 successful = true;
-                System.out.println("[" + id + "] Parsed " + NumberFormat.getInstance().format(numReads) + " reads.");
+                System.out.println("[" + id + "] Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -285,17 +288,17 @@ public class RNABloom {
         
         ExecutorService service = Executors.newFixedThreadPool(numThreads);
         
-        ArrayList<FastqParser> threadPool = new ArrayList<>();
+        ArrayList<SeqToGraphWorker> threadPool = new ArrayList<>();
         int threadId = 0;
            
         for (String fastq : forwardFastqs) {
-            FastqParser t = new FastqParser(++threadId, fastq, strandSpecific, false, numHash);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, false, numHash);
             service.submit(t);
             threadPool.add(t);
         }
 
         for (String fastq : reverseFastqs) {
-            FastqParser t = new FastqParser(++threadId, fastq, strandSpecific, true, numHash);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, true, numHash);
             service.submit(t);
             threadPool.add(t);
         }
@@ -305,7 +308,7 @@ public class RNABloom {
         try {
             service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
             
-            for (FastqParser t : threadPool) {
+            for (SeqToGraphWorker t : threadPool) {
                 numReads += t.getReadCount();
             }
 
@@ -1460,7 +1463,7 @@ public class RNABloom {
                 lin = new FastqReader(fqPair.leftFastq, true);
                 rin = new FastqReader(fqPair.rightFastq, true);
 
-                fqpr = new FastqPairReader(lin, rin, qualPatternFrag, acgtPattern, fqPair.leftRevComp, fqPair.rightRevComp);
+                fqpr = new FastqPairReader(lin, rin, qualPatternFrag, seqPattern, fqPair.leftRevComp, fqPair.rightRevComp);
                 System.out.println("Parsing `" + fqPair.leftFastq + "` and `" + fqPair.rightFastq + "`...");
 
                 int leftReadLengthThreshold = k;
