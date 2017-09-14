@@ -1156,120 +1156,130 @@ public class RNABloom {
             try {
                 // connect segments of each read
                 String left = connect(p.left, graph, lookahead);
+                
+                if (left.length() < this.leftReadLengthThreshold) {
+                    return;
+                } 
+                
                 String right = connect(p.right, graph, lookahead);
+                
+                if (right.length() < this.rightReadLengthThreshold) {
+                    return;
+                }
+                
                 right = chompRightPolyX(right, polyXMinLen, polyXMaxMismatches);
                 
-                if (left.length() >= this.leftReadLengthThreshold 
-                        && right.length() >= this.rightReadLengthThreshold) { 
+                if (right.length() < this.rightReadLengthThreshold) {
+                    return;
+                }
+                
+                ArrayList<Kmer2> leftKmers = graph.getKmers(left);
+                ArrayList<Kmer2> rightKmers = graph.getKmers(right);
 
-                    ArrayList<Kmer2> leftKmers = graph.getKmers(left);
-                    ArrayList<Kmer2> rightKmers = graph.getKmers(right);
-
-                    if (!leftKmers.isEmpty() && !rightKmers.isEmpty()) {
+                if (!leftKmers.isEmpty() && !rightKmers.isEmpty()) {
 //                    if (okToConnectPair(leftKmers, rightKmers)) {
 //                        boolean corrected = false;
 
-                        if (this.errorCorrectionIterations > 0) {
-                            
+                    if (this.errorCorrectionIterations > 0) {
+
 //                            if (left.equals("CTCACGTATTCCCCCAGGTTTACATGTTCCAATATGATTCCACCCATGGCAAATTCCATGGCACCGTCAAGGCTGAGAACGGGAAGCTTGTCATCAATGG") &&
 //                                    right.equals("TGGAAGAAATGTGCTTTGGGGAGGCAACTAGGATGGTGTGGCTCCCTTGGGTATATGGTAACCTTGTGTCCCTCAATATGGTCCTGTCCCCATCTCCCCC")) {
 //                                System.out.println("here");
 //                            }
 //
 //                            System.out.println(left + " " + right);
-                            
-                            ReadPair correctedReadPair = correctErrorsPE(leftKmers,
-                                                                rightKmers,
-                                                                graph, 
-                                                                lookahead, 
-                                                                maxIndelSize, 
-                                                                maxCovGradient, 
-                                                                covFPR,
-                                                                this.errorCorrectionIterations,
-                                                                2,
-                                                                percentIdentity);
 
-                            if (correctedReadPair.corrected) {
+                        ReadPair correctedReadPair = correctErrorsPE(leftKmers,
+                                                            rightKmers,
+                                                            graph, 
+                                                            lookahead, 
+                                                            maxIndelSize, 
+                                                            maxCovGradient, 
+                                                            covFPR,
+                                                            this.errorCorrectionIterations,
+                                                            2,
+                                                            percentIdentity);
+
+                        if (correctedReadPair.corrected) {
 //                                corrected = true;
-                                leftKmers = correctedReadPair.leftKmers;
-                                rightKmers = correctedReadPair.rightKmers;
-                            }
+                            leftKmers = correctedReadPair.leftKmers;
+                            rightKmers = correctedReadPair.rightKmers;
                         }
+                    }
 
 //                        if (!corrected || okToConnectPair(leftKmers, rightKmers)) {
-                            ArrayList<Kmer2> fragmentKmers = null;
-                            
-                            if (!graph.isLowComplexity(leftKmers.get(leftKmers.size()-1)) ||  
-                                    !graph.isLowComplexity(rightKmers.get(0))) {
-                                fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap, maxCovGradient);
-                            }
+                        ArrayList<Kmer2> fragmentKmers = null;
 
-                            if (fragmentKmers != null) {
-                                int fragLength = fragmentKmers.size() + k - 1;
+                        if (!graph.isLowComplexity(leftKmers.get(leftKmers.size()-1)) ||  
+                                !graph.isLowComplexity(rightKmers.get(0))) {
+                            fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap, maxCovGradient);
+                        }
 
-                                if (fragLength >= k + lookahead) {
-                                    boolean hasComplexKmer = false;
-                                    
-                                    float minCov = Float.MAX_VALUE;
-                                    for (Kmer2 kmer : fragmentKmers) {
-                                        if (kmer.count < minCov) {
-                                            minCov = kmer.count;
-                                        }
-                                        
-                                        if (!hasComplexKmer) {
-                                            if (!graph.isLowComplexity(kmer)) {
-                                                hasComplexKmer = true;
-                                            }
-                                        }
-                                    }
+                        if (fragmentKmers != null) {
+                            int fragLength = fragmentKmers.size() + k - 1;
 
-                                    if (hasComplexKmer) {
-                                        if (this.storeKmerPairs) {
-                                            graph.addPairedKmers(fragmentKmers);
-                                        }
-                                        
-                                        outList.put(new Fragment(left, right, graph.assemble(fragmentKmers), fragLength, minCov, false));
-                                    }
-                                }
-                            }
-                            else {
-                                // this is an unconnected read pair
+                            if (fragLength >= k + lookahead) {
+                                boolean hasComplexKmer = false;
+
                                 float minCov = Float.MAX_VALUE;
-                                
-                                boolean hasComplexLeftKmer = false;
-                                
-                                if (leftKmers.size() >= lookahead) {
-                                    for (Kmer2 kmer : leftKmers) {
-                                        if (kmer.count < minCov) {
-                                            minCov = kmer.count;
-                                        }
-                                        
-                                        if (!hasComplexLeftKmer && !graph.isLowComplexity(kmer)) {
-                                            hasComplexLeftKmer = true;
+                                for (Kmer2 kmer : fragmentKmers) {
+                                    if (kmer.count < minCov) {
+                                        minCov = kmer.count;
+                                    }
+
+                                    if (!hasComplexKmer) {
+                                        if (!graph.isLowComplexity(kmer)) {
+                                            hasComplexKmer = true;
                                         }
                                     }
                                 }
-                                
-                                boolean hasComplexRightKmer = false;
-                                
-                                if (rightKmers.size() >= lookahead) {
-                                    for (Kmer2 kmer : rightKmers) {
-                                        if (kmer.count < minCov) {
-                                            minCov = kmer.count;
-                                        }
-                                        
-                                        if (!hasComplexRightKmer && !graph.isLowComplexity(kmer)) {
-                                            hasComplexRightKmer = true;
-                                        }
+
+                                if (hasComplexKmer) {
+                                    if (this.storeKmerPairs) {
+                                        graph.addPairedKmers(fragmentKmers);
                                     }
-                                }
-                                
-                                if (hasComplexLeftKmer || hasComplexRightKmer) {
-                                    outList.put(new Fragment(graph.assemble(leftKmers), graph.assemble(rightKmers), null, 0, minCov, true));
+
+                                    outList.put(new Fragment(left, right, graph.assemble(fragmentKmers), fragLength, minCov, false));
                                 }
                             }
+                        }
+                        else {
+                            // this is an unconnected read pair
+                            float minCov = Float.MAX_VALUE;
+
+                            boolean hasComplexLeftKmer = false;
+
+                            if (leftKmers.size() >= lookahead) {
+                                for (Kmer2 kmer : leftKmers) {
+                                    if (kmer.count < minCov) {
+                                        minCov = kmer.count;
+                                    }
+
+                                    if (!hasComplexLeftKmer && !graph.isLowComplexity(kmer)) {
+                                        hasComplexLeftKmer = true;
+                                    }
+                                }
+                            }
+
+                            boolean hasComplexRightKmer = false;
+
+                            if (rightKmers.size() >= lookahead) {
+                                for (Kmer2 kmer : rightKmers) {
+                                    if (kmer.count < minCov) {
+                                        minCov = kmer.count;
+                                    }
+
+                                    if (!hasComplexRightKmer && !graph.isLowComplexity(kmer)) {
+                                        hasComplexRightKmer = true;
+                                    }
+                                }
+                            }
+
+                            if (hasComplexLeftKmer && hasComplexRightKmer) {
+                                outList.put(new Fragment(graph.assemble(leftKmers), graph.assemble(rightKmers), null, 0, minCov, true));
+                            }
+                        }
 //                        }
-                    }
                 }
             }
             catch (Exception ex) {
