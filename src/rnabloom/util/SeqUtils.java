@@ -658,12 +658,11 @@ public final class SeqUtils {
     }
         
     public static ArrayList<String> filterFastq(FastqRecord fq, Pattern qualPattern, Pattern seqPattern) {
-        /*@TODO keep ACGT only*/
-        
-        Matcher m = qualPattern.matcher(fq.qual);
+
+        // filter sequence by quality
         String seq = fq.seq;
-        
-        ArrayList<String> result = new ArrayList<>();
+        Matcher m = qualPattern.matcher(fq.qual);
+        StringBuilder qualFilteredSeq = new StringBuilder(seq.length());
         
         int startPos;
         int len;
@@ -672,6 +671,36 @@ public final class SeqUtils {
             startPos = m.start();
             
             if (endPos > 0) {
+                // ensure that first item is not 'N'
+                
+                len = startPos - endPos;
+
+                if (len == 1) {
+                    qualFilteredSeq.append('N');
+                }
+                else {
+                    char[] gap = new char[len];
+                    Arrays.fill(gap, GAP_CHAR);
+                    qualFilteredSeq.append(gap);
+                }
+            }
+            
+            endPos = m.end();
+            qualFilteredSeq.append(seq.substring(startPos, endPos).toUpperCase());
+        }
+        
+        // filter sequence by keeping only ACGT characters
+        seq = qualFilteredSeq.toString();
+        m = seqPattern.matcher(seq);
+        ArrayList<String> result = new ArrayList<>();
+
+        endPos = 0;
+        while (m.find()) {
+            startPos = m.start();
+            
+            if (endPos > 0) {
+                // ensure that first item is not 'N'
+                
                 len = startPos - endPos;
                 
                 if (len == 1) {
