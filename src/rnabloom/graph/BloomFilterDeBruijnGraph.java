@@ -13,14 +13,12 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysPartitionedBloomFilter;
 import rnabloom.bloom.hash.*;
-import static rnabloom.bloom.hash.NTHash.NTM64;
 import static rnabloom.util.SeqUtils.*;
 
 /**
