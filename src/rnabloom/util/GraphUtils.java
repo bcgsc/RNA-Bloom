@@ -6207,6 +6207,27 @@ public final class GraphUtils {
         return result;
     }
     
+    public static boolean isBranchFree(ArrayList<Kmer2> seqKmers, BloomFilterDeBruijnGraph graph, int maxTipLength) {
+        int k = graph.getK();
+        int numHash = graph.getMaxNumHash();
+        
+        for (Kmer2 kmer : seqKmers) {
+            for (Kmer2 var : kmer.getRightVariants(k, numHash, graph)) {
+                if (hasDepthRight(var, graph, maxTipLength)) {
+                    return false;
+                }
+            }
+            
+            for (Kmer2 var : kmer.getLeftVariants(k, numHash, graph)) {
+                if (hasDepthLeft(var, graph, maxTipLength)) {
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    }
+    
 //    public static void main(String[] args) {
 ////        String seq = "AAAAAAAAAAA";
 //        String seq = "AAAAAAAAAAACCC";
