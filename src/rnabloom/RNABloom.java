@@ -2072,9 +2072,10 @@ public class RNABloom {
     
     public void assembleTranscriptsMultiThreaded(String[] longFragmentsFastas, 
                                                 String[] shortFragmentsFastas,
+                                                String[] unconnectedReadsFastas,
                                                 String longSingletonsFasta,
                                                 String shortSingletonsFasta,
-                                                String[] unconnectedReadsFastas,
+                                                String unconnectedSingletonsFasta,
                                                 String outFasta,
                                                 String outFastaShort,
                                                 String graphFile,
@@ -2097,17 +2098,19 @@ public class RNABloom {
                     ArrayDeque<String> fragmentsFastas = new ArrayDeque<>(longFragmentsFastas.length + shortFragmentsFastas.length + 2);
                     fragmentsFastas.addAll(Arrays.asList(longFragmentsFastas));
                     fragmentsFastas.addAll(Arrays.asList(shortFragmentsFastas));
+                    fragmentsFastas.addAll(Arrays.asList(unconnectedReadsFastas));
                     fragmentsFastas.add(longSingletonsFasta);
                     fragmentsFastas.add(shortSingletonsFasta);
-                    fragmentsFastas.addAll(Arrays.asList(unconnectedReadsFastas));
+                    fragmentsFastas.add(unconnectedSingletonsFasta);
                     insertIntoDeBruijnGraphMultiThreaded(fragmentsFastas, sampleSize, numThreads);
                 }
                 else {
                     insertIntoDeBruijnGraph(longFragmentsFastas);
                     insertIntoDeBruijnGraph(shortFragmentsFastas);
+                    insertIntoDeBruijnGraph(unconnectedReadsFastas);
                     insertIntoDeBruijnGraph(longSingletonsFasta);
                     insertIntoDeBruijnGraph(shortSingletonsFasta);
-                    insertIntoDeBruijnGraph(unconnectedReadsFastas);
+                    insertIntoDeBruijnGraph(unconnectedSingletonsFasta);
                 }
             }
             else {
@@ -2154,6 +2157,17 @@ public class RNABloom {
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
             }
 
+            tag = ".U.";
+            for (int mag=unconnectedReadsFastas.length-1; mag>=0; --mag) {
+                writer.setOutputPrefix("E" + mag + tag);
+
+                String fragmentsFasta = unconnectedReadsFastas[mag];
+
+                System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
+
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
+            }
+            
             if (useSingletonFragments) {
                 System.out.println("Parsing fragments in `" + longSingletonsFasta + "`...");
                 writer.setOutputPrefix("01.L.");
@@ -2162,6 +2176,10 @@ public class RNABloom {
                 System.out.println("Parsing fragments in `" + shortSingletonsFasta + "`...");
                 writer.setOutputPrefix("01.S.");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads, true, true);
+                
+                System.out.println("Parsing fragments in `" + unconnectedSingletonsFasta + "`...");
+                writer.setOutputPrefix("01.U.");
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads, true, true);
             }
             
             fout.close();
@@ -2942,9 +2960,10 @@ public class RNABloom {
                 
                 assembler.assembleTranscriptsMultiThreaded(longTransfragsFastaPaths, 
                                                             shortTransfragsFastaPaths,
+                                                            unconnectedReadsFastaPaths,
                                                             longSingletonsFastaPath,
                                                             shortSingletonsFastaPath,
-                                                            unconnectedReadsFastaPaths,
+                                                            unconnectedSingletonsFastaPath,
                                                             transcriptsFasta, 
                                                             shortTranscriptsFasta,
                                                             graphFile,
