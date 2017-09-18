@@ -2074,7 +2074,7 @@ public class RNABloom {
                                                 String[] shortFragmentsFastas,
                                                 String longSingletonsFasta,
                                                 String shortSingletonsFasta,
-                                                String unconnectedSingletonsFasta,
+                                                String[] unconnectedReadsFastas,
                                                 String outFasta,
                                                 String outFastaShort,
                                                 String graphFile,
@@ -2099,7 +2099,7 @@ public class RNABloom {
                     fragmentsFastas.addAll(Arrays.asList(shortFragmentsFastas));
                     fragmentsFastas.add(longSingletonsFasta);
                     fragmentsFastas.add(shortSingletonsFasta);
-                    fragmentsFastas.add(unconnectedSingletonsFasta);
+                    fragmentsFastas.addAll(Arrays.asList(unconnectedReadsFastas));
                     insertIntoDeBruijnGraphMultiThreaded(fragmentsFastas, sampleSize, numThreads);
                 }
                 else {
@@ -2107,7 +2107,7 @@ public class RNABloom {
                     insertIntoDeBruijnGraph(shortFragmentsFastas);
                     insertIntoDeBruijnGraph(longSingletonsFasta);
                     insertIntoDeBruijnGraph(shortSingletonsFasta);
-                    insertIntoDeBruijnGraph(unconnectedSingletonsFasta);
+                    insertIntoDeBruijnGraph(unconnectedReadsFastas);
                 }
             }
             else {
@@ -2944,7 +2944,7 @@ public class RNABloom {
                                                             shortTransfragsFastaPaths,
                                                             longSingletonsFastaPath,
                                                             shortSingletonsFastaPath,
-                                                            unconnectedSingletonsFastaPath,
+                                                            unconnectedReadsFastaPaths,
                                                             transcriptsFasta, 
                                                             shortTranscriptsFasta,
                                                             graphFile,
