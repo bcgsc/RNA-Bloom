@@ -2892,8 +2892,8 @@ public final class GraphUtils {
                                                 int pairedKmerDistance,
                                                 BloomFilter assembledKmersBloomFilter,
                                                 int minNumPairs) {
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
+//        int k = graph.getK();
+//        int numHash = graph.getMaxNumHash();
         
         final int numKmers = kmers.size();
         
@@ -2923,18 +2923,23 @@ public final class GraphUtils {
         for (int i=start-minNumPairs; i>=end; --i) {
             kmer = kmers.get(i);
             
-            if (graph.lookupLeftKmer(kmer.getHash()) &&
-                    !graph.isLowComplexity(kmer)) {
+            if (graph.lookupLeftKmer(kmer.getHash())) {
+                boolean hasComplexKmer = graph.isLowComplexity(kmer);
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
                     p = kmers.get(i-j);
-                    if (!graph.lookupLeftKmer(p.getHash()) ||
-                            graph.isLowComplexity(p)) {
-                        i=j;
-                        break;
+                    
+                    if (graph.lookupLeftKmer(p.getHash())) {
+                        if (!hasComplexKmer) {
+                            hasComplexKmer = graph.isLowComplexity(p);
+                        }
+                        
+                        if (++numPaired >= minNumPairs && hasComplexKmer) {
+                            return pairedKmerDistance - (numKmers - 1 - i);
+                        }
                     }
-                    else if (++numPaired >= minNumPairs) {
-                        return pairedKmerDistance - (numKmers - 1 - i);
+                    else {
+                        break;
                     }
                 }                
             }
@@ -2971,8 +2976,8 @@ public final class GraphUtils {
         
         // NOTE: kmers have been reversed; end of list = leftmost kmer
         
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
+//        int k = graph.getK();
+//        int numHash = graph.getMaxNumHash();
         final int numKmers = kmers.size();
         
 //        float minCov = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-pairedKmerDistance), numKmers-1);
@@ -3001,18 +3006,24 @@ public final class GraphUtils {
         for (int i=start-minNumPairs; i>=end; --i) {
             kmer = kmers.get(i);
             
-            if (graph.lookupRightKmer(kmer.getHash()) &&
-                    !graph.isLowComplexity(kmer)) {
+            if (graph.lookupRightKmer(kmer.getHash())) {
+                boolean hasComplexKmer = graph.isLowComplexity(kmer);
+                
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
                     p = kmers.get(i-j);
-                    if (!graph.lookupRightKmer(p.getHash()) ||
-                            graph.isLowComplexity(p)) {
-                        i=j;
-                        break;
+                    
+                    if (graph.lookupRightKmer(p.getHash())) {
+                        if (!hasComplexKmer) {
+                            hasComplexKmer = graph.isLowComplexity(p);
+                        }
+                        
+                        if (++numPaired >= minNumPairs && hasComplexKmer) {
+                            return pairedKmerDistance - (numKmers - 1 - i);
+                        }
                     }
-                    else if (++numPaired >= minNumPairs) {
-                        return pairedKmerDistance - (numKmers - 1 - i);
+                    else {
+                        break;
                     }
                 }                
             }
@@ -3045,8 +3056,8 @@ public final class GraphUtils {
                                                 BloomFilterDeBruijnGraph graph,
                                                 int pairedKmerDistance,
                                                 int minNumPairs) {
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
+//        int k = graph.getK();
+//        int numHash = graph.getMaxNumHash();
         final int numKmers = kmers.size();
                 
         int end = Math.max(0, numKmers-pairedKmerDistance);
@@ -3056,18 +3067,24 @@ public final class GraphUtils {
         for (int i=numKmers-1-minNumPairs; i>=end; --i) {
             kmer = kmers.get(i);
             
-            if (graph.lookupLeftKmer(kmer.getHash()) &&
-                    !graph.isLowComplexity(kmer)) {
+            if (graph.lookupLeftKmer(kmer.getHash())) {
+                boolean hasComplexKmer = graph.isLowComplexity(kmer);
+                
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
                     p = kmers.get(i-j);
-                    if (!graph.lookupLeftKmer(p.getHash()) ||
-                            graph.isLowComplexity(p)) {
-                        i=j;
-                        break;
+                    
+                    if (graph.lookupLeftKmer(p.getHash())) {
+                        if (!hasComplexKmer) {
+                            hasComplexKmer = graph.isLowComplexity(p);
+                        }
+                        
+                        if (++numPaired >= minNumPairs && hasComplexKmer) {
+                            return pairedKmerDistance - (numKmers - 1 - i);
+                        }
                     }
-                    else if (++numPaired >= minNumPairs) {
-                        return pairedKmerDistance - (numKmers - 1 - i);
+                    else {
+                        break;
                     }
                 }                
             }
@@ -3082,8 +3099,8 @@ public final class GraphUtils {
                                                 int minNumPairs) {
         
         // NOTE: kmers have been reversed; end of list = leftmost kmer
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
+//        int k = graph.getK();
+//        int numHash = graph.getMaxNumHash();
         final int numKmers = kmers.size();
         
         int end = Math.max(0, numKmers-pairedKmerDistance);
@@ -3093,18 +3110,24 @@ public final class GraphUtils {
         for (int i=numKmers-1-minNumPairs; i>=end; --i) {
             kmer = kmers.get(i);
             
-            if (graph.lookupRightKmer(kmer.getHash()) &&
-                    !graph.isLowComplexity(kmer)) {
+            if (graph.lookupRightKmer(kmer.getHash())) {
+                boolean hasComplexKmer = graph.isLowComplexity(kmer);
+                
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
                     p = kmers.get(i-j);
-                    if (!graph.lookupRightKmer(p.getHash()) ||
-                            graph.isLowComplexity(p)) {
-                        i=j;
-                        break;
+                    
+                    if (graph.lookupRightKmer(p.getHash())) {
+                        if (!hasComplexKmer) {
+                            hasComplexKmer = graph.isLowComplexity(p);
+                        }
+                        
+                        if (++numPaired >= minNumPairs && hasComplexKmer) {
+                            return pairedKmerDistance - (numKmers - 1 - i);
+                        }
                     }
-                    else if (++numPaired >= minNumPairs) {
-                        return pairedKmerDistance - (numKmers - 1 - i);
+                    else {
+                        break;
                     }
                 }                
             }
