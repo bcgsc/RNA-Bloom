@@ -1041,7 +1041,7 @@ public class RNABloom {
                         }
                     }
                     else {
-                        writer.write(t.transcriptKmers);
+                        writer.write(t.fragment, t.transcriptKmers);
                     }
                 }
             }
