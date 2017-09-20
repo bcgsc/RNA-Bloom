@@ -1776,7 +1776,7 @@ public class RNABloom {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
             
             System.out.println("Paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100   + " %");
-            System.out.println("Screening Bloom filter FPR:    " + screeningBf.getFPR() * 100 + " %");
+//            System.out.println("Screening Bloom filter FPR:    " + screeningBf.getFPR() * 100 + " %");
         }        
     }
     
@@ -2134,51 +2134,69 @@ public class RNABloom {
             FastaWriter fout = new FastaWriter(outFasta, false);
             FastaWriter foutShort = new FastaWriter(outFastaShort, false);
             TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength);
-                        
-            String tag = ".L.";
-            for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
-                writer.setOutputPrefix("E" + mag + tag);
 
-                String fragmentsFasta = longFragmentsFastas[mag];
-
-                System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
-
+            String fragmentsFasta;
+            
+            // extend LONG fragments
+            
+            for (int mag=longFragmentsFastas.length-1; mag>0; --mag) {
+                writer.setOutputPrefix("E" + mag + ".L.");
+                fragmentsFasta = longFragmentsFastas[mag];
+                System.out.println("Extending fragments in `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
             }
             
-            tag = ".S.";
-            for (int mag=shortFragmentsFastas.length-1; mag>=0; --mag) {
-                writer.setOutputPrefix("E" + mag + tag);
+            writer.setOutputPrefix("E0.L.");
+            fragmentsFasta = longFragmentsFastas[0];
+            System.out.println("Extending fragments in `" + fragmentsFasta + "`...");
+            numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, true);            
+            
+            // extend SHORT fragments
+            
+            for (int mag=shortFragmentsFastas.length-1; mag>0; --mag) {
+                writer.setOutputPrefix("E" + mag + ".S.");
+                fragmentsFasta = shortFragmentsFastas[mag];
+                System.out.println("Extending fragments in `" + fragmentsFasta + "`...");
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
+            }
+            
+            writer.setOutputPrefix("E0.S.");
+            fragmentsFasta = shortFragmentsFastas[0];
+            System.out.println("Extending fragments in `" + fragmentsFasta + "`...");
+            numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, true);
 
-                String fragmentsFasta = shortFragmentsFastas[mag];
-
-                System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
-
+            // extend UNCONNECTED reads
+            
+            for (int mag=unconnectedReadsFastas.length-1; mag>0; --mag) {
+                writer.setOutputPrefix("E" + mag + ".U.");
+                fragmentsFasta = unconnectedReadsFastas[mag];
+                System.out.println("Extending fragments in `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
             }
 
-            tag = ".U.";
-            for (int mag=unconnectedReadsFastas.length-1; mag>=0; --mag) {
-                writer.setOutputPrefix("E" + mag + tag);
-
-                String fragmentsFasta = unconnectedReadsFastas[mag];
-
-                System.out.println("Parsing fragments in `" + fragmentsFasta + "`...");
-
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
-            }
+            writer.setOutputPrefix("E0.U.");
+            fragmentsFasta = unconnectedReadsFastas[0];
+            System.out.println("Extending fragments in `" + fragmentsFasta + "`...");
+            numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, true);
             
             if (useSingletonFragments) {
-                System.out.println("Parsing fragments in `" + longSingletonsFasta + "`...");
+
+                // extend LONG singleton fragments
+            
                 writer.setOutputPrefix("01.L.");
+                System.out.println("Extending fragments in `" + longSingletonsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads, true, true);
 
-                System.out.println("Parsing fragments in `" + shortSingletonsFasta + "`...");
+                // extend SHORT singleton fragments
+                
                 writer.setOutputPrefix("01.S.");
+                System.out.println("Extending fragments in `" + shortSingletonsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads, true, true);
                 
-                System.out.println("Parsing fragments in `" + unconnectedSingletonsFasta + "`...");
+                // extend UNCONNECTED reads
+                
                 writer.setOutputPrefix("01.U.");
+                System.out.println("Extending fragments in `" + unconnectedSingletonsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads, true, true);
             }
             
