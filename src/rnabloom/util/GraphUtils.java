@@ -2464,6 +2464,44 @@ public final class GraphUtils {
         
         if (overlapped != null) {
             ArrayList<Kmer2> overlappedKmers = graph.getKmers(overlapped);
+            
+            int k = graph.getK();
+            int leftLen = left.length();
+            int rightLen = right.length();
+            
+            if (overlapped.length() <= leftLen + rightLen - k) {
+                // The overlap is larger than or equal to k
+                
+                boolean hasComplexKmer = false;
+                int end = leftLen - k + 1;
+                int start = overlappedKmers.size() - (rightLen - k + 1);
+                
+                for (int i=start; i<end; ++i) {
+                    if (!graph.isLowComplexity(overlappedKmers.get(i))) {
+                        // Require at least one complex kmers in the overlap
+                        hasComplexKmer = true;
+                        break;
+                    }
+                }
+                
+                if (!hasComplexKmer) {
+                    return null;
+                }
+            }
+            else {
+                // The overlap is smaller than k
+                
+                int start = leftLen - k + 1;
+                int end = overlappedKmers.size() - (rightLen - k + 1);
+                
+                for (int i=start; i<end ; ++i) {
+                    if (graph.isLowComplexity(overlappedKmers.get(i))) {
+                        // Require no low-complexity kmers in the overlap
+                        return null;
+                    }
+                }                
+            }
+            
             for (Kmer2 kmer : overlappedKmers) {
                 if (kmer.count <= 0) {
                     return null;
@@ -2493,28 +2531,30 @@ public final class GraphUtils {
             Kmer2 leftLastKmer = leftKmers.get(leftKmers.size()-1);
             Kmer2 rightFirstKmer = rightKmers.get(0);
 
+            if (!graph.isLowComplexity(leftLastKmer) && !graph.isLowComplexity(rightFirstKmer)) {
             // 2. Attempt connect a path
 //            ArrayDeque<Kmer2> connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
 
-            float leftCoverageThreshold = getMinimumKmerCoverage(leftKmers) * maxCovGradient;
-            float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
-            ArrayDeque<Kmer2> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient);
+                float leftCoverageThreshold = getMinimumKmerCoverage(leftKmers) * maxCovGradient;
+                float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
+                ArrayDeque<Kmer2> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient);
             
 //            if (connectedPath == null) {
 ////                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
 //                connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
 //            }
             
-            if (connectedPath != null) {
-                fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
-                fragmentKmers.addAll(leftKmers);
-                fragmentKmers.addAll(connectedPath);
-                fragmentKmers.addAll(rightKmers);
-            }
+                if (connectedPath != null) {
+                    fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
+                    fragmentKmers.addAll(leftKmers);
+                    fragmentKmers.addAll(connectedPath);
+                    fragmentKmers.addAll(rightKmers);
+                }
 //            else {
 //                // 3. Attempt dovetail overlap (ie. when fragment is shorter than read length)
 //                fragmentKmers = overlap(rightSeq, leftSeq, graph, minOverlap);
 //            }
+            }
         }
         
         return fragmentKmers;

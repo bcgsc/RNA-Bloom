@@ -1191,10 +1191,10 @@ public class RNABloom {
 //                        if (!corrected || okToConnectPair(leftKmers, rightKmers)) {
                         ArrayList<Kmer2> fragmentKmers = null;
 
-                        if (!graph.isLowComplexity(leftKmers.get(leftKmers.size()-1)) &&  
-                                !graph.isLowComplexity(rightKmers.get(0))) {
+//                        if (!graph.isLowComplexity(leftKmers.get(leftKmers.size()-1)) &&  
+//                                !graph.isLowComplexity(rightKmers.get(0))) {
                             fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap, maxCovGradient);
-                        }
+//                        }
 
                         if (fragmentKmers != null) {
                             int fragLength = fragmentKmers.size() + k - 1;
