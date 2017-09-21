@@ -3809,7 +3809,6 @@ public final class GraphUtils {
                                             int minNumPairs,
                                             BloomFilter assembledKmersBloomFilter,
                                             HashSet<Kmer2> usedKmers,
-                                            HashSet<Kmer2> usedPartnerKmers,
                                             float maxCovGradient) {
         
         int k = graph.getK();
@@ -3854,9 +3853,6 @@ public final class GraphUtils {
                     partnerIndex += simpleExtension.size();
 
                     // NOTE: kmer at `partnerIndex` will be paired with `cursor`
-                    for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
-                        usedPartnerKmers.add(kmers.get(i));
-                    }
                     
                     neighbors = simpleExtension.getLast().getSuccessors(k, numHash, graph);
                     if (neighbors.isEmpty()) {
@@ -3919,20 +3915,28 @@ public final class GraphUtils {
                     return true;
                 }
                 
-                float minDiffCoverage = Float.MAX_VALUE;
-                float edgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
+//                float minDiffCoverage = Float.MAX_VALUE;
+//                float edgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
                 
-                float c,d;
+//                float c,d;
                 for (Kmer2 n : neighbors) {
                     if (hasPairedRightKmers(n, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                        c = getMaxMedianCoverageRight(graph, n, lookahead);
-                        if (c > 0) {
-                            d = Math.abs(edgeCoverage - c);
-                            if (d < minDiffCoverage) {
-                                minDiffCoverage = d;
-                                cursor = n;
-                            }
+                        if (cursor == null) {
+                            cursor = n;
                         }
+                        else {
+                            // more than one branches supported by paired kmers
+                            // ambiguous, but still extendable
+                            return true;
+                        }
+//                        c = getMaxMedianCoverageRight(graph, n, lookahead);
+//                        if (c > 0) {
+//                            d = Math.abs(edgeCoverage - c);
+//                            if (d < minDiffCoverage) {
+//                                minDiffCoverage = d;
+//                                cursor = n;
+//                            }
+//                        }
                     }
                 }
                 
@@ -3944,12 +3948,16 @@ public final class GraphUtils {
                 }
             }
             
-            Kmer2 partner = kmers.get(partnerIndex);
-            
-            if (usedKmers.contains(cursor) &&
-                    usedPartnerKmers.contains(partner)){
-                // loop, do not extend further
-                return false;
+            if (usedKmers.contains(cursor)){
+                // check whether this kmer pair has been used in this sequence already
+                Kmer2 partner = kmers.get(partnerIndex);
+                for (int i = kmers.size()-1; i >= distance; --i) {
+                    if (cursor.equals(kmers.get(i)) &&
+                            partner.equals(kmers.get(i-distance))) {
+                        // kmer pair has been used previously
+                        return false;
+                    }
+                }
             }
             
             if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
@@ -3976,7 +3984,6 @@ public final class GraphUtils {
             kmers.add(cursor);
             
             usedKmers.add(cursor);
-            usedPartnerKmers.add(partner);
             
             ++partnerIndex;
             ++numKmers;
@@ -3996,7 +4003,6 @@ public final class GraphUtils {
                                             int minNumPairs,
                                             BloomFilter assembledKmersBloomFilter,
                                             HashSet<Kmer2> usedKmers,
-                                            HashSet<Kmer2> usedPartnerKmers,
                                             float maxCovGradient) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
@@ -4042,9 +4048,6 @@ public final class GraphUtils {
                     partnerIndex += simpleExtension.size();
 
                     // NOTE: kmer at `partnerIndex` will be paired with `cursor`
-                    for (int i=Math.max(0, partnerIndex-simpleExtension.size()); i<partnerIndex; ++i) {
-                        usedPartnerKmers.add(kmers.get(i));
-                    }
                     
                     neighbors = simpleExtension.getLast().getPredecessors(k, numHash, graph);
                     if (neighbors.isEmpty()) {
@@ -4107,20 +4110,28 @@ public final class GraphUtils {
                     return true;
                 }
                 
-                float minDiffCoverage = Float.MAX_VALUE;
-                float edgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
+//                float minDiffCoverage = Float.MAX_VALUE;
+//                float edgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
                 
-                float c,d;
+                //float c,d;
                 for (Kmer2 n : neighbors) {
                     if (hasPairedLeftKmers(n, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                        c = getMaxMedianCoverageLeft(graph, n, lookahead);
-                        if (c > 0) {
-                            d = Math.abs(edgeCoverage - c);
-                            if (d < minDiffCoverage) {
-                                minDiffCoverage = d;
-                                cursor = n;
-                            }
+                        if (cursor == null) {
+                            cursor = n;
                         }
+                        else {
+                            // more than one branches supported by paired kmers
+                            // ambiguous, but still extendable
+                            return true;
+                        }
+//                        c = getMaxMedianCoverageLeft(graph, n, lookahead);
+//                        if (c > 0) {
+//                            d = Math.abs(edgeCoverage - c);
+//                            if (d < minDiffCoverage) {
+//                                minDiffCoverage = d;
+//                                cursor = n;
+//                            }
+//                        }
                     }
                 }
                 
@@ -4132,12 +4143,15 @@ public final class GraphUtils {
                 }
             }
             
-            Kmer2 partner = kmers.get(partnerIndex);
-            
-            if (usedKmers.contains(cursor) &&
-                    usedPartnerKmers.contains(partner)){
-                // loop, do not extend further
-                return false;
+            if (usedKmers.contains(cursor)){
+                // check whether this kmer pair has been used in this sequence already (ie. a loop)
+                Kmer2 partner = kmers.get(partnerIndex);
+                for (int i = kmers.size()-1; i >= distance; --i) {
+                    if (cursor.equals(kmers.get(i)) &&
+                            partner.equals(kmers.get(i-distance))) {
+                        return false;
+                    }
+                }
             }
             
             if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
@@ -4164,7 +4178,6 @@ public final class GraphUtils {
             kmers.add(cursor);
             
             usedKmers.add(cursor);
-            usedPartnerKmers.add(partner);
                         
             ++partnerIndex;
             ++numKmers;
@@ -4184,7 +4197,6 @@ public final class GraphUtils {
                                             int minNumPairs,
                                             BloomFilter assembledKmersBloomFilter,
                                             HashSet<Kmer2> usedKmers,
-                                            HashSet<Kmer2> usedPartnerKmers,
                                             float maxCovGradient) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
@@ -4233,8 +4245,15 @@ public final class GraphUtils {
     //                        partnerIndex+minNumPairs < kmers.size() && 
                             hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
-                        if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
-                            return false;
+                        if (usedKmers.contains(cursor)) {
+                            // check whether this kmer pair has been used in this sequence already
+                            Kmer2 partner = kmers.get(partnerIndex);
+                            for (int i = kmers.size()-1; i >= distance; --i) {
+                                if (cursor.equals(kmers.get(i)) &&
+                                        partner.equals(kmers.get(i-distance))) {
+                                    return false;
+                                }
+                            }
                         }
 
                         if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
@@ -4275,10 +4294,6 @@ public final class GraphUtils {
 
                         usedKmers.addAll(extension);
                         usedKmers.add(cursor);
-
-                        for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
-                            usedPartnerKmers.add(kmers.get(i));
-                        }
 
                         return true;
                     }
@@ -4348,7 +4363,6 @@ public final class GraphUtils {
                                             int minNumPairs,
                                             BloomFilter assembledKmersBloomFilter,
                                             HashSet<Kmer2> usedKmers,
-                                            HashSet<Kmer2> usedPartnerKmers,
                                             float maxCovGradient) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
@@ -4395,8 +4409,15 @@ public final class GraphUtils {
     //                        partnerIndex+minNumPairs < kmers.size() && 
                             hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
-                        if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
-                            return false;
+                        if (usedKmers.contains(cursor)) {
+                            // check whether this kmer pair has been used in this sequence already (ie. a loop)
+                            Kmer2 partner = kmers.get(partnerIndex);
+                            for (int i = kmers.size()-1; i >= distance; --i) {
+                                if (cursor.equals(kmers.get(i)) &&
+                                        partner.equals(kmers.get(i-distance))) {
+                                    return false;
+                                }
+                            }
                         }
 
                         if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
@@ -4437,10 +4458,6 @@ public final class GraphUtils {
 
                         usedKmers.addAll(extension);
                         usedKmers.add(cursor);
-
-                        for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
-                            usedPartnerKmers.add(kmers.get(i));
-                        }
 
                         return true;
                     }
@@ -4508,8 +4525,7 @@ public final class GraphUtils {
                                             int maxIndelSize,
                                             float percentIdentity,
                                             int minNumPairs,
-                                            HashSet<Kmer2> usedKmers,
-                                            HashSet<Kmer2> usedPartnerKmers) {
+                                            HashSet<Kmer2> usedKmers) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         final int distance = graph.getPairedKmerDistance();
@@ -4553,8 +4569,15 @@ public final class GraphUtils {
     //                        partnerIndex+minNumPairs < kmers.size() && 
                             hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
-                        if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
-                            return false;
+                        if (usedKmers.contains(cursor)) {
+                            // check whether this kmer pair has been used in this sequence already
+                            Kmer2 partner = kmers.get(partnerIndex);
+                            for (int i = kmers.size()-1; i >= distance; --i) {
+                                if (cursor.equals(kmers.get(i)) &&
+                                        partner.equals(kmers.get(i-distance))) {
+                                    return false;
+                                }
+                            }
                         }
 
                         kmers.addAll(extension);
@@ -4562,10 +4585,6 @@ public final class GraphUtils {
 
                         usedKmers.addAll(extension);
                         usedKmers.add(cursor);
-
-                        for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
-                            usedPartnerKmers.add(kmers.get(i));
-                        }
 
                         return true;
                     }
@@ -4630,8 +4649,7 @@ public final class GraphUtils {
                                             int maxIndelSize,
                                             float percentIdentity,
                                             int minNumPairs,
-                                            HashSet<Kmer2> usedKmers,
-                                            HashSet<Kmer2> usedPartnerKmers) {
+                                            HashSet<Kmer2> usedKmers) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         final int distance = graph.getPairedKmerDistance();
@@ -4674,8 +4692,15 @@ public final class GraphUtils {
     //                        partnerIndex+minNumPairs < kmers.size() && 
                             hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
-                        if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
-                            return false;
+                        if (usedKmers.contains(cursor)) {
+                            // check whether this kmer pair has been used in this sequence already (ie. a loop)
+                            Kmer2 partner = kmers.get(partnerIndex);
+                            for (int i = kmers.size()-1; i >= distance; --i) {
+                                if (cursor.equals(kmers.get(i)) &&
+                                        partner.equals(kmers.get(i-distance))) {
+                                    return false;
+                                }
+                            }
                         }
 
                         kmers.addAll(extension);
@@ -4683,10 +4708,6 @@ public final class GraphUtils {
 
                         usedKmers.addAll(extension);
                         usedKmers.add(cursor);
-
-                        for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
-                            usedPartnerKmers.add(kmers.get(i));
-                        }
 
                         return true;
                     }
@@ -4752,8 +4773,7 @@ public final class GraphUtils {
                                             float percentIdentity,
                                             int minNumPairs,
                                             BloomFilter assembledKmersBloomFilter,
-                                            HashSet<Kmer2> usedKmers,
-                                            HashSet<Kmer2> usedPartnerKmers) {
+                                            HashSet<Kmer2> usedKmers) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         final int distance = graph.getPairedKmerDistance();
@@ -4799,8 +4819,15 @@ public final class GraphUtils {
     //                        partnerIndex+minNumPairs < kmers.size() && 
                             hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
-                        if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
-                            return false;
+                        if (usedKmers.contains(cursor)) {
+                            // check whether this kmer pair has been used in this sequence already
+                            Kmer2 partner = kmers.get(partnerIndex);
+                            for (int i = kmers.size()-1; i >= distance; --i) {
+                                if (cursor.equals(kmers.get(i)) &&
+                                        partner.equals(kmers.get(i-distance))) {
+                                    return false;
+                                }
+                            }
                         }
 
                         if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
@@ -4841,10 +4868,6 @@ public final class GraphUtils {
 
                         usedKmers.addAll(extension);
                         usedKmers.add(cursor);
-
-                        for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
-                            usedPartnerKmers.add(kmers.get(i));
-                        }
 
                         return true;
                     }
@@ -4910,8 +4933,7 @@ public final class GraphUtils {
                                             float percentIdentity,
                                             int minNumPairs,
                                             BloomFilter assembledKmersBloomFilter,
-                                            HashSet<Kmer2> usedKmers,
-                                            HashSet<Kmer2> usedPartnerKmers) {
+                                            HashSet<Kmer2> usedKmers) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         final int distance = graph.getPairedKmerDistance();
@@ -4956,8 +4978,15 @@ public final class GraphUtils {
     //                        partnerIndex+minNumPairs < kmers.size() && 
                             hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
-                        if (usedKmers.contains(cursor) && usedPartnerKmers.contains(kmers.get(partnerIndex))) {
-                            return false;
+                        if (usedKmers.contains(cursor)) {
+                            // check whether this kmer pair has been used in this sequence already (ie. a loop)
+                            Kmer2 partner = kmers.get(partnerIndex);
+                            for (int i = kmers.size()-1; i >= distance; --i) {
+                                if (cursor.equals(kmers.get(i)) &&
+                                        partner.equals(kmers.get(i-distance))) {
+                                    return false;
+                                }
+                            }
                         }
 
                         if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
@@ -4998,10 +5027,6 @@ public final class GraphUtils {
 
                         usedKmers.addAll(extension);
                         usedKmers.add(cursor);
-
-                        for (int i=Math.max(0, partnerIndex-extension.size()); i<=partnerIndex; ++i) {
-                            usedPartnerKmers.add(kmers.get(i));
-                        }
 
                         return true;
                     }
@@ -5074,25 +5099,25 @@ public final class GraphUtils {
                 
         // extend with paired kmers LEFT
         
-        boolean extendable = extendLeftWithPairedKmersBFS(kmers, 
-                                        graph,
-                                        maxTipLength,
-                                        maxIndelSize,
-                                        percentIdentity,
-                                        minNumPairs,
-                                        usedKmers);
+        extendLeftWithPairedKmersBFS(kmers, 
+                                    graph,
+                                    maxTipLength,
+                                    maxIndelSize,
+                                    percentIdentity,
+                                    minNumPairs,
+                                    usedKmers);
         
         Collections.reverse(kmers);
         
         // extend with paired kmers RIGHT
         
-        extendable = extendRightWithPairedKmersBFS(kmers, 
-                                        graph,
-                                        maxTipLength,
-                                        maxIndelSize,
-                                        percentIdentity,
-                                        minNumPairs,
-                                        usedKmers);
+        extendRightWithPairedKmersBFS(kmers, 
+                                    graph,
+                                    maxTipLength,
+                                    maxIndelSize,
+                                    percentIdentity,
+                                    minNumPairs,
+                                    usedKmers);
         
     }
     
@@ -5107,16 +5132,10 @@ public final class GraphUtils {
                                             float maxCovGradient) {
         
         HashSet<Kmer2> usedKmers = new HashSet<>(kmers);
-        int distance = graph.getPairedKmerDistance();
         
         // extend with paired kmers LEFT
         Collections.reverse(kmers);
-        
-        HashSet<Kmer2> usedPartnerKmers = new HashSet<>();
-        for (int i=kmers.size()-1-distance; i>=0; --i) {
-            usedPartnerKmers.add(kmers.get(i));
-        }
-        
+                
         boolean extendable = true;
         
         while (extendable) {
@@ -5129,9 +5148,8 @@ public final class GraphUtils {
                                         minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers,
-                                        usedPartnerKmers,
                                         maxCovGradient);
-            
+                        
             if (extendable) {
                 extendable = extendLeftWithPairedKmersDFS(kmers, 
                                         graph, 
@@ -5142,9 +5160,8 @@ public final class GraphUtils {
                                         minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers,
-                                        usedPartnerKmers,
                                         maxCovGradient);
-                
+
                 if (extendable) {
                     extendable = extendLeftWithPairedKmersOnly(kmers, graph, usedKmers, assembledKmersBloomFilter);
                 }
@@ -5154,11 +5171,6 @@ public final class GraphUtils {
         Collections.reverse(kmers);
         
         // extend with paired kmers RIGHT
-        
-        usedPartnerKmers.clear();
-        for (int i=kmers.size()-1-distance; i>=0; --i) {
-            usedPartnerKmers.add(kmers.get(i));
-        }
         
         extendable = true;
         
@@ -5172,7 +5184,6 @@ public final class GraphUtils {
                                         minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers,
-                                        usedPartnerKmers,
                                         maxCovGradient);
             
             if (extendable) {
@@ -5185,7 +5196,6 @@ public final class GraphUtils {
                                         minNumPairs,
                                         assembledKmersBloomFilter,
                                         usedKmers,
-                                        usedPartnerKmers,
                                         maxCovGradient);
                 
                 if (extendable) {
@@ -5206,15 +5216,9 @@ public final class GraphUtils {
                                             float maxCovGradient) {
         
         HashSet<Kmer2> usedKmers = new HashSet<>(kmers);
-        int distance = graph.getPairedKmerDistance();
         
         // extend with paired kmers LEFT
         Collections.reverse(kmers);
-        
-        HashSet<Kmer2> usedPartnerKmers = new HashSet<>();
-        for (int i=kmers.size()-1-distance; i>=0; --i) {
-            usedPartnerKmers.add(kmers.get(i));
-        }
         
         boolean extendable = true;
         
@@ -5228,7 +5232,6 @@ public final class GraphUtils {
                                     minNumPairs,
                                     assembledKmersBloomFilter,
                                     usedKmers,
-                                    usedPartnerKmers,
                                     maxCovGradient);
             
             if (extendable) {
@@ -5239,11 +5242,6 @@ public final class GraphUtils {
         Collections.reverse(kmers);
         
         // extend with paired kmers RIGHT
-        
-        usedPartnerKmers.clear();
-        for (int i=kmers.size()-1-distance; i>=0; --i) {
-            usedPartnerKmers.add(kmers.get(i));
-        }
         
         extendable = true;
         
@@ -5257,7 +5255,6 @@ public final class GraphUtils {
                                     minNumPairs,
                                     assembledKmersBloomFilter,
                                     usedKmers,
-                                    usedPartnerKmers,
                                     maxCovGradient);
             
             if (extendable) {
