@@ -1526,6 +1526,235 @@ public final class GraphUtils {
         return start;
     }
     
+    private static ArrayList<Kmer2> correctErrorHelper2(final ArrayList<Kmer2> kmers,
+                                                    final BloomFilterDeBruijnGraph graph, 
+                                                    final int lookahead,
+                                                    final int maxIndelSize,
+                                                    final float covThreshold,
+                                                    final float percentIdentity) {
+        
+        /**@TODO Need to be debugged*/
+        
+        final int numKmers = kmers.size();
+        final int k = graph.getK();
+        final int numHash = graph.getMaxNumHash();
+        final int snvBubbleLength = k;
+        final int minIslandSize = 3;
+        
+        ArrayList<Kmer2> kmers2 = new ArrayList<>(numKmers + maxIndelSize);
+        
+        boolean corrected = false;
+                
+        int start = -1; // left edge of kmer island
+        int end = -1;   // right edge of kmer island
+        
+        for (int i=0; i<numKmers; ++i) {
+            if (start < 0) {
+                // the left edge of kmer island has not been defined yet
+                boolean enoughKmers = true;
+                for (int j=i; j<i+minIslandSize; ++j) {
+                    if (kmers.get(j).count < covThreshold) {
+                        enoughKmers = false;
+                        break;
+                    }
+                }
+                
+                if (enoughKmers) {
+                    start = i;
+                    
+                    // attempt to correct bad kmers to the left of island
+                    
+                    if (end < 0) {
+                        if (start > 0) {
+                            // correct left edge
+
+                            ArrayDeque<Kmer2> leftVars = kmers.get(start-1).getLeftVariants(k, numHash, graph);
+                            
+                            if (leftVars.isEmpty()) {
+                                // no branches found
+                                for (int j=0; j<start; ++j) {
+                                    kmers2.add(kmers.get(j));
+                                }
+                            }
+                            else if (start >= lookahead) {
+                                // calculate median cov of edge kmers
+                                float[] tipCovs = new float[start];
+                                for (int j=0; j<start; ++j) {
+                                    tipCovs[j] = kmers.get(j).count;
+                                }
+                                float tipMedCov = getMedian(tipCovs);
+
+                                ArrayDeque<Kmer2> greedyTipKmers = greedyExtendLeft(graph, kmers.get(start), lookahead, start);
+                                if (greedyTipKmers.size() == start && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
+                                    if (getPercentIdentity(graph.assemble(greedyTipKmers), graph.assemble(kmers, 0, start)) >= percentIdentity){
+                                        corrected = true;
+                                        kmers2.addAll(greedyTipKmers);
+                                    }
+                                    else if (!kmers.get(0).hasPredecessors(k, numHash, graph) && start < k) {
+                                        // this is blunt end in graph
+                                        // do not add its kmers
+                                        corrected = true;
+                                    }
+                                    else {
+                                        // use original sequence
+                                        for (int j=0; j<start; ++j) {
+                                            kmers2.add(kmers.get(j));
+                                        }
+                                    }
+                                }
+                                else {
+                                    // use original sequence
+                                    for (int j=0; j<start; ++j) {
+                                        kmers2.add(kmers.get(j));
+                                    }
+                                }
+                            }
+                            else {
+                                corrected = true;
+                            }                        
+                        }
+                    }
+                    else {
+                        // correct bubble
+                        int bubbleLength = start - end - 1;
+                        
+                        if (bubbleLength == snvBubbleLength) {
+                            // a SNV bubble
+                            ArrayList<Kmer2> bestKmers = null;
+                            float bestCov = Float.MIN_VALUE;
+                            
+                            String prefix = graph.getSuffix(kmers.get(end).toString());
+                            String suffix = graph.getPrefix(kmers.get(start).toString());
+                            
+                            for (char n : NUCLEOTIDES) {
+                                ArrayList<Kmer2> testKmers = graph.getKmers(prefix + n + suffix);
+                                float[] m3 = getMinMedMaxKmerCoverage(testKmers);
+
+                                float medCov = m3[1];
+                                if (m3[0] > 0 && medCov > bestCov) {
+                                    bestCov = medCov;
+                                    bestKmers = testKmers;
+                                }
+                            }
+
+                            if (bestKmers != null & bestCov > 0) {
+                                // fill with best kmers
+                                kmers2.addAll(bestKmers);
+                                corrected = true;
+                            }
+                            else {
+                                // fill with original kmers
+                                for (int j=end+1; j<start; ++j) {
+                                    kmers2.add(kmers.get(j));
+                                }                            
+                            }
+                        }
+                        else {
+                            // non-SNV bubble
+                            
+                            ArrayDeque<Kmer2> path = getMaxCoveragePath(graph, kmers2.get(end+1), kmers.get(start-1), bubbleLength + maxIndelSize, lookahead);
+                            if (path == null) {
+                                // fill with original sequence
+                                for (int j=end+1; j<start; ++j) {
+                                    kmers2.add(kmers.get(j));
+                                }
+                            }
+                            else {
+                                int altPathLen = path.size();
+
+                                if (bubbleLength-maxIndelSize <= altPathLen && 
+                                        altPathLen <= bubbleLength+maxIndelSize && 
+                                        (altPathLen <= k+maxIndelSize ||
+                                            getPercentIdentity(graph.assemble(path), graph.assemble(kmers, end+1, start)) >= percentIdentity)) {
+
+                                        kmers2.addAll(path);
+                                        corrected = true;
+                                }
+                                else {
+                                    // fill with original sequence
+                                    for (int j=end+1; j<start; ++j) {
+                                        kmers2.add(kmers.get(j));
+                                    }
+                                }
+                            }
+                        }
+                        
+                        end = i;
+                    }
+                    
+                    kmers2.add(kmers.get(i));
+                }
+            }
+            else if (kmers.get(i).count >= covThreshold) {
+                end = i;
+                kmers2.add(kmers.get(i));
+            }
+            else {
+                start = -1;
+            }
+        }
+        
+        if (end < numKmers-1) {
+            // correct right edge
+            
+            int rightTipLen = numKmers-1-end;
+            
+            int firstBadKmerIndex = end + 1;
+            
+            ArrayDeque<Kmer2> rightVars = kmers.get(firstBadKmerIndex).getRightVariants(k, numHash, graph);
+            if (rightVars.isEmpty()) {
+                for (int j=firstBadKmerIndex; j<numKmers; ++j) {
+                    kmers2.add(kmers.get(j));
+                }
+            }
+            else if (rightTipLen >= lookahead) {
+                // calculate median cov of edge kmers
+                float[] tipCovs = new float[rightTipLen];
+                for (int j=0; j<rightTipLen; ++j) {
+                    tipCovs[j] = kmers.get(firstBadKmerIndex+j).count;
+                }
+                float tipMedCov = getMedian(tipCovs);
+                
+                ArrayDeque<Kmer2> greedyTipKmers = greedyExtendRight(graph, kmers.get(firstBadKmerIndex), lookahead, rightTipLen);
+                if (greedyTipKmers.size() == rightTipLen && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
+                    if (getPercentIdentity(graph.assemble(greedyTipKmers), graph.assemble(kmers, firstBadKmerIndex, numKmers)) >= percentIdentity){
+                        corrected = true;
+                        kmers2.addAll(greedyTipKmers);
+                    }
+                    else if (!kmers.get(numKmers-1).hasSuccessors(k, numHash, graph) && rightTipLen < k) {
+                        // this is blunt end in graph
+                        // do not add its kmers
+                        corrected = true;
+                    }
+                    else {
+                        // use original sequence
+                        for (int j=firstBadKmerIndex; j<numKmers; ++j) {
+                            kmers2.add(kmers.get(j));
+                        }
+                    }
+                }
+                else {
+                    // use original sequence
+                    for (int j=firstBadKmerIndex; j<numKmers; ++j) {
+                        kmers2.add(kmers.get(j));
+                    }
+                }
+            }
+            else {
+                corrected = true;
+            }
+            
+        }
+        
+        corrected = correctMismatches(kmers2, graph, covThreshold) || corrected;
+        
+        if (corrected) {
+            return kmers2;
+        }
+        
+        return null;
+    }
+    
     private static ArrayList<Kmer2> correctErrorHelper(ArrayList<Kmer2> kmers,
                                                     BloomFilterDeBruijnGraph graph, 
                                                     int lookahead,
@@ -1536,14 +1765,11 @@ public final class GraphUtils {
         
         boolean corrected = false;
         int numKmers = kmers.size();
-//        int lastKmerIndex = numKmers-1;
         
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
-        int expectedGapSize = k + 2;
+        int expectedGapSize = k;
         
-//        int kMinus1 = graph.getKMinus1();
-
         ArrayList<Kmer2> kmers2 = new ArrayList<>(numKmers + maxIndelSize);
         int numBadKmersSince = 0;
         Kmer2 kmer;
@@ -1569,49 +1795,17 @@ public final class GraphUtils {
                                 tipCovs[j] = kmers.get(j).count;
                             }
                             float tipMedCov = getMedian(tipCovs);
-
-//                            // extract tip sequence
-//                            StringBuilder sb = new StringBuilder(i);
-//                            for (int j=0; j<i-1; ++j) {
-//                                sb.append(kmers.get(j).seq.charAt(0));
-//                            }
-//                            String tip = sb.toString();
-//
-//                            // identify the best variant tip
-//                            String best = null;
-//                            float bestCov = tipMedCov;
-//                            for (Kmer v : leftVars) {
-//                                String s = tip + v.seq;
-//                                float[] vc = graph.getMinMedianMaxKmerCoverage(s);
-//                                if (vc[0] > 0 && vc[1] > bestCov) {
-//                                    best = s;
-//                                    bestCov = vc[1];
-//                                }
-//                            }
-//
-//                            if (best != null) {
-//                                corrected = true;
-//                                // replace with best variant tip
-//                                kmers2.addAll(graph.getKmers(best));
-//                            }
-//                            else {
-                                ArrayDeque<Kmer2> greedyTipKmers = greedyExtendLeft(graph, kmer, lookahead, numBadKmersSince);
-                                if (greedyTipKmers.size() == numBadKmersSince && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
-                                    if (getPercentIdentity(graph.assemble(greedyTipKmers), graph.assemble(kmers, 0, i)) >= percentIdentity){
-                                        corrected = true;
-                                        kmers2.addAll(greedyTipKmers);
-                                    }
-                                    else if (!kmers.get(0).hasPredecessors(k, numHash, graph) && numBadKmersSince < k) {
-                                        // this is blunt end in graph
-                                        // do not add its kmers
-                                        corrected = true;
-                                    }
-                                    else {
-                                        // use original sequence
-                                        for (int j=0; j<i; ++j) {
-                                            kmers2.add(kmers.get(j));
-                                        }
-                                    }
+                            
+                            ArrayDeque<Kmer2> greedyTipKmers = greedyExtendLeft(graph, kmer, lookahead, numBadKmersSince);
+                            if (greedyTipKmers.size() == numBadKmersSince && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
+                                if (getPercentIdentity(graph.assemble(greedyTipKmers), graph.assemble(kmers, 0, i)) >= percentIdentity){
+                                    corrected = true;
+                                    kmers2.addAll(greedyTipKmers);
+                                }
+                                else if (!kmers.get(0).hasPredecessors(k, numHash, graph) && numBadKmersSince < k) {
+                                    // this is blunt end in graph
+                                    // do not add its kmers
+                                    corrected = true;
                                 }
                                 else {
                                     // use original sequence
@@ -1619,7 +1813,13 @@ public final class GraphUtils {
                                         kmers2.add(kmers.get(j));
                                     }
                                 }
-//                            }
+                            }
+                            else {
+                                // use original sequence
+                                for (int j=0; j<i; ++j) {
+                                    kmers2.add(kmers.get(j));
+                                }
+                            }
                         }
                         else {
                             corrected = true;
@@ -1714,49 +1914,17 @@ public final class GraphUtils {
                     tipCovs[j] = kmers.get(i+j).count;
                 }
                 float tipMedCov = getMedian(tipCovs);
-
-//                // extract tip sequence
-//                StringBuilder sb = new StringBuilder(numBadKmersSince);
-//                for (int j=i+1; j<numKmers; ++j) {
-//                    sb.append(kmers.get(j).seq.charAt(kMinus1));
-//                }
-//                String tip = sb.toString();
-//
-//                // identify the best variant tip
-//                String best = null;
-//                float bestCov = tipMedCov;
-//                for (Kmer v : rightVars) {
-//                    String s = v.seq + tip;
-//                    float[] vc = graph.getMinMedianMaxKmerCoverage(s);
-//                    if (vc[0] > 0 && vc[1] > bestCov) {
-//                        best = s;
-//                        bestCov = vc[1];
-//                    }
-//                }
-//
-//                if (best != null) {
-//                    corrected = true;
-//                    // replace with best variant tip
-//                    kmers2.addAll(graph.getKmers(best));
-//                }
-//                else {
-                    ArrayDeque<Kmer2> greedyTipKmers = greedyExtendRight(graph, kmers.get(i-1), lookahead, numBadKmersSince);
-                    if (greedyTipKmers.size() == numBadKmersSince && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
-                        if (getPercentIdentity(graph.assemble(greedyTipKmers), graph.assemble(kmers, i, numKmers)) >= percentIdentity){
-                            corrected = true;
-                            kmers2.addAll(greedyTipKmers);
-                        }
-                        else if (!kmers.get(numKmers-1).hasSuccessors(k, numHash, graph) && numBadKmersSince < k) {
-                            // this is blunt end in graph
-                            // do not add its kmers
-                            corrected = true;
-                        }
-                        else {
-                            // use original sequence
-                            for (int j=i; j<numKmers; ++j) {
-                                kmers2.add(kmers.get(j));
-                            }
-                        }
+                
+                ArrayDeque<Kmer2> greedyTipKmers = greedyExtendRight(graph, kmers.get(i-1), lookahead, numBadKmersSince);
+                if (greedyTipKmers.size() == numBadKmersSince && getMedianKmerCoverage(greedyTipKmers) > tipMedCov) {
+                    if (getPercentIdentity(graph.assemble(greedyTipKmers), graph.assemble(kmers, i, numKmers)) >= percentIdentity){
+                        corrected = true;
+                        kmers2.addAll(greedyTipKmers);
+                    }
+                    else if (!kmers.get(numKmers-1).hasSuccessors(k, numHash, graph) && numBadKmersSince < k) {
+                        // this is blunt end in graph
+                        // do not add its kmers
+                        corrected = true;
                     }
                     else {
                         // use original sequence
@@ -1764,7 +1932,13 @@ public final class GraphUtils {
                             kmers2.add(kmers.get(j));
                         }
                     }
-//                }
+                }
+                else {
+                    // use original sequence
+                    for (int j=i; j<numKmers; ++j) {
+                        kmers2.add(kmers.get(j));
+                    }
+                }
             }
             else {
                 corrected = true;
@@ -1772,8 +1946,7 @@ public final class GraphUtils {
         }
         
         corrected = correctMismatches(kmers2, graph, covThreshold) || corrected;
-        
-        // look for low coverage SNV not yet corrected        
+         
         if (corrected) {
             return kmers2;
         }
