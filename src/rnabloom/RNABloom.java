@@ -1539,14 +1539,14 @@ public class RNABloom {
                             if (frag.length >= shortestFragmentLengthAllowed) {
                                 ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
 
-//                                if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
+                                if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                                     if (frag.minCov == 1) {
                                         graph.addPairedKmers(fragKmers);
 
                                         if (frag.length >= longFragmentLengthThreshold) {
-//                                            for (Kmer2 kmer : fragKmers) {
-//                                                screeningBf.add(kmer.getHash());
-//                                            }
+                                            for (Kmer2 kmer : fragKmers) {
+                                                screeningBf.add(kmer.getHash());
+                                            }
 
                                             longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                         }
@@ -1561,9 +1561,9 @@ public class RNABloom {
                                             graph.addPairedKmers(fragKmers);
 
                                             if (frag.length >= longFragmentLengthThreshold) {
-//                                                for (Kmer2 kmer : fragKmers) {
-//                                                    screeningBf.add(kmer.getHash());
-//                                                }
+                                                for (Kmer2 kmer : fragKmers) {
+                                                    screeningBf.add(kmer.getHash());
+                                                }
 
                                                 longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                             }
@@ -1572,7 +1572,7 @@ public class RNABloom {
                                             }
                                         }
                                     }
-//                                }
+                                }
                             }
                         }
                     }                    
@@ -1633,14 +1633,14 @@ public class RNABloom {
                                     if (frag.length >= shortestFragmentLengthAllowed) {
                                         ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
 
-//                                        if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
+                                        if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                                             if (frag.minCov == 1) {
                                                 graph.addPairedKmers(fragKmers);
 
                                                 if (frag.length >= longFragmentLengthThreshold) {
-//                                                    for (Kmer2 kmer : fragKmers) {
-//                                                        screeningBf.add(kmer.getHash());
-//                                                    } 
+                                                    for (Kmer2 kmer : fragKmers) {
+                                                        screeningBf.add(kmer.getHash());
+                                                    } 
 
                                                     longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                                 }
@@ -1655,9 +1655,9 @@ public class RNABloom {
                                                     graph.addPairedKmers(fragKmers);
 
                                                     if (frag.length >= longFragmentLengthThreshold) {
-//                                                        for (Kmer2 kmer : fragKmers) {
-//                                                            screeningBf.add(kmer.getHash());
-//                                                        }
+                                                        for (Kmer2 kmer : fragKmers) {
+                                                            screeningBf.add(kmer.getHash());
+                                                        }
 
                                                         longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                                     }
@@ -1666,7 +1666,7 @@ public class RNABloom {
                                                     }
                                                 }
                                             }
-//                                        }
+                                        }
                                     }
                                 }
                             }
@@ -1700,14 +1700,14 @@ public class RNABloom {
                         if (frag.length >= shortestFragmentLengthAllowed) {
                             ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
 
-//                            if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
+                            if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                                 if (frag.minCov == 1) {
                                     graph.addPairedKmers(fragKmers);
 
                                     if (frag.length >= longFragmentLengthThreshold) {
-//                                        for (Kmer2 kmer : fragKmers) {
-//                                            screeningBf.add(kmer.getHash());
-//                                        }
+                                        for (Kmer2 kmer : fragKmers) {
+                                            screeningBf.add(kmer.getHash());
+                                        }
 
                                         longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                     }
@@ -1722,9 +1722,9 @@ public class RNABloom {
                                         graph.addPairedKmers(fragKmers);
 
                                         if (frag.length >= longFragmentLengthThreshold) {
-//                                            for (Kmer2 kmer : fragKmers) {
-//                                                screeningBf.add(kmer.getHash());
-//                                            }
+                                            for (Kmer2 kmer : fragKmers) {
+                                                screeningBf.add(kmer.getHash());
+                                            }
 
                                             longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                         }
@@ -1733,7 +1733,7 @@ public class RNABloom {
                                         }
                                     }
                                 }
-//                            }
+                            }
                         }
                     }
                 }
@@ -1776,7 +1776,7 @@ public class RNABloom {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
             
             System.out.println("Paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100   + " %");
-//            System.out.println("Screening Bloom filter FPR:    " + screeningBf.getFPR() * 100 + " %");
+            System.out.println("Screening Bloom filter FPR:    " + screeningBf.getFPR() * 100 + " %");
         }        
     }
     
