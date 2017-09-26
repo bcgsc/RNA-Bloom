@@ -2158,50 +2158,42 @@ public final class GraphUtils {
             }
             
             // set coverage threshold for both reads
-            float covThreshold = 0;
-            if (leftThresholdFound) {
-                if (rightThresholdFound) {
-                    covThreshold = Math.min(leftCovThreshold, rightCovThreshold);
+            
+            if (leftThresholdFound || rightThresholdFound) {
+                float covThreshold = Math.min(leftCovThreshold, rightCovThreshold);
+                
+                if (covThreshold >= minCovThreshold) {
+                    // correct left read
+                    ArrayList<Kmer2> leftKmers2 = correctErrorHelper(leftKmers,
+                                                                    graph, 
+                                                                    lookahead,
+                                                                    maxIndelSize,
+                                                                    covThreshold,
+                                                                    percentIdentity);
+
+                    if (leftKmers2 != null) {
+                        leftKmers = leftKmers2;
+                        leftCorrected = true;
+                    }
+
+                    // correct right read
+                    ArrayList<Kmer2> rightKmers2 = correctErrorHelper(rightKmers,
+                                                                    graph, 
+                                                                    lookahead,
+                                                                    maxIndelSize,
+                                                                    covThreshold,
+                                                                    percentIdentity);
+
+                    if (rightKmers2 != null) {
+                        rightKmers = rightKmers2;
+                        rightCorrected = true;
+                    }
+
+                    if (leftKmers2 == null && rightKmers2 == null) {
+                        break;
+                    }
+
                 }
-                else {
-                    covThreshold = leftCovThreshold;
-                }
-            }
-            else if (rightThresholdFound) {
-                covThreshold = rightCovThreshold;
-            } 
-
-            if (covThreshold >= minCovThreshold) {
-                // correct left read
-                ArrayList<Kmer2> leftKmers2 = correctErrorHelper(leftKmers,
-                                                                graph, 
-                                                                lookahead,
-                                                                maxIndelSize,
-                                                                covThreshold,
-                                                                percentIdentity);
-
-                if (leftKmers2 != null) {
-                    leftKmers = leftKmers2;
-                    leftCorrected = true;
-                }
-
-                // correct right read
-                ArrayList<Kmer2> rightKmers2 = correctErrorHelper(rightKmers,
-                                                                graph, 
-                                                                lookahead,
-                                                                maxIndelSize,
-                                                                covThreshold,
-                                                                percentIdentity);
-
-                if (rightKmers2 != null) {
-                    rightKmers = rightKmers2;
-                    rightCorrected = true;
-                }
-
-                if (leftKmers2 == null && rightKmers2 == null) {
-                    break;
-                }
-
             }
         }
         
