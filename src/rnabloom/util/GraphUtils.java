@@ -1535,6 +1535,72 @@ public final class GraphUtils {
         return start;
     }
     
+    private static ArrayList<Kmer2> correctErrorHelper3(final ArrayList<Kmer2> kmers,
+                                                    final BloomFilterDeBruijnGraph graph, 
+                                                    final int lookahead,
+                                                    final int maxIndelSize,
+                                                    final float maxCovGradient,
+                                                    final float percentIdentity) {
+        final int numKmers = kmers.size();
+        final int windowSize = 3;
+        
+        if (numKmers > windowSize) {
+            final int k = graph.getK();
+            final int numHash = graph.getMaxNumHash();
+            final int snvBubbleLength = k;
+            
+            ArrayList<Kmer2> kmers2 = new ArrayList<>(numKmers + maxIndelSize);
+
+            float[] windowCounts = new float[windowSize];
+            for (int i=0; i<windowSize; ++i) {
+                windowCounts[i] = kmers.get(i).count;
+            }
+            
+            FloatRollingWindow window = new FloatRollingWindow(windowCounts);
+            float lastMin = window.getMin();
+            float currentMin;
+            int lastGoodKmerIndex = -1;
+            
+            for (int i=windowSize; i<numKmers; ++i) {
+                
+                window.roll(kmers.get(i).count);
+                currentMin = window.getMin();
+                
+                if (currentMin <= lastMin) {
+                    if (currentMin <= lastMin * maxCovGradient) {
+                        // ... ---___
+
+                        for (int j=lastGoodKmerIndex+1; j<i; ++j) {
+                            kmers2.add(kmers.get(j));
+                        }
+                        
+                        lastGoodKmerIndex = i;
+                    }
+                }
+                else {
+                    if (lastMin <= currentMin * maxCovGradient) {
+                        // ... ___---
+                        
+                        if (lastGoodKmerIndex < 0) {
+                            // ______---
+                            
+                            // correct left edge
+                            // TODO
+                        }
+                        else {
+                            // ---______---
+                            
+                            // bridge gap
+                            // TODO
+                        }
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+    
     private static ArrayList<Kmer2> correctErrorHelper2(final ArrayList<Kmer2> kmers,
                                                     final BloomFilterDeBruijnGraph graph, 
                                                     final int lookahead,
