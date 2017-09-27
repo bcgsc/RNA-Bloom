@@ -1154,6 +1154,9 @@ public class RNABloom {
                     return;
                 }
                 
+//                left = "GCAACAGGGTGGTGGACCTCATGGCCCACATGGCCTCCAAGGAGTAAGACCCCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTC";
+//                right = "GCTGGGGAGTCCCTGCCACACTAAGTCCCCCACCACACTGAATCTCCCCTCCTCACAGTTTCCATGTAGACCCCTTGAAGAGGGGAGGGGCCTAGGGAGC";
+                
                 ArrayList<Kmer2> leftKmers = graph.getKmers(left);
                 ArrayList<Kmer2> rightKmers = graph.getKmers(right);
 
