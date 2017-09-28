@@ -976,13 +976,17 @@ public class RNABloom {
             try {
                 while (true) {
                     String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
-
+                    
                     if (fragment == null) {
                         if (!keepGoing) {
                             break;
                         }
                     }
                     else {
+//                        if (fragment.equals("GGGGGGGGGGGGGGGGGGGGGCGCGGCAAAAAAGCAATGATGGACCTTGGCTGATCCCCCCGACCCCTTTCTT")) {
+//                            System.out.println(fragment);
+//                        }
+                        
                         ArrayList<Kmer2> fragKmers = graph.getKmers(fragment);
 
                         if (!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) {
