@@ -6231,14 +6231,8 @@ public final class GraphUtils {
                 ArrayDeque<Kmer2> b = naiveExtendRight(best, graph, maxTipLength, usedKmers);
                 
                 if (!b.isEmpty()) {
-                    for (Kmer2 kmer : b) {
-                        if (usedKmers.contains(kmer)) {
-                            return result;
-                        }
-                        
-                        result.add(kmer);
-                        usedKmers.add(kmer);
-                    }
+                    result.addAll(b);
+                    usedKmers.addAll(b);
                     best = result.peekLast();
                 }
             }
@@ -6277,15 +6271,9 @@ public final class GraphUtils {
                 else if (branches.size() == 1) {
                     // one good branch
                     
-                    for (Kmer2 n : branches.peekLast()) {
-                        if (usedKmers.contains(n)) {
-                            return result;
-                        }
-                        
-                        result.add(n);
-                        usedKmers.add(n);
-                    }
-                    
+                    ArrayDeque<Kmer2> b = branches.pop();
+                    result.addAll(b);
+                    usedKmers.addAll(b);
                     best = result.peekLast();
                 }
                 else {
@@ -6320,16 +6308,9 @@ public final class GraphUtils {
                             }
                         }
                     }
-                                        
-                    for (Kmer2 n : bestBranch) {
-                        if (usedKmers.contains(n)) {
-                            return result;
-                        }
-                        
-                        result.add(n);
-                        usedKmers.add(n);
-                    }
                     
+                    result.addAll(bestBranch);
+                    usedKmers.addAll(bestBranch);
                     best = bestBranch.peekLast();
                     neighbors = best.getSuccessors(k, numHash, graph);
                     if (neighbors.size() == 1) {
@@ -6392,15 +6373,8 @@ public final class GraphUtils {
                 ArrayDeque<Kmer2> b = naiveExtendLeft(best, graph, maxTipLength, usedKmers);
                 
                 if (!b.isEmpty()) {
-                    for (Kmer2 kmer : b) {
-                        if (usedKmers.contains(kmer)) {
-                            return result;
-                        }
-                        
-                        result.add(kmer);
-                        usedKmers.add(kmer);
-                    }
-                    
+                    result.addAll(b);
+                    usedKmers.addAll(b);
                     best = result.peekLast();
                 }
             }
@@ -6437,16 +6411,9 @@ public final class GraphUtils {
                 }
                 else if (branches.size() == 1) {
                     // one good branch
-                    
-                    for (Kmer2 n : branches.peekLast()) {
-                        if (usedKmers.contains(n)) {
-                            return result;
-                        }
-                        
-                        result.add(n);
-                        usedKmers.add(n);
-                    }
-                    
+                    ArrayDeque<Kmer2> b = branches.pop();
+                    result.addAll(b);
+                    usedKmers.addAll(b);
                     best = result.peekLast();
                 }
                 else {
@@ -6482,15 +6449,8 @@ public final class GraphUtils {
                         }
                     }
                     
-                    for (Kmer2 n : bestBranch) {
-                        if (usedKmers.contains(n)) {
-                            return result;
-                        }
-                        
-                        result.add(n);
-                        usedKmers.add(n);
-                    }
-                    
+                    result.addAll(bestBranch);
+                    usedKmers.addAll(bestBranch);
                     best = bestBranch.peekLast();
                     neighbors = best.getPredecessors(k, numHash, graph);
                     if (neighbors.size() == 1) {
