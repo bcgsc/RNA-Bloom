@@ -983,7 +983,7 @@ public class RNABloom {
                         }
                     }
                     else {
-//                        if (fragment.equals("GGGGGGGGGGGGGGGGGGGGGCGCGGCAAAAAAGCAATGATGGACCTTGGCTGATCCCCCCGACCCCTTTCTT")) {
+//                        if (fragment.equals("AAAAAAAAAAAAAAAAAAAAAGGAAAATGTGTCTAAAGTCCATCAGTGTTAACTCCCTG")) {
 //                            System.out.println(fragment);
 //                        }
                         

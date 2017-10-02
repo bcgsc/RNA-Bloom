@@ -6230,7 +6230,10 @@ public final class GraphUtils {
                 
                 ArrayDeque<Kmer2> b = naiveExtendRight(best, graph, maxTipLength, usedKmers);
                 
-                if (!b.isEmpty()) {
+                if (b.isEmpty()) {
+                    break;
+                }
+                else {
                     result.addAll(b);
                     usedKmers.addAll(b);
                     best = result.peekLast();
@@ -6366,7 +6369,10 @@ public final class GraphUtils {
                 
                 ArrayDeque<Kmer2> b = naiveExtendLeft(best, graph, maxTipLength, usedKmers);
                 
-                if (!b.isEmpty()) {
+                if (b.isEmpty()) {
+                    break;
+                }
+                else {
                     result.addAll(b);
                     usedKmers.addAll(b);
                     best = result.peekLast();
