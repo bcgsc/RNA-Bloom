@@ -6095,7 +6095,8 @@ public final class GraphUtils {
         
         ArrayDeque<Kmer2> result = new ArrayDeque<>();
         
-        ArrayDeque<Kmer2> neighbors = kmer.getSuccessors(k, numHash, graph);
+        ArrayDeque<Kmer2> neighbors = new ArrayDeque<>(4);
+        kmer.getSuccessors(k, numHash, graph, neighbors);
         Kmer2 best = kmer;
         while (!neighbors.isEmpty()) {
             /** look for back branches*/
@@ -6107,11 +6108,12 @@ public final class GraphUtils {
             }
             
             if (neighbors.size() == 1) {
-                best = neighbors.peek();
+                best = neighbors.pop();
             }
             else {
                 best = null;
-                for (Kmer2 n : neighbors) {
+                while (!neighbors.isEmpty()) {
+                    Kmer2 n = neighbors.pop();
 //                    if (hasDepthRight(n, graph, maxTipLength)) {
                     if (n.hasDepthRight(k, numHash, graph, maxTipLength)) {
                         if (best == null) {
@@ -6136,7 +6138,7 @@ public final class GraphUtils {
             result.add(best);
             usedKmers.add(best);
             
-            neighbors = best.getSuccessors(k, numHash, graph);
+            best.getSuccessors(k, numHash, graph, neighbors);
         }
         
         return result;
@@ -6150,7 +6152,8 @@ public final class GraphUtils {
         
         ArrayDeque<Kmer2> result = new ArrayDeque<>();
         
-        ArrayDeque<Kmer2> neighbors = kmer.getPredecessors(k, numHash, graph);
+        ArrayDeque<Kmer2> neighbors = new ArrayDeque<>(4);
+        kmer.getPredecessors(k, numHash, graph, neighbors);
         Kmer2 best = kmer;
         while (!neighbors.isEmpty()) {
             /** look for back branches*/
@@ -6162,11 +6165,12 @@ public final class GraphUtils {
             }
             
             if (neighbors.size() == 1) {
-                best = neighbors.peek();
+                best = neighbors.pop();
             }
             else {
                 best = null;
-                for (Kmer2 n : neighbors) {
+                while (!neighbors.isEmpty()) {
+                    Kmer2 n = neighbors.pop();
 //                    if (hasDepthLeft(n, graph, maxTipLength)) {
                     if (n.hasDepthLeft(k, numHash, graph, maxTipLength)) {
                         if (best == null) {
@@ -6191,7 +6195,7 @@ public final class GraphUtils {
             result.addLast(best);
             usedKmers.add(best);
             
-            neighbors = best.getPredecessors(k, numHash, graph);
+            best.getPredecessors(k, numHash, graph, neighbors);
         }
         
         return result;
