@@ -81,8 +81,8 @@ public class Kmer2 {
         itr.start(fHashVal, (char) bytes[k-1]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 return true;
             }
@@ -96,8 +96,8 @@ public class Kmer2 {
         itr.start(fHashVal, (char) bytes[0]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 return true;
             }
@@ -113,8 +113,8 @@ public class Kmer2 {
         itr.start(fHashVal, (char) bytes[k-1]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 if (++result >= x) {
                     return true;
@@ -132,8 +132,8 @@ public class Kmer2 {
         itr.start(fHashVal, (char) bytes[0]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 if (++result >= x) {
                     return true;
@@ -151,8 +151,8 @@ public class Kmer2 {
         itr.start(fHashVal, (char) bytes[k-1]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 ++result;
             }
@@ -168,8 +168,8 @@ public class Kmer2 {
         itr.start(fHashVal, (char) bytes[0]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 ++result;
             }
@@ -180,44 +180,54 @@ public class Kmer2 {
     
     public ArrayDeque<Kmer2> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
         ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+        
+        getPredecessors(k, numHash, graph, result);
+        
+        return result;
+    }
+    
+    public void getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer2> result) {
   
         PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, (char) bytes[k-1]);
         long[] hVals = itr.hVals;
         
         float myCount;
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             myCount = graph.getCount(hVals);
             if (myCount > 0) {
                 byte[] myBytes = shiftRight(this.bytes, k);
-                myBytes[0] = (byte) c;
+                myBytes[0] = (byte) itr.currentChar();
                 result.add(new Kmer2(myBytes, myCount, hVals[0]));
             }
         }
+    }
+    
+    public ArrayDeque<Kmer2> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {  
+        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+        
+        getSuccessors(k, numHash, graph, result);
         
         return result;
     }
     
-    public ArrayDeque<Kmer2> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {        
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public void getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer2> result) {
         
         SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, (char) bytes[0]);
         long[] hVals = itr.hVals;
         
         float myCount;
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             myCount = graph.getCount(hVals);
             if (myCount > 0) {
                 byte[] myBytes = shiftLeft(this.bytes, k);
-                myBytes[k-1] = (byte) c;
+                myBytes[k-1] = (byte) itr.currentChar();
                 result.add(new Kmer2(myBytes, myCount, hVals[0]));
             }
         }
-        
-        return result;
     }
     
     public ArrayDeque<Kmer2> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, BloomFilter bf) {        
@@ -228,13 +238,13 @@ public class Kmer2 {
         long[] hVals = itr.hVals;
         
         float myCount;
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (bf.lookup(hVals)) {
                 myCount = graph.getCount(hVals);
                 if (myCount > 0) {
                     byte[] myBytes = shiftRight(this.bytes, k);
-                    myBytes[0] = (byte) c;
+                    myBytes[0] = (byte) itr.currentChar();
                     result.add(new Kmer2(myBytes, myCount, hVals[0]));
                 }
             }
@@ -251,13 +261,13 @@ public class Kmer2 {
         long[] hVals = itr.hVals;
         
         float myCount;
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (bf.lookup(hVals)) {
                 myCount = graph.getCount(hVals);
                 if (myCount > 0) {
                     byte[] myBytes = shiftLeft(this.bytes, k);
-                    myBytes[k-1] = (byte) c;
+                    myBytes[k-1] = (byte) itr.currentChar();
                     result.add(new Kmer2(myBytes, myCount, hVals[0]));
                 }
             }
@@ -310,5 +320,86 @@ public class Kmer2 {
         }
                 
         return result;
+    }
+    
+    public boolean hasDepthRight(int k, int numHash, BloomFilterDeBruijnGraph graph, int depth) {
+        ArrayDeque<SuccessorsNTHashIterator> stack = new ArrayDeque<>(depth);
+        SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
+        itr.start(fHashVal, (char) bytes[0]);
+        stack.add(itr);
+        
+        byte[] extension = new byte[depth];
+        int extensionLength = 1;
+        while (extensionLength > 0) {
+            if (extensionLength >= depth) {
+                return true;
+            }
+            
+            itr = stack.getLast();
+            
+            if (itr.hasNext()) {
+                itr.next();
+                extension[extensionLength-1] = (byte) itr.currentChar();
+                
+                SuccessorsNTHashIterator nextItr = new SuccessorsNTHashIterator(k, numHash);
+                
+                if (extensionLength < k) {
+                    nextItr.start(itr.hVals[0], (char) bytes[extensionLength]);
+                }
+                else {
+                    nextItr.start(itr.hVals[0], (char) extension[extensionLength-k]);
+                }
+                
+                stack.addLast(nextItr);
+                ++extensionLength;
+            }
+            else {
+                stack.pollLast();
+                --extensionLength;
+            }
+        }
+        
+        return false;
+    }
+    
+    public boolean hasDepthLeft(int k, int numHash, BloomFilterDeBruijnGraph graph, int depth) {
+        ArrayDeque<PredecessorsNTHashIterator> stack = new ArrayDeque<>(depth);
+        PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
+        
+        itr.start(fHashVal, (char) bytes[k-1]);
+        stack.add(itr);
+        
+        byte[] extension = new byte[depth];
+        int extensionLength = 1;
+        while (extensionLength > 0) {
+            if (extensionLength >= depth) {
+                return true;
+            }
+            
+            itr = stack.getLast();
+            
+            if (itr.hasNext()) {
+                itr.next();
+                extension[extensionLength-1] = (byte) itr.currentChar();
+                
+                PredecessorsNTHashIterator nextItr = new PredecessorsNTHashIterator(k, numHash);
+                
+                if (extensionLength < k) {
+                    nextItr.start(itr.hVals[0], (char) bytes[k-1-extensionLength]);
+                }
+                else {
+                    nextItr.start(itr.hVals[0], (char) extension[extensionLength-k]);
+                }
+                
+                stack.addLast(nextItr);
+                ++extensionLength;
+            }
+            else {
+                stack.pollLast();
+                --extensionLength;
+            }
+        }
+        
+        return false;
     }
 }

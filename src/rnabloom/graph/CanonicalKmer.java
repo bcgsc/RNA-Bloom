@@ -88,8 +88,8 @@ public class CanonicalKmer extends Kmer2 {
         itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 return true;
             }
@@ -104,8 +104,8 @@ public class CanonicalKmer extends Kmer2 {
         itr.start(fHashVal, rHashVal, (char) bytes[0]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 return true;
             }
@@ -122,8 +122,8 @@ public class CanonicalKmer extends Kmer2 {
         itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 if (++result >= x) {
                     return true;
@@ -142,8 +142,8 @@ public class CanonicalKmer extends Kmer2 {
         itr.start(fHashVal, rHashVal, (char) bytes[0]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 if (++result >= x) {
                     return true;
@@ -162,8 +162,8 @@ public class CanonicalKmer extends Kmer2 {
         itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 ++result;
             }
@@ -180,8 +180,8 @@ public class CanonicalKmer extends Kmer2 {
         itr.start(fHashVal, rHashVal, (char) bytes[0]);
         long[] hVals = itr.hVals;
         
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (graph.contains(hVals)) {
                 ++result;
             }
@@ -193,45 +193,57 @@ public class CanonicalKmer extends Kmer2 {
     @Override
     public ArrayDeque<Kmer2> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
         ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+        
+        getPredecessors(k, numHash, graph, result);
+        
+        return result;
+    }
+    
+    @Override
+    public void getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer2> result) {
   
         CanonicalPredecessorsNTHashIterator itr = new CanonicalPredecessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
         long[] hVals = itr.hVals;
         
         float myCount;
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             myCount = graph.getCount(hVals);
             if (myCount > 0) {
                 byte[] myBytes = shiftRight(this.bytes, k);
-                myBytes[0] = (byte) c;
+                myBytes[0] = (byte) itr.currentChar();
                 result.add(new CanonicalKmer(myBytes, myCount, itr.fHashVal, itr.rHashVal));
             }
         }
+    }
+    
+    @Override
+    public ArrayDeque<Kmer2> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+        
+        getSuccessors(k, numHash, graph, result);
         
         return result;
     }
     
     @Override
-    public ArrayDeque<Kmer2> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {        
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public void getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer2> result) {
         
         CanonicalSuccessorsNTHashIterator itr = new CanonicalSuccessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, rHashVal, (char) bytes[0]);
         long[] hVals = itr.hVals;
         
         float myCount;
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             myCount = graph.getCount(hVals);
             if (myCount > 0) {
                 byte[] myBytes = shiftLeft(this.bytes, k);
-                myBytes[k-1] = (byte) c;
+                myBytes[k-1] = (byte) itr.currentChar();
                 result.add(new CanonicalKmer(myBytes, myCount, itr.fHashVal, itr.rHashVal));
             }
         }
-        
-        return result;
     }
     
     @Override
@@ -243,13 +255,13 @@ public class CanonicalKmer extends Kmer2 {
         long[] hVals = itr.hVals;
         
         float myCount;
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (bf.lookup(hVals)) {
                 myCount = graph.getCount(hVals);
                 if (myCount > 0) {
                     byte[] myBytes = shiftRight(this.bytes, k);
-                    myBytes[0] = (byte) c;
+                    myBytes[0] = (byte) itr.currentChar();
                     result.add(new CanonicalKmer(myBytes, myCount, itr.fHashVal, itr.rHashVal));
                 }
             }
@@ -267,13 +279,13 @@ public class CanonicalKmer extends Kmer2 {
         long[] hVals = itr.hVals;
         
         float myCount;
-        for (char c : NUCLEOTIDES) {
-            itr.next(c);
+        while (itr.hasNext()) {
+            itr.next();
             if (bf.lookup(hVals)) {
                 myCount = graph.getCount(hVals);
                 if (myCount > 0) {
                     byte[] myBytes = shiftLeft(this.bytes, k);
-                    myBytes[k-1] = (byte) c;
+                    myBytes[k-1] = (byte) itr.currentChar();
                     result.add(new CanonicalKmer(myBytes, myCount, itr.fHashVal, itr.rHashVal));
                 }
             }
@@ -328,5 +340,88 @@ public class CanonicalKmer extends Kmer2 {
         }
                 
         return result;
+    }
+    
+    @Override
+    public boolean hasDepthRight(int k, int numHash, BloomFilterDeBruijnGraph graph, int depth) {
+        ArrayDeque<CanonicalSuccessorsNTHashIterator> stack = new ArrayDeque<>(depth);
+        CanonicalSuccessorsNTHashIterator itr = new CanonicalSuccessorsNTHashIterator(k, numHash);
+        itr.start(fHashVal, rHashVal, (char) bytes[0]);
+        stack.add(itr);
+        
+        byte[] extension = new byte[depth];
+        int extensionLength = 1;
+        while (extensionLength > 0) {
+            if (extensionLength >= depth) {
+                return true;
+            }
+            
+            itr = stack.getLast();
+            
+            if (itr.hasNext()) {
+                itr.next();
+                extension[extensionLength-1] = (byte) itr.currentChar();
+                
+                CanonicalSuccessorsNTHashIterator nextItr = new CanonicalSuccessorsNTHashIterator(k, numHash);
+                
+                if (extensionLength < k) {
+                    nextItr.start(itr.fHashVal, itr.rHashVal, (char) bytes[extensionLength]);
+                }
+                else {
+                    nextItr.start(itr.fHashVal, itr.rHashVal, (char) extension[extensionLength-k]);
+                }
+                
+                stack.addLast(nextItr);
+                ++extensionLength;
+            }
+            else {
+                stack.pollLast();
+                --extensionLength;
+            }
+        }
+        
+        return false;
+    }
+    
+    @Override
+    public boolean hasDepthLeft(int k, int numHash, BloomFilterDeBruijnGraph graph, int depth) {
+        ArrayDeque<CanonicalPredecessorsNTHashIterator> stack = new ArrayDeque<>(depth);
+        CanonicalPredecessorsNTHashIterator itr = new CanonicalPredecessorsNTHashIterator(k, numHash);
+        
+        itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
+        stack.add(itr);
+        
+        byte[] extension = new byte[depth];
+        int extensionLength = 1;
+        while (extensionLength > 0) {
+            if (extensionLength >= depth) {
+                return true;
+            }
+            
+            itr = stack.getLast();
+            
+            if (itr.hasNext()) {
+                itr.next();
+                extension[extensionLength-1] = (byte) itr.currentChar();
+                
+                CanonicalPredecessorsNTHashIterator nextItr = new CanonicalPredecessorsNTHashIterator(k, numHash);
+                
+                if (extensionLength < k) {
+                    nextItr.start(itr.fHashVal, itr.rHashVal, (char) bytes[k-1-extensionLength]);
+                }
+                else {
+                    nextItr.start(itr.fHashVal, itr.rHashVal, (char) extension[extensionLength-k]);
+                }
+                
+                stack.addLast(nextItr);
+                ++extensionLength;
+            }
+            else {
+                stack.pollLast();
+                --extensionLength;
+            }
+        }
+        
+        return false;
     }
 }

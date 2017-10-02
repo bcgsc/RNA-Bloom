@@ -10,6 +10,7 @@ import java.util.Arrays;
 import static rnabloom.bloom.hash.NTHash.NTM64;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer2;
+import static rnabloom.util.SeqUtils.getNumKmers;
 import static rnabloom.util.SeqUtils.stringToBytes;
 
 
@@ -35,7 +36,7 @@ public class HashFunction2 {
     }
     
     public ArrayList<Kmer2> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph) {
-        ArrayList<Kmer2> result = new ArrayList<>();
+        ArrayList<Kmer2> result = new ArrayList<>(getNumKmers(seq, k) * 2);
         
         byte[] bytes = stringToBytes(seq, seq.length());
         

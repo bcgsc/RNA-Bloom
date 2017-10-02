@@ -8,6 +8,7 @@ package rnabloom.bloom.hash;
 import static rnabloom.bloom.hash.NTHash.NTM64;
 import static rnabloom.bloom.hash.NTHash.cpOff;
 import static rnabloom.bloom.hash.NTHash.msTab;
+import static rnabloom.util.SeqUtils.NUCLEOTIDES;
 
 /**
  *
@@ -15,6 +16,7 @@ import static rnabloom.bloom.hash.NTHash.msTab;
  */
 public class CanonicalSuccessorsNTHashIterator {
     protected int k;
+    protected int i = -1;
     protected long tmpValF, tmpValR;
     public long fHashVal, rHashVal;
     protected int numHash;
@@ -26,15 +28,26 @@ public class CanonicalSuccessorsNTHashIterator {
         this.hVals = new long[numHash];
     }
     
+    public boolean hasNext() {
+        return i < 3;
+    }
+    
     public void start(final long fHashVal, final long rHashVal, final char charOut) {
         tmpValF = Long.rotateLeft(fHashVal, 1) ^ msTab[charOut][k%64];
         tmpValR = Long.rotateRight(rHashVal, 1) ^ msTab[charOut&cpOff][63];
+        i = -1;
     }
     
-    public void next(final char charIn) {
+    public void next() {
+        char charIn = NUCLEOTIDES[++i];
+        
         fHashVal = tmpValF ^ msTab[charIn][0];
         rHashVal = tmpValR ^ msTab[charIn&cpOff][(k-1)%64];
         
         NTM64(Math.min(fHashVal, rHashVal), hVals, k, numHash);
+    }
+    
+    public char currentChar() {
+        return NUCLEOTIDES[i];
     }
 }
