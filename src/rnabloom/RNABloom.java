@@ -2057,13 +2057,13 @@ public class RNABloom {
                 graph.clearDbgbf();
                 
                 String longFragsFasta = longFragmentsFastas[mag];
-                String shortFragsFasta = shortFragmentsFastas[mag];
-                String unconnectedReadsFasta = unconnectedReadsFastas[mag];
+//                String shortFragsFasta = shortFragmentsFastas[mag];
+//                String unconnectedReadsFasta = unconnectedReadsFastas[mag];
                 
                 graph.clearPkbf();
                 insertIntoDeBruijnGraphAndPairedKmers(longFragsFasta);
-                insertIntoDeBruijnGraph(shortFragsFasta);
-                insertIntoDeBruijnGraph(unconnectedReadsFasta);
+//                insertIntoDeBruijnGraph(shortFragsFasta);
+//                insertIntoDeBruijnGraph(unconnectedReadsFasta);
                 
                 FastaWriter fout = new FastaWriter(outFastasLong[mag], false);
                 FastaWriter foutShort = new FastaWriter(outFastasShort[mag], false);
@@ -2072,11 +2072,11 @@ public class RNABloom {
                 System.out.println("Parsing fragments in `" + longFragsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(longFragsFasta, writer, sampleSize, numThreads, false, false);
                 
-                System.out.println("Parsing fragments in `" + shortFragsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, false, false);
+//                System.out.println("Parsing fragments in `" + shortFragsFasta + "`...");
+//                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, false, false);
                 
                 fout.close();
-                foutShort.close();
+//                foutShort.close();
             }
             
         } catch (Exception ex) {
@@ -2920,56 +2920,56 @@ public class RNABloom {
                 }
             }
 
-//            String[] longTransfragsFastaPaths = {longTransfragsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-//                                            longTransfragsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-//                                            longTransfragsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-//                                            longTransfragsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-//                                            longTransfragsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-//                                            longTransfragsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
-//            
-//            String[] shortTransfragsFastaPaths = {shortTransfragsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-//                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-//                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-//                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-//                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-//                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
-//            
-//            if (forceOverwrite || !txfgsDoneStamp.exists()) {
-//                
-//                for (String transfragsFasta : longTransfragsFastaPaths) {
-//                    File transfragsFile = new File(transfragsFasta);
-//                    if (transfragsFile.exists()) {
-//                        transfragsFile.delete();
-//                    }
-//                }
-//                
-//                for (String transfragsFasta : shortTransfragsFastaPaths) {
-//                    File transfragsFile = new File(transfragsFasta);
-//                    if (transfragsFile.exists()) {
-//                        transfragsFile.delete();
-//                    }
-//                }
-//                                
-//                timer.start();
-//                
-//                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-//                
-//                assembler.assembleTransfragsMultiThreaded(longFragmentsFastaPaths, 
-//                                                        shortFragmentsFastaPaths,
-//                                                        unconnectedReadsFastaPaths,
-//                                                        longTransfragsFastaPaths,
-//                                                        shortTransfragsFastaPaths,
-//                                                        numThreads,
-//                                                        sampleSize);
-//
-//                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
-//                
-//                try {
-//                    touch(txfgsDoneStamp);
-//                } catch (Exception ex) {
-//                    ex.printStackTrace();
-//                }
-//            }
+            String[] longTransfragsFastaPaths = {longTransfragsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                            longTransfragsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                            longTransfragsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                            longTransfragsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                            longTransfragsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                            longTransfragsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            
+            String[] shortTransfragsFastaPaths = {shortTransfragsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            
+            if (forceOverwrite || !txfgsDoneStamp.exists()) {
+                
+                for (String transfragsFasta : longTransfragsFastaPaths) {
+                    File transfragsFile = new File(transfragsFasta);
+                    if (transfragsFile.exists()) {
+                        transfragsFile.delete();
+                    }
+                }
+                
+                for (String transfragsFasta : shortTransfragsFastaPaths) {
+                    File transfragsFile = new File(transfragsFasta);
+                    if (transfragsFile.exists()) {
+                        transfragsFile.delete();
+                    }
+                }
+                                
+                timer.start();
+                
+                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                
+                assembler.assembleTransfragsMultiThreaded(longFragmentsFastaPaths, 
+                                                        shortFragmentsFastaPaths,
+                                                        unconnectedReadsFastaPaths,
+                                                        longTransfragsFastaPaths,
+                                                        shortTransfragsFastaPaths,
+                                                        numThreads,
+                                                        sampleSize);
+
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                
+                try {
+                    touch(txfgsDoneStamp);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
             
             if (forceOverwrite || !txptsDoneStamp.exists()) {
                 
@@ -2987,7 +2987,7 @@ public class RNABloom {
                 
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                 
-                assembler.assembleTranscriptsMultiThreaded(longFragmentsFastaPaths, 
+                assembler.assembleTranscriptsMultiThreaded(longTransfragsFastaPaths, 
                                                             shortFragmentsFastaPaths,
                                                             unconnectedReadsFastaPaths,
                                                             longSingletonsFastaPath,
