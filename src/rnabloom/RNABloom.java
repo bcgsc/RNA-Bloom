@@ -1112,6 +1112,7 @@ public class RNABloom {
         private int rightReadLengthThreshold;
         private int polyXMinLen;
         private int polyXMaxMismatches;
+        private boolean extendFragments;
         
         public FragmentAssembler(FastqReadPair p,
                                 ArrayBlockingQueue<Fragment> outList,
@@ -1122,7 +1123,8 @@ public class RNABloom {
                                 int leftReadLengthThreshold,
                                 int rightReadLengthThreshold,
                                 int polyXMinLen,
-                                int polyXMaxMismatches) {
+                                int polyXMaxMismatches,
+                                boolean extendFragments) {
             
             this.p = p;
             this.outList = outList;
@@ -1134,6 +1136,7 @@ public class RNABloom {
             this.rightReadLengthThreshold = rightReadLengthThreshold;
             this.polyXMinLen = polyXMinLen;
             this.polyXMaxMismatches = polyXMaxMismatches;
+            this.extendFragments = extendFragments;
         }
         
         @Override
@@ -1223,6 +1226,10 @@ public class RNABloom {
                                 }
 
                                 if (hasComplexKmer) {
+                                    if (extendFragments) {
+                                        fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength);
+                                    }
+                                    
                                     if (this.storeKmerPairs) {
                                         graph.addPairedKmers(fragmentKmers);
                                     }
@@ -1387,7 +1394,8 @@ public class RNABloom {
                                                 int minOverlap,
                                                 int sampleSize, 
                                                 int numThreads, 
-                                                int maxErrCorrIterations) {
+                                                int maxErrCorrIterations,
+                                                boolean extendFragments) {
         
         if (dbgFPR <= 0) {
             dbgFPR = graph.getDbgbf().getFPR();
@@ -1485,7 +1493,8 @@ public class RNABloom {
                                                                 leftReadLengthThreshold,
                                                                 rightReadLengthThreshold,
                                                                 polyXMinLen,
-                                                                polyXMaxMismatches
+                                                                polyXMaxMismatches,
+                                                                extendFragments
                             ));
                             
                             if (fragments.remainingCapacity() == 0) {
@@ -1607,7 +1616,8 @@ public class RNABloom {
                                                             leftReadLengthThreshold, 
                                                             rightReadLengthThreshold,
                                                             polyXMinLen,
-                                                            polyXMaxMismatches
+                                                            polyXMaxMismatches,
+                                                            extendFragments
                         ));
 
                         if (fragments.remainingCapacity() <= numThreads) {
@@ -2558,6 +2568,13 @@ public class RNABloom {
                                     .build();
         options.addOption(optErrCorrItr);        
 
+        Option optExtend = Option.builder("extend")
+                                    .longOpt("extend")
+                                    .desc("extend assembled fragments during fragment assembly")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optExtend);
+        
         Option optFdbg = Option.builder("fdbg")
                                     .longOpt("fdbg")
                                     .desc("used only fragment kmers during transcript assembly")
@@ -2711,6 +2728,7 @@ public class RNABloom {
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
             boolean createFragmentDBG = line.hasOption(optFdbg.getOpt());
             boolean useSingletonFragments = line.hasOption(optSingleton.getOpt());
+            boolean extendFragments = line.hasOption(optExtend.getOpt());
             int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
             
             boolean saveGraph = true;
@@ -2885,7 +2903,8 @@ public class RNABloom {
                         minOverlap,
                         sampleSize,
                         numThreads,
-                        maxErrCorrItr);
+                        maxErrCorrItr,
+                        extendFragments);
 
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 

@@ -2799,11 +2799,6 @@ public final class GraphUtils {
                     fragmentKmers.addAll(connectedPath);
                     fragmentKmers.addAll(rightKmers);
                 }
-//            else {
-//                // 3. Attempt dovetail overlap (ie. when fragment is shorter than read length)
-//                fragmentKmers = overlap(rightSeq, leftSeq, graph, minOverlap);
-//            }
-//            }
         }
         
         return fragmentKmers;
@@ -6140,6 +6135,30 @@ public final class GraphUtils {
             
             best.getSuccessors(k, numHash, graph, neighbors);
         }
+        
+        return result;
+    }
+    
+    public static ArrayList<Kmer2> naiveExtend(ArrayList<Kmer2> kmers, BloomFilterDeBruijnGraph graph, int maxTipLength) {
+        HashSet<Kmer2> usedKmers = new HashSet<>(kmers);
+        
+        ArrayDeque<Kmer2> leftExtension = naiveExtendLeft(kmers.get(0), graph, maxTipLength, usedKmers);
+        usedKmers.addAll(leftExtension);
+        
+        ArrayDeque<Kmer2> rightExtension = naiveExtendRight(kmers.get(kmers.size()-1), graph, maxTipLength, usedKmers);
+        
+        ArrayList<Kmer2> result = new ArrayList<>(leftExtension.size() + kmers.size() + rightExtension.size());
+        
+        if (!leftExtension.isEmpty()) {
+            Iterator<Kmer2> itr = leftExtension.descendingIterator();
+            while (itr.hasNext()) {
+                result.add(itr.next());
+            }
+        }
+        
+        result.addAll(kmers);
+        
+        result.addAll(rightExtension);
         
         return result;
     }
