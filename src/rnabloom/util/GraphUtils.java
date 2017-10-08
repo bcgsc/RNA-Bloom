@@ -3208,14 +3208,14 @@ public final class GraphUtils {
             kmer = kmers.get(i);
             
             if (graph.lookupLeftKmer(kmer.getHash())) {
-                boolean hasComplexKmer = graph.isLowComplexity(kmer);
+                boolean hasComplexKmer = !graph.isLowComplexity(kmer);
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
                     p = kmers.get(i-j);
                     
                     if (graph.lookupLeftKmer(p.getHash())) {
                         if (!hasComplexKmer) {
-                            hasComplexKmer = graph.isLowComplexity(p);
+                            hasComplexKmer = !graph.isLowComplexity(p);
                         }
                         
                         if (++numPaired >= minNumPairs && hasComplexKmer) {
@@ -3291,7 +3291,7 @@ public final class GraphUtils {
             kmer = kmers.get(i);
             
             if (graph.lookupRightKmer(kmer.getHash())) {
-                boolean hasComplexKmer = graph.isLowComplexity(kmer);
+                boolean hasComplexKmer = !graph.isLowComplexity(kmer);
                 
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
@@ -3299,7 +3299,7 @@ public final class GraphUtils {
                     
                     if (graph.lookupRightKmer(p.getHash())) {
                         if (!hasComplexKmer) {
-                            hasComplexKmer = graph.isLowComplexity(p);
+                            hasComplexKmer = !graph.isLowComplexity(p);
                         }
                         
                         if (++numPaired >= minNumPairs && hasComplexKmer) {
@@ -3352,7 +3352,7 @@ public final class GraphUtils {
             kmer = kmers.get(i);
             
             if (graph.lookupLeftKmer(kmer.getHash())) {
-                boolean hasComplexKmer = graph.isLowComplexity(kmer);
+                boolean hasComplexKmer = !graph.isLowComplexity(kmer);
                 
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
@@ -3360,7 +3360,7 @@ public final class GraphUtils {
                     
                     if (graph.lookupLeftKmer(p.getHash())) {
                         if (!hasComplexKmer) {
-                            hasComplexKmer = graph.isLowComplexity(p);
+                            hasComplexKmer = !graph.isLowComplexity(p);
                         }
                         
                         if (++numPaired >= minNumPairs && hasComplexKmer) {
@@ -3395,7 +3395,7 @@ public final class GraphUtils {
             kmer = kmers.get(i);
             
             if (graph.lookupRightKmer(kmer.getHash())) {
-                boolean hasComplexKmer = graph.isLowComplexity(kmer);
+                boolean hasComplexKmer = !graph.isLowComplexity(kmer);
                 
                 int numPaired = 1;
                 for (int j=1; j<minNumPairs; ++j) {
@@ -3403,7 +3403,7 @@ public final class GraphUtils {
                     
                     if (graph.lookupRightKmer(p.getHash())) {
                         if (!hasComplexKmer) {
-                            hasComplexKmer = graph.isLowComplexity(p);
+                            hasComplexKmer = !graph.isLowComplexity(p);
                         }
                         
                         if (++numPaired >= minNumPairs && hasComplexKmer) {
