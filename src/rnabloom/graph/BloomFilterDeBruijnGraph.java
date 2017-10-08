@@ -180,8 +180,18 @@ public class BloomFilterDeBruijnGraph {
         }        
     }
     
+    public void clearAllBf() {
+        dbgbf.empty();
+        cbf.empty();
+        pkbf.empty();
+    }
+    
     public void clearDbgbf() {
         dbgbf.empty();
+    }
+    
+    public void clearCbf() {
+        cbf.empty();
     }
     
     public void clearPkbf() {
@@ -288,6 +298,12 @@ public class BloomFilterDeBruijnGraph {
         return k;
     }
     
+    public void setK(int k) {
+        this.k = k;
+        this.kMinus1 = k-1;
+        this.hashFunction.setK(k);
+    }
+    
     public int getKMinus1() {
         return kMinus1;
     }
@@ -299,13 +315,18 @@ public class BloomFilterDeBruijnGraph {
     public void add(String kmer) {
         final long[] hashVals = new long[dbgbfCbfMaxNumHash];
         hashFunction.getHashValues(kmer, dbgbfCbfMaxNumHash, hashVals);
-        dbgbf.add(hashVals);
-        cbf.increment(hashVals);
+        add(hashVals);
     }
     
     public void add(final long[] hashVals) {
         dbgbf.add(hashVals);
         cbf.increment(hashVals);        
+    }
+    
+    public void addIfAbsent(final long[] hashVals) {
+        if (!dbgbf.lookup(hashVals) || cbf.getCount(hashVals) == 0) {
+            add(hashVals);
+        }
     }
     
     public void addDbgOnly(final long[] hashVals) {
