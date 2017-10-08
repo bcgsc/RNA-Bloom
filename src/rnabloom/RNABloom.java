@@ -54,6 +54,7 @@ import static rnabloom.util.SeqUtils.*;
  * @author kmnip
  */
 public class RNABloom {
+    public final static String VERSION = "0.9.0";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
@@ -2844,6 +2845,9 @@ public class RNABloom {
     }
     
     public static void printHelp(Options options, boolean error) {
+        printVersionInfo(false);
+        System.out.println();
+        
         HelpFormatter formatter = new HelpFormatter();
         formatter.setOptionComparator(null);
         formatter.printHelp( "java -jar RNA-Bloom.jar", options, true);
@@ -2852,6 +2856,18 @@ public class RNABloom {
             System.exit(1);
         }
         else {
+            System.exit(0);
+        }
+    }
+    
+    public static void printVersionInfo(boolean exit) {
+        System.out.println(
+                "RNA-Bloom version " + VERSION + "\n" +
+                "Ka Ming Nip, Canada's Michael Smith Genome Sciences Centre\n" +
+                "Copyright 2017"
+        );
+        
+        if (exit) {
             System.exit(0);
         }
     }
@@ -3180,12 +3196,22 @@ public class RNABloom {
                                     .build();
         options.addOption(optHelp);
         
+        Option optVersion = Option.builder("v")
+                                    .longOpt("version")
+                                    .desc("print version information and exits")
+                                    .build();
+        options.addOption(optVersion);
+        
 
         try {
             CommandLine line = parser.parse(options, args);
 
             if (line.getOptions().length == 0 || line.hasOption(optHelp.getOpt())) {
                 printHelp(options, false);
+            }
+            
+            if (line.hasOption(optVersion.getOpt())) {
+                printVersionInfo(true);
             }
             
             int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), "2"));
