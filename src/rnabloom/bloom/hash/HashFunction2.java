@@ -19,11 +19,17 @@ import static rnabloom.util.SeqUtils.stringToBytes;
  * @author Ka Ming Nip, Genome Sciences Centre, BC Cancer Agency
  */
 public class HashFunction2 {
-    protected final int k;
-    protected final int kMod64;
-    protected final int kMinus1Mod64;
+    protected int k;
+    protected int kMod64;
+    protected int kMinus1Mod64;
     
     public HashFunction2(int k) {
+        this.k = k;
+        this.kMod64 = k%64;
+        this.kMinus1Mod64 = (k-1)%64;
+    }
+    
+    public void setK(int k) {
         this.k = k;
         this.kMod64 = k%64;
         this.kMinus1Mod64 = (k-1)%64;
