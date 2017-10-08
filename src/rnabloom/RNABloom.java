@@ -396,7 +396,9 @@ public class RNABloom {
         try {
             for (String path : fastas) {
                 FastaReader fin = new FastaReader(path);
-
+                
+                System.out.println("Parsing `" + path + "`...");
+                
                 String seq;
                 while (fin.hasNext()) {
                     seq = fin.next();
@@ -1651,11 +1653,12 @@ public class RNABloom {
         System.out.println("Counting Bloom filter FPR: " + covFPR * 100 + " %");
         
         
-        System.out.println("Assembling fragments...");
+        System.out.println("Rescuing unconnected read pairs...");
                 
         long fragmentId = 0;
         long unconnectedReadId = 0;
         long readPairsParsed = 0;
+        long rescuedReadPairs = 0;
         
         int maxTasksQueueSize = numThreads;
         
@@ -1745,6 +1748,8 @@ public class RNABloom {
                                 }
                             }
                             else {
+                                ++rescuedReadPairs;
+                                
                                 if (frag.length >= shortestFragmentLengthAllowed) {
                                     ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
 
@@ -1814,6 +1819,8 @@ public class RNABloom {
                     }
                 }
                 else {
+                    ++rescuedReadPairs;
+                    
                     if (frag.length >= shortestFragmentLengthAllowed) {
                         ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
 
@@ -1875,7 +1882,7 @@ public class RNABloom {
             handleException(ex);
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
-            
+            System.out.println("Rescued " + NumberFormat.getInstance().format(rescuedReadPairs) + " read pairs.");
             System.out.println("Paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100   + " %");
             System.out.println("Screening Bloom filter FPR:    " + screeningBf.getFPR() * 100 + " %");
         }        
@@ -2704,13 +2711,13 @@ public class RNABloom {
 //            }
 //
 //            graph.restorePkbf(new File(graphFile));
-            
-            dbgFPR = graph.getDbgbf().getFPR();
-            System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
-            
-            if (covFPR <= 0) {
-                covFPR = graph.getCbf().getFPR();
-            }
+//            
+//            dbgFPR = graph.getDbgbf().getFPR();
+//            System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
+//            
+//            if (covFPR <= 0) {
+//                covFPR = graph.getCbf().getFPR();
+//            }
 
             System.out.println("Assembling transcripts...");
         
@@ -2726,7 +2733,7 @@ public class RNABloom {
             for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".L.");
                 fragmentsFasta = longFragmentsFastas[mag];
-                System.out.println("Extending fragments in `" + fragmentsFasta + "`...");
+                System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
             }          
             
@@ -2735,7 +2742,7 @@ public class RNABloom {
             for (int mag=shortFragmentsFastas.length-1; mag>=0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".S.");
                 fragmentsFasta = shortFragmentsFastas[mag];
-                System.out.println("Extending fragments in `" + fragmentsFasta + "`...");
+                System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
             }
 
@@ -2744,7 +2751,7 @@ public class RNABloom {
             for (int mag=unconnectedReadsFastas.length-1; mag>=0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".U.");
                 fragmentsFasta = unconnectedReadsFastas[mag];
-                System.out.println("Extending fragments in `" + fragmentsFasta + "`...");
+                System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
             }
             
@@ -2753,19 +2760,19 @@ public class RNABloom {
                 // extend LONG singleton fragments
             
                 writer.setOutputPrefix(txptNamePrefix + "01.L.");
-                System.out.println("Extending fragments in `" + longSingletonsFasta + "`...");
+                System.out.println("Parsing `" + longSingletonsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads, true, true);
 
                 // extend SHORT singleton fragments
                 
                 writer.setOutputPrefix(txptNamePrefix + "01.S.");
-                System.out.println("Extending fragments in `" + shortSingletonsFasta + "`...");
+                System.out.println("Parsing `" + shortSingletonsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads, true, true);
                 
                 // extend UNCONNECTED reads
                 
                 writer.setOutputPrefix(txptNamePrefix + "01.U.");
-                System.out.println("Extending fragments in `" + unconnectedSingletonsFasta + "`...");
+                System.out.println("Parsing `" + unconnectedSingletonsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads, true, true);
             }
             
@@ -3387,15 +3394,15 @@ public class RNABloom {
                 else {
                     forwardFilesList.addAll(Arrays.asList(fastqsRight));
                 }
-                                
+                       
+                System.out.println("Building graph from reads (k=" + k + ")...");
                 timer.start();
                 
                 assembler.initializeGraph(strandSpecific, 
                         dbgbfSize, cbfSize, pkbfSize, 
                         dbgbfNumHash, cbfNumHash, pkbfNumHash);
-                
                 assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads);
-
+                
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
                 System.out.println("Saving graph to file `" + graphFile + "`...");
@@ -3558,8 +3565,11 @@ public class RNABloom {
                     forwardFilesList.addAll(Arrays.asList(fastqsRight));
                 }
 
+                System.out.println("Rebuilding graph from reads (k=" + 2*k + ")...");
+                timer.start();
                 assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads);
-
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                
                 // repopulate with NEW kmers from fragments
 
                 ArrayList<String> fragmentPaths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length);
@@ -3568,8 +3578,11 @@ public class RNABloom {
                 fragmentPaths.add(longSingletonsFastaPath);
                 fragmentPaths.add(shortSingletonsFastaPath);
 
+                System.out.println("Rebuilding graph from assembled fragments (k=" + 2*k + ")...");
+                timer.start();
                 assembler.repopulateGraph(fragmentPaths, strandSpecific);
-
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));    
+                
                 File fragmentsFile = new File(unconnected2kSingletonsFastaPath);
                 if (fragmentsFile.exists()) {
                     fragmentsFile.delete();
@@ -3587,7 +3600,8 @@ public class RNABloom {
                     allUnconnectedReads[i] = unconnectedReadsFastaPaths[unconnectedReadsFastaPaths.length - i - 1];
                 }
                 allUnconnectedReads[unconnectedReadsFastaPaths.length] = unconnectedSingletonsFastaPath;
-
+                
+                timer.start();
                 assembler.rescueUnconnectedMultiThreaded(allUnconnectedReads, 
                                                     longFragmentsFastaPaths,
                                                     shortFragmentsFastaPaths,
@@ -3601,10 +3615,12 @@ public class RNABloom {
                                                     numThreads, 
                                                     maxErrCorrItr,
                                                     extendFragments);
-
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                
                 /* Save DBG-Bf and pk-Bf to disk */
+                System.out.println("Saving graph to file `" + graph2kFile + "`...");
                 assembler.saveGraph(new File(graph2kFile));
-                assembler.savePairedKmersBloomFilter(new File(graph2kFile));  
+                assembler.savePairedKmersBloomFilter(new File(graph2kFile));
                 
                 /* Touch stamp */
                 try {
