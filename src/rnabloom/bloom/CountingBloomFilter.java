@@ -16,8 +16,8 @@ import java.io.IOException;
 import rnabloom.bloom.buffer.UnsafeByteBuffer;
 import rnabloom.bloom.buffer.AbstractLargeByteBuffer;
 import rnabloom.bloom.buffer.LargeByteBuffer;
-import static java.lang.Math.exp;
-import static java.lang.Math.log;
+//import static java.lang.Math.exp;
+//import static java.lang.Math.log;
 import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
@@ -186,30 +186,30 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         return (float) pow((double)(counts.popCount()) / (double)(size), numHash);
     }
  
-    public long updatePopcount() {
-        popcount = counts.popCount();
-        return popcount;
-    }
+//    public long updatePopcount() {
+//        popcount = counts.popCount();
+//        return popcount;
+//    }
     
-    public long getSizeNeeded(float fpr) {
-        if (popcount < 0) {
-            popcount = updatePopcount();
-        }
-        
-        return (long) Math.ceil(- popcount *log(fpr) / pow(log(2), 2));
-    }
+//    public long getSizeNeeded(float fpr) {
+//        if (popcount < 0) {
+//            popcount = updatePopcount();
+//        }
+//        
+//        return (long) Math.ceil(- popcount *log(fpr) / pow(log(2), 2));
+//    }
     
     public int getNumHash() {
         return numHash;
     }
     
-    public float getOptimalNumHash() {
-        if (popcount < 0) {
-            popcount = updatePopcount();
-        }
-        
-        return (float) (size / (float) popcount * log(2));
-    }
+//    public float getOptimalNumHash() {
+//        if (popcount < 0) {
+//            popcount = updatePopcount();
+//        }
+//        
+//        return (float) (size / (float) popcount * log(2));
+//    }
     
     public void empty() {
         this.counts.empty();
