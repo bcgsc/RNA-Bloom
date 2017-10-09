@@ -3374,8 +3374,10 @@ public class RNABloom {
             }
             
             if (!forceOverwrite && dbgDoneStamp.exists()) {
-                System.out.println("Loading graph from file `" + graphFile + "`...");
-                assembler.restoreGraph(new File(graphFile));
+                if (!frags2kDoneStamp.exists()) {
+                    System.out.println("Loading graph from file `" + graphFile + "`...");
+                    assembler.restoreGraph(new File(graphFile));
+                }
             }
             else {                
                 ArrayList<String> forwardFilesList = new ArrayList<>();
@@ -3537,8 +3539,9 @@ public class RNABloom {
 
             if (!forceOverwrite && frags2kDoneStamp.exists()) {
                 System.out.println("Loading graph from file `" + graph2kFile + "`...");
-                assembler.restoreGraph(new File(graph2kFile));
-                assembler.restorePairedKmersBloomFilter(new File(graph2kFile));
+                File tmp = new File(graph2kFile);
+                assembler.restoreGraph(tmp);
+                assembler.restorePairedKmersBloomFilter(tmp);
             }
             else {
                 // clear DBG-Bf, c-Bf, pk-Bf, a-Bf
