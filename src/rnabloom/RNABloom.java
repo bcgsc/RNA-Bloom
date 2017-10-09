@@ -3538,8 +3538,6 @@ public class RNABloom {
             if (!forceOverwrite && frags2kDoneStamp.exists()) {
                 System.out.println("Loading graph from file `" + graph2kFile + "`...");
                 assembler.restoreGraph(new File(graph2kFile));
-                
-                System.out.println("Restoring paired kmers Bloom filter from file...");
                 assembler.restorePairedKmersBloomFilter(new File(graph2kFile));
             }
             else {
