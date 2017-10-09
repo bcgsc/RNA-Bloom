@@ -42,18 +42,22 @@ public class HashFunction2 {
     }
     
     public ArrayList<Kmer2> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph) {
-        ArrayList<Kmer2> result = new ArrayList<>(getNumKmers(seq, k) * 2);
+        ArrayList<Kmer2> result = new ArrayList<>();
         
-        byte[] bytes = stringToBytes(seq, seq.length());
+        int seqLength = seq.length();
         
-        NTHashIterator itr = new NTHashIterator(k, numHash);
-        itr.start(seq);
-        long[] hVals = itr.hVals;
-        int i;
-        while (itr.hasNext()) {
-            itr.next();
-            i = itr.getPos();
-            result.add(new Kmer2(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), hVals[0]));
+        if (seqLength >= k) {
+            byte[] bytes = stringToBytes(seq, seqLength);
+
+            NTHashIterator itr = new NTHashIterator(k, numHash);
+            itr.start(seq);
+            long[] hVals = itr.hVals;
+            int i;
+            while (itr.hasNext()) {
+                itr.next();
+                i = itr.getPos();
+                result.add(new Kmer2(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), hVals[0]));
+            }
         }
         
         return result;
