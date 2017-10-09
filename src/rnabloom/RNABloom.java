@@ -1090,24 +1090,24 @@ public class RNABloom {
                         
                         ArrayList<Kmer2> fragKmers = graph.getKmers(fragment);
 
-                        if (!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) {
-                            if (!represented(fragKmers,
-                                                graph,
-                                                screeningBf,
-                                                lookahead,
-                                                maxIndelSize,
-                                                maxTipLength,
-                                                percentIdentity)) {
+                        if (!fragKmers.isEmpty() &&
+                            (!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) &&
+                                !represented(fragKmers,
+                                                    graph,
+                                                    screeningBf,
+                                                    lookahead,
+                                                    maxIndelSize,
+                                                    maxTipLength,
+                                                    percentIdentity)) {
 
-                                if (includeNaiveExtensions) {
-                                    extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
-                                }
-                                else {
-                                    extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
-                                }
-
-                                transcripts.put(new Transcript(fragment, fragKmers));
+                            if (includeNaiveExtensions) {
+                                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
                             }
+                            else {
+                                extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+                            }
+
+                            transcripts.put(new Transcript(fragment, fragKmers));
                         }
                     }
                 }

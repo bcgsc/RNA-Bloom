@@ -34,17 +34,21 @@ public class CanonicalHashFunction2 extends HashFunction2 {
     public ArrayList<Kmer2> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph) {
         ArrayList<Kmer2> result = new ArrayList<>();
         
-        byte[] bytes = stringToBytes(seq, seq.length());
+        int seqLength = seq.length();
         
-        CanonicalNTHashIterator itr = new CanonicalNTHashIterator(k, numHash);
-        itr.start(seq);
-        long[] hVals = itr.hVals;
-        long[] frhval = itr.frhval;
-        int i;
-        while (itr.hasNext()) {
-            itr.next();
-            i = itr.getPos();
-            result.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), frhval[0], frhval[1]));
+        if (seqLength >= k) {
+            byte[] bytes = stringToBytes(seq, seqLength);
+
+            CanonicalNTHashIterator itr = new CanonicalNTHashIterator(k, numHash);
+            itr.start(seq);
+            long[] hVals = itr.hVals;
+            long[] frhval = itr.frhval;
+            int i;
+            while (itr.hasNext()) {
+                itr.next();
+                i = itr.getPos();
+                result.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), frhval[0], frhval[1]));
+            }
         }
         
         return result;

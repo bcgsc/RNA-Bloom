@@ -10,7 +10,6 @@ import java.util.Arrays;
 import static rnabloom.bloom.hash.NTHash.NTM64;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer2;
-import static rnabloom.util.SeqUtils.getNumKmers;
 import static rnabloom.util.SeqUtils.stringToBytes;
 
 
