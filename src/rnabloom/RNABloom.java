@@ -3449,11 +3449,7 @@ public class RNABloom {
             String shortSingletonsFastaPath = shortFragmentsFastaPrefix + "01.fa";
             String unconnectedSingletonsFastaPath = unconnectedReadsFastaPrefix + "01.fa";
                         
-            if (!forceOverwrite && fragsDoneStamp.exists()) {
-                int[] fragStats = assembler.restoreFragStatsFromFile(fragStatsFile);
-                assembler.setPairedKmerDistance(fragStats[1]);
-            }
-            else {
+            if (forceOverwrite || !fragsDoneStamp.exists()) {
                 File fragmentsFile;
                 
                 for (String fragmentsFasta : longFragmentsFastaPaths) {
@@ -3527,6 +3523,8 @@ public class RNABloom {
             
             // double the kmer size
             assembler.setK(2*k);
+            int[] fragStats = assembler.restoreFragStatsFromFile(fragStatsFile);
+            assembler.setPairedKmerDistance(fragStats[1]);
             
             String[] unconnected2kReadsFastaPaths = {unconnected2kReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
                                             unconnected2kReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
