@@ -1558,6 +1558,12 @@ public class RNABloom {
     }
         
     public int[] getMinQ1MedianQ3Max(ArrayList<Integer> a) {
+        if (a.isEmpty()) {
+            int[] result = new int[5];
+            Arrays.fill(result, 0);
+            return result;
+        }
+        
         if (a.size() == 1) {
             int[] result = new int[5];
             Arrays.fill(result, a.get(0));
@@ -2086,7 +2092,19 @@ public class RNABloom {
                             fragLengths.add(frag.length);
                         }
                     }
-                   
+                    
+                    if (fragLengths.isEmpty()) {
+                        // use lengths of unconnected reads as fragment lengths
+                        for (Fragment frag : fragments) {
+                            fragLengths.add(frag.left.length());
+                            fragLengths.add(frag.right.length());
+                        }
+                    }
+                    
+                    if (fragLengths.isEmpty()) {
+                        throw new Exception("Empty input read file(s)!");
+                    }
+                    
                     fragLengthsStats = getMinQ1MedianQ3Max(fragLengths);
                     System.out.println("Fragment Lengths Distribution (n=" + fragLengths.size() + ")");
                     System.out.println("\tmin\tQ1\tM\tQ3\tmax");
