@@ -2085,6 +2085,10 @@ public class RNABloom {
 //                            }
                     }
                     
+                    if (fragments.isEmpty()) {
+                        throw new Exception("Empty input read file(s)!");
+                    }
+                    
                     // Calculate length stats
                     ArrayList<Integer> fragLengths = new ArrayList<>(sampleSize);
                     for (Fragment frag : fragments) {
@@ -2099,10 +2103,6 @@ public class RNABloom {
                             fragLengths.add(frag.left.length());
                             fragLengths.add(frag.right.length());
                         }
-                    }
-                    
-                    if (fragLengths.isEmpty()) {
-                        throw new Exception("Empty input read file(s)!");
                     }
                     
                     fragLengthsStats = getMinQ1MedianQ3Max(fragLengths);
