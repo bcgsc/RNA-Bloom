@@ -2065,26 +2065,27 @@ public class RNABloom {
                         p = fqpr.next();
                         ++readPairsParsed;
                             
-                            service.submit(new FragmentAssembler(p,
-                                                                fragments,
-                                                                bound,
-                                                                minOverlap,
-                                                                false, // do not store paired kmers
-                                                                maxErrCorrIterations, 
-                                                                leftReadLengthThreshold,
-                                                                rightReadLengthThreshold,
-                                                                polyXMinLen,
-                                                                polyXMaxMismatches,
-                                                                extendFragments
-                            ));
-                            
-                            if (fragments.remainingCapacity() == 0) {
-                                break;
-                            }
-//                            else {
-//                                System.out.println(readPairsParsed + " read pairs parsed");
-//                                System.out.println(fragments.size() + " fragments assembled");
-//                            }
+                        service.submit(new FragmentAssembler(p,
+                                                            fragments,
+                                                            bound,
+                                                            minOverlap,
+                                                            false, // do not store paired kmers
+                                                            maxErrCorrIterations, 
+                                                            leftReadLengthThreshold,
+                                                            rightReadLengthThreshold,
+                                                            polyXMinLen,
+                                                            polyXMaxMismatches,
+                                                            extendFragments
+                        ));
+
+                        if (fragments.remainingCapacity() == 0) {
+                            break;
+                        }
+                    }
+                    
+                    if (!fqpr.hasNext() && fragments.isEmpty()) {
+                        // entire file has been exhausted but no output fragments; wait for the workers to be done
+                        service.terminate();
                     }
                     
                     if (fragments.isEmpty()) {
