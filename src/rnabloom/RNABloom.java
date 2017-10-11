@@ -1996,10 +1996,7 @@ public class RNABloom {
         int[] fragLengthsStats = null;
         boolean pairedKmerDistanceIsSet = false;
         int shortestFragmentLengthAllowed = k + lookahead;
-        
-        // set up thread pool
-        MyExecutorService service = new MyExecutorService(numThreads, maxTasksQueueSize);
-                
+                        
         try {
             FastqReader lin, rin;
             FastqPairReader fqpr;
@@ -2049,6 +2046,9 @@ public class RNABloom {
                 int rightReadLengthThreshold = k;
                 int polyXMinLen = k;
                 int polyXMaxMismatches = Math.round(k*percentError);
+                
+                // set up thread pool
+                MyExecutorService service = new MyExecutorService(numThreads, maxTasksQueueSize);
                 
                 if (!pairedKmerDistanceIsSet) {
                                         
