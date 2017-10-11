@@ -3341,7 +3341,7 @@ public class RNABloom {
             boolean useSingletonFragments = line.hasOption(optSingleton.getOpt());
             boolean extendFragments = line.hasOption(optExtend.getOpt());
             int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
-            String txptNamePrefix = line.getOptionValue(optOverlap.getOpt(), "");
+            String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), "");
             
 //            boolean saveGraph = true;
 //            boolean saveKmerPairs = true;
@@ -3523,8 +3523,6 @@ public class RNABloom {
             
             // double the kmer size
             assembler.setK(2*k);
-            int[] fragStats = assembler.restoreFragStatsFromFile(fragStatsFile);
-            assembler.setPairedKmerDistance(fragStats[1]);
             
             String[] unconnected2kReadsFastaPaths = {unconnected2kReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
                                             unconnected2kReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
@@ -3569,8 +3567,11 @@ public class RNABloom {
                 assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads);
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
-                // repopulate with NEW kmers from fragments
+                // adjust paired kmer distance
+                int[] fragStats = assembler.restoreFragStatsFromFile(fragStatsFile);
+                assembler.setPairedKmerDistance(fragStats[1]);
 
+                // repopulate with NEW kmers from fragments
                 ArrayList<String> fragmentPaths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length);
                 fragmentPaths.addAll(Arrays.asList(longFragmentsFastaPaths));
                 fragmentPaths.addAll(Arrays.asList(shortFragmentsFastaPaths));
