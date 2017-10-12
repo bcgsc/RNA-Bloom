@@ -1469,7 +1469,7 @@ public class RNABloom {
 
                                 if (hasComplexKmer) {
                                     //if (extendFragments) {
-                                    if (extendFragments && minCov <= k && isBranchFree(fragmentKmers, graph, maxTipLength)) {
+                                    if (extendFragments && minCov <= k*2 && isBranchFree(fragmentKmers, graph, maxTipLength)) {
                                         fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength);
                                     }
                                     
