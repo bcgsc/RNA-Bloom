@@ -1396,7 +1396,13 @@ public class RNABloom {
                 if (right.length() < this.rightReadLengthThreshold) {
                     return;
                 }
-                                
+
+                right = chompRightPolyX(right, 25, 1);
+                
+                if (right.length() < this.rightReadLengthThreshold) {
+                    return;
+                }
+                
 //                left = "GCAACAGGGTGGTGGACCTCATGGCCCACATGGCCTCCAAGGAGTAAGACCCCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTC";
 //                right = "GCTGGGGAGTCCCTGCCACACTAAGTCCCCCACCACACTGAATCTCCCCTCCTCACAGTTTCCATGTAGACCCCTTGAAGAGGGGAGGGGCCTAGGGAGC";
                 
@@ -2052,7 +2058,7 @@ public class RNABloom {
                 int leftReadLengthThreshold = k;
                 int rightReadLengthThreshold = k;
                 int polyXMinLen = k;
-                int polyXMaxMismatches = Math.round(k*percentError);
+                int polyXMaxMismatches = 1;
                 
                 // set up thread pool
                 MyExecutorService service = new MyExecutorService(numThreads, maxTasksQueueSize);

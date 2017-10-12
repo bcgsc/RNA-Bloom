@@ -414,7 +414,7 @@ public final class SeqUtils {
                 }
             }
             
-            return seq.substring(0, i);
+            return seq.substring(0, i+minLen/2); // retain half of specified mininum length of the polymer
         }
         
         return seq;
@@ -721,11 +721,11 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        String left = "GCTTTCTTGCTCCCTTCAGCCCCCAGCCCCTCCCCCATCTCCCACCCTGTACCTCATCCCATGAGACCCTGGTGCCTGGCTCTTTCGTCACCCTTGGACA";
-        String right = "GCCCCCAGCCCCTCCCCCATCTCCCACCCTGTACCTCATCCCATGAGACCCTGGTGCCTGGCTCTTTCGTCACCCTTGGACAAGACAAACCAAGTCGGAA";
+        String left = "GACCATCCTGGCCAATGTGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCTGGGCGTGGTGGCGCACACCTGTAGTCCCAGCTACTTGGGAGGC";
+        String right = "GCACTCCATCCTGGCAACAGAGCGAGACTCCATCTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAT";
         
-        String frag = overlapMaximally(left, right, 10);
+        String trimmed = chompRightPolyX(right, 25, 1);
         
-        System.out.println(frag);        
+        System.out.println(trimmed);        
     }
 }
