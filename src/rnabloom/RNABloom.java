@@ -1080,7 +1080,7 @@ public class RNABloom {
                 while (true) {
                     String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
                     
-//                    fragment = "TTGTTCTTCTGAGGACAACCTGAGTTTAGTATGCCTACCACGAAGTGAAGATGATGACTGTGATGATGATGATGATGATGCCCAGATTTTACCGTCACCTGTCCAGGCTTGTTCTGAAGATAGCCTGTTTTTAAGATGCTCACTGAGACACAAAGATGAAGAAGAAGAAGATGATGATGACATCCACATAACAGCTCGGATAGAAAGTGACTTGACGCTGGAGAGTCTAAGTGATGAAGAGATTCATCCAGGTAGGGAACTACGTGCCAGCAAAAA";
+//                    fragment = "GATCCTATCACTGAACGAGTAAAGAAGAACATGCAGGACTTCAGTGACATTAACTACCGAGGTATTCAGAGGAAAGTGGTAGAAATGGAACAAAAACGGAATGACCAAGATCAGGAGACTATTACAGGTTTACGTGTCTGGCGTACTAATCCTGGTTCGGTTTTTGACTATGATCCAGCAGAAGACAACATCCAGTCCCGAAGCTTACACATGATTAATGTCCAAGCTCAGCGCCGGAGCCGGGAGCAGTCA";
                     
                     if (fragment == null) {
                         if (!keepGoing) {
@@ -1112,6 +1112,8 @@ public class RNABloom {
                             }
 
                             transcripts.put(new Transcript(fragment, fragKmers));
+                            
+//                            System.out.println(graph.assemble(fragKmers));
                         }
                     }
                 }

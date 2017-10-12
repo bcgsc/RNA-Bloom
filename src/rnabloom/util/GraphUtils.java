@@ -4457,8 +4457,8 @@ public final class GraphUtils {
         int partnerIndex = numKmers - distance + depth;
         
         float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
-        if (minEdgeCoverage > distance && maxDepth >= k) {
-            maxDepth = Math.max(k, distance/2);
+        if (minEdgeCoverage >= k && maxDepth > k) {
+            maxDepth = Math.min(distance/2, maxDepth);
         }
         
         float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
@@ -4505,7 +4505,7 @@ public final class GraphUtils {
                         }
 
                         if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
-                            boolean assembled = greedyExtendRight(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+                            boolean assembled = greedyExtendRight(graph, cursor, lookahead, minNumPairs, assembledKmersBloomFilter) != null;
 
                             if (assembled) {
     //                            int numNotAssembled = 0;
@@ -4626,8 +4626,8 @@ public final class GraphUtils {
         int partnerIndex = numKmers - distance + depth;
         
         float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
-        if (minEdgeCoverage > distance && maxDepth >= k) {
-            maxDepth = Math.max(k, distance/2);
+        if (minEdgeCoverage >= k && maxDepth > k) {
+            maxDepth = Math.min(distance/2, maxDepth);
         }
         
         float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
@@ -4673,7 +4673,7 @@ public final class GraphUtils {
                         }
 
                         if (assembledKmersBloomFilter.lookup(cursor.getHash())) {
-                            boolean assembled = greedyExtendLeft(graph, cursor, lookahead, lookahead, assembledKmersBloomFilter) != null;
+                            boolean assembled = greedyExtendLeft(graph, cursor, lookahead, minNumPairs, assembledKmersBloomFilter) != null;
 
                             if (assembled) {
     //                            int numNotAssembled = 0;
@@ -5401,7 +5401,9 @@ public final class GraphUtils {
                                         assembledKmersBloomFilter,
                                         usedKmers,
                                         maxCovGradient);
-                        
+
+//            System.out.println(graph.assembleReverseOrder(new ArrayDeque<>(kmers)));
+            
             if (extendable) {
                 extendable = extendLeftWithPairedKmersDFS(kmers, 
                                         graph, 
@@ -5414,8 +5416,12 @@ public final class GraphUtils {
                                         usedKmers,
                                         maxCovGradient);
                 
+//                System.out.println(graph.assembleReverseOrder(new ArrayDeque<>(kmers)));
+                
                 if (extendable) {
                     extendable = extendLeftWithPairedKmersOnly(kmers, graph, usedKmers, assembledKmersBloomFilter);                    
+                    
+//                    System.out.println(graph.assembleReverseOrder(new ArrayDeque<>(kmers)));
                 }
             }
         }
