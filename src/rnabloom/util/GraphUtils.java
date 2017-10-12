@@ -4457,6 +4457,10 @@ public final class GraphUtils {
         int partnerIndex = numKmers - distance + depth;
         
         float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
+        if (minEdgeCoverage > distance && maxDepth >= k) {
+            maxDepth = Math.max(k, distance/2);
+        }
+        
         float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
         
         ArrayDeque<LinkedList<Kmer2>> branchesStack = new ArrayDeque<>();
@@ -4622,6 +4626,10 @@ public final class GraphUtils {
         int partnerIndex = numKmers - distance + depth;
         
         float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
+        if (minEdgeCoverage > distance && maxDepth >= k) {
+            maxDepth = Math.max(k, distance/2);
+        }
+        
         float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
         
         ArrayDeque<LinkedList<Kmer2>> branchesStack = new ArrayDeque<>();
@@ -5405,17 +5413,15 @@ public final class GraphUtils {
                                         assembledKmersBloomFilter,
                                         usedKmers,
                                         maxCovGradient);
-
+                
                 if (extendable) {
-                    extendable = extendLeftWithPairedKmersOnly(kmers, graph, usedKmers, assembledKmersBloomFilter);
+                    extendable = extendLeftWithPairedKmersOnly(kmers, graph, usedKmers, assembledKmersBloomFilter);                    
                 }
             }
         }
         
         Collections.reverse(kmers);
-        
-//        System.out.println(graph.assemble(kmers));
-        
+                
         // extend with paired kmers RIGHT
         
         extendable = true;
