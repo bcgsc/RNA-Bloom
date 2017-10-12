@@ -1080,6 +1080,8 @@ public class RNABloom {
                 while (true) {
                     String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
                     
+//                    fragment = "TTGTTCTTCTGAGGACAACCTGAGTTTAGTATGCCTACCACGAAGTGAAGATGATGACTGTGATGATGATGATGATGATGCCCAGATTTTACCGTCACCTGTCCAGGCTTGTTCTGAAGATAGCCTGTTTTTAAGATGCTCACTGAGACACAAAGATGAAGAAGAAGAAGATGATGATGACATCCACATAACAGCTCGGATAGAAAGTGACTTGACGCTGGAGAGTCTAAGTGATGAAGAGATTCATCCAGGTAGGGAACTACGTGCCAGCAAAAA";
+                    
                     if (fragment == null) {
                         if (!keepGoing) {
                             break;
@@ -1392,13 +1394,7 @@ public class RNABloom {
                 if (right.length() < this.rightReadLengthThreshold) {
                     return;
                 }
-                
-//                right = chompRightPolyX(right, polyXMinLen, polyXMaxMismatches);
-                
-                if (right.length() < this.rightReadLengthThreshold) {
-                    return;
-                }
-                
+                                
 //                left = "GCAACAGGGTGGTGGACCTCATGGCCCACATGGCCTCCAAGGAGTAAGACCCCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTC";
 //                right = "GCTGGGGAGTCCCTGCCACACTAAGTCCCCCACCACACTGAATCTCCCCTCCTCACAGTTTCCATGTAGACCCCTTGAAGAGGGGAGGGGCCTAGGGAGC";
                 
@@ -1508,7 +1504,7 @@ public class RNABloom {
                                 }
                             }
 
-                            if (hasComplexLeftKmer && hasComplexRightKmer) {
+                            if (hasComplexLeftKmer || hasComplexRightKmer) {
                                 outList.put(new Fragment(graph.assemble(leftKmers), graph.assemble(rightKmers), null, 0, minCov, true));
                             }
                         }
@@ -2089,7 +2085,10 @@ public class RNABloom {
                     }
                     
                     if (fragments.isEmpty()) {
-                        throw new Exception("Empty input read file(s)!");
+                        System.out.println("***************************************************************\n" +
+                                           "* WARNING: Insufficient high-quality k-mers from input reads! *\n" + 
+                                           "*          Output files may be empty!                         *\n" +
+                                           "***************************************************************");
                     }
                     
                     // Calculate length stats

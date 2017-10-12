@@ -5414,6 +5414,8 @@ public final class GraphUtils {
         
         Collections.reverse(kmers);
         
+        System.out.println(graph.assemble(kmers));
+        
         // extend with paired kmers RIGHT
         
         extendable = true;
