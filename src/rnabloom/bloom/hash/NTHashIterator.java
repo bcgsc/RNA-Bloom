@@ -27,10 +27,12 @@ public class NTHashIterator {
         this.hVals = new long[h];
     }
     
-    public void start(CharSequence seq) {
+    public boolean start(CharSequence seq) {
         this.seq = seq;
         this.pos = -1;
         this.max = seq.length() - k;
+        
+        return max >= 0;
     }
 
     public void next() {

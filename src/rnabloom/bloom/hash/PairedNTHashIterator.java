@@ -35,10 +35,12 @@ public class PairedNTHashIterator {
         this.d = d;
     }
     
-    public void start(CharSequence seq) {
+    public boolean start(CharSequence seq) {
         this.seq = seq;
         this.pos = -1;
         this.max = seq.length() - k - d;
+        
+        return max >= 0;
     }
 
     public void next() {

@@ -405,16 +405,18 @@ public class RNABloom {
                 while (fin.hasNext()) {
                     seq = fin.next();
 
-                    itr.start(seq);
-                    while (itr.hasNext()) {
-                        itr.next();
-                        graph.addIfAbsent(hashVals);
+                    if (itr.start(seq)) {
+                        while (itr.hasNext()) {
+                            itr.next();
+                            graph.addIfAbsent(hashVals);
+                        }
                     }
 
-                    pItr.start(seq);
-                    while (pItr.hasNext()) {
-                        pItr.next();
-                        graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
+                    if (pItr.start(seq)) {
+                        while (pItr.hasNext()) {
+                            pItr.next();
+                            graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
+                        }
                     }
                 }
 
@@ -436,10 +438,11 @@ public class RNABloom {
         FastaReader fin = new FastaReader(fasta);
 
         while (fin.hasNext()) {
-            itr.start(fin.next());
-            while (itr.hasNext()) {
-                itr.next();
-                graph.addDbgOnly(hashVals);
+            if (itr.start(fin.next())) {
+                while (itr.hasNext()) {
+                    itr.next();
+                    graph.addDbgOnly(hashVals);
+                }
             }
         }
 
@@ -462,16 +465,18 @@ public class RNABloom {
         while (fin.hasNext()) {
             seq = fin.next();
             
-            itr.start(seq);
-            while (itr.hasNext()) {
-                itr.next();
-                graph.addDbgOnly(hashVals);
+            if (itr.start(seq)) {
+                while (itr.hasNext()) {
+                    itr.next();
+                    graph.addDbgOnly(hashVals);
+                }
             }
             
-            pItr.start(seq);
-            while (pItr.hasNext()) {
-                pItr.next();
-                graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
+            if (pItr.start(seq)) {
+                while (pItr.hasNext()) {
+                    pItr.next();
+                    graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
+                }
             }
         }
 
@@ -487,10 +492,11 @@ public class RNABloom {
             FastaReader fin = new FastaReader(fasta);
             
             while (fin.hasNext()) {
-                itr.start(fin.next());
-                while (itr.hasNext()) {
-                    itr.next();
-                    graph.addDbgOnly(hashVals);
+                if (itr.start(fin.next())) {
+                    while (itr.hasNext()) {
+                        itr.next();
+                        graph.addDbgOnly(hashVals);
+                    }
                 }
             }
             
@@ -556,10 +562,11 @@ public class RNABloom {
                         }
                     }
                     else {
-                        itr.start(fragment);
-                        while (itr.hasNext()) {
-                            itr.next();
-                            graph.addDbgOnly(hashVals);
+                        if (itr.start(fragment)) {
+                            while (itr.hasNext()) {
+                                itr.next();
+                                graph.addDbgOnly(hashVals);
+                            }
                         }
                     }
                 }
