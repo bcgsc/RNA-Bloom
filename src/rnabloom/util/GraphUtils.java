@@ -5388,7 +5388,7 @@ public final class GraphUtils {
         // extend with paired kmers LEFT
         Collections.reverse(kmers);
                 
-        boolean extendable = true;
+        boolean extendable = extendLeftWithPairedKmersOnly(kmers, graph, usedKmers, assembledKmersBloomFilter);
         
         while (extendable) {
             extendable = extendLeftWithPairedKmersBFS(kmers, 
@@ -5430,7 +5430,7 @@ public final class GraphUtils {
                 
         // extend with paired kmers RIGHT
         
-        extendable = true;
+        extendable = extendRightWithPairedKmersOnly(kmers, graph, usedKmers, assembledKmersBloomFilter);
         
         while (extendable) {
             extendable = extendRightWithPairedKmersBFS(kmers, 
@@ -5478,7 +5478,7 @@ public final class GraphUtils {
         // extend with paired kmers LEFT
         Collections.reverse(kmers);
         
-        boolean extendable = true;
+        boolean extendable = extendLeftWithPairedKmersOnly(kmers, graph, usedKmers, assembledKmersBloomFilter);
         
         while (extendable) {
             extendable = extendLeftWithPairedKmersDFS(kmers, 
@@ -5501,7 +5501,7 @@ public final class GraphUtils {
         
         // extend with paired kmers RIGHT
         
-        extendable = true;
+        extendable = extendRightWithPairedKmersOnly(kmers, graph, usedKmers, assembledKmersBloomFilter);
         
         while (extendable) {
             extendable = extendRightWithPairedKmersDFS(kmers, 
