@@ -2797,19 +2797,19 @@ public class RNABloom {
             
                 writer.setOutputPrefix(txptNamePrefix + "01.L.");
                 System.out.println("Parsing `" + longSingletonsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads, false, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads, true, true);
 
                 // extend SHORT singleton fragments
                 
                 writer.setOutputPrefix(txptNamePrefix + "01.S.");
                 System.out.println("Parsing `" + shortSingletonsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads, false, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads, true, true);
                 
                 // extend UNCONNECTED reads
                 
                 writer.setOutputPrefix(txptNamePrefix + "01.U.");
                 System.out.println("Parsing `" + unconnectedSingletonsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads, false, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads, true, true);
             }
             
             fout.close();
