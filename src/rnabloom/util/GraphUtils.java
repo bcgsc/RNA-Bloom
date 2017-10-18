@@ -4425,6 +4425,7 @@ public final class GraphUtils {
         
         ArrayDeque<LinkedList<Kmer2>> branchesStack = new ArrayDeque<>();
 //        branchesStack.add(getSuccessorsRanked(kmers.get(numKmers-1), graph, lookahead, minCovThreshold));
+        branchesStack.add(getSuccessorsRanked(kmers.get(numKmers-1), graph, lookahead));
         
         ArrayDeque<Kmer2> extension = new ArrayDeque<>();
         HashSet<Kmer2> extensionKmers = new HashSet<>();
