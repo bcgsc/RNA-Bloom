@@ -2766,45 +2766,30 @@ public class RNABloom {
             
             // extend LONG fragments
             
-            for (int mag=longFragmentsFastas.length-1; mag>0; --mag) {
+            for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".L.");
                 fragmentsFasta = longFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
             }          
 
-            writer.setOutputPrefix(txptNamePrefix + "E0.L.");
-            fragmentsFasta = longFragmentsFastas[0];
-            System.out.println("Parsing `" + fragmentsFasta + "`...");
-            numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, false, false);
-            
             // extend SHORT fragments
             
-            for (int mag=shortFragmentsFastas.length-1; mag>0; --mag) {
+            for (int mag=shortFragmentsFastas.length-1; mag>=0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".S.");
                 fragmentsFasta = shortFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
             }
-
-            writer.setOutputPrefix(txptNamePrefix + "E0.S.");
-            fragmentsFasta = shortFragmentsFastas[0];
-            System.out.println("Parsing `" + fragmentsFasta + "`...");
-            numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, false, false);
             
             // extend UNCONNECTED reads
             
-            for (int mag=unconnectedReadsFastas.length-1; mag>0; --mag) {
+            for (int mag=unconnectedReadsFastas.length-1; mag>=0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".U.");
                 fragmentsFasta = unconnectedReadsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
             }
-            
-            writer.setOutputPrefix(txptNamePrefix + "E0.U.");
-            fragmentsFasta = unconnectedReadsFastas[0];
-            System.out.println("Parsing `" + fragmentsFasta + "`...");
-            numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, false, false);
             
             if (useSingletonFragments) {
 
