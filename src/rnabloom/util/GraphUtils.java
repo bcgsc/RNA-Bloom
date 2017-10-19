@@ -4078,12 +4078,12 @@ public final class GraphUtils {
                                             percentIdentity);
                         
             if (!simpleExtension.isEmpty()) {
-//                Iterator<Kmer2> itr = simpleExtension.descendingIterator();
-//                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
-//                    itr.remove();
-//                }
-//                
-//                if (!simpleExtension.isEmpty()) {
+                Iterator<Kmer2> itr = simpleExtension.descendingIterator();
+                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
+                    itr.remove();
+                }
+                
+                if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
 ////                    usedKmers.addAll(simpleExtension);
                     
@@ -4102,7 +4102,7 @@ public final class GraphUtils {
                     if (neighbors.isEmpty()) {
                         return false;
                     }
-//                }
+                }
             }
             
             if (numKmers < distance) {
@@ -4253,12 +4253,12 @@ public final class GraphUtils {
                                             percentIdentity);
             
             if (!simpleExtension.isEmpty()) {
-//                Iterator<Kmer2> itr = simpleExtension.descendingIterator();
-//                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
-//                    itr.remove();
-//                }
-//                
-//                if (!simpleExtension.isEmpty()) {
+                Iterator<Kmer2> itr = simpleExtension.descendingIterator();
+                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
+                    itr.remove();
+                }
+                
+                if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
 //                    usedKmers.addAll(simpleExtension);
                     
@@ -4277,7 +4277,7 @@ public final class GraphUtils {
                     if (neighbors.isEmpty()) {
                         return false;
                     }
-//                }
+                }
             }
             
             if (numKmers < distance) {
