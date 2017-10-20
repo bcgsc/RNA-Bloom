@@ -2769,7 +2769,8 @@ public final class GraphUtils {
                                                     int bound, 
                                                     int lookahead,
                                                     int minOverlap,
-                                                    float maxCovGradient) {
+                                                    float maxCovGradient,
+                                                    boolean exhaustiveSearch) {
         String leftSeq = graph.assemble(leftKmers);
         String rightSeq = graph.assemble(rightKmers);
 
@@ -2780,25 +2781,20 @@ public final class GraphUtils {
             Kmer2 leftLastKmer = leftKmers.get(leftKmers.size()-1);
             Kmer2 rightFirstKmer = rightKmers.get(0);
 
-//            if (!graph.isLowComplexity(leftLastKmer) && !graph.isLowComplexity(rightFirstKmer)) {
-            // 2. Attempt connect a path
-//            ArrayDeque<Kmer2> connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+            float leftCoverageThreshold = getMinimumKmerCoverage(leftKmers) * maxCovGradient;
+            float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
+            ArrayDeque<Kmer2> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient);
 
-                float leftCoverageThreshold = getMinimumKmerCoverage(leftKmers) * maxCovGradient;
-                float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
-                ArrayDeque<Kmer2> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient);
-            
-//            if (connectedPath == null) {
-////                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
-//                connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
-//            }
-            
-                if (connectedPath != null) {
-                    fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
-                    fragmentKmers.addAll(leftKmers);
-                    fragmentKmers.addAll(connectedPath);
-                    fragmentKmers.addAll(rightKmers);
-                }
+            if (connectedPath == null && exhaustiveSearch) {
+                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+            }
+
+            if (connectedPath != null) {
+                fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
+                fragmentKmers.addAll(leftKmers);
+                fragmentKmers.addAll(connectedPath);
+                fragmentKmers.addAll(rightKmers);
+            }
         }
         
         return fragmentKmers;
