@@ -1404,7 +1404,7 @@ public class RNABloom {
                     return;
                 }
 
-                right = chompRightPolyX(right, 25, 1);
+                right = chompRightPolyX(right, polyXMinLen, polyXMaxMismatches);
                 
                 if (right.length() < this.rightReadLengthThreshold) {
                     return;
