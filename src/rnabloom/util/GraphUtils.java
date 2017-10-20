@@ -4078,12 +4078,12 @@ public final class GraphUtils {
                                             percentIdentity);
                         
             if (!simpleExtension.isEmpty()) {
-                Iterator<Kmer2> itr = simpleExtension.descendingIterator();
-                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
-                    itr.remove();
-                }
-                
-                if (!simpleExtension.isEmpty()) {
+//                Iterator<Kmer2> itr = simpleExtension.descendingIterator();
+//                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
+//                    itr.remove();
+//                }
+//                
+//                if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
 ////                    usedKmers.addAll(simpleExtension);
                     
@@ -4102,7 +4102,7 @@ public final class GraphUtils {
                     if (neighbors.isEmpty()) {
                         return false;
                     }
-                }
+//                }
             }
             
             if (numKmers < distance) {
@@ -4253,12 +4253,12 @@ public final class GraphUtils {
                                             percentIdentity);
             
             if (!simpleExtension.isEmpty()) {
-                Iterator<Kmer2> itr = simpleExtension.descendingIterator();
-                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
-                    itr.remove();
-                }
-                
-                if (!simpleExtension.isEmpty()) {
+//                Iterator<Kmer2> itr = simpleExtension.descendingIterator();
+//                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
+//                    itr.remove();
+//                }
+//                
+//                if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
 //                    usedKmers.addAll(simpleExtension);
                     
@@ -4277,7 +4277,7 @@ public final class GraphUtils {
                     if (neighbors.isEmpty()) {
                         return false;
                     }
-                }
+//                }
             }
             
             if (numKmers < distance) {
@@ -4455,12 +4455,23 @@ public final class GraphUtils {
                             hasPairedRightKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
                         if (usedKmers.contains(cursor)) {
-                            // check whether this kmer pair has been used in this sequence already
-                            Kmer2 partner = kmers.get(partnerIndex);
-                            for (int i = kmers.size()-1; i >= distance; --i) {
-                                if (cursor.equals(kmers.get(i)) &&
-                                        partner.equals(kmers.get(i-distance))) {
-                                    return false;
+                            // check if all extension kmers has been used in this sequence already
+                            boolean allExtensionKmersUsed = true;
+                            for (Kmer2 kmer : extension) {
+                                if (!usedKmers.contains(kmer)) {
+                                    allExtensionKmersUsed = false;
+                                    break;
+                                }
+                            }
+                            
+                            if (allExtensionKmersUsed) {
+                                // check whether this kmer pair has been used in this sequence already
+                                Kmer2 partner = kmers.get(partnerIndex);
+                                for (int i = kmers.size()-1; i >= distance; --i) {
+                                    if (cursor.equals(kmers.get(i)) &&
+                                            partner.equals(kmers.get(i-distance))) {
+                                        return false;
+                                    }
                                 }
                             }
                         }
@@ -4469,24 +4480,18 @@ public final class GraphUtils {
                             boolean assembled = greedyExtendRight(graph, cursor, lookahead, minNumPairs, assembledKmersBloomFilter) != null;
 
                             if (assembled) {
-    //                            int numNotAssembled = 0;
-
                                 for (Kmer2 kmer : extension) {
                                     if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
-    //                                    if (distanceInversePI < ++numNotAssembled) {
                                             assembled = false;
                                             break;
-    //                                    }
                                     }
                                 }
 
                                 if (assembled) {
                                     for (int i=partnerIndex; i<numKmers; ++i) {
                                         if (!assembledKmersBloomFilter.lookup(kmers.get(i).getHash())) {
-    //                                        if (distanceInversePI < ++numNotAssembled) {
-                                                assembled = false;
-                                                break;
-    //                                        }
+                                            assembled = false;
+                                            break;
                                         }
                                     }
                                 }
@@ -4627,12 +4632,23 @@ public final class GraphUtils {
                             hasPairedLeftKmers(cursor, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
 
                         if (usedKmers.contains(cursor)) {
-                            // check whether this kmer pair has been used in this sequence already (ie. a loop)
-                            Kmer2 partner = kmers.get(partnerIndex);
-                            for (int i = kmers.size()-1; i >= distance; --i) {
-                                if (cursor.equals(kmers.get(i)) &&
-                                        partner.equals(kmers.get(i-distance))) {
-                                    return false;
+                            // check if all extension kmers has been used in this sequence already
+                            boolean allExtensionKmersUsed = true;
+                            for (Kmer2 kmer : extension) {
+                                if (!usedKmers.contains(kmer)) {
+                                    allExtensionKmersUsed = false;
+                                    break;
+                                }
+                            }
+                            
+                            if (allExtensionKmersUsed) {
+                                // check whether this kmer pair has been used in this sequence already (ie. a loop)
+                                Kmer2 partner = kmers.get(partnerIndex);
+                                for (int i = kmers.size()-1; i >= distance; --i) {
+                                    if (cursor.equals(kmers.get(i)) &&
+                                            partner.equals(kmers.get(i-distance))) {
+                                        return false;
+                                    }
                                 }
                             }
                         }
@@ -4641,14 +4657,11 @@ public final class GraphUtils {
                             boolean assembled = greedyExtendLeft(graph, cursor, lookahead, minNumPairs, assembledKmersBloomFilter) != null;
 
                             if (assembled) {
-    //                            int numNotAssembled = 0;
-
+                                // check if all extension kmers has been used
                                 for (Kmer2 kmer : extension) {
                                     if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
-    //                                    if (distanceInversePI < ++numNotAssembled) {
-                                            assembled = false;
-                                            break;
-    //                                    }
+                                        assembled = false;
+                                        break;
                                     }
                                 }
 
