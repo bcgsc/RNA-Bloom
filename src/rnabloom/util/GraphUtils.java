@@ -882,7 +882,7 @@ public final class GraphUtils {
         int numHash = graph.getMaxNumHash();
                 
         // data structure to store visited kmers at defined depth
-        HashMap<Kmer2, ArrayDeque<Integer>> visitedKmers = new HashMap<>();
+        HashSet<Kmer2> visitedBranchingKmers = new HashSet<>();
                 
         int depth = 0;
         
@@ -896,12 +896,7 @@ public final class GraphUtils {
             LinkedList<Kmer2> branches = branchesStack.getLast();
             
             if (branches.isEmpty()) {
-                Kmer2 cursor = extension.pollLast();
-                
-                if (cursor != null) {
-                    extensionKmers.remove(cursor);
-                }
-                
+                extensionKmers.remove(extension.pollLast());
                 branchesStack.removeLast();
                 --depth;
             }
@@ -915,38 +910,12 @@ public final class GraphUtils {
                 if (depth < bound && !extensionKmers.contains(cursor)) {
                     if (cursor.hasAtLeastXPredecessors(k, numHash, graph, 2)) {
                         // these kmers may be visited from an alternative branch upstream
-
-                        ArrayDeque<Integer> visitedDepths = visitedKmers.get(cursor);
-                        if (visitedDepths == null) {
-                            visitedDepths = new ArrayDeque<>();
-                            visitedDepths.add(depth);
-
-                            visitedKmers.put(cursor, visitedDepths);
-
+                        if (!visitedBranchingKmers.contains(cursor)) {
+                            visitedBranchingKmers.add(cursor);
                             branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
                             extension.add(cursor);
                             extensionKmers.add(cursor);
                             ++depth;
-                        }
-                        else {
-                            boolean visited = false;
-                            
-                            // check whether depth may be off by 1 due to an indel
-                            for (Integer d : visitedDepths) {
-                                if (Math.abs(d - depth) <= 1) {
-                                    visited = true;
-                                    break;
-                                }
-                            }
-
-                            if (!visited) {
-                                visitedDepths.add(depth);
-
-                                branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
-                                extension.add(cursor);
-                                extensionKmers.add(cursor);
-                                ++depth;
-                            }
                         }
                     }
                     else {
