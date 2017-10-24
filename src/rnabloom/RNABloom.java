@@ -2016,6 +2016,7 @@ public class RNABloom {
         long readPairsParsed = 0;
         
         int maxTasksQueueSize = numThreads;
+        int maxConcurrentSubmissions = numThreads + maxTasksQueueSize;
         
         int newBound = bound;
         int[] fragLengthsStats = null;
@@ -2232,7 +2233,7 @@ public class RNABloom {
                                                             extendFragments
                         ));
 
-                        if (fragments.remainingCapacity() <= numThreads) {
+                        if (fragments.remainingCapacity() <= maxConcurrentSubmissions) {
 
                             // write fragments to file
                             int m;
