@@ -1272,7 +1272,7 @@ public class RNABloom {
                 
                 if (!leftKmers.isEmpty() && !rightKmers.isEmpty()) {
 
-                    ArrayList<Kmer2> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap, maxCovGradient, true);
+                    ArrayList<Kmer2> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap, maxCovGradient, false);
 
                     if (fragmentKmers != null) {
                         int fragLength = fragmentKmers.size() + k - 1;
