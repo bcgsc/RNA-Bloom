@@ -908,7 +908,7 @@ public final class GraphUtils {
                 }
                 
                 if (depth < bound && !extensionKmers.contains(cursor)) {
-                    if (cursor.hasAtLeastXPredecessors(k, numHash, graph, 2)) {
+                    if (cursor.hasAtLeastXPredecessors(k, numHash, graph, 2) || isLowComplexity2(cursor.bytes)) {
                         // these kmers may be visited from an alternative branch upstream
                         if (!visitedBranchingKmers.contains(cursor)) {
                             visitedBranchingKmers.add(cursor);
