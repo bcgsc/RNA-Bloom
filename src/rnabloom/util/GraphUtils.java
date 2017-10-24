@@ -908,7 +908,7 @@ public final class GraphUtils {
                 }
                 
                 if (depth < bound && !extensionKmers.contains(cursor)) {
-                    if (cursor.hasAtLeastXPredecessors(k, numHash, graph, 2) || isLowComplexity2(cursor.bytes)) {
+                    if (cursor.hasAtLeastXPredecessors(k, numHash, graph, 2)) {
                         // these kmers may be visited from an alternative branch upstream
                         if (!visitedBranchingKmers.contains(cursor)) {
                             visitedBranchingKmers.add(cursor);
@@ -2755,7 +2755,7 @@ public final class GraphUtils {
             ArrayDeque<Kmer2> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient);
 
             if (connectedPath == null && exhaustiveSearch) {
-                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound/2, lookahead);
             }
 
             if (connectedPath != null) {
