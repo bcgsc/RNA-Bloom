@@ -1248,6 +1248,9 @@ public class RNABloom {
         public void run() {
             try {
                 
+//                System.out.println("L: " + left);
+//                System.out.println("R: " + right);
+                
                 ArrayList<Kmer2> leftKmers = graph.getKmers(left);
                 ArrayList<Kmer2> rightKmers = graph.getKmers(right);
 
@@ -1687,7 +1690,9 @@ public class RNABloom {
         
         // set up thread pool
         MyExecutorService service = new MyExecutorService(numThreads, maxTasksQueueSize);
-                
+
+        int maxConcurrentSubmissions = numThreads + maxTasksQueueSize;
+        
         try {
             FastaReader in;
             
@@ -1741,7 +1746,7 @@ public class RNABloom {
                         ));
                     }
 
-                    if (fragments.remainingCapacity() <= numThreads) {
+                    if (fragments.remainingCapacity() <= maxConcurrentSubmissions) {
 
                         // write fragments to file
                         int m;
