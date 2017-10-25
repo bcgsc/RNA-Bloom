@@ -3612,6 +3612,7 @@ public class RNABloom {
                 // adjust paired kmer distance
                 int[] fragStats = assembler.restoreFragStatsFromFile(fragStatsFile);
                 assembler.setPairedKmerDistance(fragStats[1]);
+                int fragSizeBound = fragStats[3] + 3*(fragStats[3] - fragStats[1])/2;
 
                 // repopulate with NEW kmers from fragments
                 ArrayList<String> fragmentPaths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length);
@@ -3651,7 +3652,7 @@ public class RNABloom {
                                                     longSingletonsFastaPath,
                                                     shortSingletonsFastaPath,
                                                     unconnected2kSingletonsFastaPath,
-                                                    bound,
+                                                    fragSizeBound,
                                                     minOverlap,
                                                     sampleSize, 
                                                     numThreads, 

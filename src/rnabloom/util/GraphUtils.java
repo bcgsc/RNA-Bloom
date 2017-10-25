@@ -2755,7 +2755,7 @@ public final class GraphUtils {
             ArrayDeque<Kmer2> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient);
 
             if (connectedPath == null && exhaustiveSearch) {
-                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound/2, lookahead);
+                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
             }
 
             if (connectedPath != null) {
