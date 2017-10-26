@@ -880,7 +880,32 @@ public final class GraphUtils {
     public static ArrayDeque<Kmer2> findPath(BloomFilterDeBruijnGraph graph, Kmer2 left, Kmer2 right, int bound, int lookahead) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
+        
+        ArrayDeque<Kmer2> rightExtension = new ArrayDeque<>();
+        
+        ArrayDeque<Kmer2> neighbors = new ArrayDeque<>(4);
+        for (int i=0; i<bound; ++i) {
+            right.getPredecessors(k, numHash, graph, neighbors);
+            
+            if (neighbors.size() == 1) {
+                Kmer2 kmer = neighbors.pop();
                 
+                if (left.equals(kmer)) {
+                    return rightExtension;
+                }
+                
+                rightExtension.addFirst(kmer);
+            }
+            else {
+                break;
+            }
+        }
+        
+        if (!rightExtension.isEmpty()) {
+            bound -= rightExtension.size();
+            right = rightExtension.getFirst();
+        }
+        
         // data structure to store visited kmers at defined depth
         HashSet<Kmer2> visitedBranchingKmers = new HashSet<>();
                 
@@ -904,6 +929,10 @@ public final class GraphUtils {
                 Kmer2 cursor = branches.pop();
                 
                 if (cursor.equals(right)) {
+                    if (!rightExtension.isEmpty()) {
+                        extension.addAll(rightExtension);
+                    }
+                    
                     return extension;
                 }
                 
