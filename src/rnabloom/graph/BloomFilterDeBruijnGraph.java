@@ -324,7 +324,11 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void addIfAbsent(final long[] hashVals) {
-        if (!dbgbf.lookupThenAdd(hashVals) && cbf.getCount(hashVals ) == 0) {
+        if (!dbgbf.lookup(hashVals)) {
+            dbgbf.add(hashVals);
+            cbf.increment(hashVals);
+        }
+        else if (cbf.getCount(hashVals) == 0) {
             cbf.increment(hashVals);
         }
     }
