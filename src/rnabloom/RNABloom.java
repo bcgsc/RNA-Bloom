@@ -224,14 +224,14 @@ public class RNABloom {
         private final NTHashIterator itr;
         private int numReads = 0;
         private boolean successful = false;
-        private boolean insertIfAbsent = false;
+        private boolean incrementIfPresent = false;
         
-        public SeqToGraphWorker(int id, String path, boolean stranded, boolean reverseComplement, int numHash) {
+        public SeqToGraphWorker(int id, String path, boolean stranded, boolean reverseComplement, int numHash, boolean incrementIfPresent) {
             /*@TODO: Support FASTA files*/
             
             this.id = id;
             this.path = path;
-            this.insertIfAbsent = insertIfAbsent;
+            this.incrementIfPresent = incrementIfPresent;
             
             if (stranded) {
                 if (reverseComplement) {
@@ -257,7 +257,7 @@ public class RNABloom {
                 Matcher mSeq = seqPattern.matcher("");
                 long[] hashVals = itr.hVals;
                 
-                if (insertIfAbsent) {
+                if (incrementIfPresent) {
                     while (fr.hasNext()) {
                         ++numReads;
 
@@ -270,7 +270,7 @@ public class RNABloom {
                                 itr.start(mSeq.group());
                                 while (itr.hasNext()) {
                                     itr.next();
-                                    graph.addIfAbsent(hashVals); // Only insert if kmer is absent in the graph
+                                    graph.addCountIfPresent(hashVals); // Only insert if kmer is absent in the graph
                                 }
                             }
                         }
@@ -349,13 +349,13 @@ public class RNABloom {
         int threadId = 0;
            
         for (String fastq : forwardFastqs) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, false, numHash);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, false, numHash, false);
             service.submit(t);
             threadPool.add(t);
         }
 
         for (String fastq : reverseFastqs) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, true, numHash);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, true, numHash, false);
             service.submit(t);
             threadPool.add(t);
         }
@@ -382,6 +382,55 @@ public class RNABloom {
         covFPR = graph.getCbfFPR();
     }
 
+    public void addCountsOnly(Collection<String> forwardFastqs,
+                            Collection<String> reverseFastqs,
+                            boolean strandSpecific,
+                            int numThreads) {        
+                
+        /** parse the reads */
+        
+        int numReads = 0;
+        int numHash = graph.getMaxNumHash();
+        
+        ExecutorService service = Executors.newFixedThreadPool(numThreads);
+        
+        ArrayList<SeqToGraphWorker> threadPool = new ArrayList<>();
+        int threadId = 0;
+           
+        for (String fastq : forwardFastqs) {
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, false, numHash, true);
+            service.submit(t);
+            threadPool.add(t);
+        }
+
+        for (String fastq : reverseFastqs) {
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, true, numHash, true);
+            service.submit(t);
+            threadPool.add(t);
+        }
+
+        service.shutdown();
+        
+        try {
+            service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            
+            for (SeqToGraphWorker t : threadPool) {
+                numReads += t.getReadCount();
+            }
+
+            System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads in total.");
+//            System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
+            
+//            screeningBf.destroy();
+            
+        } catch (Exception ex) {
+            handleException(ex);
+        }
+        
+        dbgFPR = graph.getDbgbfFPR();
+        covFPR = graph.getCbfFPR();
+    }
+    
     public void repopulateGraph(Collection<String> fastas, boolean strandSpecific) {
         /** insert into graph if absent */
         
@@ -426,8 +475,8 @@ public class RNABloom {
             handleException(ex);
         }
                 
-        dbgFPR = graph.getDbgbfFPR();
-        covFPR = graph.getCbfFPR();
+//        dbgFPR = graph.getDbgbfFPR();
+//        covFPR = graph.getCbfFPR();
     }
     
     public void insertIntoDeBruijnGraph(String fasta) throws IOException { 
@@ -3564,7 +3613,8 @@ public class RNABloom {
             
             
             // double the kmer size
-            assembler.setK(2*k);
+            int newK = 2*k;
+            assembler.setK(newK);
             
             String[] unconnected2kReadsFastaPaths = {unconnected2kReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
                                             unconnected2kReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
@@ -3585,7 +3635,26 @@ public class RNABloom {
                 // clear DBG-Bf, c-Bf, pk-Bf, a-Bf
                 assembler.clearGraph();
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                
+                // adjust paired kmer distance
+                int[] fragStats = assembler.restoreFragStatsFromFile(fragStatsFile);
+                assembler.setPairedKmerDistance(fragStats[1]);
+                int fragSizeBound = fragStats[3] + 3*(fragStats[3] - fragStats[1])/2;
 
+                // repopulate with NEW kmers from fragments
+                ArrayList<String> fragmentPaths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length + unconnectedReadsFastaPaths.length + 3);
+                fragmentPaths.addAll(Arrays.asList(longFragmentsFastaPaths));
+                fragmentPaths.addAll(Arrays.asList(shortFragmentsFastaPaths));
+                fragmentPaths.addAll(Arrays.asList(unconnectedReadsFastaPaths));
+                fragmentPaths.add(longSingletonsFastaPath);
+                fragmentPaths.add(shortSingletonsFastaPath);
+                fragmentPaths.add(unconnectedSingletonsFastaPath);
+
+                System.out.println("Rebuilding graph from assembled fragments (k=" + newK + ")...");
+                timer.start();
+                assembler.repopulateGraph(fragmentPaths, strandSpecific);
+                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));    
+                
                 // populate graph with kmers from reads
                 ArrayList<String> forwardFilesList = new ArrayList<>();
                 ArrayList<String> backwardFilesList = new ArrayList<>();
@@ -3604,27 +3673,13 @@ public class RNABloom {
                     forwardFilesList.addAll(Arrays.asList(fastqsRight));
                 }
 
-                System.out.println("Rebuilding graph from reads (k=" + 2*k + ")...");
+                System.out.println("Counting kmers in reads (k=" + newK + ")...");
                 timer.start();
-                assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads);
+                assembler.addCountsOnly(forwardFilesList, backwardFilesList, strandSpecific, numThreads);
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
-                // adjust paired kmer distance
-                int[] fragStats = assembler.restoreFragStatsFromFile(fragStatsFile);
-                assembler.setPairedKmerDistance(fragStats[1]);
-                int fragSizeBound = fragStats[3] + 3*(fragStats[3] - fragStats[1])/2;
-
-                // repopulate with NEW kmers from fragments
-                ArrayList<String> fragmentPaths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length);
-                fragmentPaths.addAll(Arrays.asList(longFragmentsFastaPaths));
-                fragmentPaths.addAll(Arrays.asList(shortFragmentsFastaPaths));
-                fragmentPaths.add(longSingletonsFastaPath);
-                fragmentPaths.add(shortSingletonsFastaPath);
-
-                System.out.println("Rebuilding graph from assembled fragments (k=" + 2*k + ")...");
-                timer.start();
-                assembler.repopulateGraph(fragmentPaths, strandSpecific);
-                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));    
+                
+                // Remove existing output files
                 
                 File fragmentsFile = new File(unconnected2kSingletonsFastaPath);
                 if (fragmentsFile.exists()) {
