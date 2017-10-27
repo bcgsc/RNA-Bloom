@@ -3395,8 +3395,12 @@ public class RNABloom {
             for (String fq : fastqsLeft) {
                 leftReadFilesTotalBytes += new File(fq).length();
             }
+            double rightReadFilesTotalBytes = 0;
+            for (String fq : fastqsRight) {
+                rightReadFilesTotalBytes += new File(fq).length();
+            }
             
-            float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, leftReadFilesTotalBytes) / NUM_BYTES_1GB))));
+            float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, Math.max(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
             float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8f)));
             float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8f)));
             float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 6f / 8f)));
