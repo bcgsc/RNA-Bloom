@@ -878,79 +878,81 @@ public final class GraphUtils {
     }
     
     public static ArrayDeque<Kmer2> findPath(BloomFilterDeBruijnGraph graph, Kmer2 left, Kmer2 right, int bound, int lookahead) {
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
-        
-        ArrayDeque<Kmer2> rightExtension = new ArrayDeque<>();
-        
-        ArrayDeque<Kmer2> neighbors = new ArrayDeque<>(4);
-        for (int i=0; i<bound; ++i) {
-            right.getPredecessors(k, numHash, graph, neighbors);
-            
-            if (neighbors.size() == 1) {
-                Kmer2 kmer = neighbors.pop();
-                
-                if (left.equals(kmer)) {
-                    return rightExtension;
-                }
-                
-                rightExtension.addFirst(kmer);
-            }
-            else {
-                break;
-            }
-        }
-        
-        if (!rightExtension.isEmpty()) {
-            bound -= rightExtension.size();
-            right = rightExtension.getFirst();
-        }
-        
-        // data structure to store visited kmers at defined depth
-        HashSet<Kmer2> visitedBranchingKmers = new HashSet<>();
-                
-        int depth = 0;
-        
-        ArrayDeque<LinkedList<Kmer2>> branchesStack = new ArrayDeque<>();
-        branchesStack.add(getSuccessorsRanked(left, graph, lookahead));
-        
-        ArrayDeque<Kmer2> extension = new ArrayDeque<>();
-        HashSet<Kmer2> extensionKmers = new HashSet<>();
-        
-        while (!branchesStack.isEmpty()) {
-            LinkedList<Kmer2> branches = branchesStack.getLast();
-            
-            if (branches.isEmpty()) {
-                extensionKmers.remove(extension.pollLast());
-                branchesStack.removeLast();
-                --depth;
-            }
-            else {
-                Kmer2 cursor = branches.pop();
-                
-                if (cursor.equals(right)) {
-                    if (!rightExtension.isEmpty()) {
-                        extension.addAll(rightExtension);
+        if (!graph.isLowComplexity(left) && !graph.isLowComplexity(right)) {
+            int k = graph.getK();
+            int numHash = graph.getMaxNumHash();
+
+            ArrayDeque<Kmer2> rightExtension = new ArrayDeque<>();
+
+            ArrayDeque<Kmer2> neighbors = new ArrayDeque<>(4);
+            for (int i=0; i<bound; ++i) {
+                right.getPredecessors(k, numHash, graph, neighbors);
+
+                if (neighbors.size() == 1) {
+                    Kmer2 kmer = neighbors.pop();
+
+                    if (left.equals(kmer)) {
+                        return rightExtension;
                     }
-                    
-                    return extension;
+
+                    rightExtension.addFirst(kmer);
                 }
-                
-                if (depth < bound && !extensionKmers.contains(cursor)) {
-                    if (cursor.hasAtLeastXPredecessors(k, numHash, graph, 2)) {
-                        // these kmers may be visited from an alternative branch upstream
-                        if (visitedBranchingKmers.add(cursor)) {
+                else {
+                    break;
+                }
+            }
+
+            if (!rightExtension.isEmpty()) {
+                bound -= rightExtension.size();
+                right = rightExtension.getFirst();
+            }
+
+            // data structure to store visited kmers at defined depth
+            HashSet<Kmer2> visitedBranchingKmers = new HashSet<>();
+
+            int depth = 0;
+
+            ArrayDeque<LinkedList<Kmer2>> branchesStack = new ArrayDeque<>();
+            branchesStack.add(getSuccessorsRanked(left, graph, lookahead));
+
+            ArrayDeque<Kmer2> extension = new ArrayDeque<>();
+            HashSet<Kmer2> extensionKmers = new HashSet<>();
+
+            while (!branchesStack.isEmpty()) {
+                LinkedList<Kmer2> branches = branchesStack.getLast();
+
+                if (branches.isEmpty()) {
+                    extensionKmers.remove(extension.pollLast());
+                    branchesStack.removeLast();
+                    --depth;
+                }
+                else {
+                    Kmer2 cursor = branches.pop();
+
+                    if (cursor.equals(right)) {
+                        if (!rightExtension.isEmpty()) {
+                            extension.addAll(rightExtension);
+                        }
+
+                        return extension;
+                    }
+
+                    if (depth < bound && !extensionKmers.contains(cursor) && !graph.isLowComplexity(cursor)) {
+                        if (cursor.hasAtLeastXPredecessors(k, numHash, graph, 2)) {
+                            // these kmers may be visited from an alternative branch upstream
+                            if (visitedBranchingKmers.add(cursor)) {
+                                branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
+                                extension.add(cursor);
+                                extensionKmers.add(cursor);
+                                ++depth;
+                            }
+                        }
+                        else {
                             branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
                             extension.add(cursor);
                             extensionKmers.add(cursor);
                             ++depth;
                         }
-                    }
-                    else {
-                        branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
-                        extension.add(cursor);
-                        extensionKmers.add(cursor);
-                        ++depth;
                     }
                 }
             }
