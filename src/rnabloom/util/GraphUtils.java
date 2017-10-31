@@ -939,8 +939,7 @@ public final class GraphUtils {
                 if (depth < bound && !extensionKmers.contains(cursor)) {
                     if (cursor.hasAtLeastXPredecessors(k, numHash, graph, 2)) {
                         // these kmers may be visited from an alternative branch upstream
-                        if (!visitedBranchingKmers.contains(cursor)) {
-                            visitedBranchingKmers.add(cursor);
+                        if (visitedBranchingKmers.add(cursor)) {
                             branchesStack.add(getSuccessorsRanked(cursor, graph, lookahead));
                             extension.add(cursor);
                             extensionKmers.add(cursor);
