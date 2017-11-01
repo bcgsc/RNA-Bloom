@@ -11,14 +11,14 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
+//import java.util.NoSuchElementException;
 import java.util.zip.GZIPInputStream;
 
 /**
  *
  * @author kmnip
  */
-public class FastaReader implements Iterator<String> {
+public class FastaReader {
     private final static String GZIP_EXTENSION = ".gz";
     private final Iterator<String> itr;
     private final BufferedReader br;
@@ -43,15 +43,15 @@ public class FastaReader implements Iterator<String> {
         itr = br.lines().iterator();
     }
 
-    @Override
+//    @Override
     public boolean hasNext() {
         return itr.hasNext();
     }
 
-    @Override
-    public String next() {
+//    @Override
+    public String next() throws Exception {
         if (itr.next().charAt(0) != '>') {
-            throw new NoSuchElementException("Line 1 of a FASTA record is expected to start with '>'");
+            throw new Exception("Line 1 of a FASTA record is expected to start with '>'");
         }
         return itr.next();
     }

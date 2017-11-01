@@ -7,7 +7,7 @@ package rnabloom.io;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
+//import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -19,7 +19,7 @@ import static rnabloom.util.SeqUtils.reverseComplement;
  *
  * @author kmnip
  */
-public class FastqPairReader implements Iterator<FastqReadPair> {
+public class FastqPairReader {
     private final FastqReader leftReader;
     private final FastqReader rightReader;
     private final Pattern qualPattern;
@@ -58,22 +58,35 @@ public class FastqPairReader implements Iterator<FastqReadPair> {
 //        public int numRightBasesTrimmed;
     }
 
-    @Override
+//    @Override
     public boolean hasNext() {
         return this.leftReader.hasNext() && this.rightReader.hasNext();
     }
 
-    @Override
-    public FastqReadPair next() {
+//    @Override
+    public synchronized FastqReadPair next() {
         return nextFunction.get();
     }
 
-    private FastqReadPair nextFF() {
+    private synchronized FastqReadPair nextFF() {
         FastqReadPair p = new FastqReadPair();
 
-        FastqRecord frLeft = leftReader.next();
-        FastqRecord frRight = rightReader.next();
-
+        FastqRecord frLeft, frRight;
+        
+        try {
+            frLeft = leftReader.nextWithName();
+        }
+        catch (Exception e) {
+            throw new NoSuchElementException(e.getMessage());
+        }
+        
+        try {
+            frRight = rightReader.nextWithName();
+        }
+        catch (Exception e) {
+            throw new NoSuchElementException(e.getMessage());
+        }
+        
         if (!frLeft.name.equals(frRight.name)) {
             throw new NoSuchElementException("Inconsistent record names: \"" + frLeft.name + "\" and \"" + frRight.name + "\"");
         }
@@ -99,7 +112,7 @@ public class FastqPairReader implements Iterator<FastqReadPair> {
         return p;
     }
 
-    private FastqReadPair nextFR() {
+    private synchronized FastqReadPair nextFR() {
         FastqReadPair p = nextFF();
         
         ArrayList<String> right = p.right;
@@ -118,7 +131,7 @@ public class FastqPairReader implements Iterator<FastqReadPair> {
         return p;
     }
 
-    private FastqReadPair nextRF() {
+    private synchronized FastqReadPair nextRF() {
         FastqReadPair p = nextFF();
 
         ArrayList<String> left = p.left;
@@ -137,7 +150,7 @@ public class FastqPairReader implements Iterator<FastqReadPair> {
         return p;
     }
 
-    private FastqReadPair nextRR() {
+    private synchronized FastqReadPair nextRR() {
         FastqReadPair p = nextFF();
         
         ArrayList<String> left = p.left;

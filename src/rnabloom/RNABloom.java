@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -251,48 +252,58 @@ public class RNABloom {
             System.out.println("[" + id + "] Parsing `" + path + "`...");
             
             try {
-                FastqReader fr = new FastqReader(path, false);
+                FastqReader fr = new FastqReader(path);
                 FastqRecord record = fr.record;
                 Matcher mQual = qualPatternDBG.matcher("");
                 Matcher mSeq = seqPattern.matcher("");
                 long[] hashVals = itr.hVals;
                 
                 if (incrementIfPresent) {
-                    while (fr.hasNext()) {
-                        ++numReads;
+                    try {
+                        while (true) {
+                            ++numReads;
 
-                        fr.nextWithoutNameFunction();
-                        mQual.reset(record.qual);
+                            fr.nextWithoutNameFunction();
+                            mQual.reset(record.qual);
 
-                        while (mQual.find()) {
-                            mSeq.reset(record.seq.substring(mQual.start(), mQual.end()));
-                            while (mSeq.find()) {
-                                itr.start(mSeq.group());
-                                while (itr.hasNext()) {
-                                    itr.next();
-                                    graph.addCountIfPresent(hashVals); // Only insert if kmer is absent in the graph
+                            while (mQual.find()) {
+                                mSeq.reset(record.seq.substring(mQual.start(), mQual.end()));
+                                while (mSeq.find()) {
+                                    itr.start(mSeq.group());
+                                    while (itr.hasNext()) {
+                                        itr.next();
+                                        graph.addCountIfPresent(hashVals); // Only insert if kmer is absent in the graph
+                                    }
                                 }
                             }
                         }
                     }
+                    catch (NoSuchElementException e) {
+                        //end of file
+                    }
                 }
                 else {
-                    while (fr.hasNext()) {
-                        ++numReads;
+                    try {
+                        while (true) {
+                            ++numReads;
 
-                        fr.nextWithoutNameFunction();
-                        mQual.reset(record.qual);
+                            fr.nextWithoutNameFunction();
+                            mQual.reset(record.qual);
 
-                        while (mQual.find()) {
-                            mSeq.reset(record.seq.substring(mQual.start(), mQual.end()));
-                            while (mSeq.find()) {
-                                itr.start(mSeq.group());
-                                while (itr.hasNext()) {
-                                    itr.next();
-                                    graph.add(hashVals);
+                            while (mQual.find()) {
+                                mSeq.reset(record.seq.substring(mQual.start(), mQual.end()));
+                                while (mSeq.find()) {
+                                    itr.start(mSeq.group());
+                                    while (itr.hasNext()) {
+                                        itr.next();
+                                        graph.add(hashVals);
+                                    }
                                 }
                             }
                         }
+                    }
+                    catch (NoSuchElementException e) {
+                        //end of file
                     }
                 }
                 
@@ -451,22 +462,27 @@ public class RNABloom {
                 System.out.println("Parsing `" + path + "`...");
                 
                 String seq;
-                while (fin.hasNext()) {
-                    seq = fin.next();
+                try {
+                    while (true) {
+                        seq = fin.next();
 
-                    if (itr.start(seq)) {
-                        while (itr.hasNext()) {
-                            itr.next();
-                            graph.addIfAbsent(hashVals);
+                        if (itr.start(seq)) {
+                            while (itr.hasNext()) {
+                                itr.next();
+                                graph.addIfAbsent(hashVals);
+                            }
+                        }
+
+                        if (pItr.start(seq)) {
+                            while (pItr.hasNext()) {
+                                pItr.next();
+                                graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
+                            }
                         }
                     }
-
-                    if (pItr.start(seq)) {
-                        while (pItr.hasNext()) {
-                            pItr.next();
-                            graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
-                        }
-                    }
+                }
+                catch (NoSuchElementException e) {
+                    //end of file
                 }
 
                 fin.close();
@@ -479,26 +495,31 @@ public class RNABloom {
 //        covFPR = graph.getCbfFPR();
     }
     
-    public void insertIntoDeBruijnGraph(String fasta) throws IOException { 
+    public void insertIntoDeBruijnGraph(String fasta) throws IOException, Exception { 
         
         NTHashIterator itr = graph.getHashIterator(graph.getDbgbfNumHash());
         long[] hashVals = itr.hVals;
         
         FastaReader fin = new FastaReader(fasta);
 
-        while (fin.hasNext()) {
-            if (itr.start(fin.next())) {
-                while (itr.hasNext()) {
-                    itr.next();
-                    graph.addDbgOnly(hashVals);
+        try {
+            while (true) {
+                if (itr.start(fin.next())) {
+                    while (itr.hasNext()) {
+                        itr.next();
+                        graph.addDbgOnly(hashVals);
+                    }
                 }
             }
+        }
+        catch (NoSuchElementException e) {
+            //end of file
         }
 
         fin.close();
     }
 
-    public void insertIntoDeBruijnGraphAndPairedKmers(String fasta) throws IOException {
+    public void insertIntoDeBruijnGraphAndPairedKmers(String fasta) throws IOException, Exception {
                 
         NTHashIterator itr = graph.getHashIterator(graph.getDbgbfNumHash());
         long[] hashVals = itr.hVals;
@@ -532,7 +553,7 @@ public class RNABloom {
         fin.close();
     }
     
-    public void insertIntoDeBruijnGraph(String[] fastas) throws IOException { 
+    public void insertIntoDeBruijnGraph(String[] fastas) throws IOException, Exception { 
         
         NTHashIterator itr = graph.getHashIterator(graph.getDbgbfNumHash());
         long[] hashVals = itr.hVals;
@@ -553,7 +574,7 @@ public class RNABloom {
         }
     }
     
-    private void insertIntoDeBruijnGraphMultiThreaded(ArrayDeque<String> fragmentsFasta, int sampleSize, int numThreads) throws InterruptedException, IOException {
+    private void insertIntoDeBruijnGraphMultiThreaded(ArrayDeque<String> fragmentsFasta, int sampleSize, int numThreads) throws InterruptedException, IOException, Exception {
         ArrayBlockingQueue<String> fragmentsQueue = new ArrayBlockingQueue<>(sampleSize, true);
 
         FragmentDbgWorker[] workers = new FragmentDbgWorker[numThreads];
@@ -2111,8 +2132,8 @@ public class RNABloom {
 //            int minNumKmersNotAssembled = 1;
             
             for (FastqPair fqPair: fastqPairs) {
-                lin = new FastqReader(fqPair.leftFastq, true);
-                rin = new FastqReader(fqPair.rightFastq, true);
+                lin = new FastqReader(fqPair.leftFastq);
+                rin = new FastqReader(fqPair.rightFastq);
 
                 fqpr = new FastqPairReader(lin, rin, qualPatternFrag, seqPattern, fqPair.leftRevComp, fqPair.rightRevComp);
                 System.out.println("Parsing `" + fqPair.leftFastq + "` and `" + fqPair.rightFastq + "`...");
@@ -2661,7 +2682,7 @@ public class RNABloom {
                                                     int sampleSize, 
                                                     int numThreads, 
                                                     boolean includeNaiveExtensions,
-                                                    boolean extendBranchFreeFragmentsOnly) throws InterruptedException, IOException {
+                                                    boolean extendBranchFreeFragmentsOnly) throws InterruptedException, IOException, Exception {
         
         long numFragmentsParsed = 0;
         FastaReader fin = new FastaReader(fragmentsFasta);
