@@ -532,22 +532,27 @@ public class RNABloom {
         FastaReader fin = new FastaReader(fasta);
         
         String seq;
-        while (fin.hasNext()) {
-            seq = fin.next();
-            
-            if (itr.start(seq)) {
-                while (itr.hasNext()) {
-                    itr.next();
-                    graph.addDbgOnly(hashVals);
+        try {
+            while (true) {
+                seq = fin.next();
+
+                if (itr.start(seq)) {
+                    while (itr.hasNext()) {
+                        itr.next();
+                        graph.addDbgOnly(hashVals);
+                    }
+                }
+
+                if (pItr.start(seq)) {
+                    while (pItr.hasNext()) {
+                        pItr.next();
+                        graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
+                    }
                 }
             }
-            
-            if (pItr.start(seq)) {
-                while (pItr.hasNext()) {
-                    pItr.next();
-                    graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
-                }
-            }
+        }
+        catch(NoSuchElementException e) {
+            // end of file
         }
 
         fin.close();
@@ -561,48 +566,53 @@ public class RNABloom {
         for (String fasta : fastas) {
             FastaReader fin = new FastaReader(fasta);
             
-            while (fin.hasNext()) {
-                if (itr.start(fin.next())) {
-                    while (itr.hasNext()) {
-                        itr.next();
-                        graph.addDbgOnly(hashVals);
+            try {
+                while (true) {
+                    if (itr.start(fin.next())) {
+                        while (itr.hasNext()) {
+                            itr.next();
+                            graph.addDbgOnly(hashVals);
+                        }
                     }
                 }
+            }
+            catch(NoSuchElementException e) {
+                // end of file
             }
             
             fin.close();
         }
     }
     
-    private void insertIntoDeBruijnGraphMultiThreaded(ArrayDeque<String> fragmentsFasta, int sampleSize, int numThreads) throws InterruptedException, IOException, Exception {
-        ArrayBlockingQueue<String> fragmentsQueue = new ArrayBlockingQueue<>(sampleSize, true);
-
-        FragmentDbgWorker[] workers = new FragmentDbgWorker[numThreads];
-        Thread[] threads = new Thread[numThreads];
-        for (int i=0; i<numThreads; ++i) {
-            workers[i] = new FragmentDbgWorker(fragmentsQueue);
-            threads[i] = new Thread(workers[i]);
-            threads[i].start();
-        }
-
-        for (String fa : fragmentsFasta) {
-            FastaReader fin = new FastaReader(fa);
-
-            while (fin.hasNext()) {
-                fragmentsQueue.put(fin.next());
-            }
-
-            fin.close();
-        }
-
-        for (FragmentDbgWorker w : workers) {
-            w.stopWhenEmpty();
-        }
-
-        for (Thread t : threads) {
-            t.join();
-        }
-    }
+//    private void insertIntoDeBruijnGraphMultiThreaded(ArrayDeque<String> fragmentsFasta, int sampleSize, int numThreads) throws InterruptedException, IOException, Exception {
+//        ArrayBlockingQueue<String> fragmentsQueue = new ArrayBlockingQueue<>(sampleSize, true);
+//
+//        FragmentDbgWorker[] workers = new FragmentDbgWorker[numThreads];
+//        Thread[] threads = new Thread[numThreads];
+//        for (int i=0; i<numThreads; ++i) {
+//            workers[i] = new FragmentDbgWorker(fragmentsQueue);
+//            threads[i] = new Thread(workers[i]);
+//            threads[i].start();
+//        }
+//
+//        for (String fa : fragmentsFasta) {
+//            FastaReader fin = new FastaReader(fa);
+//
+//            while (fin.hasNext()) {
+//                fragmentsQueue.put(fin.next());
+//            }
+//
+//            fin.close();
+//        }
+//
+//        for (FragmentDbgWorker w : workers) {
+//            w.stopWhenEmpty();
+//        }
+//
+//        for (Thread t : threads) {
+//            t.join();
+//        }
+//    }
     
     private class FragmentDbgWorker implements Runnable {
         private final ArrayBlockingQueue<String> fragments;
@@ -1799,85 +1809,87 @@ public class RNABloom {
                 System.out.println("Parsing `" + fasta + "`...");
                                 
                 // assemble the remaining fragments in multi-threaded mode
-                while (in.hasNext()) {
-                    String left = in.next();
-                    String right = in.next();
-                    ++readPairsParsed;
-                    
-                    if (left.length() >= k && right.length() >= k) {
-                        service.submit(new ReadConnector(left,
-                                                        right,
-                                                        fragments,
-                                                        newBound, 
-                                                        minOverlap,
-                                                        maxErrCorrIterations,
-                                                        false, // don't store the kmer pairs
-                                                        extendFragments
-                        ));
-                    }
+                try {
+                    while (true) {
+                        String left = in.next();
+                        String right = in.next();
+                        ++readPairsParsed;
 
-                    if (fragments.remainingCapacity() <= maxConcurrentSubmissions) {
+                        if (left.length() >= k && right.length() >= k) {
+                            service.submit(new ReadConnector(left,
+                                                            right,
+                                                            fragments,
+                                                            newBound, 
+                                                            minOverlap,
+                                                            maxErrCorrIterations,
+                                                            false, // don't store the kmer pairs
+                                                            extendFragments
+                            ));
+                        }
 
-                        // write fragments to file
-                        int m;
-                        Fragment frag;
-                        for (int i=0; i<sampleSize; ++i) {
-                            frag = fragments.poll();
+                        if (fragments.remainingCapacity() <= maxConcurrentSubmissions) {
 
-                            if (frag == null) {
-                                break;
-                            }
+                            // write fragments to file
+                            int m;
+                            Fragment frag;
+                            for (int i=0; i<sampleSize; ++i) {
+                                frag = fragments.poll();
 
-                            if (frag.isUnconnectedRead) {
-                                if (frag.minCov == 1) {
-                                    unconnectedSingletonsOut.write("r" + Long.toString(++unconnectedReadId) + "L ", frag.left);
-                                    unconnectedSingletonsOut.write("r" + Long.toString(unconnectedReadId) + "R", frag.right);
+                                if (frag == null) {
+                                    break;
                                 }
-                                else if (frag.minCov > 1) {
-                                    m = getMinCoverageOrderOfMagnitude(frag.minCov);
 
-                                    if (m >= 0) {
-                                        unconnectedReadsOut[m].write("r" + Long.toString(++unconnectedReadId) + "L ", frag.left);
-                                        unconnectedReadsOut[m].write("r" + Long.toString(unconnectedReadId) + "R", frag.right);
+                                if (frag.isUnconnectedRead) {
+                                    if (frag.minCov == 1) {
+                                        unconnectedSingletonsOut.write("r" + Long.toString(++unconnectedReadId) + "L ", frag.left);
+                                        unconnectedSingletonsOut.write("r" + Long.toString(unconnectedReadId) + "R", frag.right);
+                                    }
+                                    else if (frag.minCov > 1) {
+                                        m = getMinCoverageOrderOfMagnitude(frag.minCov);
+
+                                        if (m >= 0) {
+                                            unconnectedReadsOut[m].write("r" + Long.toString(++unconnectedReadId) + "L ", frag.left);
+                                            unconnectedReadsOut[m].write("r" + Long.toString(unconnectedReadId) + "R", frag.right);
+                                        }
                                     }
                                 }
-                            }
-                            else {
-                                ++rescuedReadPairs;
-                                
-                                if (frag.length >= shortestFragmentLengthAllowed) {
-                                    ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
+                                else {
+                                    ++rescuedReadPairs;
 
-                                    if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
-                                        if (frag.minCov == 1) {
-                                            graph.addPairedKmers(fragKmers);
+                                    if (frag.length >= shortestFragmentLengthAllowed) {
+                                        ArrayList<Kmer2> fragKmers = graph.getKmers(frag.seq);
 
-                                            if (frag.length >= longFragmentLengthThreshold) {
-                                                for (Kmer2 kmer : fragKmers) {
-                                                    screeningBf.add(kmer.getHash());
-                                                } 
-
-                                                longSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
-                                            }
-                                            else {
-                                                shortSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
-                                            }
-                                        }
-                                        else if (frag.minCov > 1) {
-                                            m = getMinCoverageOrderOfMagnitude(frag.minCov);
-
-                                            if (m >= 0) {
+                                        if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
+                                            if (frag.minCov == 1) {
                                                 graph.addPairedKmers(fragKmers);
 
                                                 if (frag.length >= longFragmentLengthThreshold) {
                                                     for (Kmer2 kmer : fragKmers) {
                                                         screeningBf.add(kmer.getHash());
-                                                    }
+                                                    } 
 
-                                                    longFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    longSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
                                                 }
                                                 else {
-                                                    shortFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    shortSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                }
+                                            }
+                                            else if (frag.minCov > 1) {
+                                                m = getMinCoverageOrderOfMagnitude(frag.minCov);
+
+                                                if (m >= 0) {
+                                                    graph.addPairedKmers(fragKmers);
+
+                                                    if (frag.length >= longFragmentLengthThreshold) {
+                                                        for (Kmer2 kmer : fragKmers) {
+                                                            screeningBf.add(kmer.getHash());
+                                                        }
+
+                                                        longFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    }
+                                                    else {
+                                                        shortFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    }
                                                 }
                                             }
                                         }
@@ -1886,6 +1898,9 @@ public class RNABloom {
                             }
                         }
                     }
+                }
+                catch (NoSuchElementException e) {
+                    // end of file
                 }
                                                 
                 in.close();
@@ -2702,9 +2717,14 @@ public class RNABloom {
         Thread writerThread = new Thread(writerWorker);
         writerThread.start();
 
-        while (fin.hasNext()) {
-            ++numFragmentsParsed;
-            fragmentsQueue.put(fin.next());
+        try {
+            while (true) {
+                ++numFragmentsParsed;
+                fragmentsQueue.put(fin.next());
+            }
+        }
+        catch (NoSuchElementException e) {
+            // end of file
         }
 
         fin.close();
