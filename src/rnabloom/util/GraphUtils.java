@@ -693,7 +693,8 @@ public final class GraphUtils {
                                                         int lookahead, 
                                                         float leftCoverageThreshold, 
                                                         float rightCoverageThreshold,
-                                                        float maxCovGradient) {
+                                                        float maxCovGradient,
+                                                        boolean rescue) {
         
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
@@ -869,6 +870,87 @@ public final class GraphUtils {
                     else {
                         rightPathKmers.add(bestSeq);
                         rightPath.addFirst(best);
+                    }
+                }
+            }
+        }
+        
+        if (rescue) {
+            // left path does not intersect right path
+            
+            for (Kmer2 kmer : leftPath) {
+                ArrayDeque<Kmer2> successors = kmer.getSuccessors(k, numHash, graph);
+                if (successors.size() > 1) {
+                    for (Kmer2 s : successors) {
+                        String seq = s.toString();
+                        if (!leftPathKmers.contains(seq)) {
+                            if (rightPathKmers.contains(seq)) {
+                                ArrayDeque<Kmer2> path = new ArrayDeque<>(leftPath.size() + rightPath.size());
+
+                                // fill with kmers in left path
+                                for (Kmer2 tmp : leftPath) {
+                                    path.add(tmp);
+                                    if (tmp.equals(kmer)) {
+                                        break;
+                                    }
+                                }
+                                
+                                path.add(s);
+                                
+                                // fill with kmers in right path
+                                boolean found = false;
+                                for (Kmer2 tmp : rightPath) {
+                                    if (found) {
+                                        path.add(tmp);
+                                    }
+                                    else if (tmp.equals(s)) {
+                                        found = true;
+                                    }
+                                }
+
+                                return path;
+                            }
+                            else {
+                                // perform a bounded greedy extension (depth = k) to connect left path to right path
+                                ArrayDeque<Kmer2> extension = greedyExtendRight(graph, s, lookahead, k);
+                                for (Kmer2 e : extension) {
+                                    if (rightPathKmers.contains(e.toString())) {
+                                        ArrayDeque<Kmer2> path = new ArrayDeque<>(leftPath.size() + rightPath.size());
+
+                                        // fill with kmers in left path
+                                        for (Kmer2 tmp : leftPath) {
+                                            path.add(tmp);
+                                            if (tmp.equals(kmer)) {
+                                                break;
+                                            }
+                                        }
+
+                                        path.add(s);
+                                        
+                                        // fill with kmers in extension
+                                        for (Kmer2 tmp : extension) {
+                                            path.add(tmp);
+                                            if (tmp.equals(e)) {
+                                                break;
+                                            }
+                                        }
+                                        
+                                        // fill with kmers in right path
+                                        boolean found = false;
+                                        for (Kmer2 tmp : rightPath) {
+                                            if (found) {
+                                                path.add(tmp);
+                                            }
+                                            else if (tmp.equals(e)) {
+                                                found = true;
+                                            }
+                                        }
+                                        
+                                        return path;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2769,7 +2851,7 @@ public final class GraphUtils {
                                                     int lookahead,
                                                     int minOverlap,
                                                     float maxCovGradient,
-                                                    boolean exhaustiveSearch) {
+                                                    boolean rescueSearch) {
         String leftSeq = graph.assemble(leftKmers);
         String rightSeq = graph.assemble(rightKmers);
 
@@ -2782,11 +2864,11 @@ public final class GraphUtils {
 
             float leftCoverageThreshold = getMinimumKmerCoverage(leftKmers) * maxCovGradient;
             float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
-            ArrayDeque<Kmer2> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient);
+            ArrayDeque<Kmer2> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient, rescueSearch);
 
-            if (connectedPath == null && exhaustiveSearch) {
-                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
-            }
+//            if (connectedPath == null && exhaustiveSearch) {
+//                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
+//            }
 
             if (connectedPath != null) {
                 fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
