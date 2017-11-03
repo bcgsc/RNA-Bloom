@@ -883,7 +883,7 @@ public final class GraphUtils {
                 if (successors.size() > 1) {
                     for (Kmer2 s : successors) {
                         String seq = s.toString();
-                        if (!leftPathKmers.contains(seq)) {
+                        if (!leftPathKmers.contains(seq) && !graph.isLowComplexity(s)) {
                             if (rightPathKmers.contains(seq)) {
                                 ArrayDeque<Kmer2> path = new ArrayDeque<>(leftPath.size() + rightPath.size());
 
@@ -914,6 +914,10 @@ public final class GraphUtils {
                                 // perform a bounded greedy extension (depth = k) to connect left path to right path
                                 ArrayDeque<Kmer2> extension = greedyExtendRight(graph, s, lookahead, k);
                                 for (Kmer2 e : extension) {
+                                    if (graph.isLowComplexity(e)) {
+                                        break;
+                                    }
+                                    
                                     if (rightPathKmers.contains(e.toString())) {
                                         ArrayDeque<Kmer2> path = new ArrayDeque<>(leftPath.size() + rightPath.size());
 
