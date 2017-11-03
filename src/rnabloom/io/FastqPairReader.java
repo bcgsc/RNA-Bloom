@@ -71,17 +71,18 @@ public class FastqPairReader {
     private synchronized FastqReadPair nextFF() {
         FastqReadPair p = new FastqReadPair();
 
-        FastqRecord frLeft, frRight;
+        FastqRecord frLeft = new FastqRecord();
+        FastqRecord frRight = new FastqRecord();
         
         try {
-            frLeft = leftReader.nextWithName();
+            leftReader.nextWithName(frLeft);
         }
         catch (Exception e) {
             throw new NoSuchElementException(e.getMessage());
         }
         
         try {
-            frRight = rightReader.nextWithName();
+            rightReader.nextWithName(frRight);
         }
         catch (Exception e) {
             throw new NoSuchElementException(e.getMessage());

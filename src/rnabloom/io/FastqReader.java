@@ -25,8 +25,6 @@ public final class FastqReader {
     private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("^@([^\\s/]+)(?:/[12])?.*$");
     private final BufferedReader br;
     private final Iterator<String> itr;
-//    private final Supplier<FastqRecord> nextFunction;
-    public final FastqRecord record = new FastqRecord();
     
     public FastqReader(String path) throws IOException {
         if (path.endsWith(GZIP_EXTENSION)) {
@@ -36,110 +34,52 @@ public final class FastqReader {
             br = new BufferedReader(new InputStreamReader(new FileInputStream(path)));
         }
         itr = br.lines().iterator();
-//        if (storeReadName) {
-//            nextFunction = this::nextWithName;
-//        }
-//        else {
-//            nextFunction = this::nextWithoutName;
-//        }
     }
 
-//    @Override
     public boolean hasNext() {
         return itr.hasNext();
     }
-
-//    @Override
-//    public synchronized FastqRecord next() {
-//        return nextFunction.get();
-//    }
     
-    public synchronized void nextWithoutNameFunction() throws Exception {
-//        if (itr.hasNext()){
-            if (itr.next().charAt(0) != '@') {
-                throw new Exception("Line 1 of FASTQ record is expected to start with '@'");
-            }
-            
-            record.seq = itr.next();
-            
-            if (itr.next().charAt(0) != '+') {
-                throw new Exception("Line 3 of FASTQ record is expected to start with '+'");
-            }
-            
-            record.qual = itr.next();
-//        }
-//        else {
-//            throw new NoSuchElementException("End of file");
-//        }
-    }
-    
-    public synchronized FastqRecord nextWithoutName() throws Exception {
-//        if (itr.hasNext()){
-            FastqRecord fr = new FastqRecord();
-            
-            if (itr.next().charAt(0) != '@') {
-                throw new Exception("Line 1 of FASTQ record is expected to start with '@'");
-            }
-            
+    public void nextWithoutName(FastqRecord fr) throws Exception {
+        String line1, line3;
+        
+        synchronized(this) {
+            line1 = itr.next();
             fr.seq = itr.next();
-            
-            if (itr.next().charAt(0) != '+') {
-                throw new Exception("Line 3 of FASTQ record is expected to start with '+'");
-            }
-            
+            line3 = itr.next();
             fr.qual = itr.next();
-            
-            return fr;
-//        }
-//        throw new NoSuchElementException("End of file");
-    }
+        }
+        
+        if (line1.charAt(0) != '@') {
+            throw new Exception("Line 1 of FASTQ record is expected to start with '@'");
+        }
 
-    public synchronized void nextWithNameFunction() throws Exception {
-//        if (itr.hasNext()){
-            Matcher m = RECORD_NAME_PATTERN.matcher(itr.next());
-            if (m.matches()) {
-                record.name = m.group(1);
-            }
-            else {
-                throw new Exception("Line 1 of a FASTQ record is expected to start with '@'");
-            }
-            
-            record.seq = itr.next();
-            
-            if (itr.next().charAt(0) != '+') {
-                throw new Exception("Line 3 of a FASTQ record is expected to start with '+'");
-            }
-            
-            record.qual = itr.next();
-//        }
-//        else {
-//            throw new NoSuchElementException("Reached the end of file");
-//        }
+        if (line3.charAt(0) != '+') {
+            throw new Exception("Line 3 of FASTQ record is expected to start with '+'");
+        }
     }
     
-    public synchronized FastqRecord nextWithName() throws Exception {
-//        if (itr.hasNext()){
-            FastqRecord fr = new FastqRecord();
-            
-            Matcher m = RECORD_NAME_PATTERN.matcher(itr.next());
-            if (m.matches()) {
-                fr.name = m.group(1);
-            }
-            else {
-                throw new Exception("Line 1 of a FASTQ record is expected to start with '@'");
-            }
-            
+    public void nextWithName(FastqRecord fr) throws Exception {
+        String line1, line3;
+        
+        synchronized(this) {
+            line1 = itr.next();
             fr.seq = itr.next();
-            
-            if (itr.next().charAt(0) != '+') {
-                throw new Exception("Line 3 of a FASTQ record is expected to start with '+'");
-            }
-            
+            line3 = itr.next();
             fr.qual = itr.next();
-            
-            return fr;
-//        }
-//        throw new NoSuchElementException("Reached the end of file");
+        }
+        
+        Matcher m = RECORD_NAME_PATTERN.matcher(line1);
+        if (m.matches()) {
+            fr.name = m.group(1);
+        }
+        else {
+            throw new Exception("Line 1 of a FASTQ record is expected to start with '@'");
+        }
+
+        if (line3.charAt(0) != '+') {
+            throw new Exception("Line 3 of a FASTQ record is expected to start with '+'");
+        }
     }
         
     public void close() throws IOException {

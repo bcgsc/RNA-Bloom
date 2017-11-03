@@ -173,48 +173,109 @@ public class RNABloom {
         }
     }
     
-//    public int addKmersFromFastq(String fastq, boolean stranded, boolean reverseComplement, int numHash) throws IOException {
-//        int numReads = 0;
-//        
-//        NTHashIterator itr;
-//        
-//        if (stranded) {
-//            if (reverseComplement) {
-//                itr = new ReverseComplementNTHashIterator(k, numHash);
-//            }
-//            else {
-//                itr = new NTHashIterator(k, numHash);
-//            }
-//        }
-//        else {
-//            itr = new CanonicalNTHashIterator(k, numHash);
-//        }
-//        
-//        FastqReader fr = new FastqReader(fastq, false);
-//        FastqRecord record = fr.record;
-//        Matcher m = qualPatternDBG.matcher("");
-//        long[] hashVals = itr.hVals;
-//
-//        while (fr.hasNext()) {
-//            ++numReads;
-//
-//            fr.nextWithoutNameFunction();
-//            m.reset(record.qual);
-//
-//            while (m.find()) {
-//                itr.start(record.seq.substring(m.start(), m.end()));
-//                while (itr.hasNext()) {
-//                    itr.next();
-//                    if (screeningBf.lookupThenAdd(hashVals)) {
-//                        graph.add(hashVals);
-//                    }
-//                }
-//            }
-//        }
-//        fr.close();
-//        
-//        return numReads;
-//    }
+    public class FastqToGraphWorker implements Runnable {
+        
+        private final int id;
+        private long numReads = 0;
+        private final FastqReader reader;
+        private final NTHashIterator itr;
+        private boolean successful = false;
+        private boolean incrementIfPresent = false;
+        
+        public FastqToGraphWorker(int id, FastqReader reader, boolean stranded, boolean reverseComplement, int numHash, boolean incrementIfPresent) {            
+            this.id = id;
+            this.reader = reader;
+            this.incrementIfPresent = incrementIfPresent;
+            
+            if (stranded) {
+                if (reverseComplement) {
+                    itr = new ReverseComplementNTHashIterator(k, numHash);
+                }
+                else {
+                    itr = new NTHashIterator(k, numHash);
+                }
+            }
+            else {
+                itr = new CanonicalNTHashIterator(k, numHash);
+            }
+        }
+        
+        @Override
+        public void run() {
+            
+            try {
+                Matcher mQual = qualPatternDBG.matcher("");
+                Matcher mSeq = seqPattern.matcher("");
+                
+                if (incrementIfPresent) {
+                    try {
+                        long[] hashVals = itr.hVals;
+                        FastqRecord record = new FastqRecord();
+                        
+                        while (true) {
+                            reader.nextWithoutName(record);
+                            mQual.reset(record.qual);
+
+                            while (mQual.find()) {
+                                mSeq.reset(record.seq.substring(mQual.start(), mQual.end()));
+                                while (mSeq.find()) {
+                                    itr.start(mSeq.group());
+                                    while (itr.hasNext()) {
+                                        itr.next();
+                                        graph.addCountIfPresent(hashVals); // Only insert if kmer is absent in the graph
+                                    }
+                                }
+                            }
+                            
+                            ++numReads;
+                        }
+                    }
+                    catch (NoSuchElementException e) {
+                        //end of file
+                        successful = true;
+                    }
+                }
+                else {
+                    try {
+                        long[] hashVals = itr.hVals;
+                        FastqRecord record = new FastqRecord();
+                        
+                        while (true) {
+                            reader.nextWithoutName(record);
+                            mQual.reset(record.qual);
+
+                            while (mQual.find()) {
+                                mSeq.reset(record.seq.substring(mQual.start(), mQual.end()));
+                                while (mSeq.find()) {
+                                    itr.start(mSeq.group());
+                                    while (itr.hasNext()) {
+                                        itr.next();
+                                        graph.add(hashVals);
+                                    }
+                                }
+                            }
+                            
+                            ++numReads;
+                        }
+                    }
+                    catch (NoSuchElementException e) {
+                        //end of file
+                        successful = true;
+                    }
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        
+        public boolean isSuccessful() {
+            return successful;
+        }
+        
+        public long getReadCount() {
+            return numReads;
+        }
+    }
 
     public class SeqToGraphWorker implements Runnable {
 //        public final static int FASTA_FILE = 1;
@@ -253,17 +314,18 @@ public class RNABloom {
             
             try {
                 FastqReader fr = new FastqReader(path);
-                FastqRecord record = fr.record;
                 Matcher mQual = qualPatternDBG.matcher("");
                 Matcher mSeq = seqPattern.matcher("");
                 long[] hashVals = itr.hVals;
                 
                 if (incrementIfPresent) {
                     try {
+                        FastqRecord record = new FastqRecord();
+                        
                         while (true) {
                             ++numReads;
 
-                            fr.nextWithoutNameFunction();
+                            fr.nextWithoutName(record);
                             mQual.reset(record.qual);
 
                             while (mQual.find()) {
@@ -284,10 +346,12 @@ public class RNABloom {
                 }
                 else {
                     try {
+                        FastqRecord record = new FastqRecord();
+                        
                         while (true) {
                             ++numReads;
 
-                            fr.nextWithoutNameFunction();
+                            fr.nextWithoutName(record);
                             mQual.reset(record.qual);
 
                             while (mQual.find()) {
@@ -342,10 +406,73 @@ public class RNABloom {
                                             strandSpecific);
     }
     
+    public void populateGraph2(Collection<String> forwardFastqs,
+                            Collection<String> reverseFastqs,
+                            boolean strandSpecific,
+                            int numThreads,
+                            boolean addCountsOnly) {
+        
+        long numReads = 0;
+        int numHash = graph.getMaxNumHash();
+        
+        try {
+            ArrayDeque<FastqToGraphWorker> threadPool = new ArrayDeque<>();
+           
+            for (String path : forwardFastqs) {
+                ExecutorService service = Executors.newFixedThreadPool(numThreads);
+                
+                System.out.println("Parsing `" + path + "`...");
+                FastqReader reader = new FastqReader(path);
+
+                for (int threadId=1; threadId<=numThreads; ++threadId) {
+                    FastqToGraphWorker t = new FastqToGraphWorker(++threadId, reader, strandSpecific, false, numHash, addCountsOnly);
+                    service.submit(t);
+                    threadPool.add(t);
+                }
+
+                service.shutdown();
+                service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+
+                while (!threadPool.isEmpty()) {
+                    numReads += threadPool.pop().getReadCount();
+                }
+            }
+
+            for (String path : reverseFastqs) {
+                ExecutorService service = Executors.newFixedThreadPool(numThreads);
+                
+                System.out.println("Parsing `" + path + "`...");
+                FastqReader reader = new FastqReader(path);
+                
+                for (int threadId=1; threadId<=numThreads; ++threadId) {
+                    FastqToGraphWorker t = new FastqToGraphWorker(++threadId, reader, strandSpecific, true, numHash, addCountsOnly);
+                    service.submit(t);
+                    threadPool.add(t);
+                }
+                
+                service.shutdown();
+                service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+
+                while (!threadPool.isEmpty()) {
+                    numReads += threadPool.pop().getReadCount();
+                }
+            }
+
+            System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads in total.");
+            
+            dbgFPR = graph.getDbgbfFPR();
+            covFPR = graph.getCbfFPR();
+            
+        } catch (Exception ex) {
+            handleException(ex);
+        }
+    }
+    
     public void populateGraph(Collection<String> forwardFastqs,
                             Collection<String> reverseFastqs,
                             boolean strandSpecific,
-                            int numThreads) {        
+                            int numThreads,
+                            boolean addCountsOnly) {        
         
 //        screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
         
@@ -360,13 +487,13 @@ public class RNABloom {
         int threadId = 0;
            
         for (String fastq : forwardFastqs) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, false, numHash, false);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, false, numHash, addCountsOnly);
             service.submit(t);
             threadPool.add(t);
         }
 
         for (String fastq : reverseFastqs) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, true, numHash, false);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, true, numHash, addCountsOnly);
             service.submit(t);
             threadPool.add(t);
         }
@@ -393,54 +520,54 @@ public class RNABloom {
         covFPR = graph.getCbfFPR();
     }
 
-    public void addCountsOnly(Collection<String> forwardFastqs,
-                            Collection<String> reverseFastqs,
-                            boolean strandSpecific,
-                            int numThreads) {        
-                
-        /** parse the reads */
-        
-        int numReads = 0;
-        int numHash = graph.getMaxNumHash();
-        
-        ExecutorService service = Executors.newFixedThreadPool(numThreads);
-        
-        ArrayList<SeqToGraphWorker> threadPool = new ArrayList<>();
-        int threadId = 0;
-           
-        for (String fastq : forwardFastqs) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, false, numHash, true);
-            service.submit(t);
-            threadPool.add(t);
-        }
-
-        for (String fastq : reverseFastqs) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, true, numHash, true);
-            service.submit(t);
-            threadPool.add(t);
-        }
-
-        service.shutdown();
-        
-        try {
-            service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-            
-            for (SeqToGraphWorker t : threadPool) {
-                numReads += t.getReadCount();
-            }
-
-            System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads in total.");
-//            System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
-            
-//            screeningBf.destroy();
-            
-        } catch (Exception ex) {
-            handleException(ex);
-        }
-        
-        dbgFPR = graph.getDbgbfFPR();
-        covFPR = graph.getCbfFPR();
-    }
+//    public void addCountsOnly(Collection<String> forwardFastqs,
+//                            Collection<String> reverseFastqs,
+//                            boolean strandSpecific,
+//                            int numThreads) {        
+//                
+//        /** parse the reads */
+//        
+//        int numReads = 0;
+//        int numHash = graph.getMaxNumHash();
+//        
+//        ExecutorService service = Executors.newFixedThreadPool(numThreads);
+//        
+//        ArrayList<SeqToGraphWorker> threadPool = new ArrayList<>();
+//        int threadId = 0;
+//           
+//        for (String fastq : forwardFastqs) {
+//            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, false, numHash, true);
+//            service.submit(t);
+//            threadPool.add(t);
+//        }
+//
+//        for (String fastq : reverseFastqs) {
+//            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, true, numHash, true);
+//            service.submit(t);
+//            threadPool.add(t);
+//        }
+//
+//        service.shutdown();
+//        
+//        try {
+//            service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+//            
+//            for (SeqToGraphWorker t : threadPool) {
+//                numReads += t.getReadCount();
+//            }
+//
+//            System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads in total.");
+////            System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
+//            
+////            screeningBf.destroy();
+//            
+//        } catch (Exception ex) {
+//            handleException(ex);
+//        }
+//        
+//        dbgFPR = graph.getDbgbfFPR();
+//        covFPR = graph.getCbfFPR();
+//    }
     
     public void repopulateGraph(Collection<String> fastas, boolean strandSpecific) {
         /** insert into graph if absent */
@@ -3539,7 +3666,7 @@ public class RNABloom {
                 assembler.initializeGraph(strandSpecific, 
                         dbgbfSize, cbfSize, pkbfSize, 
                         dbgbfNumHash, cbfNumHash, pkbfNumHash);
-                assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads);
+                assembler.populateGraph2(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false);
                 
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
@@ -3720,7 +3847,7 @@ public class RNABloom {
 
                 System.out.println("Counting kmers in reads (k=" + newK + ")...");
                 timer.start();
-                assembler.addCountsOnly(forwardFilesList, backwardFilesList, strandSpecific, numThreads);
+                assembler.populateGraph2(forwardFilesList, backwardFilesList, strandSpecific, numThreads, true);
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
                 
