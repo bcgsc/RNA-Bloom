@@ -3666,7 +3666,7 @@ public class RNABloom {
                 assembler.initializeGraph(strandSpecific, 
                         dbgbfSize, cbfSize, pkbfSize, 
                         dbgbfNumHash, cbfNumHash, pkbfNumHash);
-                assembler.populateGraph2(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false);
+                assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false);
                 
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
@@ -3847,7 +3847,7 @@ public class RNABloom {
 
                 System.out.println("Counting kmers in reads (k=" + newK + ")...");
                 timer.start();
-                assembler.populateGraph2(forwardFilesList, backwardFilesList, strandSpecific, numThreads, true);
+                assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, true);
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
                 
