@@ -407,11 +407,23 @@ public class BloomFilterDeBruijnGraph {
             left = kmers.get(i);
             right = kmers.get(i+pairedKmersDistance);
             
-            if (!pkbf.lookup(left.getHash(),
-                            right.getHash(),
-                            left.getKmerPairHashValue(right))) {
+            if (!pkbf.lookupLeft(left.getHash())) {
                 return false;
             }
+            
+            if (!pkbf.lookupRight(right.getHash())) {
+                return false;
+            }
+            
+            if (!pkbf.lookupPair(left.getKmerPairHashValue(right))) {
+                return false;
+            }
+            
+//            if (!pkbf.lookup(left.getHash(),
+//                            right.getHash(),
+//                            left.getKmerPairHashValue(right))) {
+//                return false;
+//            }
         }
         
         return true;
