@@ -2284,8 +2284,8 @@ public class RNABloom {
                 fqpr = new FastqPairReader(lin, rin, qualPatternFrag, seqPattern, fqPair.leftRevComp, fqPair.rightRevComp);
                 System.out.println("Parsing `" + fqPair.leftFastq + "` and `" + fqPair.rightFastq + "`...");
 
-                int leftReadLengthThreshold = k;
-                int rightReadLengthThreshold = k;
+                int leftReadLengthThreshold = 2*k;
+                int rightReadLengthThreshold = 2*k;
                 int polyXMinLen = k;
                 int polyXMaxMismatches = 1;
                 
@@ -2298,7 +2298,7 @@ public class RNABloom {
                     while (fqpr.hasNext()) {
                         p = fqpr.next();
                         ++readPairsParsed;
-                            
+                                                
                         service.submit(new FragmentAssembler(p,
                                                             fragments,
                                                             bound,
