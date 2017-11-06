@@ -1339,6 +1339,7 @@ public class RNABloom {
                 }
             }
             catch (Exception ex) {
+                ex.printStackTrace();
                 throw new RuntimeException(ex);
             }
         }
