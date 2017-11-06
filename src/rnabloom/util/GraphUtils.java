@@ -2215,15 +2215,19 @@ public final class GraphUtils {
         int numFalsePositivesAllowed = (int) Math.round(numKmers * covFPR);
         int startIndex = numKmers - 1 - numFalsePositivesAllowed;
         
-        float covThreshold = covs[startIndex];
-        float c = -1;
-        for (int i=startIndex-1; i>=0; --i) {
-            c = covs[i];
-            if (covThreshold * maxCovGradient > c) {
-                thresholdFound = true;
-                break;
+        float covThreshold = 0;
+        
+        if (startIndex >= 0) {
+            covThreshold = covs[startIndex];
+            float c = -1;
+            for (int i=startIndex-1; i>=0; --i) {
+                c = covs[i];
+                if (covThreshold * maxCovGradient > c) {
+                    thresholdFound = true;
+                    break;
+                }
+                covThreshold = c;
             }
-            covThreshold = c;
         }
 
         if (thresholdFound) {
