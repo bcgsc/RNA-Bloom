@@ -2217,7 +2217,7 @@ public final class GraphUtils {
         
         float covThreshold = 0;
         
-        if (startIndex >= 0) {
+        if (startIndex > 0) {
             covThreshold = covs[startIndex];
             float c = -1;
             for (int i=startIndex-1; i>=0; --i) {
