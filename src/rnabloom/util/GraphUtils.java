@@ -2201,42 +2201,44 @@ public final class GraphUtils {
                                     float covFPR,
                                     float percentIdentity) {
         
-        int numKmers = kmers.size();
-
-        // sort coverage in ascending order
-        float[] covs = new float[numKmers];
-        for (int i=0; i<numKmers; ++i) {
-            covs[i] = kmers.get(i).count;
-        }
-        Arrays.sort(covs);
-
-        boolean thresholdFound = false;
-
-        int numFalsePositivesAllowed = (int) Math.round(numKmers * covFPR);
-        int startIndex = numKmers - 1 - numFalsePositivesAllowed;
-        
-        float covThreshold = 0;
-        
-        if (startIndex > 0) {
-            covThreshold = covs[startIndex];
-            float c = -1;
-            for (int i=startIndex-1; i>=0; --i) {
-                c = covs[i];
-                if (covThreshold * maxCovGradient > c) {
-                    thresholdFound = true;
-                    break;
-                }
-                covThreshold = c;
+        if (!kmers.isEmpty()) {
+            int numKmers = kmers.size();
+            
+            // sort coverage in ascending order
+            float[] covs = new float[numKmers];
+            for (int i=0; i<numKmers; ++i) {
+                covs[i] = kmers.get(i).count;
             }
-        }
+            Arrays.sort(covs);
 
-        if (thresholdFound) {
-            return correctErrorHelper(kmers,
-                                        graph, 
-                                        lookahead,
-                                        maxIndelSize,
-                                        covThreshold,
-                                        percentIdentity);
+            boolean thresholdFound = false;
+
+            int numFalsePositivesAllowed = (int) Math.round(numKmers * covFPR);
+            int startIndex = numKmers - 1 - numFalsePositivesAllowed;
+
+            float covThreshold = 0;
+
+            if (startIndex >= 0) {
+                covThreshold = covs[startIndex];
+                float c = -1;
+                for (int i=startIndex-1; i>=0; --i) {
+                    c = covs[i];
+                    if (covThreshold * maxCovGradient > c) {
+                        thresholdFound = true;
+                        break;
+                    }
+                    covThreshold = c;
+                }
+            }
+
+            if (thresholdFound) {
+                return correctErrorHelper(kmers,
+                                            graph, 
+                                            lookahead,
+                                            maxIndelSize,
+                                            covThreshold,
+                                            percentIdentity);
+            }
         }
 
         return null;
@@ -4198,22 +4200,8 @@ public final class GraphUtils {
             cursor = null;
                         
             
-            float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-            if (minEdgeCoverage >= 10) {
-                // only remove neighbors based on coverage when edge coverage is >= 10
-                float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);     
-                Iterator<Kmer2> itr = neighbors.iterator();
-                while (itr.hasNext()) {
-                    Kmer2 kmer = itr.next();
-
-                    if (kmer.count < minCovThreshold) {
-                        itr.remove();
-                    }
-                }
-            }
-            
             if (neighbors.isEmpty()) {
-                return true;
+                return false;
             }
             else if (neighbors.size() == 1) {
                 cursor = neighbors.pop();
@@ -4224,36 +4212,48 @@ public final class GraphUtils {
                     return true;
                 }
                 
-//                float minDiffCoverage = Float.MAX_VALUE;
-//                float edgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
-                
-//                float c,d;
-                for (Kmer2 n : neighbors) {
-                    if (hasPairedRightKmers(n, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                        if (cursor == null) {
-                            cursor = n;
-                        }
-                        else {
-                            // more than one branches supported by paired kmers
-                            // ambiguous, but still extendable
-                            return true;
-                        }
-//                        c = getMaxMedianCoverageRight(graph, n, lookahead);
-//                        if (c > 0) {
-//                            d = Math.abs(edgeCoverage - c);
-//                            if (d < minDiffCoverage) {
-//                                minDiffCoverage = d;
-//                                cursor = n;
-//                            }
-//                        }
+                Iterator<Kmer2> itr = neighbors.iterator();
+                while (itr.hasNext()) {
+                    Kmer2 kmer = itr.next();
+                    
+                    if (!hasPairedRightKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                        itr.remove();
                     }
                 }
                 
-//                cursor = greedyExtendRightOnce(graph, neighbors, lookahead);
-//                
-                if (cursor == null) {
+                if (neighbors.isEmpty()) {
                     // no good candidates
                     return true;
+                }
+                else if (neighbors.size() == 1) {
+                    cursor = neighbors.pop();
+                }
+                else {
+                    // two or more neighbors are supported by paired kmers
+                    
+                    float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
+                    if (minEdgeCoverage >= 10) {
+                        // only remove neighbors based on coverage when edge coverage is >= 10
+                        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);            
+                        itr = neighbors.iterator();
+                        while (itr.hasNext()) {
+                            Kmer2 kmer = itr.next();
+
+                            if (kmer.count < minCovThreshold) {
+                                itr.remove();
+                            }
+                        }
+                        
+                        if (neighbors.size() == 1) {
+                            cursor = neighbors.pop();
+                        }
+                        else {
+                            return true;
+                        }
+                    }
+                    else {
+                        return true;
+                    }
                 }
             }
             
@@ -4371,24 +4371,9 @@ public final class GraphUtils {
             }
             
             cursor = null;
-            
-            
-            float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-            if (minEdgeCoverage >= 10) {
-                // only remove neighbors based on coverage when edge coverage is >= 10
-                float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);            
-                Iterator<Kmer2> itr = neighbors.iterator();
-                while (itr.hasNext()) {
-                    Kmer2 kmer = itr.next();
-
-                    if (kmer.count < minCovThreshold) {
-                        itr.remove();
-                    }
-                }
-            }
-            
+                                    
             if (neighbors.isEmpty()) {
-                return true;
+                return false;
             }
             else if (neighbors.size() == 1) {
                 cursor = neighbors.pop();
@@ -4399,36 +4384,48 @@ public final class GraphUtils {
                     return true;
                 }
                 
-//                float minDiffCoverage = Float.MAX_VALUE;
-//                float edgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
-                
-                //float c,d;
-                for (Kmer2 n : neighbors) {
-                    if (hasPairedLeftKmers(n, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
-                        if (cursor == null) {
-                            cursor = n;
-                        }
-                        else {
-                            // more than one branches supported by paired kmers
-                            // ambiguous, but still extendable
-                            return true;
-                        }
-//                        c = getMaxMedianCoverageLeft(graph, n, lookahead);
-//                        if (c > 0) {
-//                            d = Math.abs(edgeCoverage - c);
-//                            if (d < minDiffCoverage) {
-//                                minDiffCoverage = d;
-//                                cursor = n;
-//                            }
-//                        }
+                Iterator<Kmer2> itr = neighbors.iterator();
+                while (itr.hasNext()) {
+                    Kmer2 kmer = itr.next();
+                    
+                    if (!hasPairedLeftKmers(kmer, kmers, partnerIndex, partnerIndex+minNumPairs, graph)) {
+                        itr.remove();
                     }
                 }
                 
-//                cursor = greedyExtendLeftOnce(graph, neighbors, lookahead);
-//                
-                if (cursor == null) {
+                if (neighbors.isEmpty()) {
                     // no good candidates
                     return true;
+                }
+                else if (neighbors.size() == 1) {
+                    cursor = neighbors.pop();
+                }
+                else {
+                    // two or more neighbors are supported by paired kmers
+                    
+                    float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
+                    if (minEdgeCoverage >= 10) {
+                        // only remove neighbors based on coverage when edge coverage is >= 10
+                        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);            
+                        itr = neighbors.iterator();
+                        while (itr.hasNext()) {
+                            Kmer2 kmer = itr.next();
+
+                            if (kmer.count < minCovThreshold) {
+                                itr.remove();
+                            }
+                        }
+                        
+                        if (neighbors.size() == 1) {
+                            cursor = neighbors.pop();
+                        }
+                        else {
+                            return true;
+                        }
+                    }
+                    else {
+                        return true;
+                    }
                 }
             }
             
