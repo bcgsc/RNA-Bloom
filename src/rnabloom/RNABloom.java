@@ -1307,31 +1307,33 @@ public class RNABloom {
 //                        }
                         
                         ArrayList<Kmer2> fragKmers = graph.getKmers(fragment);
-                        ArrayList<Kmer2> fragKmers2 = correctErrorsSE(fragKmers, graph, lookahead, maxIndelSize, maxCovGradient, covFPR, percentIdentity);
-                        if (fragKmers2 != null) {
-                            fragKmers = fragKmers2;
-                        }
                         
-                        if (!fragKmers.isEmpty() &&
-                            (!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) &&
-                                !represented(fragKmers,
-                                                    graph,
-                                                    screeningBf,
-                                                    lookahead,
-                                                    maxIndelSize,
-                                                    maxTipLength,
-                                                    percentIdentity)) {
-
-                            if (includeNaiveExtensions) {
-                                extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
-                            }
-                            else {
-                                extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+                        if (!fragKmers.isEmpty()) {
+                            ArrayList<Kmer2> fragKmers2 = correctErrorsSE(fragKmers, graph, lookahead, maxIndelSize, maxCovGradient, covFPR, percentIdentity);
+                            if (fragKmers2 != null) {
+                                fragKmers = fragKmers2;
                             }
 
-                            transcripts.put(new Transcript(fragment, fragKmers));
-                            
-//                            System.out.println(graph.assemble(fragKmers));
+                            if ((!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) &&
+                                    !represented(fragKmers,
+                                                        graph,
+                                                        screeningBf,
+                                                        lookahead,
+                                                        maxIndelSize,
+                                                        maxTipLength,
+                                                        percentIdentity)) {
+
+                                if (includeNaiveExtensions) {
+                                    extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+                                }
+                                else {
+                                    extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+                                }
+
+                                transcripts.put(new Transcript(fragment, fragKmers));
+
+    //                            System.out.println(graph.assemble(fragKmers));
+                            }
                         }
                     }
                 }
