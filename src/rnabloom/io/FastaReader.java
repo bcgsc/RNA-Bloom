@@ -48,9 +48,10 @@ public class FastaReader {
     
     public static boolean isFasta(String path) {
         try {
-            // try to read the first line as a FASTA file
+            // try to get the first FASTA record
             FastaReader reader = new FastaReader(path);
             reader.next();
+            reader.close();
         }
         catch (Exception e) {
             return false;

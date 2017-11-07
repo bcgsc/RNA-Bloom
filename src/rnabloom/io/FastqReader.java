@@ -38,9 +38,10 @@ public final class FastqReader {
 
     public static boolean isFastq(String path) {
         try {
-            // try to read the first line as a FASTQ file
+            // try to get the first FASTQ record
             FastqReader reader = new FastqReader(path);
             reader.nextWithoutName(new FastqRecord());
+            reader.close();
         }
         catch (Exception e) {
             return false;
