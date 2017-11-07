@@ -11,6 +11,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Iterator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 //import java.util.NoSuchElementException;
 import java.util.zip.GZIPInputStream;
 
@@ -20,6 +22,7 @@ import java.util.zip.GZIPInputStream;
  */
 public class FastaReader {
     private final static String GZIP_EXTENSION = ".gz";
+    private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("^>([^\\s/]+)(?:/[12])?.*$");
     private final Iterator<String> itr;
     private final BufferedReader br;
     
@@ -42,6 +45,19 @@ public class FastaReader {
         }
         itr = br.lines().iterator();
     }
+    
+    public static boolean isFasta(String path) {
+        try {
+            // try to read the first line as a FASTA file
+            FastaReader reader = new FastaReader(path);
+            reader.next();
+        }
+        catch (Exception e) {
+            return false;
+        }
+        
+        return true;
+    }
 
 //    @Override
     public boolean hasNext() {
@@ -49,11 +65,28 @@ public class FastaReader {
     }
 
 //    @Override
-    public String next() throws Exception {
+    public synchronized String next() throws Exception {
         if (itr.next().charAt(0) != '>') {
             throw new Exception("Line 1 of a FASTA record is expected to start with '>'");
         }
         return itr.next();
+    }
+
+    public void nextWithName(FastaRecord fr) throws Exception {
+        String line1;
+        
+        synchronized(this) {
+            line1 = itr.next();
+            fr.seq = itr.next();
+        }
+    
+        Matcher m = RECORD_NAME_PATTERN.matcher(line1);
+        if (m.matches()) {
+            fr.name = m.group(1);
+        }
+        else {
+            throw new Exception("Line 1 of a FASTA record is expected to start with '>'");
+        }
     }
     
     public void close() throws IOException {
