@@ -3616,7 +3616,7 @@ public class RNABloom {
             int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "3"));
             int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "5"));
             float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
-            float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.9"));
+            float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.95"));
             int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
