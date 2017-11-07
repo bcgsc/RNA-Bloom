@@ -2180,7 +2180,7 @@ public final class GraphUtils {
                         }
                         
                         if (bestAlt != null) {
-                            for (int j=0; j<k; --j) {
+                            for (int j=0; j<k; ++j) {
                                 kmers.set(i-k+1+j, bestAlt.get(j));
                             }
                             corrected = true;
