@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -1313,6 +1314,8 @@ public class RNABloom {
                             if (fragKmers2 != null) {
                                 fragKmers = fragKmers2;
                             }
+                            
+                            fragKmers2 = new ArrayList<>(fragKmers);
 
                             if ((!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) &&
                                     !represented(fragKmers,
@@ -1330,7 +1333,18 @@ public class RNABloom {
                                     extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
                                 }
 
-                                transcripts.put(new Transcript(fragment, fragKmers));
+                                ArrayDeque<ArrayList<Kmer2>> segments = breakWithPairedKmers(fragKmers, graph);
+                                if (segments.size() > 1) {
+                                    for (ArrayList<Kmer2> segment : segments) {
+                                        if (new HashSet<>(segment).containsAll(fragKmers2)) {
+                                            transcripts.put(new Transcript(fragment, segment));
+                                            break;
+                                        }
+                                    }
+                                }
+                                else {
+                                    transcripts.put(new Transcript(fragment, fragKmers));
+                                }
 
     //                            System.out.println(graph.assemble(fragKmers));
                             }
