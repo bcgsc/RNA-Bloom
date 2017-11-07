@@ -2105,7 +2105,7 @@ public final class GraphUtils {
             }
         }
         
-        corrected = correctMismatches(kmers2, graph, covThreshold) || corrected;
+//        corrected = correctMismatches(kmers2, graph, covThreshold) || corrected;
          
         if (corrected) {
             return kmers2;
