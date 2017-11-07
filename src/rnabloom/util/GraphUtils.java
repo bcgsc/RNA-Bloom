@@ -2357,6 +2357,49 @@ public final class GraphUtils {
         return new ReadPair(leftKmers, rightKmers, leftCorrected || rightCorrected);
     }
     
+    public static ArrayDeque<ArrayList<Kmer2>> breakWithPairedKmers(ArrayList<Kmer2> kmers, BloomFilterDeBruijnGraph graph) {
+        /**@TODO Adjust how much paired kmers should interlock*/
+        /**@TODO Adjust how many consecutive paired kmers are required*/
+        
+        ArrayDeque<ArrayList<Kmer2>> segments = new ArrayDeque<>();
+        
+        int d = graph.getPairedKmerDistance();
+        int lastIndex = kmers.size() - 1 - d;
+        
+        int start = -1;
+        int end = -1;
+        
+        for (int i=0; i<=lastIndex; ++i) {
+            if (graph.lookupKmerPair(kmers.get(i), kmers.get(i+d))) {
+                if (start < 0) {
+                    start = i;
+                }
+                
+                end = i+d;
+            }
+            else if (start >= 0 && i >= end) {
+                ArrayList<Kmer2> sublist = new ArrayList<>(end-start+1);
+                for (int j=start; j<=end; ++j) {
+                    sublist.add(kmers.get(j));
+                }
+                segments.add(sublist);
+                
+                start = -1;
+                end = -1;
+            }
+        }
+        
+        if (start >= 0) {
+            ArrayList<Kmer2> sublist = new ArrayList<>(end-start+1);
+            for (int j=start; j<=end; ++j) {
+                sublist.add(kmers.get(j));
+            }
+            segments.add(sublist);
+        }
+        
+        return segments;
+    }
+    
 //    public static String correctErrors(String seq, BloomFilterDeBruijnGraph graph, int lookahead, int errorsAllowed) {
 //        int numCorrected = 0;
 //        int seqLen = seq.length();
