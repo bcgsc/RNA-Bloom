@@ -36,6 +36,19 @@ public final class FastqReader {
         itr = br.lines().iterator();
     }
 
+    public static boolean isFastq(String path) {
+        try {
+            // try to read the first line as a FASTQ file
+            FastqReader reader = new FastqReader(path);
+            reader.nextWithoutName(new FastqRecord());
+        }
+        catch (Exception e) {
+            return false;
+        }
+        
+        return true;
+    }
+    
     public boolean hasNext() {
         return itr.hasNext();
     }
