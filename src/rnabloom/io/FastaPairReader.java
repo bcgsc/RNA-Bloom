@@ -9,25 +9,23 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.regex.Pattern;
-import static rnabloom.util.SeqUtils.filterFastq;
+import static rnabloom.util.SeqUtils.filterFasta;
 import static rnabloom.util.SeqUtils.reverseComplement;
 
 /**
  *
  * @author kmnip
  */
-public class FastqPairReader implements FastxPairReader {
-    private final FastqReader leftReader;
-    private final FastqReader rightReader;
-    private final Pattern qualPattern;
+public class FastaPairReader implements FastxPairReader {
+    private final FastaReader leftReader;
+    private final FastaReader rightReader;
     private final Pattern seqPattern;
     private final NextFunction<PairedReadSegments> nextFunction;
                 
-    public FastqPairReader(String leftPath, String rightPath, Pattern qualPattern, Pattern seqPattern, boolean revCompLeft, boolean revCompRight) throws IOException {
-        leftReader = new FastqReader(leftPath);
-        rightReader = new FastqReader(rightPath);
+    public FastaPairReader(String leftPath, String rightPath, Pattern seqPattern, boolean revCompLeft, boolean revCompRight) throws IOException {
+        leftReader = new FastaReader(leftPath);
+        rightReader = new FastaReader(rightPath);
         
-        this.qualPattern = qualPattern;
         this.seqPattern = seqPattern;
         
         if (revCompLeft) { 
@@ -65,8 +63,8 @@ public class FastqPairReader implements FastxPairReader {
     private synchronized PairedReadSegments nextFF() throws FileFormatException {
         PairedReadSegments p = new PairedReadSegments();
 
-        FastqRecord frLeft = new FastqRecord();
-        FastqRecord frRight = new FastqRecord();
+        FastaRecord frLeft = new FastaRecord();
+        FastaRecord frRight = new FastaRecord();
         
         try {
             leftReader.nextWithName(frLeft);
@@ -80,7 +78,7 @@ public class FastqPairReader implements FastxPairReader {
             throw new FileFormatException("Inconsistent record names: \"" + frLeft.name + "\" and \"" + frRight.name + "\"");
         }
 
-        p.left = filterFastq(frLeft, qualPattern, seqPattern);
+        p.left = filterFasta(frLeft.seq, seqPattern);
         
 //        int numBasesTrimmed = frLeft.seq.length();
 //        p.originalLeftLength = numBasesTrimmed;
@@ -89,7 +87,7 @@ public class FastqPairReader implements FastxPairReader {
 //        }
 //        p.numLeftBasesTrimmed = numBasesTrimmed;
         
-        p.right = filterFastq(frRight, qualPattern, seqPattern);
+        p.right = filterFasta(frRight.seq, seqPattern);
         
 //        numBasesTrimmed = frRight.seq.length();
 //        p.originalRightLength = numBasesTrimmed;
