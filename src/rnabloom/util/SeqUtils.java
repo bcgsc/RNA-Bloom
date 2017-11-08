@@ -656,7 +656,41 @@ public final class SeqUtils {
         
         return true;
     }
+
+    public static ArrayList<String> filterFasta(String seq, Pattern seqPattern) {
+
+        // filter sequence by keeping only ACGT characters
+        Matcher m = seqPattern.matcher(seq);
+        ArrayList<String> result = new ArrayList<>();
+
+        int startPos;
+        int len;
+        int endPos = 0;
+        while (m.find()) {
+            startPos = m.start();
+            
+            if (endPos > 0) {
+                // ensure that first item is not 'N'
+                
+                len = startPos - endPos;
+                
+                if (len == 1) {
+                    result.add("N");
+                }
+                else {
+                    char[] gap = new char[len];
+                    Arrays.fill(gap, GAP_CHAR);
+                    result.add(new String(gap));
+                }
+            }
+            
+            endPos = m.end();
+            result.add(seq.substring(startPos, endPos).toUpperCase());
+        }
         
+        return result;
+    }
+    
     public static ArrayList<String> filterFastq(FastqRecord fq, Pattern qualPattern, Pattern seqPattern) {
 
         // filter sequence by quality
