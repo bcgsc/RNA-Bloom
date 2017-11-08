@@ -4541,10 +4541,12 @@ public final class GraphUtils {
         int depth = 0;
         int partnerIndex = numKmers - distance + depth;
         
-        float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
-        if (minEdgeCoverage >= k && maxDepth > k) {
-            maxDepth = Math.min(distance/2, maxDepth);
-        }
+//        float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
+//        if (minEdgeCoverage >= k && maxDepth > k) {
+//            maxDepth = Math.min(distance/2, maxDepth);
+//        }
+        
+        maxDepth = Math.min(maxDepth, k+1+maxIndelSize);
         
 //        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
         
@@ -4719,11 +4721,12 @@ public final class GraphUtils {
         int depth = 0;
         int partnerIndex = numKmers - distance + depth;
         
-        float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
-        if (minEdgeCoverage >= k && maxDepth > k) {
-            maxDepth = Math.min(distance/2, maxDepth);
-        }
-        
+//        float minEdgeCoverage = getMinimumKmerCoverage(kmers, Math.max(0, numKmers-distance), numKmers-1);
+//        if (minEdgeCoverage >= k && maxDepth > k) {
+//            maxDepth = Math.min(distance/2, maxDepth);
+//        }
+        maxDepth = Math.min(maxDepth, k+1+maxIndelSize);
+
 //        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
         
         ArrayDeque<LinkedList<Kmer2>> branchesStack = new ArrayDeque<>();
