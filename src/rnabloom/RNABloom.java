@@ -1310,12 +1310,12 @@ public class RNABloom {
                         ArrayList<Kmer2> fragKmers = graph.getKmers(fragment);
                         
                         if (!fragKmers.isEmpty()) {
-                            ArrayList<Kmer2> fragKmers2 = correctErrorsSE(fragKmers, graph, lookahead, maxIndelSize, maxCovGradient, covFPR, percentIdentity);
-                            if (fragKmers2 != null) {
-                                fragKmers = fragKmers2;
-                            }
+//                            ArrayList<Kmer2> fragKmers2 = correctErrorsSE(fragKmers, graph, lookahead, maxIndelSize, maxCovGradient, covFPR, percentIdentity);
+//                            if (fragKmers2 != null) {
+//                                fragKmers = fragKmers2;
+//                            }
                             
-                            fragKmers2 = new ArrayList<>(fragKmers);
+                            ArrayList<Kmer2> fragKmers2 = new ArrayList<>(fragKmers);
 
                             if ((!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) &&
                                     !represented(fragKmers,
