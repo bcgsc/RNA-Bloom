@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
@@ -41,13 +42,16 @@ import rnabloom.bloom.hash.PairedNTHashIterator;
 import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer2;
+import rnabloom.io.FastaPairReader;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
-import rnabloom.io.FastqPair;
 import rnabloom.io.FastqPairReader;
-import rnabloom.io.FastqPairReader.FastqReadPair;
+import rnabloom.io.FastxFilePair;
+import rnabloom.io.PairedReadSegments;
 import rnabloom.io.FastqReader;
 import rnabloom.io.FastqRecord;
+import rnabloom.io.FastxPairReader;
+import rnabloom.io.FileFormatException;
 import static rnabloom.util.GraphUtils.*;
 import static rnabloom.util.SeqUtils.*;
 
@@ -126,7 +130,7 @@ public class RNABloom {
     }
     
     private void handleException(Exception ex) {
-        System.out.println("ERROR:" + ex.getMessage() );
+        System.out.println("ERROR: " + ex.getMessage() );
         ex.printStackTrace();
         System.exit(1);
     }
@@ -279,22 +283,16 @@ public class RNABloom {
     }
 
     public class SeqToGraphWorker implements Runnable {
-//        public final static int FASTA_FILE = 1;
-//        public final static int FASTQ_FILE = 2;
-        
         private final int id;
         private final String path;
         private final NTHashIterator itr;
         private int numReads = 0;
         private boolean successful = false;
-        private boolean incrementIfPresent = false;
+        private final Consumer<long[]> addFunction;
         
-        public SeqToGraphWorker(int id, String path, boolean stranded, boolean reverseComplement, int numHash, boolean incrementIfPresent) {
-            /*@TODO: Support FASTA files*/
-            
+        public SeqToGraphWorker(int id, String path, boolean stranded, boolean reverseComplement, int numHash, boolean incrementIfPresent) {            
             this.id = id;
             this.path = path;
-            this.incrementIfPresent = incrementIfPresent;
             
             if (stranded) {
                 if (reverseComplement) {
@@ -307,6 +305,13 @@ public class RNABloom {
             else {
                 itr = new CanonicalNTHashIterator(k, numHash);
             }
+            
+            if (incrementIfPresent) {
+                addFunction = graph::addCountIfPresent;
+            }
+            else {
+                addFunction = graph::add;
+            }
         }
         
         @Override
@@ -314,12 +319,13 @@ public class RNABloom {
             System.out.println("[" + id + "] Parsing `" + path + "`...");
             
             try {
-                FastqReader fr = new FastqReader(path);
-                Matcher mQual = qualPatternDBG.matcher("");
                 Matcher mSeq = seqPattern.matcher("");
                 long[] hashVals = itr.hVals;
                 
-                if (incrementIfPresent) {
+                if (FastqReader.isFastq(path)) {
+                    FastqReader fr = new FastqReader(path);
+                    Matcher mQual = qualPatternDBG.matcher("");
+                    
                     try {
                         FastqRecord record = new FastqRecord();
                         
@@ -335,7 +341,7 @@ public class RNABloom {
                                     itr.start(mSeq.group());
                                     while (itr.hasNext()) {
                                         itr.next();
-                                        graph.addCountIfPresent(hashVals); // Only insert if kmer is absent in the graph
+                                        addFunction.accept(hashVals);
                                     }
                                 }
                             }
@@ -344,35 +350,38 @@ public class RNABloom {
                     catch (NoSuchElementException e) {
                         //end of file
                     }
+                    
+                    fr.close();
+                }
+                else if (FastaReader.isFasta(path)) {
+                    FastaReader fr = new FastaReader(path);
+                    
+                    try {
+                        while (true) {
+                            ++numReads;
+
+                            mSeq.reset(fr.next());
+                            
+                            while (mSeq.find()) {
+                                itr.start(mSeq.group());
+                                while (itr.hasNext()) {
+                                    itr.next();
+                                    addFunction.accept(hashVals);
+                                }
+                            }
+                        }
+                    }
+                    catch (NoSuchElementException e) {
+                        //end of file
+                    }
+                    
+                    fr.close();
                 }
                 else {
-                    try {
-                        FastqRecord record = new FastqRecord();
-                        
-                        while (true) {
-                            ++numReads;
-
-                            fr.nextWithoutName(record);
-                            mQual.reset(record.qual);
-
-                            while (mQual.find()) {
-                                mSeq.reset(record.seq.substring(mQual.start(), mQual.end()));
-                                while (mSeq.find()) {
-                                    itr.start(mSeq.group());
-                                    while (itr.hasNext()) {
-                                        itr.next();
-                                        graph.add(hashVals);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    catch (NoSuchElementException e) {
-                        //end of file
-                    }
+                    System.out.println("Incompatible file format in `" + path + "`");
+                    throw new RuntimeException();
                 }
                 
-                fr.close();
                 successful = true;
                 System.out.println("[" + id + "] Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
             } catch (Exception e) {
@@ -1582,7 +1591,7 @@ public class RNABloom {
     }
     
     private class FragmentAssembler implements Runnable {
-        private FastqReadPair p;
+        private PairedReadSegments p;
         private ArrayBlockingQueue<Fragment> outList;
         private int bound;
         private int minOverlap;
@@ -1594,7 +1603,7 @@ public class RNABloom {
         private int polyXMaxMismatches;
         private boolean extendFragments;
         
-        public FragmentAssembler(FastqReadPair p,
+        public FragmentAssembler(PairedReadSegments p,
                                 ArrayBlockingQueue<Fragment> outList,
                                 int bound, 
                                 int minOverlap, 
@@ -2214,7 +2223,7 @@ public class RNABloom {
         return fragStats[3] + ((fragStats[3] - fragStats[1]) * 3 / 2); // 1.5*IQR
     }
     
-    public int[] assembleFragmentsMultiThreaded(FastqPair[] fastqPairs, 
+    public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastqPairs, 
                                                 String[] longFragmentsFastaPaths,
                                                 String[] shortFragmentsFastaPaths,
                                                 String[] unconnectedReadsFastaPaths,
@@ -2257,8 +2266,6 @@ public class RNABloom {
         int shortestFragmentLengthAllowed = k + lookahead;
                         
         try {
-            FastqReader lin, rin;
-            FastqPairReader fqpr;
             
             FastaWriter[] longFragmentsOut = new FastaWriter[]{new FastaWriter(longFragmentsFastaPaths[0], true),
                                                                 new FastaWriter(longFragmentsFastaPaths[1], true),
@@ -2285,7 +2292,7 @@ public class RNABloom {
             FastaWriter shortSingletonsOut = new FastaWriter(shortSingletonsFasta, true);
             FastaWriter unconnectedSingletonsOut = new FastaWriter(unconnectedSingletonsFasta, true);
             
-            FastqReadPair p;
+            PairedReadSegments p;
             ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
             
 //            boolean readLengthThresholdIsSet = false;
@@ -2294,12 +2301,21 @@ public class RNABloom {
             
 //            int minNumKmersNotAssembled = 1;
             
-            for (FastqPair fqPair: fastqPairs) {
-                lin = new FastqReader(fqPair.leftFastq);
-                rin = new FastqReader(fqPair.rightFastq);
+            for (FastxFilePair fxPair: fastqPairs) {
 
-                fqpr = new FastqPairReader(lin, rin, qualPatternFrag, seqPattern, fqPair.leftRevComp, fqPair.rightRevComp);
-                System.out.println("Parsing `" + fqPair.leftFastq + "` and `" + fqPair.rightFastq + "`...");
+                FastxPairReader fxpr = null;
+                
+                if (FastqReader.isFastq(fxPair.leftPath) && FastqReader.isFastq(fxPair.rightPath)) {
+                    fxpr = new FastqPairReader(fxPair.leftPath, fxPair.rightPath, qualPatternFrag, seqPattern, fxPair.leftRevComp, fxPair.rightRevComp);
+                }
+                else if (FastaReader.isFasta(fxPair.leftPath) && FastaReader.isFasta(fxPair.rightPath)) {
+                    fxpr = new FastaPairReader(fxPair.leftPath, fxPair.rightPath, seqPattern, fxPair.leftRevComp, fxPair.rightRevComp);
+                }
+                else {
+                    throw new FileFormatException("Incompatible file format for `" + fxPair.leftPath + "` and `" + fxPair.rightPath + "`");
+                }
+                
+                System.out.println("Parsing `" + fxPair.leftPath + "` and `" + fxPair.rightPath + "`...");
 
                 int leftReadLengthThreshold = 2*k;
                 int rightReadLengthThreshold = 2*k;
@@ -2312,8 +2328,8 @@ public class RNABloom {
                 if (!pairedKmerDistanceIsSet) {
                                         
                     // Assembled initial sample of fragments
-                    while (fqpr.hasNext()) {
-                        p = fqpr.next();
+                    while (fxpr.hasNext()) {
+                        p = fxpr.next();
                         ++readPairsParsed;
                                                 
                         service.submit(new FragmentAssembler(p,
@@ -2334,7 +2350,7 @@ public class RNABloom {
                         }
                     }
                     
-                    if (!fqpr.hasNext() && fragments.isEmpty()) {
+                    if (!fxpr.hasNext() && fragments.isEmpty()) {
                         // entire file has been exhausted but no output fragments; wait for the workers to be done
                         service.terminate();
                     }
@@ -2443,8 +2459,8 @@ public class RNABloom {
                 }
                 
                 // assemble the remaining fragments in multi-threaded mode
-                while (fqpr.hasNext()) {
-                    p = fqpr.next();
+                while (fxpr.hasNext()) {
+                    p = fxpr.next();
                     ++readPairsParsed;
                     
                     // ignore read pairs when more than half of raw read length were trimmed for each read
@@ -2601,8 +2617,7 @@ public class RNABloom {
                     }
                 }
                                 
-                lin.close();
-                rin.close();
+                fxpr.close();
             }
             
 //            service.terminate();
@@ -3703,9 +3718,9 @@ public class RNABloom {
             }
                         
 
-            FastqPair[] fqPairs = new FastqPair[fastqsLeft.length];
+            FastxFilePair[] fqPairs = new FastxFilePair[fastqsLeft.length];
             for (int i=0; i<fastqsLeft.length; ++i) {
-                fqPairs[i] = new FastqPair(fastqsLeft[i], fastqsRight[i], revCompLeft, revCompRight);
+                fqPairs[i] = new FastxFilePair(fastqsLeft[i], fastqsRight[i], revCompLeft, revCompRight);
             }
 
             String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",

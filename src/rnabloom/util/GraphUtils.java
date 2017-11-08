@@ -2784,7 +2784,7 @@ public final class GraphUtils {
                 String last = segments.get(0);
                 String longest = last;
     
-                for (int i=1; i<numSeqs; i+=2) {                    
+                for (int i=1; i<numSeqs; i+=2) {             
                     String current = segments.get(i+1);     
                     
                     String connected = connect(last, current, graph, segments.get(i).length()+k, lookahead);
