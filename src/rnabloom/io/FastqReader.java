@@ -54,7 +54,7 @@ public final class FastqReader {
         return itr.hasNext();
     }
     
-    public void nextWithoutName(FastqRecord fr) throws Exception {
+    public void nextWithoutName(FastqRecord fr) throws FileFormatException {
         String line1, line3;
         
         synchronized(this) {
@@ -65,15 +65,15 @@ public final class FastqReader {
         }
         
         if (line1.charAt(0) != '@') {
-            throw new Exception("Line 1 of FASTQ record is expected to start with '@'");
+            throw new FileFormatException("Line 1 of FASTQ record is expected to start with '@'");
         }
 
         if (line3.charAt(0) != '+') {
-            throw new Exception("Line 3 of FASTQ record is expected to start with '+'");
+            throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
         }
     }
     
-    public void nextWithName(FastqRecord fr) throws Exception {
+    public void nextWithName(FastqRecord fr) throws FileFormatException {
         String line1, line3;
         
         synchronized(this) {
@@ -88,11 +88,11 @@ public final class FastqReader {
             fr.name = m.group(1);
         }
         else {
-            throw new Exception("Line 1 of a FASTQ record is expected to start with '@'");
+            throw new FileFormatException("Line 1 of a FASTQ record is expected to start with '@'");
         }
 
         if (line3.charAt(0) != '+') {
-            throw new Exception("Line 3 of a FASTQ record is expected to start with '+'");
+            throw new FileFormatException("Line 3 of a FASTQ record is expected to start with '+'");
         }
     }
         

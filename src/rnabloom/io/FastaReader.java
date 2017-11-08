@@ -66,14 +66,14 @@ public class FastaReader {
     }
 
 //    @Override
-    public synchronized String next() throws Exception {
+    public synchronized String next() throws FileFormatException {
         if (itr.next().charAt(0) != '>') {
-            throw new Exception("Line 1 of a FASTA record is expected to start with '>'");
+            throw new FileFormatException("Line 1 of a FASTA record is expected to start with '>'");
         }
         return itr.next();
     }
 
-    public void nextWithName(FastaRecord fr) throws Exception {
+    public void nextWithName(FastaRecord fr) throws FileFormatException {
         String line1;
         
         synchronized(this) {
@@ -86,7 +86,7 @@ public class FastaReader {
             fr.name = m.group(1);
         }
         else {
-            throw new Exception("Line 1 of a FASTA record is expected to start with '>'");
+            throw new FileFormatException("Line 1 of a FASTA record is expected to start with '>'");
         }
     }
     
