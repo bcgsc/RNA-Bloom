@@ -279,19 +279,19 @@ public class NTHash {
         return (frhVals[1]<frhVals[0])? frhVals[1] : frhVals[0]; // canonical
     }
     
-    /**
-     * Canonical ntBase with seeding option, using rotate ops
-     * @param kmerSeq   kmer to be hashed
-     * @param k         length of kmer
-     * @param seed      seed value
-     * @return          hash value
-     */
-    public static long NTC64(final CharSequence kmerSeq, final int k, final int seed) {
-        long hVal = NTC64(kmerSeq,k);
-        hVal *= seed ^ k * multiSeed;
-        hVal ^= hVal >>> multiShift;
-        return hVal;
-    }
+//    /**
+//     * Canonical ntBase with seeding option, using rotate ops
+//     * @param kmerSeq   kmer to be hashed
+//     * @param k         length of kmer
+//     * @param seed      seed value
+//     * @return          hash value
+//     */
+//    public static long NTC64(final CharSequence kmerSeq, final int k, final int seed) {
+//        long hVal = NTC64(kmerSeq,k);
+//        hVal *= seed ^ k * multiSeed;
+//        hVal ^= hVal >>> multiShift;
+//        return hVal;
+//    }
 
     /*
      * Using pre-computed seed matrix msTab instead of rotate opts
@@ -309,6 +309,20 @@ public class NTHash {
             hVal ^= msTab[kmerSeq.charAt(i)][(k-1-i)%64];
         return hVal;
     }
+    
+    /**
+     * ntBase
+     * @param seq       sequence containing kmer to be hashed
+     * @param k         length of kmer
+     * @param start     index of kmer in seq
+     * @return          hash value
+     */
+    public static long NTP64(final CharSequence seq, final int k, final int start) {
+        long hVal=0;
+        for(int i=0; i<k; ++i)
+            hVal ^= msTab[seq.charAt(start+i)][(k-1-i)%64];
+        return hVal;
+    }
 
     /**
      * ntBase (reverse complement)
@@ -324,19 +338,19 @@ public class NTHash {
         return rhVal;
     }
 
-    /**
-     * ntBase with seeding option
-     * @param kmerSeq   kmer to be hashed
-     * @param k         length of kmer
-     * @param seed      seed value
-     * @return          hash value
-     */
-    public static long NTP64(final CharSequence kmerSeq, final int k, final int seed) {
-        long hVal = NTP64(kmerSeq, k);
-        hVal *= seed ^ k * multiSeed;
-        hVal ^= hVal >>> multiShift;
-        return hVal;
-    }
+//    /**
+//     * ntBase with seeding option
+//     * @param kmerSeq   kmer to be hashed
+//     * @param k         length of kmer
+//     * @param seed      seed value
+//     * @return          hash value
+//     */
+//    public static long NTP64(final CharSequence kmerSeq, final int k, final int seed) {
+//        long hVal = NTP64(kmerSeq, k);
+//        hVal *= seed ^ k * multiSeed;
+//        hVal ^= hVal >>> multiShift;
+//        return hVal;
+//    }
     
     /**
      * ntHash for sliding k-mers
@@ -377,19 +391,19 @@ public class NTHash {
         return (rhVal<fhVal)? rhVal : fhVal;
     }
     
-    /**
-     * Canonical ntBase with seeding option
-     * @param kmerSeq   kmer to be hashed
-     * @param k         length of kmer
-     * @param seed      seed value
-     * @return          hash value
-     */
-    public static long NTPC64(final CharSequence kmerSeq, final int k, final int seed) {
-        long hVal = NTPC64(kmerSeq, k);
-        hVal *= seed ^ k * multiSeed;
-        hVal ^= hVal >>> multiShift;
-        return hVal;
-    }
+//    /**
+//     * Canonical ntBase with seeding option
+//     * @param kmerSeq   kmer to be hashed
+//     * @param k         length of kmer
+//     * @param seed      seed value
+//     * @return          hash value
+//     */
+//    public static long NTPC64(final CharSequence kmerSeq, final int k, final int seed) {
+//        long hVal = NTPC64(kmerSeq, k);
+//        hVal *= seed ^ k * multiSeed;
+//        hVal ^= hVal >>> multiShift;
+//        return hVal;
+//    }
     
     /**
      * Canonical ntBase with forward/reverse hash values
@@ -398,7 +412,7 @@ public class NTHash {
      * @param frhVals   array to store the forward and reverse strand hash values of the kmer
      * @return          hash value
      */
-    public static long NTPC64(final CharSequence kmerSeq, final int k, long[] frhVals) {
+    public static long NTPC64(final CharSequence kmerSeq, final int k, final long[] frhVals) {
         frhVals[0]=0;
         frhVals[1]=0;
         for(int i=0; i<k; ++i) {
@@ -408,7 +422,24 @@ public class NTHash {
         return (frhVals[1]<frhVals[0])? frhVals[1] : frhVals[0];
     }
     
-
+    /**
+     * Canonical ntBase with forward/reverse hash values
+     * @param seq       sequence containing kmer to be hashed
+     * @param k         length of kmer
+     * @param start     index of kmer in seq
+     * @param frhVals   array to store the forward and reverse strand hash values of the kmer
+     * @return          hash value
+     */
+    public static long NTPC64(final CharSequence seq, final int k, final int start, final long[] frhVals) {
+        frhVals[0]=0;
+        frhVals[1]=0;
+        for(int i=0; i<k; ++i) {
+            frhVals[0] ^= msTab[seq.charAt(start+i)][(k-1-i)%64];
+            frhVals[1] ^= msTab[seq.charAt(start+i)&cpOff][i%64];
+        }
+        return (frhVals[1]<frhVals[0])? frhVals[1] : frhVals[0];
+    }
+    
     /**
      * Canonical ntHash for sliding k-mers
      * @param charOut   nucleotide to remove
@@ -444,7 +475,7 @@ public class NTHash {
      * @param m         number of hash values
      * @param hVal      array to store hash values
      */
-    public static void NTM64(long bVal, long[] hVal, final int k, final int m) {
+    public static void NTM64(final long bVal, final long[] hVal, final int k, final int m) {
         hVal[0] = bVal;
         
         long tVal;
@@ -464,6 +495,18 @@ public class NTHash {
      */
     public static void NTM64(final CharSequence kmerSeq, final int k, final int m, final long[] hVal) {
         NTM64(NTP64(kmerSeq, k), hVal, k, m);
+    }
+    
+    /**
+     * Multihash ntBase
+     * @param seq       sequence containing the kmer to be hashed
+     * @param k         length of kmer
+     * @param m         number of hash values to generate
+     * @param start     index of kmer in seq
+     * @param hVal      array to store hash values
+     */
+    public static void NTM64(final CharSequence seq, final int k, final int m, final int start, final long[] hVal) {
+        NTM64(NTP64(seq, k, start), hVal, k, m);
     }
 
     /**
@@ -600,6 +643,19 @@ public class NTHash {
         NTM64(NTPC64(kmerSeq, k, frhVals), hVal, k, m);
     }
 
+    /**
+     * Canonical Multihash ntHash
+     * @param seq       sequence containing kmer to be hashed
+     * @param k         length of kmer
+     * @param m         number of hash values to generate
+     * @param start     index of kmer in seq
+     * @param frhVals   array to store the forward and reverse strand hash values of the kmer
+     * @param hVal      array to store hash values
+     */
+    public static void NTMC64(final CharSequence seq, final int k, final int m, final int start, final long[] frhVals, final long[] hVal) {        
+        NTM64(NTPC64(seq, k, start, frhVals), hVal, k, m);
+    }
+    
     /**
      * Canonical Multihash ntHash for sliding k-mers
      * @param charOut   nucleotide to remove

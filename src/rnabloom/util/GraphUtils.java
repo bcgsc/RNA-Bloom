@@ -699,7 +699,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
-        HashSet<String> leftPathKmers = new HashSet<>(bound);
+        HashSet<Kmer2> leftPathKmers = new HashSet<>(bound);
         
         /* extend right */
         ArrayDeque<Kmer2> leftPath = new ArrayDeque<>(bound);
@@ -764,12 +764,11 @@ public final class GraphUtils {
                     return leftPath;
                 }
                 else {
-                    String seq = best.toString();
-                    if (leftPathKmers.contains(seq)) {
+                    if (leftPathKmers.contains(best)) {
                         break;
                     }
                     else {
-                        leftPathKmers.add(seq);
+                        leftPathKmers.add(best);
                         leftPath.add(best);
                     }
                 }
@@ -777,7 +776,7 @@ public final class GraphUtils {
         }
         
         neighbors.clear();
-        HashSet<String> rightPathKmers = new HashSet<>(bound);
+        HashSet<Kmer2> rightPathKmers = new HashSet<>(bound);
         
         /* not connected, search from right */
         ArrayDeque<Kmer2> rightPath = new ArrayDeque<>(bound);
@@ -839,14 +838,13 @@ public final class GraphUtils {
                     return rightPath;
                 }
                 else {
-                    String bestSeq = best.toString();
-                    if (rightPathKmers.contains(bestSeq)) {
+                    if (rightPathKmers.contains(best)) {
                         return null;
                     }
-                    else if (leftPathKmers.contains(bestSeq)) {
+                    else if (leftPathKmers.contains(best)) {
                         /* right path intersects the left path */
                         
-                        if (isLowComplexity2(bestSeq) &&
+                        if (graph.isLowComplexity(best) &&
                                 (best.hasAtLeastXSuccessors(k, numHash, graph, 2) ||
                                     best.hasAtLeastXPredecessors(k, numHash, graph, 2))) {
                             return null;
@@ -868,7 +866,7 @@ public final class GraphUtils {
                         }
                     }
                     else {
-                        rightPathKmers.add(bestSeq);
+                        rightPathKmers.add(best);
                         rightPath.addFirst(best);
                     }
                 }
@@ -882,9 +880,8 @@ public final class GraphUtils {
                 ArrayDeque<Kmer2> successors = kmer.getSuccessors(k, numHash, graph);
                 if (successors.size() > 1) {
                     for (Kmer2 s : successors) {
-                        String seq = s.toString();
-                        if (!leftPathKmers.contains(seq) && !graph.isLowComplexity(s)) {
-                            if (rightPathKmers.contains(seq)) {
+                        if (!leftPathKmers.contains(s) && !graph.isLowComplexity(s)) {
+                            if (rightPathKmers.contains(s)) {
                                 ArrayDeque<Kmer2> path = new ArrayDeque<>(leftPath.size() + rightPath.size());
 
                                 // fill with kmers in left path
@@ -918,7 +915,7 @@ public final class GraphUtils {
                                         break;
                                     }
                                     
-                                    if (rightPathKmers.contains(e.toString())) {
+                                    if (rightPathKmers.contains(e)) {
                                         ArrayDeque<Kmer2> path = new ArrayDeque<>(leftPath.size() + rightPath.size());
 
                                         // fill with kmers in left path

@@ -21,7 +21,7 @@ public class CanonicalNTHashIterator extends NTHashIterator {
     @Override
     public void next() {
         if (pos == -1) {
-            NTMC64(seq.subSequence(0, k), k, h, frhval, hVals);
+            NTMC64(seq, k, h, 0, frhval, hVals);
         }
         else if (pos < max) {
             NTMC64(seq.charAt(pos), seq.charAt(pos+k), k, h, frhval, hVals);

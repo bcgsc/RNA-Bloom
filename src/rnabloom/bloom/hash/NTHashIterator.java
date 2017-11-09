@@ -37,7 +37,8 @@ public class NTHashIterator {
 
     public void next() {
         if (pos == -1) {
-            NTM64(seq.subSequence(0, k), k, h, hVals);
+            // hash first kmer
+            NTM64(seq, k, h, 0, hVals);
         }
         else if (pos < max) {
             NTM64(seq.charAt(pos), seq.charAt(pos+k), k, h, hVals, kMod64);

@@ -478,8 +478,8 @@ public class RNABloom {
         }
     }
     
-    public void populateGraph(Collection<String> forwardFastqs,
-                            Collection<String> reverseFastqs,
+    public void populateGraph(Collection<String> forwardReadPaths,
+                            Collection<String> reverseReadPaths,
                             boolean strandSpecific,
                             int numThreads,
                             boolean addCountsOnly) {        
@@ -496,13 +496,13 @@ public class RNABloom {
         ArrayList<SeqToGraphWorker> threadPool = new ArrayList<>();
         int threadId = 0;
            
-        for (String fastq : forwardFastqs) {
+        for (String fastq : forwardReadPaths) {
             SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, false, numHash, addCountsOnly);
             service.submit(t);
             threadPool.add(t);
         }
 
-        for (String fastq : reverseFastqs) {
+        for (String fastq : reverseReadPaths) {
             SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, true, numHash, addCountsOnly);
             service.submit(t);
             threadPool.add(t);
