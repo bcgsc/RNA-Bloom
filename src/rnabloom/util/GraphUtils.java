@@ -4271,10 +4271,11 @@ public final class GraphUtils {
                 else {
                     // two or more neighbors are supported by paired kmers
                     
-                    float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-                    if (minEdgeCoverage >= 10) {
+                    float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
+                    float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
+                    if (minFragmentCoverage >= 10) {
                         // only remove neighbors based on coverage when edge coverage is >= 10
-                        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);            
+                        float minCovThreshold = (float) Math.floor(minFragmentCoverage * maxCovGradient);            
                         itr = neighbors.iterator();
                         while (itr.hasNext()) {
                             Kmer2 kmer = itr.next();
@@ -4284,15 +4285,28 @@ public final class GraphUtils {
                             }
                         }
                         
+                        if (neighbors.size() > 1 && minEdgeCoverage > minFragmentCoverage) {
+                            minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
+                            
+                            itr = neighbors.iterator();
+                            while (itr.hasNext()) {
+                                Kmer2 kmer = itr.next();
+
+                                if (kmer.count < minCovThreshold) {
+                                    itr.remove();
+                                }
+                            }
+                        }
+                        
                         if (neighbors.size() == 1) {
                             cursor = neighbors.pop();
                         }
                         else {
-                            return true;
+                            return false; // ambiguous branches supported by paired kmers
                         }
                     }
                     else {
-                        return true;
+                        return false; // ambiguous branches supported by paired kmers
                     }
                 }
             }
@@ -4443,10 +4457,11 @@ public final class GraphUtils {
                 else {
                     // two or more neighbors are supported by paired kmers
                     
-                    float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-                    if (minEdgeCoverage >= 10) {
+                    float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
+                    float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
+                    if (minFragmentCoverage >= 10) {
                         // only remove neighbors based on coverage when edge coverage is >= 10
-                        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);            
+                        float minCovThreshold = (float) Math.floor(minFragmentCoverage * maxCovGradient);            
                         itr = neighbors.iterator();
                         while (itr.hasNext()) {
                             Kmer2 kmer = itr.next();
@@ -4456,15 +4471,28 @@ public final class GraphUtils {
                             }
                         }
                         
+                        if (neighbors.size() > 1 && minEdgeCoverage > minFragmentCoverage) {
+                            minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
+                            
+                            itr = neighbors.iterator();
+                            while (itr.hasNext()) {
+                                Kmer2 kmer = itr.next();
+
+                                if (kmer.count < minCovThreshold) {
+                                    itr.remove();
+                                }
+                            }
+                        }
+                        
                         if (neighbors.size() == 1) {
                             cursor = neighbors.pop();
                         }
                         else {
-                            return true;
+                            return false; // ambiguous branches supported by paired kmers
                         }
                     }
                     else {
-                        return true;
+                        return false; // ambiguous branches supported by paired kmers
                     }
                 }
             }
