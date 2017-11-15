@@ -5,6 +5,7 @@
  */
 package rnabloom.bloom.hash;
 
+import java.util.Arrays;
 import static rnabloom.bloom.hash.HashFunction2.combineHashValues;
 import static rnabloom.bloom.hash.NTHash.NTM64;
 
@@ -48,18 +49,22 @@ public class PairedNTHashIterator {
             NTM64(seq, k, h, 0, hVals1);
             NTM64(seq, k, h, d, hVals2);
             NTM64(combineHashValues(hVals1[0], hVals2[0]), hVals3, k, h);
+            ++pos;
         }
         else if (pos < max) {
             NTM64(seq.charAt(pos), seq.charAt(pos+k), k, h, hVals1, kMod64);
             NTM64(seq.charAt(pos+d), seq.charAt(pos+k+d), k, h, hVals2, kMod64);
             NTM64(combineHashValues(hVals1[0], hVals2[0]), hVals3, k, h);
+            ++pos;
         }
         else {
+            Arrays.fill(hVals1, 0);
+            Arrays.fill(hVals2, 0);
+            Arrays.fill(hVals3, 0);
             hVals1 = null;
             hVals2 = null;
             hVals3 = null;
         }
-        ++pos;
     }
 
     public boolean hasNext() {

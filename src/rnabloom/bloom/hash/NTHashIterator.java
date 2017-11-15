@@ -5,6 +5,7 @@
  */
 package rnabloom.bloom.hash;
 
+import java.util.Arrays;
 import static rnabloom.bloom.hash.NTHash.NTM64;
 
 /**
@@ -44,15 +45,16 @@ public class NTHashIterator {
     public void next() {
         if (pos == start) {
             // hash first kmer
-            NTM64(seq, k, h, start+1, hVals);
+            NTM64(seq, k, h, ++pos, hVals);
         }
         else if (pos < max) {
             NTM64(seq.charAt(pos), seq.charAt(pos+k), k, h, hVals, kMod64);
+            ++pos;
         }
         else {
+            Arrays.fill(hVals, 0);
             hVals = null;
         }
-        ++pos;
     }
 
     public boolean hasNext() {

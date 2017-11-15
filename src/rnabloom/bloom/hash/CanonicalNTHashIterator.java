@@ -5,6 +5,7 @@
  */
 package rnabloom.bloom.hash;
 
+import java.util.Arrays;
 import static rnabloom.bloom.hash.NTHash.NTMC64;
 
 /**
@@ -21,14 +22,15 @@ public class CanonicalNTHashIterator extends NTHashIterator {
     @Override
     public void next() {
         if (pos == start) {
-            NTMC64(seq, k, h, start+1, frhval, hVals);
+            NTMC64(seq, k, h, ++pos, frhval, hVals);
         }
         else if (pos < max) {
             NTMC64(seq.charAt(pos), seq.charAt(pos+k), k, h, frhval, hVals);
+            ++pos;
         }
         else {
+            Arrays.fill(hVals, 0);
             hVals = null;
         }
-        ++pos;
     }
 }
