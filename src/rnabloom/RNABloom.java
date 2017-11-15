@@ -334,11 +334,12 @@ public class RNABloom {
 
                             fr.nextWithoutName(record);
                             mQual.reset(record.qual);
+                            mSeq.reset(record.seq);
 
                             while (mQual.find()) {
-                                mSeq.reset(record.seq.substring(mQual.start(), mQual.end()));
+                                mSeq.region(mQual.start(), mQual.end());
                                 while (mSeq.find()) {
-                                    itr.start(mSeq.group());
+                                    itr.start(record.seq, mSeq.start(), mSeq.end());
                                     while (itr.hasNext()) {
                                         itr.next();
                                         addFunction.accept(hashVals);
@@ -357,13 +358,15 @@ public class RNABloom {
                     FastaReader fr = new FastaReader(path);
                     
                     try {
+                        String seq;
                         while (true) {
                             ++numReads;
 
-                            mSeq.reset(fr.next());
+                            seq = fr.next();
+                            mSeq.reset(seq);
                             
                             while (mSeq.find()) {
-                                itr.start(mSeq.group());
+                                itr.start(seq, mSeq.start(), mSeq.end());
                                 while (itr.hasNext()) {
                                     itr.next();
                                     addFunction.accept(hashVals);

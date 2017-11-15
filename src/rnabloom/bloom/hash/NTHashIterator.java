@@ -16,6 +16,7 @@ public class NTHashIterator {
     protected final int k;
     protected final int kMod64;
     protected final int h;
+    protected int start = -1;
     protected int pos = -1;
     protected int max = -2;
     public long[] hVals = null;
@@ -28,17 +29,22 @@ public class NTHashIterator {
     }
     
     public boolean start(CharSequence seq) {
+        return start(seq, 0, seq.length());
+    }
+
+    public boolean start(CharSequence seq, int start, int end) {
         this.seq = seq;
-        this.pos = -1;
-        this.max = seq.length() - k;
+        this.start = start-1;
+        this.pos = this.start;
+        this.max = end - k;
         
         return max >= 0;
     }
-
+    
     public void next() {
-        if (pos == -1) {
+        if (pos == start) {
             // hash first kmer
-            NTM64(seq, k, h, 0, hVals);
+            NTM64(seq, k, h, start+1, hVals);
         }
         else if (pos < max) {
             NTM64(seq.charAt(pos), seq.charAt(pos+k), k, h, hVals, kMod64);
