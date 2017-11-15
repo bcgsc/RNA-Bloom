@@ -173,11 +173,9 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void destroy() {
-        dbgbf.destroy();
-        cbf.destroy();
-        if (pkbf != null) {
-            pkbf.destroy();
-        }        
+        this.destroyDbgbf();
+        this.destroyCbf();
+        this.destroyPkbf();
     }
     
     public void clearAllBf() {
@@ -201,18 +199,21 @@ public class BloomFilterDeBruijnGraph {
     public void destroyDbgbf() {
         if (dbgbf != null) {
             dbgbf.destroy();
+            dbgbf = null;
         }
     }
     
     public void destroyCbf() {
         if (cbf != null) {
             cbf.destroy();
+            cbf = null;
         }
     }
     
     public void destroyPkbf() {
         if (pkbf != null) {
             pkbf.destroy();
+            pkbf = null;
         }
     }
     
@@ -279,11 +280,20 @@ public class BloomFilterDeBruijnGraph {
         String pairBitsPath = graphFile.getPath() + FILE_PKBF_PAIR_EXTENSION;
         String pkbfDescPath = pairBitsPath + FILE_DESC_EXTENSION;
         
+        if (this.pkbf != null) {
+            this.pkbf.destroy();
+        }
+        
         pkbf = new PairedKeysPartitionedBloomFilter(new File(pkbfDescPath), new File(leftBitsPath), new File(rightBitsPath), new File(pairBitsPath), hashFunction);
     }
     
     public void initializePairKmersBloomFilter() {
-        this.pkbf = new PairedKeysPartitionedBloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
+        if (this.pkbf == null) {
+            this.pkbf = new PairedKeysPartitionedBloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
+        }
+        else {
+            this.pkbf.empty();
+        }
     }
     
     public void setPairedKmerDistance(int d) {

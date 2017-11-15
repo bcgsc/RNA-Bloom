@@ -217,6 +217,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     
     public void destroy() {
         this.counts.destroy();
+        this.counts = null;
     }
     
     public boolean equivalent(CountingBloomFilter bf) {

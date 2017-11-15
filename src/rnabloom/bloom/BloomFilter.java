@@ -205,6 +205,7 @@ public class BloomFilter implements BloomFilterInterface {
     
     public void destroy() {
         this.bitArray.destroy();
+        this.bitArray = null;
     }
     
     public boolean equivalent(BloomFilter bf) {

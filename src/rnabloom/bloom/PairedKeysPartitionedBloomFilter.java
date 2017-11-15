@@ -271,8 +271,13 @@ public class PairedKeysPartitionedBloomFilter {
     
     public void destroy() {
         this.bitArrayLeft.destroy();
+        this.bitArrayLeft = null;
+        
         this.bitArrayRight.destroy();
+        this.bitArrayRight = null;
+        
         this.bitArrayPair.destroy();
+        this.bitArrayPair = null;
     }
     
     public void empty() {
