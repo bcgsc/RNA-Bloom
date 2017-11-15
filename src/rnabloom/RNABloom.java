@@ -162,6 +162,10 @@ public class RNABloom {
         }
     }
     
+    public boolean isGraphInitialized() {
+        return graph != null;
+    }
+    
     public void clearGraph() {
         graph.clearDbgbf();
         graph.clearPkbf();
@@ -407,7 +411,8 @@ public class RNABloom {
                             long pkbfNumBits,
                             int dbgbfNumHash,
                             int cbfNumHash,
-                            int pkbfNumHash) {
+                            int pkbfNumHash,
+                            boolean initPkbf) {
         
         graph = new BloomFilterDeBruijnGraph(dbgbfNumBits,
                                             cbfNumBytes,
@@ -417,6 +422,10 @@ public class RNABloom {
                                             pkbfNumHash,
                                             k,
                                             strandSpecific);
+        
+        if (initPkbf) {
+            graph.initializePairKmersBloomFilter();
+        }
     }
     
     public void populateGraph2(Collection<String> forwardFastqs,
@@ -2970,52 +2979,12 @@ public class RNABloom {
                                                 int numThreads,
                                                 int sampleSize,
                                                 int minTranscriptLength,
-                                                boolean createFragmentDBG,
                                                 boolean useSingletonFragments,
                                                 String txptNamePrefix) {
         
         long numFragmentsParsed = 0;
 
         try {
-
-//            if (createFragmentDBG) {
-//                System.out.println("Creating graph from fragment kmers...");
-//                
-//                graph.getDbgbf().empty();
-//
-//                if (numThreads > 1) {
-//                    ArrayDeque<String> fragmentsFastas = new ArrayDeque<>(longFragmentsFastas.length + shortFragmentsFastas.length + 2);
-//                    fragmentsFastas.addAll(Arrays.asList(longFragmentsFastas));
-//                    fragmentsFastas.addAll(Arrays.asList(shortFragmentsFastas));
-//                    fragmentsFastas.addAll(Arrays.asList(unconnectedReadsFastas));
-//                    fragmentsFastas.add(longSingletonsFasta);
-//                    fragmentsFastas.add(shortSingletonsFasta);
-//                    fragmentsFastas.add(unconnectedSingletonsFasta);
-//                    insertIntoDeBruijnGraphMultiThreaded(fragmentsFastas, sampleSize, numThreads);
-//                }
-//                else {
-//                    insertIntoDeBruijnGraph(longFragmentsFastas);
-//                    insertIntoDeBruijnGraph(shortFragmentsFastas);
-//                    insertIntoDeBruijnGraph(unconnectedReadsFastas);
-//                    insertIntoDeBruijnGraph(longSingletonsFasta);
-//                    insertIntoDeBruijnGraph(shortSingletonsFasta);
-//                    insertIntoDeBruijnGraph(unconnectedSingletonsFasta);
-//                }
-//            }
-//            else {
-//                System.out.println("Restoring graph from file...");
-//                
-//                restoreDbg(new File(graphFile));
-//            }
-//
-//            graph.restorePkbf(new File(graphFile));
-//            
-//            dbgFPR = graph.getDbgbf().getFPR();
-//            System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
-//            
-//            if (covFPR <= 0) {
-//                covFPR = graph.getCbf().getFPR();
-//            }
 
             System.out.println("Assembling transcripts...");
         
@@ -3638,8 +3607,6 @@ public class RNABloom {
             int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
-            boolean createFragmentDBG = false;
-//            boolean createFragmentDBG = line.hasOption(optFdbg.getOpt());
             boolean useSingletonFragments = line.hasOption(optSingleton.getOpt());
             boolean extendFragments = line.hasOption(optExtend.getOpt());
             int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
@@ -3676,7 +3643,9 @@ public class RNABloom {
             }
             
             if (!forceOverwrite && dbgDoneStamp.exists()) {
-                if (!frags2kDoneStamp.exists()) {
+                System.out.println("WARNING: Graph was already generated (k=" + k + ")!");
+                
+                if (!fragsDoneStamp.exists()) {
                     System.out.println("Loading graph from file `" + graphFile + "`...");
                     assembler.restoreGraph(new File(graphFile));
                 }
@@ -3704,7 +3673,7 @@ public class RNABloom {
                 
                 assembler.initializeGraph(strandSpecific, 
                         dbgbfSize, cbfSize, pkbfSize, 
-                        dbgbfNumHash, cbfNumHash, pkbfNumHash);
+                        dbgbfNumHash, cbfNumHash, pkbfNumHash, false);
                 assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false);
                 
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
@@ -3819,6 +3788,9 @@ public class RNABloom {
                     System.exit(1);
                 }
             }
+            else {
+                System.out.println("WARNING: Fragments were already assembled (k=" + k + ")!");
+            }
 
             /* Connect unconnected reads by doubling the kmer size */
             
@@ -3837,14 +3809,26 @@ public class RNABloom {
             String unconnected2kSingletonsFastaPath = unconnected2kReadsFastaPrefix + "01.fa";
 
             if (!forceOverwrite && frags2kDoneStamp.exists()) {
-                System.out.println("Loading graph from file `" + graph2kFile + "`...");
-                File tmp = new File(graph2kFile);
-                assembler.restoreGraph(tmp);
-                assembler.restorePairedKmersBloomFilter(tmp);
+                System.out.println("WARNING: Read pairs were already rescued (k=" + newK + ")!");
+                
+                if (!txptsDoneStamp.exists()) {
+                    System.out.println("Loading graph from file `" + graph2kFile + "`...");
+                    File tmp = new File(graph2kFile);
+                    assembler.restoreGraph(tmp);
+                    assembler.restorePairedKmersBloomFilter(tmp);
+                }
             }
             else {
-                // clear DBG-Bf, c-Bf, pk-Bf, a-Bf
-                assembler.clearGraph();
+                if (assembler.isGraphInitialized()) {
+                    // clear DBG-Bf, c-Bf, pk-Bf, a-Bf
+                    assembler.clearGraph();                    
+                }
+                else {
+                    assembler.initializeGraph(strandSpecific, 
+                            dbgbfSize, cbfSize, pkbfSize, 
+                            dbgbfNumHash, cbfNumHash, pkbfNumHash, true);
+                }
+                
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                 
                 // adjust paired kmer distance
@@ -4019,7 +4003,6 @@ public class RNABloom {
                                                             numThreads,
                                                             sampleSize,
                                                             minTranscriptLength,
-                                                            createFragmentDBG,
                                                             useSingletonFragments,
                                                             txptNamePrefix);
 
@@ -4033,7 +4016,9 @@ public class RNABloom {
                     System.exit(1);
                 }
             }
-            
+            else {
+                System.out.println("WARNING: Transcripts were already assembled!");
+            }
             
         }
         catch (ParseException exp) {
