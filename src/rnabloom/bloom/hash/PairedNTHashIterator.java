@@ -18,6 +18,7 @@ public class PairedNTHashIterator {
     protected final int k;
     protected final int kMod64;
     protected final int h;
+    protected int start = -1;
     protected int pos = -1;
     protected int max = -2;
     protected int d = 0;
@@ -37,9 +38,14 @@ public class PairedNTHashIterator {
     }
     
     public boolean start(CharSequence seq) {
+        return start(seq, 0, seq.length());
+    }
+    
+    public boolean start(CharSequence seq, int start, int end) {
         this.seq = seq;
-        this.pos = -1;
-        this.max = seq.length() - k - d;
+        this.start = start-1;
+        this.pos = this.start;
+        this.max = end - k - d;
         
         return max >= 0;
     }
