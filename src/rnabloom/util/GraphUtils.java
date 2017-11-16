@@ -4182,9 +4182,9 @@ public final class GraphUtils {
                                             HashSet<Kmer2> usedKmers,
                                             float maxCovGradient) {
         
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
-        int distance = graph.getPairedKmerDistance();
+        final int k = graph.getK();
+        final int numHash = graph.getMaxNumHash();
+        final int distance = graph.getPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int numKmers = kmers.size();
                             
@@ -4195,6 +4195,7 @@ public final class GraphUtils {
         }
         
         int partnerIndex = numKmers-distance;
+        final int minFragmentCoverageThreshold = (int) Math.floor(1.0/maxCovGradient);
         
         while (!neighbors.isEmpty()) {
             ArrayDeque<Kmer2> simpleExtension = extendRight(cursor,
@@ -4273,8 +4274,8 @@ public final class GraphUtils {
                     
                     float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
                     float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-                    if (minFragmentCoverage >= 10) {
-                        // only remove neighbors based on coverage when edge coverage is >= 10
+                    if (minFragmentCoverage >= minFragmentCoverageThreshold) {
+                        // only remove neighbors based on coverage when fragment coverage is not too low
                         float minCovThreshold = (float) Math.floor(minFragmentCoverage * maxCovGradient);            
                         itr = neighbors.iterator();
                         while (itr.hasNext()) {
@@ -4367,10 +4368,10 @@ public final class GraphUtils {
                                             BloomFilter assembledKmersBloomFilter,
                                             HashSet<Kmer2> usedKmers,
                                             float maxCovGradient) {
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
+        final int k = graph.getK();
+        final int numHash = graph.getMaxNumHash();
         
-        int distance = graph.getPairedKmerDistance();
+        final int distance = graph.getPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int numKmers = kmers.size();
         
@@ -4382,6 +4383,7 @@ public final class GraphUtils {
         }
         
         int partnerIndex = numKmers-distance;
+        final int minFragmentCoverageThreshold = (int) Math.floor(1.0/maxCovGradient);
         
         while (!neighbors.isEmpty()) {
             ArrayDeque<Kmer2> simpleExtension = extendLeft(cursor,
@@ -4459,8 +4461,8 @@ public final class GraphUtils {
                     
                     float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
                     float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-                    if (minFragmentCoverage >= 10) {
-                        // only remove neighbors based on coverage when edge coverage is >= 10
+                    if (minFragmentCoverage >= minFragmentCoverageThreshold) {
+                        // only remove neighbors based on coverage when fragment coverage is not too low
                         float minCovThreshold = (float) Math.floor(minFragmentCoverage * maxCovGradient);            
                         itr = neighbors.iterator();
                         while (itr.hasNext()) {
