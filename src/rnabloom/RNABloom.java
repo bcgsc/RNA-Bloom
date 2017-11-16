@@ -1316,7 +1316,7 @@ public class RNABloom {
                 while (true) {
                     String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
                     
-//                    fragment = "GATCCTATCACTGAACGAGTAAAGAAGAACATGCAGGACTTCAGTGACATTAACTACCGAGGTATTCAGAGGAAAGTGGTAGAAATGGAACAAAAACGGAATGACCAAGATCAGGAGACTATTACAGGTTTACGTGTCTGGCGTACTAATCCTGGTTCGGTTTTTGACTATGATCCAGCAGAAGACAACATCCAGTCCCGAAGCTTACACATGATTAATGTCCAAGCTCAGCGCCGGAGCCGGGAGCAGTCA";
+//                    fragment = "TCCTGTTTGAAATGAGCAGGCACTCCTTGGAGCAAAAGCCCACTGACGCTCCACCGAAAGATGATTTTTGGATACCAGAAACAAGTTTCATACTTACTATATAGTTGGAATATTTCTGGTTGTTACAATCCCACTGACCTTTGTCTGGC";
                     
                     if (fragment == null) {
                         if (!keepGoing) {
@@ -1367,7 +1367,8 @@ public class RNABloom {
                                     transcripts.put(new Transcript(fragment, fragKmers));
                                 }
 
-    //                            System.out.println(graph.assemble(fragKmers));
+//                                System.out.println(graph.assemble(fragKmers));
+//                                System.out.println("yay");
                             }
                         }
                     }
@@ -3028,19 +3029,19 @@ public class RNABloom {
             
                 writer.setOutputPrefix(txptNamePrefix + "01.L.");
                 System.out.println("Parsing `" + longSingletonsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads, false, true);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads, true, false);
 
                 // extend SHORT singleton fragments
                 
                 writer.setOutputPrefix(txptNamePrefix + "01.S.");
                 System.out.println("Parsing `" + shortSingletonsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads, false, true);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads, true, false);
                 
                 // extend UNCONNECTED reads
                 
                 writer.setOutputPrefix(txptNamePrefix + "01.U.");
                 System.out.println("Parsing `" + unconnectedSingletonsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads, false, true);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads, true, false);
             }
             
             fout.close();
