@@ -1316,7 +1316,7 @@ public class RNABloom {
                 while (true) {
                     String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
                     
-//                    fragment = "TCCTGTTTGAAATGAGCAGGCACTCCTTGGAGCAAAAGCCCACTGACGCTCCACCGAAAGATGATTTTTGGATACCAGAAACAAGTTTCATACTTACTATATAGTTGGAATATTTCTGGTTGTTACAATCCCACTGACCTTTGTCTGGC";
+//                    fragment = "AGGTGACCGGAATGTAGCGACCACTACTCGTGTAACTACTGGTAGACCTACAGTAGGACCTTGGCAAATCTGTCCAAATCAACAAACCGTATTCAAGGGGCAAGTCGGAGTAATTTATGAGATGCTTCCAGCCTCCACTCAACAAAATGCTATCAACGCATTTGTGGAGAATGTGCTATTGAATTCAAACTTCTACGGATTGGCTTTGGATATTCTAACCCATGACAATAGAACACTTGTCACTGCTATTCCATACCCAACAACTGACAAATACAATGTTCAAGGATATGGAAGTGCGAGAAGTGTAGATGAATTTAGAAATCAAGTTATTGCGTTCAATGGAATGATTCAACCTATTTCACAATCCAGCAGTATTTCAGATGCACTTTTGTACGTTACGACCAGTCTGCCAGCTGG";
                     
                     if (fragment == null) {
                         if (!keepGoing) {
@@ -1348,10 +1348,10 @@ public class RNABloom {
                                                         percentIdentity)) {
 
                                 if (includeNaiveExtensions) {
-                                    extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
+                                    extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
                                 }
                                 else {
-                                    extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
+                                    extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
                                 }
 
                                 ArrayDeque<ArrayList<Kmer2>> segments = breakWithPairedKmers(fragKmers, graph);

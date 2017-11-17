@@ -4276,7 +4276,7 @@ public final class GraphUtils {
                     float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
                     if (minFragmentCoverage >= minFragmentCoverageThreshold) {
                         // only remove neighbors based on coverage when fragment coverage is not too low
-                        float minCovThreshold = (float) Math.floor(minFragmentCoverage * maxCovGradient);            
+                        float minCovThreshold = minFragmentCoverage * maxCovGradient;            
                         itr = neighbors.iterator();
                         while (itr.hasNext()) {
                             Kmer2 kmer = itr.next();
@@ -4287,7 +4287,7 @@ public final class GraphUtils {
                         }
                         
                         if (neighbors.size() > 1 && minEdgeCoverage > minFragmentCoverage) {
-                            minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
+                            minCovThreshold = minEdgeCoverage * maxCovGradient;
                             
                             itr = neighbors.iterator();
                             while (itr.hasNext()) {
@@ -4463,7 +4463,7 @@ public final class GraphUtils {
                     float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
                     if (minFragmentCoverage >= minFragmentCoverageThreshold) {
                         // only remove neighbors based on coverage when fragment coverage is not too low
-                        float minCovThreshold = (float) Math.floor(minFragmentCoverage * maxCovGradient);            
+                        float minCovThreshold = minFragmentCoverage * maxCovGradient;            
                         itr = neighbors.iterator();
                         while (itr.hasNext()) {
                             Kmer2 kmer = itr.next();
@@ -4474,7 +4474,7 @@ public final class GraphUtils {
                         }
                         
                         if (neighbors.size() > 1 && minEdgeCoverage > minFragmentCoverage) {
-                            minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
+                            minCovThreshold = minEdgeCoverage * maxCovGradient;
                             
                             itr = neighbors.iterator();
                             while (itr.hasNext()) {
