@@ -1347,12 +1347,14 @@ public class RNABloom {
                                                         maxTipLength,
                                                         percentIdentity)) {
 
-                                if (includeNaiveExtensions) {
-                                    extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
-                                }
-                                else {
-                                    extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
-                                }
+                                extendWithPairedKmersBFS(fragKmers, graph, lookahead, maxTipLength, maxIndelSize, percentIdentity, minNumKmerPairs);
+                                
+//                                if (includeNaiveExtensions) {
+//                                    extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+//                                }
+//                                else {
+//                                    extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+//                                }
 
                                 ArrayDeque<ArrayList<Kmer2>> segments = breakWithPairedKmers(fragKmers, graph);
                                 if (segments.size() > 1) {
