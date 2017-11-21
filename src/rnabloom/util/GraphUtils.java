@@ -3863,6 +3863,190 @@ public final class GraphUtils {
         return false;
     }
     
+    private static ArrayDeque<Kmer2> extendRightWithPairedKmersOnly(Kmer2 kmer,
+                                                        ArrayList<Kmer2> kmers, 
+                                                        BloomFilterDeBruijnGraph graph,
+                                                        int maxLength) {
+        // each extension must be a paired kmer
+        
+        final int distance = graph.getPairedKmerDistance();
+        final int numKmers = kmers.size();
+        
+        ArrayDeque<Kmer2> extension = new ArrayDeque<>();
+        
+        if (numKmers < distance) {
+            return extension;
+        }
+        
+        final int k = graph.getK();
+        final int numHash = graph.getMaxNumHash();
+
+        ArrayDeque<Kmer2> neighbors = kmer.getSuccessors(k, numHash, graph);
+        if (!neighbors.isEmpty()) {
+            int partnerIndex = numKmers-distance+1;
+
+            while (!neighbors.isEmpty()) {            
+                if (partnerIndex >= numKmers || extension.size() >= maxLength) {
+                    break;
+                }
+
+                if (neighbors.isEmpty()) {
+                    break;
+                }
+                else {          
+                    if (!graph.lookupLeftKmer(kmers.get(partnerIndex).getHash())) {
+                        // not a supporting partner
+                        return extension;
+                    }
+
+                    Iterator<Kmer2> itr = neighbors.iterator();
+                    while (itr.hasNext()) {
+                        if (!graph.lookupRightKmer(itr.next().getHash())) {
+                            itr.remove();
+                        }
+                    }
+
+                    if (neighbors.isEmpty()) {
+                        break;
+                    }
+                    else if (neighbors.size() == 1) {
+                        extension.add(neighbors.pop());
+                        ++partnerIndex;
+                    }
+                    else {
+                        itr = neighbors.iterator();
+
+                        ArrayList<Kmer2> f = new ArrayList<>(distance);
+                        for (int i=partnerIndex; i<numKmers; ++i) {
+                            f.add(kmers.get(i));
+                        }
+                        f.addAll(extension);
+
+                        Kmer2 best = itr.next();
+                        ArrayDeque<Kmer2> bestExtension = extendRightWithPairedKmersOnly(best,
+                                                                            f, 
+                                                                            graph,
+                                                                            maxLength - 1 - extension.size());
+
+                        while (itr.hasNext()) {
+                            Kmer2 n = itr.next();
+                            
+                            ArrayDeque<Kmer2> e = extendRightWithPairedKmersOnly(n,
+                                                                            f, 
+                                                                            graph,
+                                                                            maxLength - 1 - extension.size());
+                            
+                            if (e.size() > bestExtension.size()) {
+                                best = n;
+                                bestExtension = e;
+                            }
+                        }
+                        
+                        extension.add(best);
+                        extension.addAll(bestExtension);
+                        partnerIndex += bestExtension.size();
+                    }
+
+                    neighbors = extension.getLast().getSuccessors(k, numHash, graph);
+                }
+            }
+        }
+        
+        return extension;
+    }
+    
+    private static ArrayDeque<Kmer2> extendLeftWithPairedKmersOnly(Kmer2 kmer,
+                                                        ArrayList<Kmer2> kmers, 
+                                                        BloomFilterDeBruijnGraph graph,
+                                                        int maxLength) {
+        // each extension must be a paired kmer
+        
+        final int distance = graph.getPairedKmerDistance();
+        final int numKmers = kmers.size();
+        
+        ArrayDeque<Kmer2> extension = new ArrayDeque<>();
+        
+        if (numKmers < distance) {
+            return extension;
+        }
+        
+        final int k = graph.getK();
+        final int numHash = graph.getMaxNumHash();
+
+        ArrayDeque<Kmer2> neighbors = kmer.getPredecessors(k, numHash, graph);
+        if (!neighbors.isEmpty()) {
+            int partnerIndex = numKmers-distance+1;
+
+            while (!neighbors.isEmpty()) {            
+                if (partnerIndex >= numKmers || extension.size() >= maxLength) {
+                    break;
+                }
+
+                if (neighbors.isEmpty()) {
+                    break;
+                }
+                else {          
+                    if (!graph.lookupRightKmer(kmers.get(partnerIndex).getHash())) {
+                        // not a supporting partner
+                        return extension;
+                    }
+
+                    Iterator<Kmer2> itr = neighbors.iterator();
+                    while (itr.hasNext()) {
+                        if (!graph.lookupLeftKmer(itr.next().getHash())) {
+                            itr.remove();
+                        }
+                    }
+
+                    if (neighbors.isEmpty()) {
+                        break;
+                    }
+                    else if (neighbors.size() == 1) {
+                        extension.add(neighbors.pop());
+                        ++partnerIndex;
+                    }
+                    else {
+                        itr = neighbors.iterator();
+
+                        ArrayList<Kmer2> f = new ArrayList<>(distance);
+                        for (int i=partnerIndex; i<numKmers; ++i) {
+                            f.add(kmers.get(i));
+                        }
+                        f.addAll(extension);
+
+                        Kmer2 best = itr.next();
+                        ArrayDeque<Kmer2> bestExtension = extendLeftWithPairedKmersOnly(best,
+                                                                            f, 
+                                                                            graph,
+                                                                            maxLength - 1 - extension.size());
+
+                        while (itr.hasNext()) {
+                            Kmer2 n = itr.next();
+                            
+                            ArrayDeque<Kmer2> e = extendLeftWithPairedKmersOnly(n,
+                                                                            f, 
+                                                                            graph,
+                                                                            maxLength - 1 - extension.size());
+                            
+                            if (e.size() > bestExtension.size()) {
+                                best = n;
+                                bestExtension = e;
+                            }
+                        }
+                        
+                        extension.add(best);
+                        extension.addAll(bestExtension);
+                        partnerIndex += bestExtension.size();
+                    }
+
+                    neighbors = extension.getLast().getPredecessors(k, numHash, graph);
+                }
+            }
+        }
+        
+        return extension;
+    }
+    
     private static boolean extendRightWithPairedKmersBFS(ArrayList<Kmer2> kmers, 
                                             BloomFilterDeBruijnGraph graph,
                                             int maxTipLength,
