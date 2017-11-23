@@ -69,10 +69,11 @@ public class RNABloom {
     public final static long NUM_BYTES_1KB = (long) 1024;
     
     private int k;
-//    private boolean strandSpecific;
+    private boolean strandSpecific;
     private Pattern seqPattern;
     private Pattern qualPatternDBG;
     private Pattern qualPatternFrag;
+    private Pattern polyATailPattern;
 //    private Pattern homoPolymerKmerPattern;
     private BloomFilterDeBruijnGraph graph = null;
     private BloomFilter screeningBf = null;
@@ -81,6 +82,7 @@ public class RNABloom {
     private int lookahead;
     private float maxCovGradient;
     private int maxIndelSize;
+    private int minPolyATail;
     private float percentIdentity;
     private float percentError;
     private int minNumKmerPairs;
@@ -113,13 +115,16 @@ public class RNABloom {
         }
     }
     
-    public void setParams(int maxTipLength, 
+    public void setParams(boolean strandSpecific,
+            int maxTipLength, 
             int lookahead, 
             float maxCovGradient, 
             int maxIndelSize, 
             float percentIdentity, 
-            int minNumKmerPairs) {
+            int minNumKmerPairs,
+            int minPolyATail) {
         
+        this.strandSpecific = strandSpecific;
         this.maxTipLength = maxTipLength;
         this.lookahead = lookahead;
         this.maxCovGradient = maxCovGradient;
@@ -127,6 +132,16 @@ public class RNABloom {
         this.percentIdentity = percentIdentity;
         this.percentError = 1.0f - percentIdentity;
         this.minNumKmerPairs = minNumKmerPairs;
+        this.minPolyATail = minPolyATail;
+        
+        if (minPolyATail > 0) {
+            if (strandSpecific) {
+                polyATailPattern = getPolyATailPattern(minPolyATail);
+            }
+            else {
+                polyATailPattern = getPolyTHeadOrPolyATailPattern(minPolyATail);
+            }
+        }
     }
     
     private void handleException(Exception ex) {
@@ -1246,11 +1261,19 @@ public class RNABloom {
                                 maxTipLength,
                                 percentIdentity)) {
 
+                String transcript = graph.assemble(transcriptKmers);
+                
+                if (minPolyATail > 0) {
+                    if (!polyATailPattern.matcher(transcript).matches()) {
+                        // skip this transcript because it does not contain poly A tail
+                        return;
+                    }
+                }
+                
                 for (Kmer2 kmer : transcriptKmers) {
                     screeningBf.add(kmer.getHash());
                 }
-
-                String transcript = graph.assemble(transcriptKmers);
+                
                 int len = transcript.length();
                 
                 if (len >= minTranscriptLength) {
@@ -1271,11 +1294,19 @@ public class RNABloom {
                                 maxTipLength,
                                 percentIdentity)) {
 
+                String transcript = graph.assemble(transcriptKmers);
+                
+                if (minPolyATail > 0) {
+                    if (!polyATailPattern.matcher(transcript).matches()) {
+                        // skip this transcript because it does not contain poly A tail
+                        return;
+                    }
+                }
+                
                 for (Kmer2 kmer : transcriptKmers) {
                     screeningBf.add(kmer.getHash());
                 }
-
-                String transcript = graph.assemble(transcriptKmers);
+                
                 int len = transcript.length();
                 
                 if (len >= minTranscriptLength) {
@@ -1328,6 +1359,13 @@ public class RNABloom {
 //                            System.out.println(fragment);
 //                        }
                         
+                        if (minPolyATail > 0) {
+                            if (!polyATailPattern.matcher(fragment).matches()) {
+                                // skip this fragment because it does not contain poly A tail
+                                continue;
+                            }
+                        }
+
                         ArrayList<Kmer2> fragKmers = graph.getKmers(fragment);
                         
                         if (!fragKmers.isEmpty()) {
@@ -2989,7 +3027,12 @@ public class RNABloom {
 
         try {
 
-            System.out.println("Assembling transcripts...");
+            if (minPolyATail > 0) {
+                System.out.println("Assembling polyadenylated transcripts only...");
+            }
+            else {
+                System.out.println("Assembling transcripts...");
+            }
         
 
             FastaWriter fout = new FastaWriter(outFasta, false);
@@ -3467,6 +3510,14 @@ public class RNABloom {
                                     .build();
         options.addOption(optMinLength);  
         
+        Option optPolyATail = Option.builder("a")
+                                    .longOpt("polya")
+                                    .desc("only assemble transcripts with poly-A tails of the minimum length specified")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optPolyATail);  
+        
         Option optHelp = Option.builder("h")
                                     .longOpt("help")
                                     .desc("print this message and exits")
@@ -3610,6 +3661,7 @@ public class RNABloom {
             int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
+            int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), "0"));
             boolean useSingletonFragments = line.hasOption(optSingleton.getOpt());
             boolean extendFragments = line.hasOption(optExtend.getOpt());
             int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
@@ -3636,7 +3688,7 @@ public class RNABloom {
             }
 
             RNABloom assembler = new RNABloom(k, qDBG, qFrag);
-            assembler.setParams(maxTipLen, lookahead, maxCovGradient, maxIndelSize, percentIdentity, minNumKmerPairs);
+            assembler.setParams(strandSpecific, maxTipLen, lookahead, maxCovGradient, maxIndelSize, percentIdentity, minNumKmerPairs, minPolyATail);
 
             try {
                 touch(startedStamp);

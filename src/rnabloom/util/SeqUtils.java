@@ -644,6 +644,18 @@ public final class SeqUtils {
                               "|(?:T{" + length + "})");
     }
     
+    public static Pattern getPolyATailPattern(int minLength) {
+        return Pattern.compile("^.*A{" + minLength + "}$");
+    }
+
+    public static Pattern getPolyTHeadPattern(int minLength) {
+        return Pattern.compile("^T{" + minLength + "}.*$");
+    }
+    
+    public static Pattern getPolyTHeadOrPolyATailPattern(int minLength) {
+        return Pattern.compile("^T{" + minLength + "}.*$|^.*A{" + minLength + "}$");
+    }
+    
     public static boolean isHomoPolymer(String seq) {
         char c = seq.charAt(0);
         
@@ -755,11 +767,19 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        String left = "GACCATCCTGGCCAATGTGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCTGGGCGTGGTGGCGCACACCTGTAGTCCCAGCTACTTGGGAGGC";
-        String right = "GCACTCCATCCTGGCAACAGAGCGAGACTCCATCTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAT";
+        String left = "TTTTTGTGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCTGGGCGTGGTGGCGCACACCTGTAGTCCCAGCTACTTGGGAGGC";
+        String right = "GCACTCCATCCTGGCAACAGAGCGAGACTCCATCTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
         
-        String trimmed = chompRightPolyX(right, 25, 1);
+//        Pattern polyAPattern = getPolyATailPattern(4);
+        Pattern polyAPattern = getPolyTHeadOrPolyATailPattern(4);
+
+        if (polyAPattern.matcher(right).matches()) {
+            System.out.println(right);        
+        }
         
-        System.out.println(trimmed);        
+        if (polyAPattern.matcher(left).matches()) {
+            System.out.println(left);        
+        }
     }
 }
