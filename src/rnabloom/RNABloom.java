@@ -1347,14 +1347,14 @@ public class RNABloom {
                                                         maxTipLength,
                                                         percentIdentity)) {
 
-                                extendWithPairedKmersBFS(fragKmers, graph, lookahead, maxTipLength, maxIndelSize, percentIdentity, minNumKmerPairs);
+//                                extendWithPairedKmersBFS(fragKmers, graph, lookahead, maxTipLength, maxIndelSize, percentIdentity, minNumKmerPairs);
                                 
-//                                if (includeNaiveExtensions) {
-//                                    extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
-//                                }
-//                                else {
-//                                    extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
-//                                }
+                                if (includeNaiveExtensions) {
+                                    extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+                                }
+                                else {
+                                    extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, 0.1f);
+                                }
 
                                 ArrayDeque<ArrayList<Kmer2>> segments = breakWithPairedKmers(fragKmers, graph);
                                 if (segments.size() > 1) {
@@ -1707,7 +1707,7 @@ public class RNABloom {
 
 //                        if (!graph.isLowComplexity(leftKmers.get(leftKmers.size()-1)) &&  
 //                                !graph.isLowComplexity(rightKmers.get(0))) {
-                            fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap, maxCovGradient, false);
+                            fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap, maxCovGradient, true);
 //                        }
 
                         if (fragmentKmers != null) {
