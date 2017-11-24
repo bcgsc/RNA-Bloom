@@ -3020,7 +3020,7 @@ public class RNABloom {
                                                 int numThreads,
                                                 int sampleSize,
                                                 int minTranscriptLength,
-                                                boolean useSingletonFragments,
+                                                boolean sensitiveMode,
                                                 String txptNamePrefix) {
         
         long numFragmentsParsed = 0;
@@ -3043,11 +3043,15 @@ public class RNABloom {
             
             // extend LONG fragments
             
+            boolean allowNaiveExtension = true;
+            boolean extendBranchFreeOnly = false;
+            
             for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".L.");
                 fragmentsFasta = longFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
+                                                                            allowNaiveExtension, extendBranchFreeOnly);
             }          
 
             // extend SHORT fragments
@@ -3056,7 +3060,8 @@ public class RNABloom {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".S.");
                 fragmentsFasta = shortFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
+                                                                            allowNaiveExtension, extendBranchFreeOnly);
             }
             
             // extend UNCONNECTED reads
@@ -3065,29 +3070,36 @@ public class RNABloom {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".U.");
                 fragmentsFasta = unconnectedReadsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads, true, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
+                                                                            allowNaiveExtension, extendBranchFreeOnly);
             }
             
-            if (useSingletonFragments) {
-
-                // extend LONG singleton fragments
-            
-                writer.setOutputPrefix(txptNamePrefix + "01.L.");
-                System.out.println("Parsing `" + longSingletonsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads, true, false);
-
-                // extend SHORT singleton fragments
-                
-                writer.setOutputPrefix(txptNamePrefix + "01.S.");
-                System.out.println("Parsing `" + shortSingletonsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads, true, false);
-                
-                // extend UNCONNECTED reads
-                
-                writer.setOutputPrefix(txptNamePrefix + "01.U.");
-                System.out.println("Parsing `" + unconnectedSingletonsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads, true, false);
+            if (!sensitiveMode) {
+                // be very careful with extending singleton fragments
+                allowNaiveExtension = false;
+                extendBranchFreeOnly = true;
             }
+
+            // extend LONG singleton fragments
+
+            writer.setOutputPrefix(txptNamePrefix + "01.L.");
+            System.out.println("Parsing `" + longSingletonsFasta + "`...");
+            numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads,
+                                                                        allowNaiveExtension, extendBranchFreeOnly);
+
+            // extend SHORT singleton fragments
+
+            writer.setOutputPrefix(txptNamePrefix + "01.S.");
+            System.out.println("Parsing `" + shortSingletonsFasta + "`...");
+            numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads,
+                                                                        allowNaiveExtension, extendBranchFreeOnly);
+
+            // extend UNCONNECTED reads
+
+            writer.setOutputPrefix(txptNamePrefix + "01.U.");
+            System.out.println("Parsing `" + unconnectedSingletonsFasta + "`...");
+            numFragmentsParsed += extendFragmentsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads,
+                                                                        allowNaiveExtension, extendBranchFreeOnly);
             
             fout.close();
             foutShort.close();
@@ -3487,12 +3499,12 @@ public class RNABloom {
 //                                    .build();
 //        options.addOption(optFdbg);
 
-        Option optSingleton = Option.builder("1")
-                                    .longOpt("singleton")
-                                    .desc("assemble transcripts from singleton fragments")
+        Option optSensitive = Option.builder("sensitive")
+                                    .longOpt("sensitive")
+                                    .desc("assemble transcripts in sensitive mode")
                                     .hasArg(false)
                                     .build();
-        options.addOption(optSingleton);
+        options.addOption(optSensitive);
         
         Option optMinKmerPairs = Option.builder("pair")
                                     .longOpt("pair")
@@ -3662,7 +3674,7 @@ public class RNABloom {
             int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
             int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
             int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), "0"));
-            boolean useSingletonFragments = line.hasOption(optSingleton.getOpt());
+            boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
             boolean extendFragments = line.hasOption(optExtend.getOpt());
             int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
             String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), "");
@@ -4058,7 +4070,7 @@ public class RNABloom {
                                                             numThreads,
                                                             sampleSize,
                                                             minTranscriptLength,
-                                                            useSingletonFragments,
+                                                            sensitiveMode,
                                                             txptNamePrefix);
 
                 System.out.println("Transcripts assembled in `" + transcriptsFasta + "`");
