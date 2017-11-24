@@ -656,6 +656,37 @@ public final class SeqUtils {
         return Pattern.compile("^T{" + minLength + "}.*$|^.*A{" + minLength + "}$");
     }
     
+    public static final String[] POLY_A_SIGNALS = {"AATAAA", "ATTAAA", "AGTAAA", "TATAAA",
+                                                   "CATAAA", "GATAAA", "AATATA", "AATACA",
+                                                   "AATAGA", "AAAAAG", "ACTAAA", "AAGAAA",
+                                                   "AATGAA", "TTTAAA", "AAAACA", "GGGGCT"};
+    
+    public static Pattern getPolyASignalPattern() {
+        StringBuilder sb = new StringBuilder();
+        
+        sb.append(POLY_A_SIGNALS[0]);
+        
+        for (int i=1; i<POLY_A_SIGNALS.length; ++i) {
+            sb.append("|");
+            sb.append(POLY_A_SIGNALS[i]);
+        }
+        
+        return Pattern.compile(sb.toString());
+    }
+    
+    public static Pattern getPolyASignalReverseComplementPattern() {
+        StringBuilder sb = new StringBuilder();
+        
+        sb.append(reverseComplement(POLY_A_SIGNALS[0]));
+        
+        for (int i=1; i<POLY_A_SIGNALS.length; ++i) {
+            sb.append("|");
+            sb.append(reverseComplement(POLY_A_SIGNALS[i]));
+        }
+        
+        return Pattern.compile(sb.toString());
+    }
+    
     public static boolean isHomoPolymer(String seq) {
         char c = seq.charAt(0);
         
@@ -767,19 +798,21 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        String left = "TTTTTGTGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCTGGGCGTGGTGGCGCACACCTGTAGTCCCAGCTACTTGGGAGGC";
-        String right = "GCACTCCATCCTGGCAACAGAGCGAGACTCCATCTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        String right = "GCACTCAATAAACATCCTGGCAACAGAGCGAGACTCCATCTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
         
-//        Pattern polyAPattern = getPolyATailPattern(4);
-        Pattern polyAPattern = getPolyTHeadOrPolyATailPattern(4);
+        Pattern polyAPattern = getPolyATailPattern(4);
+//        Pattern polyAPattern = getPolyTHeadOrPolyATailPattern(4);
+        Pattern pasPattern = getPolyASignalPattern();
 
+        
         if (polyAPattern.matcher(right).matches()) {
-            System.out.println(right);        
-        }
-        
-        if (polyAPattern.matcher(left).matches()) {
-            System.out.println(left);        
+            Matcher m = pasPattern.matcher(right);
+            
+            System.out.println(right);
+            while (m.find()) {
+                System.out.println(m.start());
+            }
         }
     }
 }
