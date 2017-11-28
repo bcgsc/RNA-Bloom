@@ -3039,16 +3039,15 @@ public class RNABloom {
             FastaWriter foutShort = new FastaWriter(outFastaShort, false);
             TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength);
 
-            String fragmentsFasta;
-            
-            // extend LONG fragments
-            
+   
             boolean allowNaiveExtension = true;
             boolean extendBranchFreeOnly = false;
             
-            for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
+            // extend LONG fragments
+            
+            for (int mag=longFragmentsFastas.length-1; mag>0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".L.");
-                fragmentsFasta = longFragmentsFastas[mag];
+                String fragmentsFasta = longFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                             allowNaiveExtension, extendBranchFreeOnly);
@@ -3056,9 +3055,9 @@ public class RNABloom {
 
             // extend SHORT fragments
             
-            for (int mag=shortFragmentsFastas.length-1; mag>=0; --mag) {
+            for (int mag=shortFragmentsFastas.length-1; mag>0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".S.");
-                fragmentsFasta = shortFragmentsFastas[mag];
+                String fragmentsFasta = shortFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                             allowNaiveExtension, extendBranchFreeOnly);
@@ -3066,20 +3065,49 @@ public class RNABloom {
             
             // extend UNCONNECTED reads
             
-            for (int mag=unconnectedReadsFastas.length-1; mag>=0; --mag) {
+            for (int mag=unconnectedReadsFastas.length-1; mag>0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".U.");
-                fragmentsFasta = unconnectedReadsFastas[mag];
+                String fragmentsFasta = unconnectedReadsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                             allowNaiveExtension, extendBranchFreeOnly);
             }
             
+            
             if (!sensitiveMode) {
-                // be very careful with extending singleton fragments
+                System.out.println("Sensitive assembly mode is ON...");
+                
+                // be extra careful with extending low coverage fragments (ie. 01, E0)
                 allowNaiveExtension = false;
                 extendBranchFreeOnly = true;
             }
 
+            
+            // extend LONG fragments
+            
+            writer.setOutputPrefix(txptNamePrefix + "E0.L.");
+            String fragmentsFasta = longFragmentsFastas[0];
+            System.out.println("Parsing `" + fragmentsFasta + "`...");
+            numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
+                                                                        allowNaiveExtension, extendBranchFreeOnly);
+
+            // extend SHORT fragments
+            
+            writer.setOutputPrefix(txptNamePrefix + "E0.S.");
+            fragmentsFasta = shortFragmentsFastas[0];
+            System.out.println("Parsing `" + fragmentsFasta + "`...");
+            numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
+                                                                        allowNaiveExtension, extendBranchFreeOnly);
+            
+            // extend UNCONNECTED reads
+
+            writer.setOutputPrefix(txptNamePrefix + "E0.U.");
+            fragmentsFasta = unconnectedReadsFastas[0];
+            System.out.println("Parsing `" + fragmentsFasta + "`...");
+            numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
+                                                                        allowNaiveExtension, extendBranchFreeOnly);
+
+            
             // extend LONG singleton fragments
 
             writer.setOutputPrefix(txptNamePrefix + "01.L.");
