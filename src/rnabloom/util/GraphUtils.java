@@ -4757,7 +4757,7 @@ public final class GraphUtils {
 //            maxDepth = Math.min(distance/2, maxDepth);
 //        }
         
-        maxDepth = Math.min(maxDepth, k);
+//        maxDepth = Math.min(maxDepth, k);
         
 //        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
         
@@ -4936,7 +4936,7 @@ public final class GraphUtils {
 //        if (minEdgeCoverage >= k && maxDepth > k) {
 //            maxDepth = Math.min(distance/2, maxDepth);
 //        }
-        maxDepth = Math.min(maxDepth, k);
+//        maxDepth = Math.min(maxDepth, k);
 
 //        float minCovThreshold = (float) Math.floor(minEdgeCoverage * maxCovGradient);
         
