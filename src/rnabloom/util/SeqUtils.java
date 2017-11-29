@@ -641,19 +641,19 @@ public final class SeqUtils {
         return Pattern.compile("(?:A{" + length + "})" +
                               "|(?:C{" + length + "})" +
                               "|(?:G{" + length + "})" +
-                              "|(?:T{" + length + "})");
+                              "|(?:T{" + length + "})", Pattern.CASE_INSENSITIVE);
     }
     
     public static Pattern getPolyATailPattern(int minLength) {
-        return Pattern.compile("^.*A{" + minLength + "}$");
+        return Pattern.compile("^.*A{" + minLength + "}$", Pattern.CASE_INSENSITIVE);
     }
 
     public static Pattern getPolyTHeadPattern(int minLength) {
-        return Pattern.compile("^T{" + minLength + "}.*$");
+        return Pattern.compile("^T{" + minLength + "}.*$", Pattern.CASE_INSENSITIVE);
     }
     
     public static Pattern getPolyTHeadOrPolyATailPattern(int minLength) {
-        return Pattern.compile("^T{" + minLength + "}.*$|^.*A{" + minLength + "}$");
+        return Pattern.compile("^T{" + minLength + "}.*$|^.*A{" + minLength + "}$", Pattern.CASE_INSENSITIVE);
     }
     
     public static final String[] POLY_A_SIGNALS = {"AATAAA", "ATTAAA", "AGTAAA", "TATAAA",
@@ -671,7 +671,7 @@ public final class SeqUtils {
             sb.append(POLY_A_SIGNALS[i]);
         }
         
-        return Pattern.compile(sb.toString());
+        return Pattern.compile(sb.toString(), Pattern.CASE_INSENSITIVE);
     }
     
     public static Pattern getPolyASignalReverseComplementPattern() {
@@ -684,7 +684,7 @@ public final class SeqUtils {
             sb.append(reverseComplement(POLY_A_SIGNALS[i]));
         }
         
-        return Pattern.compile(sb.toString());
+        return Pattern.compile(sb.toString(), Pattern.CASE_INSENSITIVE);
     }
     
     public static boolean isHomoPolymer(String seq) {
