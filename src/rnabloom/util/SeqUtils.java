@@ -634,7 +634,7 @@ public final class SeqUtils {
     }
     
     public static Pattern getNucleotideCharsPattern(int minLength) {
-        return Pattern.compile("[ACTG]{" + Integer.toString(minLength) + ",}");
+        return Pattern.compile("[ACGT]{" + Integer.toString(minLength) + ",}", Pattern.CASE_INSENSITIVE);
     }
     
     public static Pattern getHomoPolymerPattern(int length) {
