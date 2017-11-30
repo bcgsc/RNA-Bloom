@@ -6,6 +6,7 @@
 package rnabloom.util;
 
 import java.util.AbstractCollection;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -638,29 +639,33 @@ public final class SeqUtils {
     }
     
     public static Pattern getHomoPolymerPattern(int length) {
-        return Pattern.compile("(?:A{" + length + "})" +
-                              "|(?:C{" + length + "})" +
-                              "|(?:G{" + length + "})" +
-                              "|(?:T{" + length + "})", Pattern.CASE_INSENSITIVE);
+        return Pattern.compile("(?:A{" + length + ",})" +
+                              "|(?:C{" + length + ",})" +
+                              "|(?:G{" + length + ",})" +
+                              "|(?:T{" + length + ",})", Pattern.CASE_INSENSITIVE);
     }
     
     public static Pattern getPolyATailPattern(int minLength) {
-        return Pattern.compile("^.*A{" + minLength + "}$", Pattern.CASE_INSENSITIVE);
+        return Pattern.compile("^.*A{" + minLength + ",}$", Pattern.CASE_INSENSITIVE);
+    }
+    
+    public static Pattern getPolyATailMatchingPattern(int minLength) {
+        return Pattern.compile("A{" + minLength + ",}$", Pattern.CASE_INSENSITIVE);
     }
 
     public static Pattern getPolyTHeadPattern(int minLength) {
-        return Pattern.compile("^T{" + minLength + "}.*$", Pattern.CASE_INSENSITIVE);
+        return Pattern.compile("^T{" + minLength + ",}.*$", Pattern.CASE_INSENSITIVE);
     }
     
     public static Pattern getPolyTHeadOrPolyATailPattern(int minLength) {
-        return Pattern.compile("^T{" + minLength + "}.*$|^.*A{" + minLength + "}$", Pattern.CASE_INSENSITIVE);
+        return Pattern.compile("^T{" + minLength + ",}.*$|^.*A{" + minLength + ",}$", Pattern.CASE_INSENSITIVE);
     }
     
     public static final String[] POLY_A_SIGNALS = {"AATAAA", "ATTAAA", "AGTAAA", "TATAAA",
                                                    "CATAAA", "GATAAA", "AATATA", "AATACA",
                                                    "AATAGA", "AAAAAG", "ACTAAA", "AAGAAA",
                                                    "AATGAA", "TTTAAA", "AAAACA", "GGGGCT"};
-    
+        
     public static Pattern getPolyASignalPattern() {
         StringBuilder sb = new StringBuilder();
         
@@ -685,6 +690,25 @@ public final class SeqUtils {
         }
         
         return Pattern.compile(sb.toString(), Pattern.CASE_INSENSITIVE);
+    }
+    
+    public static ArrayDeque<Integer> getPolyASignalPositions(String seq, Pattern pasPattern, Pattern tailPattern) {
+        ArrayDeque<Integer> positions = new ArrayDeque<>();
+        
+        Matcher tailMatcher = tailPattern.matcher(seq);
+        if (tailMatcher.find()) {
+            int tailStartPos = tailMatcher.start();
+            
+            if (tailStartPos > 10) {                Matcher pasMatcher = pasPattern.matcher(seq);
+                pasMatcher.region(Math.max(0, tailStartPos-50), tailStartPos-10);
+
+                while (pasMatcher.find()) {
+                    positions.add(pasMatcher.start());
+                }
+            }
+        }
+        
+        return positions;
     }
     
     public static boolean isHomoPolymer(String seq) {
@@ -798,21 +822,13 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        String right = "GCACTCAATAAACATCCTGGCAACAGAGCGAGACTCCATCTCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        String seq = "AACCAGGCGGCTGCGGAAAAAAAAAAGCGGGGAGAAAGTAGGGCCCGGCTACTAGCGGTTTTACGGGCGCACGTAGCTCAGGCCTCAAGACCTTGGGCTGGGACTGGCTGAGCCTGGCGGGAGGCGGGGTCCGAGTCACCGCCTGCCGCCGCGCCCCCGGTTTCTATAAATTGAGCCCGCAGCCTCCCGCTTCGCTCTCTGCTCCTCCTGTTCGACAGTCAGCCGCATCTTCTTTTGCGTCGCCAGCCGAGCCACATCGCTCAGACACCATGGGGAAGGTGAAGGTCGGAGTCAACGGATTTGGTCGTATTGGGCGCCTGGTCACCAGGGCTGCTTTTAACTCTGGTAAAGTGGATATTGTTGCCATCAATGACCCCTTCATTGACCTCAACTACATGGTTTACATGTTCCAATATGATTCCACCCATGGCAAATTCCATGGCACCGTCAAGGCTGAGAACGGGAAGCTTGTCATCAATGGAAATCCCATCACCATCTTCCAGGAGCGAGATCCCTCCAAAATCAAGTGGGGCGATGCTGGCGCTGAGTACGTCGTGGAGTCCACTGGCGTCTTCACCACCATGGAGAAGGCTGGGGCTCATTTGCAGGGGGGAGCCAAAAGGGTCATCATCTCTGCCCCCTCTGCTGATGCCCCCATGTTCGTCATGGGTGTGAACCATGAGAAGTATGACAACAGCCTCAAGATCATCAGCAATGCCTCCTGCACCACCAACTGCTTAGCACCCCTGGCCAAGGTCATCCATGACAACTTTGGTATCGTGGAAGGACTCATGACCACAGTCCATGCCATCACTGCCACCCAGAAGACTGTGGATGGCCCCTCCGGGAAACTGTGGCGTGATGGCCGCGGGGCTCTCCAGAACATCATCCCTGCCTCTACTGGCGCTGCCAAGGCTGTGGGCAAGGTCATCCCTGAGCTGAACGGGAAGCTCACTGGCATGGCCTTCCGTGTCCCCACTGCCAACGTGTCAGTGGTGGACCTGACCTGCCGTCTAGAAAAACCTGCCAAATATGATGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACACCCACTCCTCCACCTTTGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTTGTCAAGCTCATTTCCTGGTATGACAACGAATTTGGCTACAGCAACAGGGTGGTGGACCTCATGGCCCACATGGCCTCCAAGGAGTAAGACCCCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTCACTGCTGGGGAGTCCCTGCCACACTCAGTCCCCCACCACACTGAATCTCCCCTCCTCACAGTTGCCATGTAGACCCCTTGAAGAGGGGAGGGGCCTAGGGAGCCGCACCTTGTCATGTACCATCAATAAAGTACCCTGTGCTCAACCAAAAAAAAAAA";
 
         
-        Pattern polyAPattern = getPolyATailPattern(4);
-//        Pattern polyAPattern = getPolyTHeadOrPolyATailPattern(4);
+        Pattern tailPattern = getPolyATailMatchingPattern(4);
         Pattern pasPattern = getPolyASignalPattern();
-
         
-        if (polyAPattern.matcher(right).matches()) {
-            Matcher m = pasPattern.matcher(right);
-            
-            System.out.println(right);
-            while (m.find()) {
-                System.out.println(m.start());
-            }
-        }
+        ArrayDeque<Integer> queue = getPolyASignalPositions(seq, pasPattern, tailPattern);
+        
     }
 }
