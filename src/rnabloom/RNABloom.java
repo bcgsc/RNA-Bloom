@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -74,6 +75,10 @@ public class RNABloom {
     private Pattern qualPatternDBG;
     private Pattern qualPatternFrag;
     private Pattern polyATailPattern;
+    private Pattern polyATailOnlyPattern;
+    private Pattern polyATailOnlyMatchingPattern;
+    private Pattern polyTHeadOnlyPattern;
+    private Pattern polyASignalPattern;
 //    private Pattern homoPolymerKmerPattern;
     private BloomFilterDeBruijnGraph graph = null;
     private BloomFilter screeningBf = null;
@@ -82,7 +87,7 @@ public class RNABloom {
     private int lookahead;
     private float maxCovGradient;
     private int maxIndelSize;
-    private int minPolyATail;
+    private int minPolyATailLengthRequired;
     private float percentIdentity;
     private float percentError;
     private int minNumKmerPairs;
@@ -132,11 +137,17 @@ public class RNABloom {
         this.percentIdentity = percentIdentity;
         this.percentError = 1.0f - percentIdentity;
         this.minNumKmerPairs = minNumKmerPairs;
-        this.minPolyATail = minPolyATail;
+        this.minPolyATailLengthRequired = minPolyATail;
         
         if (minPolyATail > 0) {
+            polyATailOnlyPattern = getPolyATailPattern(minPolyATail);
+            polyTHeadOnlyPattern = getPolyTHeadPattern(minPolyATail);
+            
+            polyASignalPattern = getPolyASignalPattern();
+            polyATailOnlyMatchingPattern = getPolyATailMatchingPattern(minPolyATail);
+            
             if (strandSpecific) {
-                polyATailPattern = getPolyATailPattern(minPolyATail);
+                polyATailPattern = polyATailOnlyPattern;
             }
             else {
                 polyATailPattern = getPolyTHeadOrPolyATailPattern(minPolyATail);
@@ -1252,38 +1263,38 @@ public class RNABloom {
             this.prefix = prefix;
         }
         
-        public void write(ArrayList<Kmer2> transcriptKmers) throws IOException {
-            if (!represented(transcriptKmers,
-                                graph,
-                                screeningBf,
-                                lookahead,
-                                maxIndelSize,
-                                maxTipLength,
-                                percentIdentity)) {
-
-                String transcript = graph.assemble(transcriptKmers);
-                
-                if (minPolyATail > 0) {
-                    if (!polyATailPattern.matcher(transcript).matches()) {
-                        // skip this transcript because it does not contain poly A tail
-                        return;
-                    }
-                }
-                
-                for (Kmer2 kmer : transcriptKmers) {
-                    screeningBf.add(kmer.getHash());
-                }
-                
-                int len = transcript.length();
-                
-                if (len >= minTranscriptLength) {
-                    fout.write(prefix +  Long.toString(++cid) + " l=" + len, transcript);
-                }
-                else {
-                    foutShort.write(prefix +  Long.toString(++cid) + " l=" + len, transcript);
-                }
-            }
-        }
+//        public void write(ArrayList<Kmer2> transcriptKmers) throws IOException {
+//            if (!represented(transcriptKmers,
+//                                graph,
+//                                screeningBf,
+//                                lookahead,
+//                                maxIndelSize,
+//                                maxTipLength,
+//                                percentIdentity)) {
+//
+//                String transcript = graph.assemble(transcriptKmers);
+//                
+//                if (minPolyATailLengthRequired > 0) {
+//                    if (!polyATailPattern.matcher(transcript).matches()) {
+//                        // skip this transcript because it does not contain poly A tail
+//                        return;
+//                    }
+//                }
+//                
+//                for (Kmer2 kmer : transcriptKmers) {
+//                    screeningBf.add(kmer.getHash());
+//                }
+//                
+//                int len = transcript.length();
+//                
+//                if (len >= minTranscriptLength) {
+//                    fout.write(prefix +  Long.toString(++cid) + " l=" + len, transcript);
+//                }
+//                else {
+//                    foutShort.write(prefix +  Long.toString(++cid) + " l=" + len, transcript);
+//                }
+//            }
+//        }
         
         public void write(String fragment, ArrayList<Kmer2> transcriptKmers) throws IOException {
             if (!represented(transcriptKmers,
@@ -1295,25 +1306,102 @@ public class RNABloom {
                                 percentIdentity)) {
 
                 String transcript = graph.assemble(transcriptKmers);
+                ArrayDeque<Integer> pasPositions = null;
                 
-                if (minPolyATail > 0) {
-                    if (!polyATailPattern.matcher(transcript).matches()) {
-                        // skip this transcript because it does not contain poly A tail
-                        return;
+                if (minPolyATailLengthRequired > 0) {
+                    boolean hasPolyATail = polyATailOnlyPattern.matcher(transcript).matches();
+                    boolean hasPolyTHead = false;
+                    
+                    if (strandSpecific) {
+                        if (!hasPolyATail) {
+                            // skip this transcript because it does not contain poly A tail
+                            return;
+                        }
+                        
+                        pasPositions = getPolyASignalPositions(transcript, polyASignalPattern, polyATailOnlyMatchingPattern);
+                    }
+                    else {
+                        hasPolyTHead = polyTHeadOnlyPattern.matcher(transcript).matches();
+                        
+                        if (!hasPolyATail && !hasPolyTHead) {
+                            return;
+                        }
+                        
+                        if (hasPolyATail) {
+                            pasPositions = getPolyASignalPositions(transcript, polyASignalPattern, polyATailOnlyMatchingPattern);
+                        }
+                        
+                        if (hasPolyTHead && (pasPositions == null || pasPositions.isEmpty())) {
+                            String transcriptRC = reverseComplement(transcript);
+                            
+                            pasPositions = getPolyASignalPositions(transcriptRC, polyASignalPattern, polyATailOnlyMatchingPattern);
+                            
+                            if (!pasPositions.isEmpty()) {
+                                transcript = transcriptRC;
+                            }
+                        }
                     }
                 }
-                
+                                
                 for (Kmer2 kmer : transcriptKmers) {
                     screeningBf.add(kmer.getHash());
                 }
                 
                 int len = transcript.length();
                 
+                StringBuilder headerBuilder = new StringBuilder();
+                headerBuilder.append(prefix);
+                headerBuilder.append(++cid);
+                headerBuilder.append(" l=");
+                headerBuilder.append(len);
+                headerBuilder.append(" F=[");
+                headerBuilder.append(fragment);
+                headerBuilder.append("]");
+                
+                if (minPolyATailLengthRequired > 0) {
+                    // add PAS and their positions to header
+                    headerBuilder.append(" PAS=[");                    
+                    
+                    if (pasPositions != null && !pasPositions.isEmpty()) {
+                        Iterator<Integer> itr = pasPositions.iterator();
+
+                        int pasPos = itr.next();
+
+                        headerBuilder.append(pasPos);
+                        headerBuilder.append(':');
+                        headerBuilder.append(transcript.substring(pasPos, pasPos+6));
+
+                        while (itr.hasNext()) {
+                            headerBuilder.append(",");
+
+                            pasPos = itr.next();
+
+                            headerBuilder.append(pasPos);
+                            headerBuilder.append(':');
+                            headerBuilder.append(transcript.substring(pasPos, pasPos+6));
+                        }
+
+                        // mask PAS in transcript
+                        StringBuilder transcriptSB = new StringBuilder(transcript);
+
+                        for (int p : pasPositions) {
+                            for (int i=0; i<6; ++i) {
+                                char c = transcript.charAt(p+i);
+                                transcriptSB.setCharAt(p+i, Character.toLowerCase(c));
+                            }
+                        }
+
+                        transcript = transcriptSB.toString();
+                    }
+                    
+                    headerBuilder.append("]");
+                }
+                
                 if (len >= minTranscriptLength) {
-                    fout.write(prefix +  Long.toString(++cid) + " l=" + len + " F=[" + fragment + "]", transcript);
+                    fout.write(headerBuilder.toString(), transcript);
                 }
                 else {
-                    foutShort.write(prefix +  Long.toString(++cid) + " l=" + len + " F=[" + fragment + "]", transcript);
+                    foutShort.write(headerBuilder.toString(), transcript);
                 }
             }
         }
@@ -1359,7 +1447,7 @@ public class RNABloom {
 //                            System.out.println(fragment);
 //                        }
                         
-                        if (minPolyATail > 0) {
+                        if (minPolyATailLengthRequired > 0) {
                             if (!polyATailPattern.matcher(fragment).matches()) {
                                 // skip this fragment because it does not contain poly A tail
                                 continue;
@@ -3027,7 +3115,7 @@ public class RNABloom {
 
         try {
 
-            if (minPolyATail > 0) {
+            if (minPolyATailLengthRequired > 0) {
                 System.out.println("Assembling polyadenylated transcripts only...");
             }
             else {
