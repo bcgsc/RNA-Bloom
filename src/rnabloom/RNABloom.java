@@ -2137,6 +2137,15 @@ public class RNABloom {
                                     break;
                                 }
 
+                                if (frag.minCov >= 2) {
+                                    /*
+                                    When reads were parsed at k2, kmers common to both fragments and reads have counts incremented by 1.
+                                    Kmers unique to fragments would have a count of 1.
+                                    So, min kmer counts >= 2 need to be decremented by 1 when assigning fragments.
+                                    */ 
+                                    --frag.minCov;
+                                }
+                                
                                 if (frag.isUnconnectedRead) {
                                     if (frag.minCov == 1) {
                                         unconnectedSingletonsOut.write("r" + Long.toString(++unconnectedReadId) + "L ", frag.left);
@@ -2404,7 +2413,7 @@ public class RNABloom {
         int newBound = bound;
         int[] fragLengthsStats = null;
         boolean pairedKmerDistanceIsSet = false;
-        int shortestFragmentLengthAllowed = k + lookahead;
+        int shortestFragmentLengthAllowed = k;
                         
         try {
             
@@ -2458,8 +2467,8 @@ public class RNABloom {
                 
                 System.out.println("Parsing `" + fxPair.leftPath + "` and `" + fxPair.rightPath + "`...");
 
-                int leftReadLengthThreshold = 2*k;
-                int rightReadLengthThreshold = 2*k;
+                int leftReadLengthThreshold = k;
+                int rightReadLengthThreshold = k;
                 int polyXMinLen = k;
                 int polyXMaxMismatches = 1;
                 
