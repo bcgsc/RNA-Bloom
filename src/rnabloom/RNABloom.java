@@ -3286,8 +3286,8 @@ public class RNABloom {
             final boolean revCompRight = line.hasOption(optRevCompRight.getOpt());
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             
-            final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "50"));
-            final int k2 = Integer.parseInt(line.getOptionValue(optKmerSize2.getOpt(), "25"));
+            final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "25"));
+            final int k2 = Integer.parseInt(line.getOptionValue(optKmerSize2.getOpt(), "50"));
             
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "3"));
