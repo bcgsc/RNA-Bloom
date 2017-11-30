@@ -3162,14 +3162,14 @@ public class RNABloom {
             }
             
             
-            if (!sensitiveMode) {
+            if (sensitiveMode) {
                 System.out.println("Sensitive assembly mode is ON...");
-                
+            }
+            else {
                 // be extra careful with extending low coverage fragments (ie. 01, E0)
                 allowNaiveExtension = false;
                 extendBranchFreeOnly = true;
             }
-
             
             // extend LONG fragments
             
@@ -3327,7 +3327,7 @@ public class RNABloom {
         final String STARTED = "STARTED";
         final String DBG_DONE = "DBG.DONE";
         final String FRAGMENTS_DONE = "FRAGMENTS.DONE";
-        final String FRAGMENTS_2K_DONE = "FRAGMENTS.2K.DONE";
+        final String FRAGMENTS_K2_DONE = "FRAGMENTS.K2.DONE";
 //        final String TRANSFRAGS_DONE = "TRANSFRAGS.DONE";
         final String TRANSCRIPTS_DONE = "TRANSCRIPTS.DONE";
         
@@ -3432,6 +3432,14 @@ public class RNABloom {
                                     .argName("INT")
                                     .build();
         options.addOption(optKmerSize);
+        
+        Option optKmerSize2 = Option.builder("k2")
+                                    .longOpt("kmer2")
+                                    .desc("2nd kmer size")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optKmerSize2);
         
         Option optBaseQualDbg = Option.builder("q")
                                     .longOpt("qual-dbg")
@@ -3670,30 +3678,26 @@ public class RNABloom {
                 printVersionInfo(true);
             }
             
-            int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), "2"));
-            boolean forceOverwrite = line.hasOption(optForce.getOpt());
+            final int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), "2"));
+            final boolean forceOverwrite = line.hasOption(optForce.getOpt());
             
-            String name = line.getOptionValue(optName.getOpt(), "rnabloom");
-            String outdir = line.getOptionValue(optOutdir.getOpt(), System.getProperty("user.dir") + File.separator + name + "_assembly");
-            /**@TODO evaluate whether out dir is a valid dir */
+            final String name = line.getOptionValue(optName.getOpt(), "rnabloom");
+            final String outdir = line.getOptionValue(optOutdir.getOpt(), System.getProperty("user.dir") + File.separator + name + "_assembly");
             
-            String longFragmentsFastaPrefix =      outdir + File.separator + name + ".fragments.long.";
-            String shortFragmentsFastaPrefix =     outdir + File.separator + name + ".fragments.short.";
-            String unconnectedReadsFastaPrefix =   outdir + File.separator + name + ".unconnected.";
-//            String long2kFragmentsFastaPrefix =    outdir + File.separator + name + ".fragments.2k.long.";
-//            String short2kFragmentsFastaPrefix =   outdir + File.separator + name + ".fragments.2k.short.";
-            String unconnected2kReadsFastaPrefix = outdir + File.separator + name + ".unconnected.2k.";
-            String transcriptsFasta =              outdir + File.separator + name + ".transcripts.fa";
-            String shortTranscriptsFasta =         outdir + File.separator + name + ".transcripts.short.fa";
-//            String tmpFasta = outdir + File.separator + name + ".tmp.fa";
-            String graphFile = outdir + File.separator + name + ".graph";
-            String graph2kFile = outdir + File.separator + name + ".2k.graph";
-            String fragStatsFile = outdir + File.separator + name + ".fragstats";
+            final String longFragmentsFastaPrefix =      outdir + File.separator + name + ".fragments.long.";
+            final String shortFragmentsFastaPrefix =     outdir + File.separator + name + ".fragments.short.";
+            final String unconnectedReadsFastaPrefix =   outdir + File.separator + name + ".unconnected.";
+            final String unconnectedK2ReadsFastaPrefix = outdir + File.separator + name + ".unconnected.k2.";
+            final String transcriptsFasta =              outdir + File.separator + name + ".transcripts.fa";
+            final String shortTranscriptsFasta =         outdir + File.separator + name + ".transcripts.short.fa";
+            final String graphFile = outdir + File.separator + name + ".graph";
+            final String graphK2File = outdir + File.separator + name + ".k2.graph";
+            final String fragStatsFile = outdir + File.separator + name + ".fragstats";
             
             File startedStamp = new File(outdir + File.separator + STARTED);
             File dbgDoneStamp = new File(outdir + File.separator + DBG_DONE);
             File fragsDoneStamp = new File(outdir + File.separator + FRAGMENTS_DONE);
-            File frags2kDoneStamp = new File(outdir + File.separator + FRAGMENTS_2K_DONE);
+            File fragsK2DoneStamp = new File(outdir + File.separator + FRAGMENTS_K2_DONE);
 //            File txfgsDoneStamp = new File(outdir + File.separator + TRANSFRAGS_DONE);
             File txptsDoneStamp = new File(outdir + File.separator + TRANSCRIPTS_DONE);
             
@@ -3710,8 +3714,8 @@ public class RNABloom {
                     fragsDoneStamp.delete();
                 }
                 
-                if (frags2kDoneStamp.exists()) {
-                    frags2kDoneStamp.delete();
+                if (fragsK2DoneStamp.exists()) {
+                    fragsK2DoneStamp.delete();
                 }
                 
 //                if (txfgsDoneStamp.exists()) {
@@ -3741,13 +3745,15 @@ public class RNABloom {
                 System.exit(1);
             }
             
-            boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
-            boolean revCompRight = line.hasOption(optRevCompRight.getOpt());
-            boolean strandSpecific = line.hasOption(optStranded.getOpt());
+            final boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
+            final boolean revCompRight = line.hasOption(optRevCompRight.getOpt());
+            final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             
-            int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "25"));
-            int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
-            int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "3"));
+            final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "50"));
+            final int k2 = Integer.parseInt(line.getOptionValue(optKmerSize2.getOpt(), "25"));
+            
+            final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
+            final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "3"));
             
             double leftReadFilesTotalBytes = 0;
             for (String fq : fastqsLeft) {
@@ -3758,42 +3764,42 @@ public class RNABloom {
                 rightReadFilesTotalBytes += new File(fq).length();
             }
             
-            float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, Math.max(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
-            float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8f)));
-            float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8f)));
-            float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 6f / 8f)));
-            float pkbfGB = Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8f)));
+            final float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, Math.max(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
+            final float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8f)));
+            final float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8f)));
+            final float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 6f / 8f)));
+            final float pkbfGB = Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8f)));
             
-            long sbfSize = (long) (NUM_BITS_1GB * sbfGB);
-            long dbgbfSize = (long) (NUM_BITS_1GB * dbgGB);
-            long cbfSize = (long) (NUM_BYTES_1GB * cbfGB);
-            long pkbfSize = (long) (NUM_BITS_1GB * pkbfGB);
+            final long sbfSize = (long) (NUM_BITS_1GB * sbfGB);
+            final long dbgbfSize = (long) (NUM_BITS_1GB * dbgGB);
+            final long cbfSize = (long) (NUM_BYTES_1GB * cbfGB);
+            final long pkbfSize = (long) (NUM_BITS_1GB * pkbfGB);
             
-            int allNumHash = Integer.parseInt(line.getOptionValue(optAllHash.getOpt(), "2"));
-            String allNumHashStr = Integer.toString(allNumHash);
-            int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), allNumHashStr));
-            int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), allNumHashStr));
-            int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), allNumHashStr));
-            int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), allNumHashStr));
+            final int allNumHash = Integer.parseInt(line.getOptionValue(optAllHash.getOpt(), "2"));
+            final String allNumHashStr = Integer.toString(allNumHash);
+            final int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), allNumHashStr));
+            final int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), allNumHashStr));
+            final int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), allNumHashStr));
+            final int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), allNumHashStr));
             
             /**@TODO ensure that sbfNumHash and pkbfNumHash <= max(dbgbfNumHash, cbfNumHash) */
                         
 //            int mismatchesAllowed = Integer.parseInt(line.getOptionValue(optMismatch.getOpt(), "5"));
-            int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), "10"));
-            int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
-            int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
-            int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "3"));
-            int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "5"));
-            float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
-            float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.95"));
-            int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
-            int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
-            int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
-            int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), "0"));
-            boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
-            boolean extendFragments = line.hasOption(optExtend.getOpt());
-            int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
-            String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), "");
+            final int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), "10"));
+            final int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
+            final int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
+            final int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "3"));
+            final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "5"));
+            final float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
+            final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.95"));
+            final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
+            final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
+            final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
+            final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), "0"));
+            final boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
+            final boolean extendFragments = line.hasOption(optExtend.getOpt());
+            final int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
+            final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), "");
             
 //            boolean saveGraph = true;
 //            boolean saveKmerPairs = true;
@@ -3812,7 +3818,9 @@ public class RNABloom {
             
             File f = new File(outdir);
             if (!f.exists()) {
+                System.out.println("WARNING: Output directory does not exist!");
                 f.mkdirs();
+                System.out.println("Created output directory at `" + outdir + "`");
             }
 
             RNABloom assembler = new RNABloom(k, qDBG, qFrag);
@@ -3978,25 +3986,24 @@ public class RNABloom {
             /* Connect unconnected reads by doubling the kmer size */
             
             
-            // double the kmer size
-            int newK = 2*k;
-            assembler.setK(newK);
+            // use the 2nd kmer size
+            assembler.setK(k2);
             
-            String[] unconnected2kReadsFastaPaths = {unconnected2kReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                            unconnected2kReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                            unconnected2kReadsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                            unconnected2kReadsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                            unconnected2kReadsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                            unconnected2kReadsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            String[] unconnectedK2ReadsFastaPaths = {unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                            unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                            unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                            unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                            unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                            unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
 
-            String unconnected2kSingletonsFastaPath = unconnected2kReadsFastaPrefix + "01.fa";
+            String unconnectedK2SingletonsFastaPath = unconnectedK2ReadsFastaPrefix + "01.fa";
 
-            if (!forceOverwrite && frags2kDoneStamp.exists()) {
-                System.out.println("WARNING: Read pairs were already rescued (k=" + newK + ")!");
+            if (!forceOverwrite && fragsK2DoneStamp.exists()) {
+                System.out.println("WARNING: Read pairs were already rescued (k=" + k2 + ")!");
                 
                 if (!txptsDoneStamp.exists()) {
-                    System.out.println("Loading graph from file `" + graph2kFile + "`...");
-                    File tmp = new File(graph2kFile);
+                    System.out.println("Loading graph from file `" + graphK2File + "`...");
+                    File tmp = new File(graphK2File);
                     assembler.restoreGraph(tmp);
                     assembler.restorePairedKmersBloomFilter(tmp);
                 }
@@ -4028,7 +4035,7 @@ public class RNABloom {
                 fragmentPaths.add(shortSingletonsFastaPath);
                 fragmentPaths.add(unconnectedSingletonsFastaPath);
 
-                System.out.println("Rebuilding graph from assembled fragments (k=" + newK + ")...");
+                System.out.println("Rebuilding graph from assembled fragments (k=" + k2 + ")...");
                 timer.start();
                 assembler.repopulateGraph(fragmentPaths, strandSpecific);
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));    
@@ -4051,7 +4058,7 @@ public class RNABloom {
                     forwardFilesList.addAll(Arrays.asList(fastqsRight));
                 }
 
-                System.out.println("Counting kmers in reads (k=" + newK + ")...");
+                System.out.println("Counting kmers in reads (k=" + k2 + ")...");
                 timer.start();
                 assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, true);
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
@@ -4059,12 +4066,12 @@ public class RNABloom {
                 
                 // Remove existing output files
                 
-                File fragmentsFile = new File(unconnected2kSingletonsFastaPath);
+                File fragmentsFile = new File(unconnectedK2SingletonsFastaPath);
                 if (fragmentsFile.exists()) {
                     fragmentsFile.delete();
                 }
 
-                for (String fragmentsFasta : unconnected2kReadsFastaPaths) {
+                for (String fragmentsFasta : unconnectedK2ReadsFastaPaths) {
                     fragmentsFile = new File(fragmentsFasta);
                     if (fragmentsFile.exists()) {
                         fragmentsFile.delete();
@@ -4081,10 +4088,10 @@ public class RNABloom {
                 assembler.rescueUnconnectedMultiThreaded(allUnconnectedReads, 
                                                     longFragmentsFastaPaths,
                                                     shortFragmentsFastaPaths,
-                                                    unconnected2kReadsFastaPaths,
+                                                    unconnectedK2ReadsFastaPaths,
                                                     longSingletonsFastaPath,
                                                     shortSingletonsFastaPath,
-                                                    unconnected2kSingletonsFastaPath,
+                                                    unconnectedK2SingletonsFastaPath,
                                                     fragSizeBound,
                                                     minOverlap,
                                                     sampleSize, 
@@ -4094,13 +4101,13 @@ public class RNABloom {
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
                 /* Save DBG-Bf and pk-Bf to disk */
-                System.out.println("Saving graph to file `" + graph2kFile + "`...");
-                assembler.saveGraph(new File(graph2kFile));
-                assembler.savePairedKmersBloomFilter(new File(graph2kFile));
+                System.out.println("Saving graph to file `" + graphK2File + "`...");
+                assembler.saveGraph(new File(graphK2File));
+                assembler.savePairedKmersBloomFilter(new File(graphK2File));
                 
                 /* Touch stamp */
                 try {
-                    touch(frags2kDoneStamp);
+                    touch(fragsK2DoneStamp);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                     System.exit(1);
@@ -4176,10 +4183,10 @@ public class RNABloom {
                 
                 assembler.assembleTranscriptsMultiThreaded(longFragmentsFastaPaths, 
                                                             shortFragmentsFastaPaths,
-                                                            unconnected2kReadsFastaPaths,
+                                                            unconnectedK2ReadsFastaPaths,
                                                             longSingletonsFastaPath,
                                                             shortSingletonsFastaPath,
-                                                            unconnected2kSingletonsFastaPath,
+                                                            unconnectedK2SingletonsFastaPath,
                                                             transcriptsFasta, 
                                                             shortTranscriptsFasta,
                                                             graphFile,
