@@ -27,7 +27,7 @@ import static rnabloom.util.SeqUtils.*;
  */
 public final class GraphUtils {
 
-    private static float getMinimumKmerCoverage(final Iterable<Kmer2> kmers) {
+    public static float getMinimumKmerCoverage(final Iterable<Kmer2> kmers) {
         float min = Float.MAX_VALUE;
         
         float c;
@@ -41,7 +41,7 @@ public final class GraphUtils {
         return min;
     }
     
-    private static float getMinimumKmerCoverage(final ArrayList<Kmer2> kmers, int start, int end) {
+    public static float getMinimumKmerCoverage(final ArrayList<Kmer2> kmers, int start, int end) {
         float min = kmers.get(start).count;
         
         float c;
