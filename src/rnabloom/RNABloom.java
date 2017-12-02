@@ -53,6 +53,7 @@ import rnabloom.io.FastqReader;
 import rnabloom.io.FastqRecord;
 import rnabloom.io.FastxPairReader;
 import rnabloom.io.FileFormatException;
+import rnabloom.util.GraphUtils;
 import static rnabloom.util.GraphUtils.*;
 import static rnabloom.util.SeqUtils.*;
 
@@ -891,6 +892,7 @@ public class RNABloom {
                 String transcript = graph.assemble(transcriptKmers);
                 ArrayDeque<Integer> pasPositions = null;
                 
+                boolean txptReverseComplemented = false;
                 if (minPolyATailLengthRequired > 0) {
                     boolean hasPolyATail = polyATailOnlyPattern.matcher(transcript).matches();
                     boolean hasPolyTHead = false;
@@ -921,6 +923,7 @@ public class RNABloom {
                             
                             if (!pasPositions.isEmpty()) {
                                 transcript = transcriptRC;
+                                txptReverseComplemented = true;
                             }
                         }
                     }
@@ -949,21 +952,50 @@ public class RNABloom {
                         Iterator<Integer> itr = pasPositions.iterator();
 
                         int pasPos = itr.next();
+                        int numTanscriptKmers = transcriptKmers.size();
 
                         headerBuilder.append(pasPos);
                         headerBuilder.append(':');
-                        headerBuilder.append(transcript.substring(pasPos, pasPos+6));
-
-                        while (itr.hasNext()) {
-                            headerBuilder.append(",");
-
-                            pasPos = itr.next();
-
-                            headerBuilder.append(pasPos);
+                        
+                        if (txptReverseComplemented) {
+                            // `transcriptKmers` has a poly-T-head
+                            
+                            headerBuilder.append(GraphUtils.getMinimumKmerCoverage(transcriptKmers, 0, Math.min(numTanscriptKmers-1, numTanscriptKmers-1-pasPos-6+k)));
                             headerBuilder.append(':');
                             headerBuilder.append(transcript.substring(pasPos, pasPos+6));
-                        }
 
+                            while (itr.hasNext()) {
+                                headerBuilder.append(",");
+
+                                pasPos = itr.next();
+
+                                headerBuilder.append(pasPos);
+                                headerBuilder.append(':');
+                                headerBuilder.append(GraphUtils.getMinimumKmerCoverage(transcriptKmers, 0, Math.min(numTanscriptKmers-1, numTanscriptKmers-1-pasPos-6+k)));
+                                headerBuilder.append(':');
+                                headerBuilder.append(transcript.substring(pasPos, pasPos+6));
+                            }                               
+                        }
+                        else {
+                            // `transcriptKmers` has a poly-A-tail
+                            
+                            headerBuilder.append(GraphUtils.getMinimumKmerCoverage(transcriptKmers, Math.max(0, pasPos+6-k), numTanscriptKmers-1));
+                            headerBuilder.append(':');
+                            headerBuilder.append(transcript.substring(pasPos, pasPos+6));
+
+                            while (itr.hasNext()) {
+                                headerBuilder.append(",");
+
+                                pasPos = itr.next();
+
+                                headerBuilder.append(pasPos);
+                                headerBuilder.append(':');
+                                headerBuilder.append(GraphUtils.getMinimumKmerCoverage(transcriptKmers, Math.max(0, pasPos+6-k), numTanscriptKmers-1));
+                                headerBuilder.append(':');
+                                headerBuilder.append(transcript.substring(pasPos, pasPos+6));
+                            }    
+                        }
+                        
                         // mask PAS in transcript
                         StringBuilder transcriptSB = new StringBuilder(transcript);
 
