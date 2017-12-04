@@ -4500,11 +4500,11 @@ public final class GraphUtils {
                                     }
                                 }
                                 
-                                if (neighbors.isEmpty() || neighbors.size() > 1) {
-                                    return false; // ambiguous branches supported by paired kmers
+                                if (neighbors.size() == 1) {
+                                    cursor = neighbors.pop();
                                 }
                                 else {
-                                    cursor = neighbors.pop();
+                                    return false; // ambiguous branches supported by paired kmers
                                 }
                             }
                         }
@@ -4705,11 +4705,11 @@ public final class GraphUtils {
                                     }
                                 }
                                 
-                                if (neighbors.isEmpty() || neighbors.size() > 1) {
-                                    return false; // ambiguous branches supported by paired kmers
+                                if (neighbors.size() == 1) {
+                                    cursor = neighbors.pop();
                                 }
                                 else {
-                                    cursor = neighbors.pop();
+                                    return false; // ambiguous branches supported by paired kmers
                                 }
                             }
                         }
