@@ -4477,7 +4477,8 @@ public final class GraphUtils {
                             while (itr.hasNext()) {
                                 Kmer2 kmer = itr.next();
 
-                                if (kmer.count < minCovThreshold) {
+                                if (kmer.count < minCovThreshold || 
+                                        getMinimumKmerCoverage(extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
                                     itr.remove();
                                 }
                             }
@@ -4664,7 +4665,8 @@ public final class GraphUtils {
                             while (itr.hasNext()) {
                                 Kmer2 kmer = itr.next();
 
-                                if (kmer.count < minCovThreshold) {
+                                if (kmer.count < minCovThreshold || 
+                                        getMinimumKmerCoverage(extendLeftWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
                                     itr.remove();
                                 }
                             }
