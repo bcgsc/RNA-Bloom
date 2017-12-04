@@ -4478,7 +4478,7 @@ public final class GraphUtils {
                                 Kmer2 kmer = itr.next();
 
                                 if (kmer.count < minCovThreshold || 
-                                        getMinimumKmerCoverage(extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
+                                        getMedianKmerCoverage(extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
                                     itr.remove();
                                 }
                             }
@@ -4488,7 +4488,25 @@ public final class GraphUtils {
                             cursor = neighbors.pop();
                         }
                         else {
-                            return false; // ambiguous branches supported by paired kmers
+                            if (neighbors.isEmpty()) {
+                                return false; // ambiguous branches supported by paired kmers
+                            }
+                            else {
+                                itr = neighbors.iterator();
+                                while (itr.hasNext()) {
+                                    Kmer2 kmer = itr.next();
+                                    if (getMinimumKmerCoverage(extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
+                                        itr.remove();
+                                    }
+                                }
+                                
+                                if (neighbors.isEmpty() || neighbors.size() > 1) {
+                                    return false; // ambiguous branches supported by paired kmers
+                                }
+                                else {
+                                    cursor = neighbors.pop();
+                                }
+                            }
                         }
                     }
                     else {
@@ -4665,8 +4683,7 @@ public final class GraphUtils {
                             while (itr.hasNext()) {
                                 Kmer2 kmer = itr.next();
 
-                                if (kmer.count < minCovThreshold || 
-                                        getMinimumKmerCoverage(extendLeftWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
+                                if (kmer.count < minCovThreshold) {
                                     itr.remove();
                                 }
                             }
@@ -4676,7 +4693,25 @@ public final class GraphUtils {
                             cursor = neighbors.pop();
                         }
                         else {
-                            return false; // ambiguous branches supported by paired kmers
+                            if (neighbors.isEmpty()) {
+                                return false; // ambiguous branches supported by paired kmers
+                            }
+                            else {
+                                itr = neighbors.iterator();
+                                while (itr.hasNext()) {
+                                    Kmer2 kmer = itr.next();
+                                    if (getMinimumKmerCoverage(extendLeftWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
+                                        itr.remove();
+                                    }
+                                }
+                                
+                                if (neighbors.isEmpty() || neighbors.size() > 1) {
+                                    return false; // ambiguous branches supported by paired kmers
+                                }
+                                else {
+                                    cursor = neighbors.pop();
+                                }
+                            }
                         }
                     }
                     else {
