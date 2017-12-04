@@ -4483,29 +4483,27 @@ public final class GraphUtils {
                                 }
                             }
                         }
-                        
-                        if (neighbors.size() == 1) {
+
+                        if (neighbors.isEmpty()) {
+                            return false; // ambiguous branches supported by paired kmers
+                        }
+                        else if (neighbors.size() == 1) {
                             cursor = neighbors.pop();
                         }
                         else {
-                            if (neighbors.isEmpty()) {
-                                return false; // ambiguous branches supported by paired kmers
+                            itr = neighbors.iterator();
+                            while (itr.hasNext()) {
+                                Kmer2 kmer = itr.next();
+                                if (getMinimumKmerCoverage(extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
+                                    itr.remove();
+                                }
+                            }
+
+                            if (neighbors.size() == 1) {
+                                cursor = neighbors.pop();
                             }
                             else {
-                                itr = neighbors.iterator();
-                                while (itr.hasNext()) {
-                                    Kmer2 kmer = itr.next();
-                                    if (getMinimumKmerCoverage(extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
-                                        itr.remove();
-                                    }
-                                }
-                                
-                                if (neighbors.size() == 1) {
-                                    cursor = neighbors.pop();
-                                }
-                                else {
-                                    return false; // ambiguous branches supported by paired kmers
-                                }
+                                return false; // ambiguous branches supported by paired kmers
                             }
                         }
                     }
@@ -4688,29 +4686,27 @@ public final class GraphUtils {
                                 }
                             }
                         }
-                        
-                        if (neighbors.size() == 1) {
+
+                        if (neighbors.isEmpty()) {
+                            return false; // ambiguous branches supported by paired kmers
+                        }
+                        else if (neighbors.size() == 1) {
                             cursor = neighbors.pop();
                         }
                         else {
-                            if (neighbors.isEmpty()) {
-                                return false; // ambiguous branches supported by paired kmers
+                            itr = neighbors.iterator();
+                            while (itr.hasNext()) {
+                                Kmer2 kmer = itr.next();
+                                if (getMinimumKmerCoverage(extendLeftWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
+                                    itr.remove();
+                                }
+                            }
+
+                            if (neighbors.size() == 1) {
+                                cursor = neighbors.pop();
                             }
                             else {
-                                itr = neighbors.iterator();
-                                while (itr.hasNext()) {
-                                    Kmer2 kmer = itr.next();
-                                    if (getMinimumKmerCoverage(extendLeftWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
-                                        itr.remove();
-                                    }
-                                }
-                                
-                                if (neighbors.size() == 1) {
-                                    cursor = neighbors.pop();
-                                }
-                                else {
-                                    return false; // ambiguous branches supported by paired kmers
-                                }
+                                return false; // ambiguous branches supported by paired kmers
                             }
                         }
                     }
