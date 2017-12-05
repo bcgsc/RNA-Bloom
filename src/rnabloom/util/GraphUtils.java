@@ -4456,51 +4456,73 @@ public final class GraphUtils {
                 else {
                     // two or more neighbors are supported by paired kmers
                     
-                    float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
+                    float medEdgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
                     float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
                     if (minFragmentCoverage >= minFragmentCoverageThreshold) {
+                        ArrayDeque<Kmer2> neighborsBackUp = new ArrayDeque<>(neighbors);
+                        
                         // only remove neighbors based on coverage when fragment coverage is not too low
                         float minCovThreshold = minFragmentCoverage * maxCovGradient;            
                         itr = neighbors.iterator();
                         while (itr.hasNext()) {
                             Kmer2 kmer = itr.next();
 
-                            if (kmer.count < minCovThreshold) {
+                            if (kmer.count <= minCovThreshold) {
                                 itr.remove();
                             }
                         }
                         
-                        if (neighbors.size() > 1 && minEdgeCoverage > minFragmentCoverage) {
-                            minCovThreshold = minEdgeCoverage * maxCovGradient;
+                        if (neighbors.size() > 1 && medEdgeCoverage > minFragmentCoverage) {
+                            minCovThreshold = medEdgeCoverage * maxCovGradient;
                             
                             itr = neighbors.iterator();
                             while (itr.hasNext()) {
                                 Kmer2 kmer = itr.next();
 
-                                if (kmer.count < minCovThreshold || 
-                                        getMedianKmerCoverage(extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
+                                if (kmer.count <= minCovThreshold) {
                                     itr.remove();
                                 }
                             }
                         }
 
-                        if (neighbors.isEmpty()) {
-                            return false; // ambiguous branches supported by paired kmers
-                        }
-                        else if (neighbors.size() == 1) {
+                        if (neighbors.size() == 1) {
                             cursor = neighbors.pop();
                         }
                         else {
-                            itr = neighbors.iterator();
-                            while (itr.hasNext()) {
-                                Kmer2 kmer = itr.next();
-                                if (getMinimumKmerCoverage(extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
-                                    itr.remove();
+                            if (neighbors.isEmpty()) {
+                                neighbors = neighborsBackUp;
+                            }
+                            
+                            Kmer2 best = null;
+                            float bestCov = 0;
+                            float secondCov = 0;
+                            
+                            for (Kmer2 kmer : neighbors) {
+                                
+                                ArrayDeque<Kmer2> e = extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead);
+                                e.addFirst(kmer);
+                                
+                                float c = getMedianKmerCoverage(e);
+                                
+                                if (best == null) {
+                                    best = kmer;
+                                    bestCov = c;
+                                } 
+                                else {
+                                    if (bestCov < c) {
+                                        secondCov = bestCov;
+                                        
+                                        best = kmer;
+                                        bestCov = c;
+                                    }
+                                    else if (secondCov < c) {
+                                        secondCov = c;
+                                    }
                                 }
                             }
 
-                            if (neighbors.size() == 1) {
-                                cursor = neighbors.pop();
+                            if (bestCov * maxCovGradient >= secondCov) {
+                                cursor = best;
                             }
                             else {
                                 return false; // ambiguous branches supported by paired kmers
@@ -4660,50 +4682,73 @@ public final class GraphUtils {
                 else {
                     // two or more neighbors are supported by paired kmers
                     
-                    float minEdgeCoverage = getMinimumKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
+                    float medEdgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
                     float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
                     if (minFragmentCoverage >= minFragmentCoverageThreshold) {
+                        ArrayDeque<Kmer2> neighborsBackUp = new ArrayDeque<>(neighbors);
+                        
                         // only remove neighbors based on coverage when fragment coverage is not too low
                         float minCovThreshold = minFragmentCoverage * maxCovGradient;            
                         itr = neighbors.iterator();
                         while (itr.hasNext()) {
                             Kmer2 kmer = itr.next();
 
-                            if (kmer.count < minCovThreshold) {
+                            if (kmer.count <= minCovThreshold) {
                                 itr.remove();
                             }
                         }
                         
-                        if (neighbors.size() > 1 && minEdgeCoverage > minFragmentCoverage) {
-                            minCovThreshold = minEdgeCoverage * maxCovGradient;
+                        if (neighbors.size() > 1 && medEdgeCoverage > minFragmentCoverage) {
+                            minCovThreshold = medEdgeCoverage * maxCovGradient;
                             
                             itr = neighbors.iterator();
                             while (itr.hasNext()) {
                                 Kmer2 kmer = itr.next();
 
-                                if (kmer.count < minCovThreshold) {
+                                if (kmer.count <= minCovThreshold) {
                                     itr.remove();
                                 }
                             }
                         }
-
-                        if (neighbors.isEmpty()) {
-                            return false; // ambiguous branches supported by paired kmers
-                        }
-                        else if (neighbors.size() == 1) {
+                        
+                        if (neighbors.size() == 1) {
                             cursor = neighbors.pop();
                         }
                         else {
-                            itr = neighbors.iterator();
-                            while (itr.hasNext()) {
-                                Kmer2 kmer = itr.next();
-                                if (getMinimumKmerCoverage(extendLeftWithPairedKmersOnly(kmer, kmers, graph, lookahead)) < minCovThreshold) {
-                                    itr.remove();
+                            if (neighbors.isEmpty()) {
+                                neighbors = neighborsBackUp;
+                            }
+                            
+                            Kmer2 best = null;
+                            float bestCov = 0;
+                            float secondCov = 0;
+                            
+                            for (Kmer2 kmer : neighbors) {
+                                
+                                ArrayDeque<Kmer2> e = extendLeftWithPairedKmersOnly(kmer, kmers, graph, lookahead);
+                                e.addFirst(kmer);
+                                
+                                float c = getMedianKmerCoverage(e);
+                                
+                                if (best == null) {
+                                    best = kmer;
+                                    bestCov = c;
+                                }
+                                else {
+                                    if (bestCov < c) {
+                                        secondCov = bestCov;
+                                        
+                                        best = kmer;
+                                        bestCov = c;
+                                    }
+                                    else if (secondCov < c) {
+                                        secondCov = c;
+                                    }
                                 }
                             }
 
-                            if (neighbors.size() == 1) {
-                                cursor = neighbors.pop();
+                            if (bestCov * maxCovGradient >= secondCov) {
+                                cursor = best;
                             }
                             else {
                                 return false; // ambiguous branches supported by paired kmers
