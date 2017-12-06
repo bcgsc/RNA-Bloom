@@ -2930,6 +2930,188 @@ public final class GraphUtils {
         
         return fragmentKmers;
     }
+    
+    public static ArrayList<Kmer2> connect(final ArrayList<Kmer2> leftKmers, 
+                                            final ArrayList<Kmer2> rightKmers, 
+                                            final BloomFilterDeBruijnGraph graph,
+                                            final int bound, 
+                                            final int lookahead,
+                                            final int minOverlap,
+                                            final float maxCovGradient,
+                                            final boolean rescueSearch) {
+        final int k = graph.getK();
+        final int numHash = graph.getMaxNumHash();
+        
+        int numLeftKmers = leftKmers.size();
+        int numRightKmers = rightKmers.size();
+        
+        HashSet<Kmer2> leftKmersSet = new HashSet<>(leftKmers);
+        HashSet<Kmer2> rightKmersSet = new HashSet<>(rightKmers);
+        
+        // extend to RIGHT from left kmers
+        
+        ArrayList<Kmer2> leftPathKmers = new ArrayList<>();
+        HashSet<Kmer2> leftPathKmersSet = new HashSet<>();
+        
+        ArrayDeque<Kmer2> neighbors = leftKmers.get(leftKmers.size()-1).getSuccessors(k, numHash, graph);
+        int depth = 0;
+        int rightStart = -1;
+        
+        while (!neighbors.isEmpty() && depth <= bound) {
+            Kmer2 cursor = null;
+            
+            if (neighbors.size() == 1) {
+                cursor = neighbors.pop();
+            }
+            else {
+                Kmer2 best = null;
+                Kmer2 second = null;
+                
+                for (Kmer2 kmer : neighbors) {
+                    if (best == null) {
+                        best = kmer;
+                    }
+                    else if (second == null) {
+                        if (best.count < kmer.count) {
+                            second = best;
+                            best = kmer;
+                        }
+                        else {
+                            second = kmer;
+                        }
+                    }
+                    else {
+                        if (best.count < kmer.count) {
+                            second = best;
+                            best = kmer;
+                        }
+                        else if (second.count < kmer.count) {
+                            second = kmer;
+                        }                        
+                    }
+                }
+                
+                if (best.count * maxCovGradient >= second.count) {
+                    cursor = best;
+                }
+            }
+            
+            if (cursor == null) {
+                break;
+            }
+            
+            if (rightKmersSet.contains(cursor)) {
+                for (rightStart=0; rightStart<numRightKmers; ++rightStart) {
+                    if (cursor.equals(rightKmers.get(rightStart))) {
+                        break;
+                    }
+                }
+                
+                if (rightStart == 0) {
+                    ArrayList<Kmer2> path = new ArrayList<>(leftKmers.size() + leftPathKmers.size() + rightKmers.size());
+                    path.addAll(leftKmers);
+                    path.addAll(leftPathKmers);
+                    path.addAll(rightKmers);
+                    return path;
+                }
+            }
+            
+            if (leftPathKmersSet.contains(cursor) || leftKmersSet.contains(cursor)) {
+                // a loop
+                break;
+            }
+            
+            leftPathKmers.add(cursor);
+            leftPathKmersSet.add(cursor);
+            neighbors = cursor.getSuccessors(k, numHash, graph);
+            ++depth;
+        }
+        
+        // extend to LEFT from right kmers
+        
+        ArrayList<Kmer2> rightPathKmers = new ArrayList<>();
+        HashSet<Kmer2> rightPathKmersSet = new HashSet<>();
+        int leftStart = -1;
+        
+        depth = 0;
+        neighbors = rightKmers.get(0).getPredecessors(k, numHash, graph);
+        while (!neighbors.isEmpty() && depth <= bound) {
+            Kmer2 cursor = null;
+            
+            if (neighbors.size() == 1) {
+                cursor = neighbors.pop();
+            }
+            else {
+                Kmer2 best = null;
+                Kmer2 second = null;
+                
+                for (Kmer2 kmer : neighbors) {
+                    if (best == null) {
+                        best = kmer;
+                    }
+                    else if (second == null) {
+                        if (best.count < kmer.count) {
+                            second = best;
+                            best = kmer;
+                        }
+                        else {
+                            second = kmer;
+                        }
+                    }
+                    else {
+                        if (best.count < kmer.count) {
+                            second = best;
+                            best = kmer;
+                        }
+                        else if (second.count < kmer.count) {
+                            second = kmer;
+                        }                        
+                    }
+                }
+                
+                if (best.count * maxCovGradient >= second.count) {
+                    cursor = best;
+                }
+            }
+            
+            if (cursor == null) {
+                break;
+            }
+            
+            if (leftKmersSet.contains(cursor)) {
+                for (leftStart=0; leftStart<numLeftKmers; ++leftStart) {
+                    if (cursor.equals(leftKmers.get(leftStart))) {
+                        break;
+                    }
+                }
+                
+                if (leftStart == numLeftKmers-1) {
+                    ArrayList<Kmer2> path = new ArrayList<>(leftKmers.size() + rightPathKmers.size() + rightKmers.size());
+                    path.addAll(leftKmers);
+                    
+                    for (int i=rightPathKmers.size()-1; i>=0; --i) {
+                        path.add(rightPathKmers.get(i));
+                    }
+                    
+                    path.addAll(rightKmers);
+                    return path;
+                }
+                else {
+                    // todo
+                }
+            }
+            else if (leftPathKmersSet.contains(cursor)) {
+                // todo
+            }
+            
+            rightPathKmers.add(cursor);
+            rightPathKmersSet.add(cursor);
+            neighbors = cursor.getPredecessors(k, numHash, graph);
+            ++depth;
+        }
+        
+        return null;
+    }
 
 //    public static String extendWithPairedKmersNonGreedily(String fragment, BloomFilterDeBruijnGraph graph, int lookahead) {
 //        final int distance = graph.getPairedKmerDistance();
