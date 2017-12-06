@@ -2989,6 +2989,26 @@ public final class GraphUtils {
                             second = kmer;
                         }                        
                     }
+                    
+                    if (rightKmersSet.contains(kmer)) {
+                        for (rightStart=0; rightStart<numRightKmers; ++rightStart) {
+                            if (kmer.equals(rightKmers.get(rightStart))) {
+                                break;
+                            }
+                        }
+
+                        if (rightStart == 0) {
+                            ArrayList<Kmer2> path = new ArrayList<>(leftKmers.size() + leftPathKmers.size() + rightKmers.size());
+                            path.addAll(leftKmers);
+                            path.addAll(leftPathKmers);
+                            path.addAll(rightKmers);
+                            return path;
+                        }
+                        else {
+                            // Need to evaluate the dangling kmers later
+                            break;
+                        }
+                    }
                 }
                 
                 if (best.count * maxCovGradient >= second.count) {
@@ -3013,6 +3033,10 @@ public final class GraphUtils {
                     path.addAll(leftPathKmers);
                     path.addAll(rightKmers);
                     return path;
+                }
+                else {
+                    // Need to evaluate the dangling kmers later
+                    break;
                 }
             }
             
