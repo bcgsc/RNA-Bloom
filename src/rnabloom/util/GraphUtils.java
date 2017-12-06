@@ -3112,26 +3112,55 @@ public final class GraphUtils {
                 if (leftStart == numLeftKmers-1) {
                     ArrayList<Kmer2> path = new ArrayList<>(leftKmers.size() + rightPathKmers.size() + rightKmers.size());
                     path.addAll(leftKmers);
-                    
                     for (int i=rightPathKmers.size()-1; i>=0; --i) {
                         path.add(rightPathKmers.get(i));
                     }
-                    
                     path.addAll(rightKmers);
+                    
                     return path;
                 }
                 else {
-                    // todo
+                    // Need to evaluate the dangling kmers later
+                    break;
                 }
             }
             else if (leftPathKmersSet.contains(cursor)) {
-                // todo
+                // left path and right path intersect
+                
+                ArrayList<Kmer2> path = new ArrayList<>(leftKmers.size() + leftPathKmers.size() + rightPathKmers.size() + rightKmers.size());
+                path.addAll(leftKmers);
+                for (Kmer2 kmer : leftPathKmers) {
+                    if (kmer.equals(cursor)) {
+                        break;
+                    }
+                    path.add(kmer);
+                }
+                path.add(cursor);
+                for (int i=rightPathKmers.size()-1; i>=0; --i) {
+                    path.add(rightPathKmers.get(i));
+                }
+                path.addAll(rightKmers);
+                
+                return path;
+            }
+            
+            if (rightPathKmersSet.contains(cursor) || rightKmersSet.contains(cursor)) {
+                // a loop
+                break;
             }
             
             rightPathKmers.add(cursor);
             rightPathKmersSet.add(cursor);
             neighbors = cursor.getPredecessors(k, numHash, graph);
             ++depth;
+        }
+        
+        if (leftStart > 0) {
+            // TODO
+        }
+        
+        if (rightStart > 0) {
+            // TODO
         }
         
         return null;
