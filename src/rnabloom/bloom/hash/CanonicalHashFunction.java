@@ -13,13 +13,19 @@ import rnabloom.graph.CanonicalKmer;
 import rnabloom.graph.Kmer;
 import static rnabloom.util.SeqUtils.stringToBytes;
 import static rnabloom.bloom.hash.NTHash.NTMC64;
+import static rnabloom.bloom.hash.NTHash.NTMC64;
+import static rnabloom.bloom.hash.NTHash.NTMC64;
+import static rnabloom.bloom.hash.NTHash.NTMC64;
+import static rnabloom.bloom.hash.NTHash.NTMC64;
+import static rnabloom.bloom.hash.NTHash.NTMC64;
+import static rnabloom.bloom.hash.NTHash.NTMC64;
 
 /**
  *
  * @author Ka Ming Nip, Genome Sciences Centre, BC Cancer Agency
  */
-public class CanonicalHashFunction2 extends HashFunction2 {
-    public CanonicalHashFunction2(int k) {
+public class CanonicalHashFunction extends HashFunction {
+    public CanonicalHashFunction(int k) {
         super(k);
     }
     

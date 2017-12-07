@@ -20,7 +20,7 @@ import static java.lang.Math.pow;
 //import static java.lang.Math.exp;
 //import static java.lang.Math.log;
 import rnabloom.bloom.buffer.BufferComparator;
-import rnabloom.bloom.hash.HashFunction2;
+import rnabloom.bloom.hash.HashFunction;
 
 /**
  *
@@ -30,10 +30,10 @@ public class BloomFilter implements BloomFilterInterface {
     protected AbstractLargeBitBuffer bitArray;
     protected int numHash;
     protected long size;
-    protected HashFunction2 hashFunction;
+    protected HashFunction hashFunction;
     protected long popcount = -1;
         
-    public BloomFilter(long size, int numHash, HashFunction2 hashFunction) {
+    public BloomFilter(long size, int numHash, HashFunction hashFunction) {
         
         this.size = size;
         try {
@@ -52,7 +52,7 @@ public class BloomFilter implements BloomFilterInterface {
     private static final String LABEL_NUM_HASH = "numhash";
     private static final String LABEL_FPR = "fpr";
     
-    public BloomFilter(File desc, File bits, HashFunction2 hashFunction) throws FileNotFoundException, IOException {
+    public BloomFilter(File desc, File bits, HashFunction hashFunction) throws FileNotFoundException, IOException {
         
         BufferedReader br = new BufferedReader(new FileReader(desc));
         String line;

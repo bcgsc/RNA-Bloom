@@ -12,12 +12,14 @@ import rnabloom.bloom.hash.CanonicalLeftVariantsNTHashIterator;
 import rnabloom.bloom.hash.CanonicalPredecessorsNTHashIterator;
 import rnabloom.bloom.hash.CanonicalRightVariantsNTHashIterator;
 import rnabloom.bloom.hash.CanonicalSuccessorsNTHashIterator;
-import static rnabloom.bloom.hash.HashFunction2.combineHashValues;
+import static rnabloom.bloom.hash.HashFunction.combineHashValues;
 import static rnabloom.util.SeqUtils.NUCLEOTIDES;
 import static rnabloom.util.SeqUtils.getAltNucleotides;
 import static rnabloom.util.SeqUtils.shiftLeft;
 import static rnabloom.util.SeqUtils.shiftRight;
 import static rnabloom.util.SeqUtils.stringToBytes;
+import static rnabloom.util.SeqUtils.getAltNucleotides;
+import static rnabloom.util.SeqUtils.getAltNucleotides;
 import static rnabloom.util.SeqUtils.getAltNucleotides;
 
 /**

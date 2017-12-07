@@ -18,7 +18,7 @@ import rnabloom.bloom.buffer.AbstractLargeBitBuffer;
 import rnabloom.bloom.buffer.BufferComparator;
 import rnabloom.bloom.buffer.LargeBitBuffer;
 import rnabloom.bloom.buffer.UnsafeBitBuffer;
-import rnabloom.bloom.hash.HashFunction2;
+import rnabloom.bloom.hash.HashFunction;
 
 /**
  *
@@ -32,9 +32,9 @@ public class PairedKeysPartitionedBloomFilter {
     protected int numHash;
     protected long size;
     protected long partitionSize;
-    protected HashFunction2 hashFunction;
+    protected HashFunction hashFunction;
     
-    public PairedKeysPartitionedBloomFilter(long size, int numHash, HashFunction2 hashFunction) {
+    public PairedKeysPartitionedBloomFilter(long size, int numHash, HashFunction hashFunction) {
         this.size = size;
         this.partitionSize = size/3;
         try {
@@ -63,7 +63,7 @@ public class PairedKeysPartitionedBloomFilter {
     
     public PairedKeysPartitionedBloomFilter(File desc, 
             File leftBits, File rightBits, File pairBits, 
-            HashFunction2 hashFunction) throws FileNotFoundException, IOException {
+            HashFunction hashFunction) throws FileNotFoundException, IOException {
         
         BufferedReader br = new BufferedReader(new FileReader(desc));
         String line;

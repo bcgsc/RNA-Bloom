@@ -7,7 +7,6 @@ package rnabloom.bloom.hash;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import static rnabloom.bloom.hash.NTHash.NTM64;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer;
 import static rnabloom.util.SeqUtils.stringToBytes;
@@ -18,12 +17,12 @@ import static rnabloom.bloom.hash.NTHash.NTM64;
  *
  * @author Ka Ming Nip, Genome Sciences Centre, BC Cancer Agency
  */
-public class HashFunction2 {
+public class HashFunction {
     protected int k;
     protected int kMod64;
     protected int kMinus1Mod64;
     
-    public HashFunction2(int k) {
+    public HashFunction(int k) {
         this.k = k;
         this.kMod64 = k%64;
         this.kMinus1Mod64 = (k-1)%64;

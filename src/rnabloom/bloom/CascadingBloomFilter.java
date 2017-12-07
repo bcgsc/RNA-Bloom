@@ -5,7 +5,7 @@
  */
 package rnabloom.bloom;
 
-import rnabloom.bloom.hash.HashFunction2;
+import rnabloom.bloom.hash.HashFunction;
 
 /**
  *
@@ -18,9 +18,9 @@ public class CascadingBloomFilter implements BloomFilterInterface {
     protected final long size; // number of bits
     protected final long partitionSize;
     protected final int numHash;
-    protected final HashFunction2 hashFunction;
+    protected final HashFunction hashFunction;
     
-    public CascadingBloomFilter(long size, int numHash, HashFunction2 hashFunction, int numLevels) {
+    public CascadingBloomFilter(long size, int numHash, HashFunction hashFunction, int numLevels) {
         this.numLevels = numLevels;
         bfs = new BloomFilter[numLevels];
         this.size = size;

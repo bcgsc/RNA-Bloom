@@ -34,7 +34,7 @@ public class BloomFilterDeBruijnGraph {
     private int dbgbfNumHash;
     private int cbfNumHash;
     private int dbgbfCbfMaxNumHash;
-    private final HashFunction2 hashFunction;
+    private final HashFunction hashFunction;
     private int k;
     private int kMinus1;
     private boolean stranded;
@@ -76,10 +76,10 @@ public class BloomFilterDeBruijnGraph {
         this.cbfNumHash = cbfNumHash;
         this.dbgbfCbfMaxNumHash = Math.max(dbgbfNumHash, cbfNumHash);
         if (stranded) {
-            this.hashFunction = new HashFunction2(k);
+            this.hashFunction = new HashFunction(k);
         }
         else {
-            this.hashFunction = new CanonicalHashFunction2(k);
+            this.hashFunction = new CanonicalHashFunction(k);
         }
         this.dbgbf = new BloomFilter(dbgbfNumBits, dbgbfNumHash, this.hashFunction);
         this.cbf = new CountingBloomFilter(cbfNumBytes, cbfNumHash, this.hashFunction);
@@ -120,10 +120,10 @@ public class BloomFilterDeBruijnGraph {
         br.close();
         
         if (stranded) {
-            this.hashFunction = new HashFunction2(k);
+            this.hashFunction = new HashFunction(k);
         }
         else {
-            this.hashFunction = new CanonicalHashFunction2(k);
+            this.hashFunction = new CanonicalHashFunction(k);
         }
         
         String dbgbfBitsPath = graphFile.getPath() + FILE_DBGBF_EXTENSION;
@@ -152,7 +152,7 @@ public class BloomFilterDeBruijnGraph {
         }
     }
 
-    public HashFunction2 getHashFunction() {
+    public HashFunction getHashFunction() {
         return this.hashFunction;
     }
     

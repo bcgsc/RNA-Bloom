@@ -22,7 +22,8 @@ import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
 import rnabloom.bloom.buffer.BufferComparator;
-import rnabloom.bloom.hash.HashFunction2;
+import rnabloom.bloom.hash.HashFunction;
+import static java.lang.Math.scalb;
 
 /**
  *
@@ -32,14 +33,14 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     protected AbstractLargeByteBuffer counts;
     protected int numHash;
     protected long size;
-    protected HashFunction2 hashFunction;
+    protected HashFunction hashFunction;
     protected long popcount = -1;
         
     private static final byte MANTISSA = 3;
     private static final byte MANTI_MASK = 0xFF >> (8 - MANTISSA);
     private static final byte ADD_MASK = 0x80 >> (7 - MANTISSA);
     
-    public CountingBloomFilter(long size, int numHash, HashFunction2 hashFunction) {
+    public CountingBloomFilter(long size, int numHash, HashFunction hashFunction) {
         this.size = size;
         try {
             //System.out.println("unsafe");
@@ -57,7 +58,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     private static final String LABEL_NUM_HASH = "numhash";
     private static final String LABEL_FPR = "fpr";
     
-    public CountingBloomFilter(File desc, File bytes, HashFunction2 hashFunction) throws FileNotFoundException, IOException {        
+    public CountingBloomFilter(File desc, File bytes, HashFunction hashFunction) throws FileNotFoundException, IOException {        
         BufferedReader br = new BufferedReader(new FileReader(desc));
         String line;
         while ((line = br.readLine()) != null) {
