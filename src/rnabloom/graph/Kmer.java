@@ -13,28 +13,28 @@ import rnabloom.bloom.hash.LeftVariantsNTHashIterator;
 import rnabloom.bloom.hash.PredecessorsNTHashIterator;
 import rnabloom.bloom.hash.SuccessorsNTHashIterator;
 import rnabloom.bloom.hash.RightVariantsNTHashIterator;
-import static rnabloom.util.SeqUtils.NUCLEOTIDES;
 import static rnabloom.util.SeqUtils.bytesToString;
 import static rnabloom.util.SeqUtils.stringToBytes;
 import static rnabloom.util.SeqUtils.getAltNucleotides;
 import static rnabloom.util.SeqUtils.shiftLeft;
 import static rnabloom.util.SeqUtils.shiftRight;
+import static rnabloom.util.SeqUtils.getAltNucleotides;
 
 /**
  *
  * @author Ka Ming Nip
  */
-public class Kmer2 {
+public class Kmer {
     
     public byte[] bytes;
     public float count;
     protected long fHashVal;
     
-    public Kmer2(String seq, int k, float count, long fHashVal) {
+    public Kmer(String seq, int k, float count, long fHashVal) {
         this(stringToBytes(seq, k), count, fHashVal);
     }
     
-    public Kmer2(byte[] bytes, float count, long fHashVal) {
+    public Kmer(byte[] bytes, float count, long fHashVal) {
         this.bytes = bytes; // copy bytes?
         this.count = count;
         this.fHashVal = fHashVal;
@@ -44,11 +44,11 @@ public class Kmer2 {
         return fHashVal;
     }
     
-    public long getKmerPairHashValue(Kmer2 rightPartner) {
+    public long getKmerPairHashValue(Kmer rightPartner) {
         return combineHashValues(this.fHashVal, rightPartner.fHashVal);
     }
                 
-    public boolean equals(Kmer2 other) {
+    public boolean equals(Kmer other) {
         return Arrays.equals(bytes, other.bytes);
     }
 
@@ -73,7 +73,7 @@ public class Kmer2 {
         if (getClass() != obj.getClass()) {
             return false;
         }
-        return Arrays.equals(bytes, ((Kmer2)obj).bytes);
+        return Arrays.equals(bytes, ((Kmer)obj).bytes);
     }
     
     public boolean hasPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
@@ -178,15 +178,15 @@ public class Kmer2 {
         return result;
     }
     
-    public ArrayDeque<Kmer2> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         getPredecessors(k, numHash, graph, result);
         
         return result;
     }
     
-    public void getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer2> result) {
+    public void getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result) {
   
         PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, (char) bytes[k-1]);
@@ -199,20 +199,20 @@ public class Kmer2 {
             if (myCount > 0) {
                 byte[] myBytes = shiftRight(this.bytes, k);
                 myBytes[0] = (byte) itr.currentChar();
-                result.add(new Kmer2(myBytes, myCount, hVals[0]));
+                result.add(new Kmer(myBytes, myCount, hVals[0]));
             }
         }
     }
     
-    public ArrayDeque<Kmer2> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {  
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {  
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         getSuccessors(k, numHash, graph, result);
         
         return result;
     }
     
-    public void getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer2> result) {
+    public void getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result) {
         
         SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, (char) bytes[0]);
@@ -225,13 +225,13 @@ public class Kmer2 {
             if (myCount > 0) {
                 byte[] myBytes = shiftLeft(this.bytes, k);
                 myBytes[k-1] = (byte) itr.currentChar();
-                result.add(new Kmer2(myBytes, myCount, hVals[0]));
+                result.add(new Kmer(myBytes, myCount, hVals[0]));
             }
         }
     }
     
-    public ArrayDeque<Kmer2> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, BloomFilter bf) {        
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, BloomFilter bf) {        
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
                        
         PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, (char) bytes[k-1]);
@@ -245,7 +245,7 @@ public class Kmer2 {
                 if (myCount > 0) {
                     byte[] myBytes = shiftRight(this.bytes, k);
                     myBytes[0] = (byte) itr.currentChar();
-                    result.add(new Kmer2(myBytes, myCount, hVals[0]));
+                    result.add(new Kmer(myBytes, myCount, hVals[0]));
                 }
             }
         }
@@ -253,8 +253,8 @@ public class Kmer2 {
         return result;
     }
             
-    public ArrayDeque<Kmer2> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, BloomFilter bf) {
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, BloomFilter bf) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
 
         SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, (char) bytes[0]);
@@ -268,7 +268,7 @@ public class Kmer2 {
                 if (myCount > 0) {
                     byte[] myBytes = shiftLeft(this.bytes, k);
                     myBytes[k-1] = (byte) itr.currentChar();
-                    result.add(new Kmer2(myBytes, myCount, hVals[0]));
+                    result.add(new Kmer(myBytes, myCount, hVals[0]));
                 }
             }
         }
@@ -276,8 +276,8 @@ public class Kmer2 {
         return result;
     }
     
-    public ArrayDeque<Kmer2> getLeftVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getLeftVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         LeftVariantsNTHashIterator itr = new LeftVariantsNTHashIterator(k, numHash);
         char charOut = (char) bytes[0];
@@ -292,15 +292,15 @@ public class Kmer2 {
             if (myCount > 0) {
                 myBytes = Arrays.copyOf(bytes, k);
                 myBytes[0] = (byte) charIn;
-                result.add(new Kmer2(myBytes, myCount, hVals[0]));
+                result.add(new Kmer(myBytes, myCount, hVals[0]));
             }
         }
                 
         return result;
     }
     
-    public ArrayDeque<Kmer2> getRightVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getRightVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         RightVariantsNTHashIterator itr = new RightVariantsNTHashIterator(k, numHash);
         char charOut = (char) bytes[k-1];
@@ -315,7 +315,7 @@ public class Kmer2 {
             if (myCount > 0) {
                 myBytes = Arrays.copyOf(bytes, k);
                 myBytes[k-1] = (byte) charIn;
-                result.add(new Kmer2(myBytes, myCount, hVals[0]));
+                result.add(new Kmer(myBytes, myCount, hVals[0]));
             }
         }
                 

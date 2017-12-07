@@ -18,12 +18,13 @@ import static rnabloom.util.SeqUtils.getAltNucleotides;
 import static rnabloom.util.SeqUtils.shiftLeft;
 import static rnabloom.util.SeqUtils.shiftRight;
 import static rnabloom.util.SeqUtils.stringToBytes;
+import static rnabloom.util.SeqUtils.getAltNucleotides;
 
 /**
  *
  * @author Ka Ming Nip
  */
-public class CanonicalKmer extends Kmer2 {
+public class CanonicalKmer extends Kmer {
     
     protected long rHashVal;
     
@@ -42,7 +43,7 @@ public class CanonicalKmer extends Kmer2 {
     }
     
     @Override
-    public long getKmerPairHashValue(Kmer2 rightPartner) {
+    public long getKmerPairHashValue(Kmer rightPartner) {
         if (rightPartner instanceof CanonicalKmer) {
             return getKmerPairHashValue((CanonicalKmer) rightPartner);
         }
@@ -191,8 +192,8 @@ public class CanonicalKmer extends Kmer2 {
     }
     
     @Override
-    public ArrayDeque<Kmer2> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         getPredecessors(k, numHash, graph, result);
         
@@ -200,7 +201,7 @@ public class CanonicalKmer extends Kmer2 {
     }
     
     @Override
-    public void getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer2> result) {
+    public void getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result) {
   
         CanonicalPredecessorsNTHashIterator itr = new CanonicalPredecessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
@@ -219,8 +220,8 @@ public class CanonicalKmer extends Kmer2 {
     }
     
     @Override
-    public ArrayDeque<Kmer2> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         getSuccessors(k, numHash, graph, result);
         
@@ -228,7 +229,7 @@ public class CanonicalKmer extends Kmer2 {
     }
     
     @Override
-    public void getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer2> result) {
+    public void getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result) {
         
         CanonicalSuccessorsNTHashIterator itr = new CanonicalSuccessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, rHashVal, (char) bytes[0]);
@@ -247,8 +248,8 @@ public class CanonicalKmer extends Kmer2 {
     }
     
     @Override
-    public ArrayDeque<Kmer2> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, BloomFilter bf) {        
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, BloomFilter bf) {        
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
                        
         CanonicalPredecessorsNTHashIterator itr = new CanonicalPredecessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
@@ -271,8 +272,8 @@ public class CanonicalKmer extends Kmer2 {
     }
             
     @Override
-    public ArrayDeque<Kmer2> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, BloomFilter bf) {
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, BloomFilter bf) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
 
         CanonicalSuccessorsNTHashIterator itr = new CanonicalSuccessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, rHashVal, (char) bytes[0]);
@@ -295,8 +296,8 @@ public class CanonicalKmer extends Kmer2 {
     }
     
     @Override
-    public ArrayDeque<Kmer2> getLeftVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getLeftVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         CanonicalLeftVariantsNTHashIterator itr = new CanonicalLeftVariantsNTHashIterator(k, numHash);
         char charOut = (char) bytes[0];
@@ -319,8 +320,8 @@ public class CanonicalKmer extends Kmer2 {
     }
     
     @Override
-    public ArrayDeque<Kmer2> getRightVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
-        ArrayDeque<Kmer2> result = new ArrayDeque<>(4);
+    public ArrayDeque<Kmer> getRightVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         CanonicalRightVariantsNTHashIterator itr = new CanonicalRightVariantsNTHashIterator(k, numHash);
         char charOut = (char) bytes[k-1];

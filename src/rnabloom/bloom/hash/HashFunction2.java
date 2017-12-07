@@ -9,8 +9,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import static rnabloom.bloom.hash.NTHash.NTM64;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
-import rnabloom.graph.Kmer2;
+import rnabloom.graph.Kmer;
 import static rnabloom.util.SeqUtils.stringToBytes;
+import static rnabloom.bloom.hash.NTHash.NTM64;
 
 
 /**
@@ -34,14 +35,14 @@ public class HashFunction2 {
         this.kMinus1Mod64 = (k-1)%64;
     }
     
-    public Kmer2 getKmer(final String kmer, final int numHash, BloomFilterDeBruijnGraph graph) {
+    public Kmer getKmer(final String kmer, final int numHash, BloomFilterDeBruijnGraph graph) {
         long[] hVals = new long[numHash];
         NTM64(kmer, k, numHash, hVals);
-        return new Kmer2(kmer, k, graph.getCount(hVals), hVals[0]);
+        return new Kmer(kmer, k, graph.getCount(hVals), hVals[0]);
     }
     
-    public ArrayList<Kmer2> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph) {
-        ArrayList<Kmer2> result = new ArrayList<>();
+    public ArrayList<Kmer> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayList<Kmer> result = new ArrayList<>();
         
         int seqLength = seq.length();
         
@@ -55,7 +56,7 @@ public class HashFunction2 {
             while (itr.hasNext()) {
                 itr.next();
                 i = itr.getPos();
-                result.add(new Kmer2(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), hVals[0]));
+                result.add(new Kmer(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), hVals[0]));
             }
         }
         

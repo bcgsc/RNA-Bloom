@@ -318,7 +318,7 @@ public class BloomFilterDeBruijnGraph {
         return kMinus1;
     }
         
-    public boolean isLowComplexity(Kmer2 kmer) {
+    public boolean isLowComplexity(Kmer kmer) {
         return isLowComplexity2(kmer.bytes);
     }
     
@@ -385,8 +385,8 @@ public class BloomFilterDeBruijnGraph {
         }
     }
         
-    public void addPairedKmers(ArrayList<Kmer2> kmers) {
-        Kmer2 left, right;
+    public void addPairedKmers(ArrayList<Kmer> kmers) {
+        Kmer left, right;
         
         // add paired kmers
         final int upperBound = kmers.size() - pairedKmersDistance;
@@ -403,8 +403,8 @@ public class BloomFilterDeBruijnGraph {
         }
     }
      
-    public boolean containsAllPairedKmers(ArrayList<Kmer2> kmers) {
-        Kmer2 left, right;
+    public boolean containsAllPairedKmers(ArrayList<Kmer> kmers) {
+        Kmer left, right;
         
         // add paired kmers
         final int upperBound = kmers.size() - pairedKmersDistance;
@@ -483,13 +483,13 @@ public class BloomFilterDeBruijnGraph {
         return pkbf.lookupRight(hashVals);
     }
     
-    public boolean lookupKmerPair(Kmer2 left, Kmer2 right) {
+    public boolean lookupKmerPair(Kmer left, Kmer right) {
         return pkbf.lookup(left.getHash(),
                             right.getHash(),
                             left.getKmerPairHashValue(right));
     }
     
-    public boolean lookupKmerPairing(Kmer2 left, Kmer2 right) {
+    public boolean lookupKmerPairing(Kmer left, Kmer right) {
         return pkbf.lookupPair(left.getKmerPairHashValue(right));
     }
     
@@ -536,7 +536,7 @@ public class BloomFilterDeBruijnGraph {
         return dbgbf.getFPR() * cbf.getFPR();
     }
     
-    public Kmer2 getKmer(String kmer) {
+    public Kmer getKmer(String kmer) {
         return hashFunction.getKmer(kmer, dbgbfCbfMaxNumHash, this);
     }
     
@@ -1152,25 +1152,25 @@ public class BloomFilterDeBruijnGraph {
         return hashFunction.getPairedHashIterator(this.pkbfNumHash, this.pairedKmersDistance);
     }
     
-    public ArrayList<Kmer2> getKmers(String seq) {                
+    public ArrayList<Kmer> getKmers(String seq) {                
         return hashFunction.getKmers(seq, this.dbgbfCbfMaxNumHash, this);
 }
     
-    public String assemble(ArrayDeque<Kmer2> kmers) {
+    public String assemble(ArrayDeque<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
         for (byte b : kmers.getFirst().bytes) {
             sb.append((char) b);
         }
         
-        for (Kmer2 e : kmers) {
+        for (Kmer e : kmers) {
             sb.append((char) e.bytes[kMinus1]);
         }
         
         return sb.toString();
     }
     
-    public String assemble(ArrayList<Kmer2> kmers, int start, int end) {
+    public String assemble(ArrayList<Kmer> kmers, int start, int end) {
         StringBuilder sb = new StringBuilder(end - start + kMinus1);
         
         for (byte b : kmers.get(start).bytes) {
@@ -1184,10 +1184,10 @@ public class BloomFilterDeBruijnGraph {
         return sb.toString();
     }
     
-    public String assembleReverseOrder(ArrayDeque<Kmer2> kmers) {
+    public String assembleReverseOrder(ArrayDeque<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
-        Iterator<Kmer2> itr = kmers.descendingIterator();
+        Iterator<Kmer> itr = kmers.descendingIterator();
         
         for (byte b : itr.next().bytes) {
             sb.append((char) b);
@@ -1200,10 +1200,10 @@ public class BloomFilterDeBruijnGraph {
         return sb.toString();
     }
     
-    public String assemble(Collection<Kmer2> kmers) {
+    public String assemble(Collection<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
-        Iterator<Kmer2> itr = kmers.iterator();
+        Iterator<Kmer> itr = kmers.iterator();
         
         for (byte b : itr.next().bytes) {
             sb.append((char) b);
@@ -1216,20 +1216,20 @@ public class BloomFilterDeBruijnGraph {
         return sb.toString();
     }
   
-    public String assembleFirstBase(Collection<Kmer2> kmers) {
+    public String assembleFirstBase(Collection<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
-        for (Kmer2 kmer : kmers) {
+        for (Kmer kmer : kmers) {
             sb.append((char) kmer.bytes[0]);
         }
         
         return sb.toString();
     }
 
-    public String assembleLastBase(Collection<Kmer2> kmers) {
+    public String assembleLastBase(Collection<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
-        for (Kmer2 kmer : kmers) {
+        for (Kmer kmer : kmers) {
             sb.append((char) kmer.bytes[kMinus1]);
         }
         

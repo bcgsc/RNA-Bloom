@@ -10,8 +10,9 @@ import java.util.Arrays;
 import static rnabloom.bloom.hash.NTHash.NTMC64;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.CanonicalKmer;
-import rnabloom.graph.Kmer2;
+import rnabloom.graph.Kmer;
 import static rnabloom.util.SeqUtils.stringToBytes;
+import static rnabloom.bloom.hash.NTHash.NTMC64;
 
 /**
  *
@@ -23,7 +24,7 @@ public class CanonicalHashFunction2 extends HashFunction2 {
     }
     
     @Override
-    public Kmer2 getKmer(final String kmer, final int numHash, BloomFilterDeBruijnGraph graph) {
+    public Kmer getKmer(final String kmer, final int numHash, BloomFilterDeBruijnGraph graph) {
         long[] frhval = new long[2];
         long[] hVals = new long[numHash];
         NTMC64(kmer, k, numHash, frhval, hVals);
@@ -31,8 +32,8 @@ public class CanonicalHashFunction2 extends HashFunction2 {
     }
     
     @Override
-    public ArrayList<Kmer2> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph) {
-        ArrayList<Kmer2> result = new ArrayList<>();
+    public ArrayList<Kmer> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayList<Kmer> result = new ArrayList<>();
         
         int seqLength = seq.length();
         
