@@ -867,15 +867,15 @@ public class RNABloom {
     private class Fragment {
         String left;
         String right;
-        String seq;
+        ArrayList<Kmer> kmers;
         int length;
         float minCov;
         boolean isUnconnectedRead;
         
-        public Fragment(String left, String right, String seq, int length, float minCov, boolean isUnconnectedRead) {
+        public Fragment(String left, String right, ArrayList<Kmer> kmers, int length, float minCov, boolean isUnconnectedRead) {
             this.left = left;
             this.right = right;
-            this.seq = seq;
+            this.kmers = kmers;
             this.length = length;
             this.minCov = minCov;
             this.isUnconnectedRead = isUnconnectedRead;
@@ -1329,7 +1329,7 @@ public class RNABloom {
                                     graph.addPairedKmers(fragmentKmers);
                                 }
 
-                                outList.put(new Fragment(left, right, graph.assemble(fragmentKmers), fragLength, minCov, false));
+                                outList.put(new Fragment(left, right, fragmentKmers, fragLength, minCov, false));
                             }
                         }
                     }
@@ -1490,7 +1490,7 @@ public class RNABloom {
                                     graph.addPairedKmers(fragmentKmers);
                                 }
 
-                                outList.put(new Fragment(left, right, graph.assemble(fragmentKmers), fragLength, minCov, false));
+                                outList.put(new Fragment(left, right, fragmentKmers, fragLength, minCov, false));
                             }
                         }
                     }
@@ -1780,7 +1780,7 @@ public class RNABloom {
                                     ++rescuedReadPairs;
 
                                     if (frag.length >= shortestFragmentLengthAllowed) {
-                                        ArrayList<Kmer> fragKmers = graph.getKmers(frag.seq);
+                                        ArrayList<Kmer> fragKmers = frag.kmers;
 
                                         if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                                             if (frag.minCov == 1) {
@@ -1791,10 +1791,10 @@ public class RNABloom {
                                                         screeningBf.add(kmer.getHash());
                                                     } 
 
-                                                    longSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    longSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                                 }
                                                 else {
-                                                    shortSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    shortSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                                 }
                                             }
                                             else if (frag.minCov > 1) {
@@ -1808,10 +1808,10 @@ public class RNABloom {
                                                             screeningBf.add(kmer.getHash());
                                                         }
 
-                                                        longFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                        longFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                                     }
                                                     else {
-                                                        shortFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                        shortFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                                     }
                                                 }
                                             }
@@ -1855,7 +1855,7 @@ public class RNABloom {
                     ++rescuedReadPairs;
                     
                     if (frag.length >= shortestFragmentLengthAllowed) {
-                        ArrayList<Kmer> fragKmers = graph.getKmers(frag.seq);
+                        ArrayList<Kmer> fragKmers = frag.kmers;
 
                         if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                             if (frag.minCov == 1) {
@@ -1866,10 +1866,10 @@ public class RNABloom {
                                         screeningBf.add(kmer.getHash());
                                     }
 
-                                    longSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                    longSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                 }
                                 else {
-                                    shortSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                    shortSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                 }
                             }
                             else if (frag.minCov > 1)  {
@@ -1883,10 +1883,10 @@ public class RNABloom {
                                             screeningBf.add(kmer.getHash());
                                         }
 
-                                        longFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                        longFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                     }
                                     else {
-                                        shortFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                        shortFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                     }
                                 }
                             }
@@ -2175,7 +2175,7 @@ public class RNABloom {
                         }
                         else {
                             if (frag.length >= shortestFragmentLengthAllowed) {
-                                ArrayList<Kmer> fragKmers = graph.getKmers(frag.seq);
+                                ArrayList<Kmer> fragKmers = frag.kmers;
 
                                 if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                                     if (frag.minCov == 1) {
@@ -2186,10 +2186,10 @@ public class RNABloom {
                                                 screeningBf.add(kmer.getHash());
                                             }
 
-                                            longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                            longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                         }
                                         else {
-                                            shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                            shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                         }
                                     }
                                     else if (frag.minCov > 1)  {
@@ -2203,10 +2203,10 @@ public class RNABloom {
                                                     screeningBf.add(kmer.getHash());
                                                 }
 
-                                                longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                             }
                                             else {
-                                                shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                             }
                                         }
                                     }
@@ -2270,7 +2270,7 @@ public class RNABloom {
                                 }
                                 else {
                                     if (frag.length >= shortestFragmentLengthAllowed) {
-                                        ArrayList<Kmer> fragKmers = graph.getKmers(frag.seq);
+                                        ArrayList<Kmer> fragKmers = frag.kmers;
 
                                         if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                                             if (frag.minCov == 1) {
@@ -2281,10 +2281,10 @@ public class RNABloom {
                                                         screeningBf.add(kmer.getHash());
                                                     } 
 
-                                                    longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                                 }
                                                 else {
-                                                    shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                    shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                                 }
                                             }
                                             else if (frag.minCov > 1) {
@@ -2298,10 +2298,10 @@ public class RNABloom {
                                                             screeningBf.add(kmer.getHash());
                                                         }
 
-                                                        longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                        longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                                     }
                                                     else {
-                                                        shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                                        shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                                     }
                                                 }
                                             }
@@ -2337,7 +2337,7 @@ public class RNABloom {
                     }
                     else {
                         if (frag.length >= shortestFragmentLengthAllowed) {
-                            ArrayList<Kmer> fragKmers = graph.getKmers(frag.seq);
+                            ArrayList<Kmer> fragKmers = frag.kmers;
 
                             if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                                 if (frag.minCov == 1) {
@@ -2348,10 +2348,10 @@ public class RNABloom {
                                             screeningBf.add(kmer.getHash());
                                         }
 
-                                        longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                        longSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                     }
                                     else {
-                                        shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                        shortSingletonsOut.write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                     }
                                 }
                                 else if (frag.minCov > 1)  {
@@ -2365,10 +2365,10 @@ public class RNABloom {
                                                 screeningBf.add(kmer.getHash());
                                             }
 
-                                            longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                            longFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                         }
                                         else {
-                                            shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", frag.seq);
+                                            shortFragmentsOut[m].write(Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                         }
                                     }
                                 }
@@ -3364,7 +3364,7 @@ public class RNABloom {
                 rightReadFilesTotalBytes += new File(fq).length();
             }
             
-            final float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, Math.max(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
+            final float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, 0.75f * Math.min(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
             final float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8f)));
             final float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8f)));
             final float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 6f / 8f)));
