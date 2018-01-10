@@ -193,8 +193,23 @@ public class RNABloom {
         return graph != null;
     }
     
-    public void clearGraph() {
+    public void clearDbgBf() {
         graph.clearDbgbf();
+        dbgFPR = 0;
+    }
+
+    public void clearCBf() {
+        graph.clearCbf();
+        covFPR = 0;
+    }
+    
+    public void clearPkBf() {
+        graph.clearPkbf();
+    }
+    
+    public void clearAllBf() {
+        graph.clearDbgbf();
+        graph.clearCbf();
         graph.clearPkbf();
         
         dbgFPR = 0;
@@ -606,7 +621,7 @@ public class RNABloom {
 //        covFPR = graph.getCbfFPR();
 //    }
     
-    public void repopulateGraph(Collection<String> fastas, boolean strandSpecific) {
+    public void repopulateGraph(Collection<String> fastas, boolean strandSpecific, boolean newKmerSize) {
         /** insert into graph if absent */
         
         /** parse the reads */
@@ -627,20 +642,36 @@ public class RNABloom {
                 
                 String seq;
                 try {
-                    while (true) {
-                        seq = fin.next();
+                    if (newKmerSize) {
+                        while (true) {
+                            seq = fin.next();
 
-                        if (itr.start(seq)) {
-                            while (itr.hasNext()) {
-                                itr.next();
-                                graph.addIfAbsent(hashVals);
+                            if (itr.start(seq)) {
+                                while (itr.hasNext()) {
+                                    itr.next();
+                                    graph.addIfAbsent(hashVals);
+                                }
+                            }
+
+                            if (pItr.start(seq)) {
+                                while (pItr.hasNext()) {
+                                    pItr.next();
+                                    graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
+                                }
                             }
                         }
+                    }
+                    else {
+                        // reuse existing k-mer counts and paired kmers
+                        
+                        while (true) {
+                            seq = fin.next();
 
-                        if (pItr.start(seq)) {
-                            while (pItr.hasNext()) {
-                                pItr.next();
-                                graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
+                            if (itr.start(seq)) {
+                                while (itr.hasNext()) {
+                                    itr.next();
+                                    graph.addDbgOnly(hashVals);
+                                }
                             }
                         }
                     }
@@ -3319,7 +3350,7 @@ public class RNABloom {
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             
             final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "25"));
-            final int k2 = Integer.parseInt(line.getOptionValue(optKmerSize2.getOpt(), "50"));
+            final int k2 = Integer.parseInt(line.getOptionValue(optKmerSize2.getOpt(), Integer.toString(k)));
             
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "3"));
@@ -3573,9 +3604,14 @@ public class RNABloom {
                 }
             }
             else {
+                boolean newKmerSize = k!=k2;
+                
                 if (assembler.isGraphInitialized()) {
-                    // clear DBG-Bf, c-Bf, pk-Bf, a-Bf
-                    assembler.clearGraph();                    
+                    assembler.clearDbgBf();
+                    if (newKmerSize) {
+                        assembler.clearCBf();
+                        assembler.clearPkBf();
+                    }
                 }
                 else {
                     assembler.initializeGraph(strandSpecific, 
@@ -3601,32 +3637,33 @@ public class RNABloom {
 
                 System.out.println("Rebuilding graph from assembled fragments (k=" + k2 + ")...");
                 timer.start();
-                assembler.repopulateGraph(fragmentPaths, strandSpecific);
+                assembler.repopulateGraph(fragmentPaths, strandSpecific, newKmerSize);
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));    
                 
-                // populate graph with kmers from reads
-                ArrayList<String> forwardFilesList = new ArrayList<>();
-                ArrayList<String> backwardFilesList = new ArrayList<>();
+                if (newKmerSize) {
+                    // populate graph with kmers from reads
+                    ArrayList<String> forwardFilesList = new ArrayList<>();
+                    ArrayList<String> backwardFilesList = new ArrayList<>();
 
-                if (revCompLeft) {
-                    backwardFilesList.addAll(Arrays.asList(fastqsLeft));
-                }
-                else {
-                    forwardFilesList.addAll(Arrays.asList(fastqsLeft));
-                }
+                    if (revCompLeft) {
+                        backwardFilesList.addAll(Arrays.asList(fastqsLeft));
+                    }
+                    else {
+                        forwardFilesList.addAll(Arrays.asList(fastqsLeft));
+                    }
 
-                if (revCompRight) {
-                    backwardFilesList.addAll(Arrays.asList(fastqsRight));
-                }
-                else {
-                    forwardFilesList.addAll(Arrays.asList(fastqsRight));
-                }
+                    if (revCompRight) {
+                        backwardFilesList.addAll(Arrays.asList(fastqsRight));
+                    }
+                    else {
+                        forwardFilesList.addAll(Arrays.asList(fastqsRight));
+                    }
 
-                System.out.println("Counting kmers in reads (k=" + k2 + ")...");
-                timer.start();
-                assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, true);
-                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                
+                    System.out.println("Counting kmers in reads (k=" + k2 + ")...");
+                    timer.start();
+                    assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, true);
+                    System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                }
                 
                 // Remove existing output files
                 
