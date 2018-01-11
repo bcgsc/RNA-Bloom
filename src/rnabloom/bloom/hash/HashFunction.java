@@ -62,6 +62,28 @@ public class HashFunction {
         return result;
     }
     
+    public ArrayList<Kmer> getKmers(final String seq, final int start, final int end, final int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayList<Kmer> result = new ArrayList<>();
+        
+        int seqLength = seq.length();
+        
+        if (seqLength >= k) {
+            byte[] bytes = stringToBytes(seq, seqLength);
+
+            NTHashIterator itr = new NTHashIterator(k, numHash);
+            itr.start(seq, start, end);
+            long[] hVals = itr.hVals;
+            int i;
+            while (itr.hasNext()) {
+                itr.next();
+                i = itr.getPos();
+                result.add(new Kmer(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), hVals[0]));
+            }
+        }
+        
+        return result;
+    }
+    
     public void getHashValues(final String kmer,
                               final int numHash,
                               final long[] out) {
