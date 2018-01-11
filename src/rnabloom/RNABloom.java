@@ -1110,39 +1110,67 @@ public class RNABloom {
                             
                             ArrayList<Kmer> fragKmers2 = new ArrayList<>(fragKmers);
 
-                            if ((!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) &&
-                                    !represented(fragKmers,
+                            if (!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) {
+                                // this fragment is okay to be extended
+                                if (!represented(fragKmers,
                                                         graph,
                                                         screeningBf,
                                                         lookahead,
                                                         maxIndelSize,
                                                         maxTipLength,
                                                         percentIdentity)) {
+                                    // this fragment has not been used yet
+                                
+                                    if (includeNaiveExtensions) {
+                                        extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
+                                    }
+                                    else {
+                                        extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
+                                    }
 
-//                                extendWithPairedKmersBFS(fragKmers, graph, lookahead, maxTipLength, maxIndelSize, percentIdentity, minNumKmerPairs);
+                                    ArrayDeque<ArrayList<Kmer>> segments = breakWithPairedKmers(fragKmers, graph);
+                                    if (segments.size() > 1) {
+                                        for (ArrayList<Kmer> segment : segments) {
+                                            if (new HashSet<>(segment).containsAll(fragKmers2)) {
+                                                transcripts.put(new Transcript(fragment, segment));
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    else {
+                                        transcripts.put(new Transcript(fragment, fragKmers));
+                                    }
+                                }
+                            }
+                            else if (!represented(fragKmers,
+                                                        graph,
+                                                        screeningBf,
+                                                        lookahead,
+                                                        maxIndelSize,
+                                                        maxTipLength,
+                                                        percentIdentity)) {
+                                // this fragment should not be extended with paired kmers
+                                // but it has not been used in yet
                                 
                                 if (includeNaiveExtensions) {
-                                    extendWithPairedKmers(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
-                                }
-                                else {
-                                    extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
-                                }
+                                    fragKmers = naiveExtend(fragKmers, graph, maxTipLength);
 
-                                ArrayDeque<ArrayList<Kmer>> segments = breakWithPairedKmers(fragKmers, graph);
-                                if (segments.size() > 1) {
-                                    for (ArrayList<Kmer> segment : segments) {
-                                        if (new HashSet<>(segment).containsAll(fragKmers2)) {
-                                            transcripts.put(new Transcript(fragment, segment));
-                                            break;
+                                    ArrayDeque<ArrayList<Kmer>> segments = breakWithPairedKmers(fragKmers, graph);
+                                    if (segments.size() > 1) {
+                                        for (ArrayList<Kmer> segment : segments) {
+                                            if (new HashSet<>(segment).containsAll(fragKmers2)) {
+                                                transcripts.put(new Transcript(fragment, segment));
+                                                break;
+                                            }
                                         }
+                                    }
+                                    else {
+                                        transcripts.put(new Transcript(fragment, fragKmers));
                                     }
                                 }
                                 else {
                                     transcripts.put(new Transcript(fragment, fragKmers));
                                 }
-
-//                                System.out.println(graph.assemble(fragKmers));
-//                                System.out.println("yay");
                             }
                         }
                     }
