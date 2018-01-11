@@ -1154,7 +1154,11 @@ public class BloomFilterDeBruijnGraph {
     
     public ArrayList<Kmer> getKmers(String seq) {                
         return hashFunction.getKmers(seq, this.dbgbfCbfMaxNumHash, this);
-}
+    }
+    
+    public ArrayList<Kmer> getKmers(String seq, int start, int end) {                
+        return hashFunction.getKmers(seq, start, end, this.dbgbfCbfMaxNumHash, this);
+    }
     
     public String assemble(ArrayDeque<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
