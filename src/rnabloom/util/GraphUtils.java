@@ -2831,34 +2831,32 @@ public final class GraphUtils {
         
         return leftWing + graph.assemble(pathKmers) + rightWing;
     }
-    
-    public static ArrayList<Kmer> overlap(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, BloomFilterDeBruijnGraph graph, int minOverlap) {
-        int k = graph.getK();
         
-        return overlap(graph.assemble(leftKmers), graph.assemble(rightKmers), graph, minOverlap);
-    }
-    
-    public static ArrayList<Kmer> overlap(String left, String right, BloomFilterDeBruijnGraph graph, int minOverlap) {
+    public static ArrayList<Kmer> overlap(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, BloomFilterDeBruijnGraph graph, int minOverlap) {
 //        int k = graph.getK();
         
+        String left = graph.assemble(leftKmers);
+        String right = graph.assemble(rightKmers);
         String overlapped = overlapMaximally(left, right, minOverlap);
         
         if (overlapped != null) {
-            ArrayList<Kmer> overlappedKmers = graph.getKmers(overlapped);
-            
+            int overlappedSeqLength = overlapped.length();
             int k = graph.getK();
+                        
             int leftLen = left.length();
             int rightLen = right.length();
             
-            if (overlapped.length() <= leftLen + rightLen - k) {
+            if (overlappedSeqLength <= leftLen + rightLen - k) {
                 // The overlap is larger than or equal to k
                 
                 boolean hasComplexKmer = false;
-                int end = leftLen - k + 1;
-                int start = overlappedKmers.size() - (rightLen - k + 1);
-                
-                for (int i=start; i<end; ++i) {
-                    if (!graph.isLowComplexity(overlappedKmers.get(i))) {
+//                int end = leftLen - k + 1;
+//                int start = overlappedKmers.size() - (rightLen - k + 1);
+
+                int end = rightLen - (overlappedSeqLength - leftLen) - k + 1;
+
+                for (int i=0; i<end; ++i) {
+                    if (!graph.isLowComplexity(rightKmers.get(i))) {
                         // Require at least one complex kmers in the overlap
                         hasComplexKmer = true;
                         break;
@@ -2868,28 +2866,49 @@ public final class GraphUtils {
                 if (!hasComplexKmer) {
                     return null;
                 }
+                
+                ArrayList<Kmer> overlappedKmers = new ArrayList<>(overlappedSeqLength - k + 1); //graph.getKmers(overlapped);
+                overlappedKmers.addAll(leftKmers);
+                
+                // add remaining right kmers
+                int numRightKmers = rightKmers.size();
+                for (int i=end; i<numRightKmers; ++i) {
+                    overlappedKmers.add(rightKmers.get(i));
+                }
+                
+                return overlappedKmers;
             }
             else {
                 // The overlap is smaller than k
-                
+                                
+                boolean hasComplexKmer = false;
                 int start = leftLen - k + 1;
-                int end = overlappedKmers.size() - (rightLen - k + 1);
-                
-                for (int i=start; i<end ; ++i) {
-                    if (graph.isLowComplexity(overlappedKmers.get(i))) {
-                        // Require no low-complexity kmers in the overlap
+                int end = overlappedSeqLength - (rightLen - k + 1);
+
+                ArrayList<Kmer> spanningKmers = graph.getKmers(overlapped, start, end);
+                for (Kmer kmer : spanningKmers) {
+                    if (kmer.count <= 0) {
+                        // the overlap is not a valid path in the graph
                         return null;
                     }
-                }                
-            }
-            
-            for (Kmer kmer : overlappedKmers) {
-                if (kmer.count <= 0) {
+                    
+                    if (!hasComplexKmer && !graph.isLowComplexity(kmer)) {
+                        // Require at least one complex kmers in the overlap
+                        hasComplexKmer = true;
+                    }
+                }
+
+                if (!hasComplexKmer) {
                     return null;
                 }
+                
+                ArrayList<Kmer> overlappedKmers = new ArrayList<>(overlappedSeqLength - k + 1); //graph.getKmers(overlapped);
+                overlappedKmers.addAll(leftKmers);
+                overlappedKmers.addAll(spanningKmers);
+                overlappedKmers.addAll(rightKmers);
+                
+                return overlappedKmers;
             }
-
-            return overlappedKmers;
         }
         
         return null;
@@ -2903,11 +2922,9 @@ public final class GraphUtils {
                                                     int minOverlap,
                                                     float maxCovGradient,
                                                     boolean rescueSearch) {
-        String leftSeq = graph.assemble(leftKmers);
-        String rightSeq = graph.assemble(rightKmers);
 
         // 1. Attempt simple overlap
-        ArrayList<Kmer> fragmentKmers = overlap(leftSeq, rightSeq, graph, minOverlap);
+        ArrayList<Kmer> fragmentKmers = overlap(leftKmers, rightKmers, graph, minOverlap);
         
         if (fragmentKmers == null) {
             Kmer leftLastKmer = leftKmers.get(leftKmers.size()-1);
