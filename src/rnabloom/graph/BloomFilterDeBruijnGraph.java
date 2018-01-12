@@ -179,21 +179,27 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void clearAllBf() {
-        dbgbf.empty();
-        cbf.empty();
-        pkbf.empty();
+        clearDbgbf();
+        clearCbf();
+        clearPkbf();
     }
     
     public void clearDbgbf() {
-        dbgbf.empty();
+        if (dbgbf != null) {
+            dbgbf.empty();
+        }
     }
     
     public void clearCbf() {
-        cbf.empty();
+        if (cbf != null) {
+            cbf.empty();
+        }
     }
     
     public void clearPkbf() {
-        pkbf.empty();
+        if (pkbf != null) {
+            pkbf.empty();
+        }
     }
 
     public void destroyDbgbf() {
