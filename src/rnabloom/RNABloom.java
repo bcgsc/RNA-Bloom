@@ -156,6 +156,11 @@ public class RNABloom {
         }
     }
     
+    private void exitOnError(String msg) {
+        System.out.println("ERROR: " + msg);
+        System.exit(1);
+    }
+    
     private void handleException(Exception ex) {
         System.out.println("ERROR: " + ex.getMessage() );
         ex.printStackTrace();
@@ -439,6 +444,37 @@ public class RNABloom {
         }
     }
     
+    public int getMaxReadLength(String path) {
+        int max = -1;
+        
+        try {
+            if (FastqReader.isFastq(path)) {
+                FastqRecord r = new FastqRecord();
+                FastqReader fr = new FastqReader(path);
+                for (int i=0; i< 10 && fr.hasNext(); ++i) {
+                    fr.nextWithoutName(r);
+                    max = Math.max(max, r.seq.length());
+                }
+                fr.close();
+            }
+            else if (FastaReader.isFasta(path)) {
+                FastaReader fr = new FastaReader(path);
+                for (int i=0; i< 10 && fr.hasNext(); ++i) {
+                    max = Math.max(max, fr.next().length());
+                }
+                fr.close();                
+            }
+            else {
+                System.out.println("Incompatible file format in `" + path + "`");
+            }
+        }
+        catch (IOException ex) {
+            System.out.println("ERROR: " + ex.getMessage());
+        }
+        
+        return max;
+    }
+    
     public void initializeGraph(boolean strandSpecific,
                             long dbgbfNumBits,
                             long cbfNumBytes,
@@ -531,7 +567,40 @@ public class RNABloom {
                             boolean addCountsOnly) {        
         
 //        screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
+
+        /** estimate read length */
+        int readLength = -1;
         
+        for (String path : forwardReadPaths) {
+            int len = this.getMaxReadLength(path);
+            if (len > 0) {
+                if (readLength < 0) {
+                    readLength = len;
+                }
+                else {
+                    readLength = Math.min(readLength, len);
+                }
+            }
+        }
+        
+        for (String path : reverseReadPaths) {
+            int len = this.getMaxReadLength(path);
+            if (len > 0) {
+                if (readLength < 0) {
+                    readLength = len;
+                }
+                else {
+                    readLength = Math.min(readLength, len);
+                }
+            }
+        }
+        
+        if (readLength < 0) {
+            exitOnError("Cannot determine read length from read files.");
+        }
+        
+        System.out.println("Read length: " + readLength);
+
         /** parse the reads */
         
         int numReads = 0;
@@ -542,14 +611,14 @@ public class RNABloom {
         ArrayList<SeqToGraphWorker> threadPool = new ArrayList<>();
         int threadId = 0;
            
-        for (String fastq : forwardReadPaths) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, false, numHash, addCountsOnly);
+        for (String path : forwardReadPaths) {
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, false, numHash, addCountsOnly);
             service.submit(t);
             threadPool.add(t);
         }
 
-        for (String fastq : reverseReadPaths) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, true, numHash, addCountsOnly);
+        for (String path : reverseReadPaths) {
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, true, numHash, addCountsOnly);
             service.submit(t);
             threadPool.add(t);
         }
