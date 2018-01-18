@@ -9,8 +9,6 @@ import java.util.Arrays;
 import static rnabloom.bloom.hash.HashFunction.combineHashValues;
 import static rnabloom.bloom.hash.NTHash.NTM64;
 import static rnabloom.bloom.hash.NTHash.NTMC64;
-import static rnabloom.bloom.hash.NTHash.NTM64;
-import static rnabloom.bloom.hash.NTHash.NTMC64;
 
 /**
  *
