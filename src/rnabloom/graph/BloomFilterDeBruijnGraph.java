@@ -43,6 +43,8 @@ public class BloomFilterDeBruijnGraph {
     private int pkbfNumHash;
 //    private KmerBitsUtils2 bitsUtils;
     
+    private int singleReadKmersDistance = -1;
+    
     private final static String FILE_DESC_EXTENSION = ".desc";
     private final static String FILE_DBGBF_EXTENSION = ".dbgbf";
     private final static String FILE_CBF_EXTENSION = ".cbf";
@@ -308,6 +310,14 @@ public class BloomFilterDeBruijnGraph {
     
     public int getPairedKmerDistance() {
         return this.pairedKmersDistance;
+    }
+    
+    public void setReadKmerDistance(int d) {
+        this.singleReadKmersDistance = d;
+    }
+    
+    public int getReadKmerDistance() {
+        return singleReadKmersDistance;
     }
     
     public int getK() {
