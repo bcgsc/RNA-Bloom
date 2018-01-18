@@ -326,6 +326,8 @@ public class RNABloom {
     }
 
     public class SeqToGraphWorker implements Runnable {
+        /* Support storing paired kmers */
+        
         private final int id;
         private final String path;
         private final NTHashIterator itr;
@@ -333,7 +335,7 @@ public class RNABloom {
         private boolean successful = false;
         private final Consumer<long[]> addFunction;
         
-        public SeqToGraphWorker(int id, String path, boolean stranded, boolean reverseComplement, int numHash, boolean incrementIfPresent) {            
+        public SeqToGraphWorker(int id, String path, boolean stranded, boolean reverseComplement, int numHash, boolean incrementIfPresent, boolean storeReadKmerPairs) {            
             this.id = id;
             this.path = path;
             
@@ -560,15 +562,9 @@ public class RNABloom {
         }
     }
     
-    public void populateGraph(Collection<String> forwardReadPaths,
-                            Collection<String> reverseReadPaths,
-                            boolean strandSpecific,
-                            int numThreads,
-                            boolean addCountsOnly) {        
+    public void setReadKmerDistance(Collection<String> forwardReadPaths,
+                                    Collection<String> reverseReadPaths) {
         
-//        screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
-
-        /** estimate read length */
         int readLength = -1;
         
         for (String path : forwardReadPaths) {
@@ -598,8 +594,34 @@ public class RNABloom {
         if (readLength < 0) {
             exitOnError("Cannot determine read length from read files.");
         }
-        
+
         System.out.println("Read length: " + readLength);
+        
+        /*
+            |<--d-->|
+            ==------==     paired k-mers
+             ==------==    
+              ==------==   
+               ==------==  
+                ==------== 
+            ============== single read
+        */
+        
+        graph.setReadKmerDistance(readLength - k - minNumKmerPairs);
+    }
+    
+    public void populateGraph(Collection<String> forwardReadPaths,
+                            Collection<String> reverseReadPaths,
+                            boolean strandSpecific,
+                            int numThreads,
+                            boolean addCountsOnly,
+                            boolean storeReadKmerPairs) {        
+        
+//        screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
+
+        if (storeReadKmerPairs) {
+            setReadKmerDistance(forwardReadPaths, reverseReadPaths);
+        }
 
         /** parse the reads */
         
@@ -612,13 +634,13 @@ public class RNABloom {
         int threadId = 0;
            
         for (String path : forwardReadPaths) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, false, numHash, addCountsOnly);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, false, numHash, addCountsOnly, storeReadKmerPairs);
             service.submit(t);
             threadPool.add(t);
         }
 
         for (String path : reverseReadPaths) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, true, numHash, addCountsOnly);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, true, numHash, addCountsOnly, storeReadKmerPairs);
             service.submit(t);
             threadPool.add(t);
         }
@@ -3526,7 +3548,7 @@ public class RNABloom {
                 assembler.initializeGraph(strandSpecific, 
                         dbgbfSize, cbfSize, pkbfSize, 
                         dbgbfNumHash, cbfNumHash, pkbfNumHash, false);
-                assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false);
+                assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false, true);
                 
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
@@ -3725,7 +3747,7 @@ public class RNABloom {
 
                     System.out.println("Counting kmers in reads (k=" + k2 + ")...");
                     timer.start();
-                    assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, true);
+                    assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, true, true);
                     System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 }
                 
