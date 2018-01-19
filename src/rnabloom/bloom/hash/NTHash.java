@@ -338,6 +338,20 @@ public class NTHash {
         return rhVal;
     }
 
+    /**
+     * ntBase (reverse complement)
+     * @param kmerSeq   kmer to be hashed
+     * @param k         length of kmer
+     * @return          hash value
+     */    
+    public static long NTP64RC(final CharSequence kmerSeq, final int k, final int start) {
+        long rhVal=0;
+        for(int i=0; i<k; ++i) {
+            rhVal ^= msTab[kmerSeq.charAt(start+i)&cpOff][i%64];
+        }
+        return rhVal;
+    }
+    
 //    /**
 //     * ntBase with seeding option
 //     * @param kmerSeq   kmer to be hashed
@@ -518,6 +532,18 @@ public class NTHash {
      */
     public static void NTM64RC(final CharSequence kmerSeq, final int k, final int m, final long[] hVal) {
         NTM64(NTP64RC(kmerSeq, k), hVal, k, m);
+    }
+    
+    /**
+     * Multihash ntBase (reverse complement)
+     * @param kmerSeq   kmer to be hashed
+     * @param k         length of kmer
+     * @param m         number of hash values to generate
+     * @param start     index of kmer in seq
+     * @param hVal      array to store hash values
+     */
+    public static void NTM64RC(final CharSequence kmerSeq, final int k, final int m, final int start, final long[] hVal) {
+        NTM64(NTP64RC(kmerSeq, k, start), hVal, k, m);
     }
     
     /**
