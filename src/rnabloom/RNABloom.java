@@ -38,9 +38,11 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.hash.CanonicalNTHashIterator;
+import rnabloom.bloom.hash.CanonicalPairedNTHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.bloom.hash.PairedNTHashIterator;
 import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
+import rnabloom.bloom.hash.ReverseComplementPairedNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer;
 import rnabloom.io.FastaPairReader;
@@ -330,14 +332,18 @@ public class RNABloom {
         
         private final int id;
         private final String path;
-        private final NTHashIterator itr;
+        private NTHashIterator itr;
+        private PairedNTHashIterator pitr = null;
+        private int kmerPairDistance = 0;
         private int numReads = 0;
         private boolean successful = false;
         private final Consumer<long[]> addFunction;
+        private boolean storeReadPairedKmers = false;
         
-        public SeqToGraphWorker(int id, String path, boolean stranded, boolean reverseComplement, int numHash, boolean incrementIfPresent, boolean storeReadKmerPairs) {            
+        public SeqToGraphWorker(int id, String path, boolean stranded, boolean reverseComplement, int numHash, boolean incrementIfPresent, boolean storeReadPairedKmers) {            
             this.id = id;
             this.path = path;
+            this.storeReadPairedKmers = storeReadPairedKmers;
             
             if (stranded) {
                 if (reverseComplement) {
@@ -349,6 +355,19 @@ public class RNABloom {
             }
             else {
                 itr = new CanonicalNTHashIterator(k, numHash);
+            }
+            
+            if (storeReadPairedKmers) {
+                kmerPairDistance = graph.getReadKmerDistance();
+                if (stranded) {
+                    if (reverseComplement) {
+                        pitr = new ReverseComplementPairedNTHashIterator(k, numHash, kmerPairDistance);
+                    } else {
+                        pitr = new PairedNTHashIterator(k, numHash, kmerPairDistance);
+                    }
+                } else {
+                    pitr = new CanonicalPairedNTHashIterator(k, numHash, kmerPairDistance);
+                }
             }
             
             if (incrementIfPresent) {
@@ -366,6 +385,7 @@ public class RNABloom {
             try {
                 Matcher mSeq = seqPattern.matcher("");
                 long[] hashVals = itr.hVals;
+                long[] phashVals = pitr.hVals3;
                 
                 if (FastqReader.isFastq(path)) {
                     FastqReader fr = new FastqReader(path);
@@ -374,20 +394,53 @@ public class RNABloom {
                     try {
                         FastqRecord record = new FastqRecord();
                         
-                        while (true) {
-                            ++numReads;
+                        if (storeReadPairedKmers) {
+                            while (true) {
+                                ++numReads;
 
-                            fr.nextWithoutName(record);
-                            mQual.reset(record.qual);
-                            mSeq.reset(record.seq);
+                                fr.nextWithoutName(record);
+                                mQual.reset(record.qual);
+                                mSeq.reset(record.seq);
 
-                            while (mQual.find()) {
-                                mSeq.region(mQual.start(), mQual.end());
-                                while (mSeq.find()) {
-                                    itr.start(record.seq, mSeq.start(), mSeq.end());
-                                    while (itr.hasNext()) {
-                                        itr.next();
-                                        addFunction.accept(hashVals);
+                                while (mQual.find()) {
+                                    mSeq.region(mQual.start(), mQual.end());
+                                    while (mSeq.find()) {
+                                        int start = mSeq.start();
+                                        int end = mSeq.end();
+                                        
+                                        itr.start(record.seq, start, end);
+                                        while (itr.hasNext()) {
+                                            itr.next();
+                                            addFunction.accept(hashVals);
+                                        }
+                                        
+                                        if (end - start >= kmerPairDistance) {
+                                            pitr.start(record.seq, start, end);
+                                            while (pitr.hasNext()) {
+                                                pitr.next();
+                                                graph.addSingleReadPairedKmer(phashVals);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        else {
+                            while (true) {
+                                ++numReads;
+
+                                fr.nextWithoutName(record);
+                                mQual.reset(record.qual);
+                                mSeq.reset(record.seq);
+
+                                while (mQual.find()) {
+                                    mSeq.region(mQual.start(), mQual.end());
+                                    while (mSeq.find()) {
+                                        itr.start(record.seq, mSeq.start(), mSeq.end());
+                                        while (itr.hasNext()) {
+                                            itr.next();
+                                            addFunction.accept(hashVals);
+                                        }
                                     }
                                 }
                             }
@@ -404,17 +457,47 @@ public class RNABloom {
                     
                     try {
                         String seq;
-                        while (true) {
-                            ++numReads;
+                        
+                        if (storeReadPairedKmers) {
+                            while (true) {
+                                ++numReads;
 
-                            seq = fr.next();
-                            mSeq.reset(seq);
-                            
-                            while (mSeq.find()) {
-                                itr.start(seq, mSeq.start(), mSeq.end());
-                                while (itr.hasNext()) {
-                                    itr.next();
-                                    addFunction.accept(hashVals);
+                                seq = fr.next();
+                                mSeq.reset(seq);
+                                                                
+                                while (mSeq.find()) {
+                                    int start = mSeq.start();
+                                    int end = mSeq.end();
+                                    
+                                    itr.start(seq, start, end);
+                                    while (itr.hasNext()) {
+                                        itr.next();
+                                        addFunction.accept(hashVals);
+                                    }
+                                    
+                                    if (end - start >= kmerPairDistance) {
+                                        pitr.start(seq, start, end);
+                                        while (pitr.hasNext()) {
+                                            pitr.next();
+                                            graph.addSingleReadPairedKmer(phashVals);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        else {
+                            while (true) {
+                                ++numReads;
+
+                                seq = fr.next();
+                                mSeq.reset(seq);
+
+                                while (mSeq.find()) {
+                                    itr.start(seq, mSeq.start(), mSeq.end());
+                                    while (itr.hasNext()) {
+                                        itr.next();
+                                        addFunction.accept(hashVals);
+                                    }
                                 }
                             }
                         }
@@ -484,7 +567,8 @@ public class RNABloom {
                             int dbgbfNumHash,
                             int cbfNumHash,
                             int pkbfNumHash,
-                            boolean initPkbf) {
+                            boolean initPkbf,
+                            boolean useReadPairedKmers) {
         
         graph = new BloomFilterDeBruijnGraph(dbgbfNumBits,
                                             cbfNumBytes,
@@ -493,7 +577,8 @@ public class RNABloom {
                                             cbfNumHash,
                                             pkbfNumHash,
                                             k,
-                                            strandSpecific);
+                                            strandSpecific,
+                                            useReadPairedKmers);
         
         if (initPkbf) {
             graph.initializePairKmersBloomFilter();
@@ -3547,7 +3632,7 @@ public class RNABloom {
                 
                 assembler.initializeGraph(strandSpecific, 
                         dbgbfSize, cbfSize, pkbfSize, 
-                        dbgbfNumHash, cbfNumHash, pkbfNumHash, false);
+                        dbgbfNumHash, cbfNumHash, pkbfNumHash, false, true);
                 assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false, true);
                 
                 System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
@@ -3702,7 +3787,7 @@ public class RNABloom {
                 else {
                     assembler.initializeGraph(strandSpecific, 
                             dbgbfSize, cbfSize, pkbfSize, 
-                            dbgbfNumHash, cbfNumHash, pkbfNumHash, true);
+                            dbgbfNumHash, cbfNumHash, pkbfNumHash, true, true);
                 }
                 
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);

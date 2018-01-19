@@ -17,6 +17,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
+import rnabloom.bloom.PairedKeysBloomFilter;
 import rnabloom.bloom.PairedKeysPartitionedBloomFilter;
 import rnabloom.bloom.hash.*;
 import static rnabloom.util.SeqUtils.*;
@@ -30,6 +31,7 @@ public class BloomFilterDeBruijnGraph {
     private BloomFilter dbgbf;
     private CountingBloomFilter cbf;
     private PairedKeysPartitionedBloomFilter pkbf = null;
+    private PairedKeysBloomFilter rpkbf = null;
     
     private int dbgbfNumHash;
     private int cbfNumHash;
@@ -51,6 +53,7 @@ public class BloomFilterDeBruijnGraph {
     private final static String FILE_PKBF_LEFT_EXTENSION = ".lkbf";
     private final static String FILE_PKBF_RIGHT_EXTENSION = ".rkbf";
     private final static String FILE_PKBF_PAIR_EXTENSION = ".pkbf";
+    private final static String FILE_RPKBF_PAIR_EXTENSION = ".rpkbf";
 
     
     private final static String LABEL_SEPARATOR = ":";
@@ -69,7 +72,8 @@ public class BloomFilterDeBruijnGraph {
                                     int cbfNumHash,
                                     int pkbfNumHash,
                                     int k,
-                                    boolean stranded) {
+                                    boolean stranded,
+                                    boolean useReadPairedKmers) {
         this.k = k;
         this.kMinus1 = k-1;
 //        this.bitsUtils = new KmerBitsUtils2(k);
@@ -87,6 +91,10 @@ public class BloomFilterDeBruijnGraph {
         this.cbf = new CountingBloomFilter(cbfNumBytes, cbfNumHash, this.hashFunction);
         this.pkbfNumBits = pkbfNumBits;
         this.pkbfNumHash = pkbfNumHash;
+        
+        if (useReadPairedKmers) {
+            this.rpkbf = new PairedKeysBloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
+        }
     }
     
     public BloomFilterDeBruijnGraph(File graphFile) throws FileNotFoundException, IOException {
@@ -152,6 +160,16 @@ public class BloomFilterDeBruijnGraph {
         if (pkbfDescFile.isFile() && leftBitsFile.isFile() && rightBitsFile.isFile() && pairBitsFile.isFile()) {
             pkbf = new PairedKeysPartitionedBloomFilter(pkbfDescFile, leftBitsFile, rightBitsFile, pairBitsFile, hashFunction);
         }
+        
+        String rpkbfBitsPath = graphFile.getPath() + FILE_RPKBF_PAIR_EXTENSION;
+        String rpkbfDescPath = rpkbfBitsPath + FILE_DESC_EXTENSION;
+        
+        File rpkbfBitsFile = new File(rpkbfBitsPath);
+        File rpkbfDescFile = new File(rpkbfDescPath);
+        
+        if (rpkbfBitsFile.isFile() && rpkbfDescFile.isFile()) {
+            this.rpkbf = new PairedKeysBloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
+        }
     }
 
     public HashFunction getHashFunction() {
@@ -178,12 +196,14 @@ public class BloomFilterDeBruijnGraph {
         this.destroyDbgbf();
         this.destroyCbf();
         this.destroyPkbf();
+        this.destroyRpkbf();
     }
     
     public void clearAllBf() {
         clearDbgbf();
         clearCbf();
         clearPkbf();
+        clearRpkbf();
     }
     
     public void clearDbgbf() {
@@ -201,6 +221,12 @@ public class BloomFilterDeBruijnGraph {
     public void clearPkbf() {
         if (pkbf != null) {
             pkbf.empty();
+        }
+    }
+    
+    public void clearRpkbf() {
+        if (rpkbf != null) {
+            rpkbf.empty();
         }
     }
 
@@ -222,6 +248,13 @@ public class BloomFilterDeBruijnGraph {
         if (pkbf != null) {
             pkbf.destroy();
             pkbf = null;
+        }
+    }
+
+    public void destroyRpkbf() {
+        if (rpkbf != null) {
+            rpkbf.destroy();
+            rpkbf = null;
         }
     }
     
@@ -267,6 +300,10 @@ public class BloomFilterDeBruijnGraph {
         
         if (pkbf != null) {
             savePkbf(graphFile);
+        }
+        
+        if (rpkbf != null) {
+            /**@TODO save bf*/
         }
     }
     
@@ -385,6 +422,10 @@ public class BloomFilterDeBruijnGraph {
 //            pkbf.add(kmer.hashVals);
 //        }
 //    }
+    
+    public void addSingleReadPairedKmer(long[] pairingHashVals) {
+        
+    }
     
     public void addPairedKmers(long[] leftHashVals, long[] rightHashVals, long[] pairingHashVals) {
         pkbf.add(leftHashVals, rightHashVals, pairingHashVals);

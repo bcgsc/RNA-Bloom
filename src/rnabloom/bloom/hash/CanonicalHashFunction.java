@@ -7,17 +7,10 @@ package rnabloom.bloom.hash;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import static rnabloom.bloom.hash.NTHash.NTMC64;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.CanonicalKmer;
 import rnabloom.graph.Kmer;
 import static rnabloom.util.SeqUtils.stringToBytes;
-import static rnabloom.bloom.hash.NTHash.NTMC64;
-import static rnabloom.bloom.hash.NTHash.NTMC64;
-import static rnabloom.bloom.hash.NTHash.NTMC64;
-import static rnabloom.bloom.hash.NTHash.NTMC64;
-import static rnabloom.bloom.hash.NTHash.NTMC64;
-import static rnabloom.bloom.hash.NTHash.NTMC64;
 import static rnabloom.bloom.hash.NTHash.NTMC64;
 
 /**
