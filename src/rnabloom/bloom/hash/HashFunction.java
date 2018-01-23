@@ -52,7 +52,7 @@ public class HashFunction {
             itr.start(seq);
             long[] hVals = itr.hVals;
             int i;
-            while (itr.hasNext()) {
+            while (itr.hasNext()) {                
                 itr.next();
                 i = itr.getPos();
                 result.add(new Kmer(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), hVals[0]));
@@ -145,23 +145,14 @@ public class HashFunction {
         //murmurhash3_x64_128(kmer2.getBytes(), 0, k, seed, numHash, hashVals2);
         getHashValues(kmer2, numHash, hashVals2);
         
-        final long[] hashVal = new long[numHash];
-        for (int i=0; i<numHash; ++i) {
-            hashVal[i] = combineHashValues(hashVals1[i], hashVals2[i]);
-        }
-        
-        return hashVal;
+        return getHashValues(hashVals1, hashVals2, numHash);
     }
     
     public long[] getHashValues(final long[] hashVals1,
                                 final long[] hashVals2,
                                 final int numHash) {
-        final long[] hashVal = new long[numHash];
-        for (int i=0; i<numHash; ++i) {
-            hashVal[i] = combineHashValues(hashVals1[i], hashVals2[i]);
-        }
         
-        return hashVal;
+        return getHashValues(combineHashValues(hashVals1[0], hashVals2[0]), numHash);
     }
     
     public static long combineHashValues(long a, long b) {
