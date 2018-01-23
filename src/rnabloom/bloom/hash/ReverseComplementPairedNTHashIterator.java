@@ -9,6 +9,7 @@ import java.util.Arrays;
 import static rnabloom.bloom.hash.HashFunction.combineHashValues;
 import static rnabloom.bloom.hash.NTHash.NTM64;
 import static rnabloom.bloom.hash.NTHash.NTM64RC;
+import static rnabloom.util.SeqUtils.reverseComplement;
 
 /**
  *
@@ -22,11 +23,11 @@ public class ReverseComplementPairedNTHashIterator extends PairedNTHashIterator 
     
     @Override
     public void next() {
-        if (pos == -1) {
-            NTM64RC(seq, k, h, 0, hVals1);
-            NTM64RC(seq, k, h, d, hVals2);
-            NTM64(combineHashValues(hVals2[0], hVals1[0]), hVals3, k, h);
+        if (pos == start) {
             ++pos;
+            NTM64RC(seq, k, h, pos, hVals1);
+            NTM64RC(seq, k, h, pos+d, hVals2);
+            NTM64(combineHashValues(hVals2[0], hVals1[0]), hVals3, k, h);
         }
         else if (pos < max) {
             NTM64RC(seq.charAt(pos), seq.charAt(pos+k), k, h, hVals1);

@@ -24,11 +24,11 @@ public class CanonicalPairedNTHashIterator extends PairedNTHashIterator {
     
     @Override
     public void next() {
-        if (pos == -1) {
-            NTMC64(seq, k, h, 0, frVal1, hVals1);
-            NTMC64(seq, k, h, d, frVal2, hVals2);
-            NTM64(Math.min(combineHashValues(frVal1[0], frVal2[0]), combineHashValues(frVal2[1], frVal1[1])), hVals3, k, h);
+        if (pos == start) {
             ++pos;
+            NTMC64(seq, k, h, pos, frVal1, hVals1);
+            NTMC64(seq, k, h, pos+d, frVal2, hVals2);
+            NTM64(Math.min(combineHashValues(frVal1[0], frVal2[0]), combineHashValues(frVal2[1], frVal1[1])), hVals3, k, h);
         }
         else if (pos < max) {
             NTMC64(seq.charAt(pos), seq.charAt(pos+k), k, h, frVal1, hVals1);
