@@ -270,6 +270,10 @@ public class BloomFilterDeBruijnGraph {
         return pkbf;
     }
     
+    public PairedKeysBloomFilter getRpkbf() {
+        return rpkbf;
+    }
+    
     public boolean isStranded() {
         return stranded;
     }    
@@ -424,23 +428,23 @@ public class BloomFilterDeBruijnGraph {
 //    }
     
     public void addSingleReadPairedKmer(long[] pairingHashVals) {
-        
+        rpkbf.add(pairingHashVals);
     }
     
     public void addPairedKmers(long[] leftHashVals, long[] rightHashVals, long[] pairingHashVals) {
         pkbf.add(leftHashVals, rightHashVals, pairingHashVals);
     }
     
-    public void addPairedKmersFromSeq(String seq) {
-        // add paired kmers
-        final int upperBound = getNumKmers(seq, k) - pairedKmersDistance;
-        
-        if (upperBound > 0) {
-            for (int i=0; i<upperBound; ++i) {
-                pkbf.add(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
-            }
-        }
-    }
+//    public void addPairedKmersFromSeq(String seq) {
+//        // add paired kmers
+//        final int upperBound = getNumKmers(seq, k) - pairedKmersDistance;
+//        
+//        if (upperBound > 0) {
+//            for (int i=0; i<upperBound; ++i) {
+//                pkbf.add(seq.substring(i, i+k), seq.substring(i+pairedKmersDistance, i+k+pairedKmersDistance));
+//            }
+//        }
+//    }
         
     public void addPairedKmers(ArrayList<Kmer> kmers) {
         Kmer left, right;
@@ -548,6 +552,10 @@ public class BloomFilterDeBruijnGraph {
     
     public boolean lookupKmerPairing(Kmer left, Kmer right) {
         return pkbf.lookupPair(left.getKmerPairHashValue(right));
+    }
+    
+    public boolean lookupReadKmerPair(Kmer left, Kmer right) {
+        return rpkbf.lookup(left.getKmerPairHashValue(right));
     }
     
     public boolean contains(String kmer) {
@@ -1208,7 +1216,7 @@ public class BloomFilterDeBruijnGraph {
     public PairedNTHashIterator getPairedHashIterator() {
         return hashFunction.getPairedHashIterator(this.pkbfNumHash, this.pairedKmersDistance);
     }
-    
+        
     public ArrayList<Kmer> getKmers(String seq) {                
         return hashFunction.getKmers(seq, this.dbgbfCbfMaxNumHash, this);
     }
