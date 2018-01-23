@@ -377,7 +377,7 @@ public class RNABloom {
                 addFunction = graph::add;
             }
         }
-        
+                
         @Override
         public void run() {
             System.out.println("[" + id + "] Parsing `" + path + "`...");
@@ -401,7 +401,7 @@ public class RNABloom {
                                 fr.nextWithoutName(record);
                                 mQual.reset(record.qual);
                                 mSeq.reset(record.seq);
-
+                                
                                 while (mQual.find()) {
                                     mSeq.region(mQual.start(), mQual.end());
                                     while (mSeq.find()) {
@@ -414,7 +414,7 @@ public class RNABloom {
                                             addFunction.accept(hashVals);
                                         }
                                         
-                                        if (end - start >= kmerPairDistance) {
+                                        if (end - start - k + 1 >= kmerPairDistance) {
                                             pitr.start(record.seq, start, end);
                                             while (pitr.hasNext()) {
                                                 pitr.next();
@@ -475,7 +475,7 @@ public class RNABloom {
                                         addFunction.accept(hashVals);
                                     }
                                     
-                                    if (end - start >= kmerPairDistance) {
+                                    if (end - start - k + 1 >= kmerPairDistance) {
                                         pitr.start(seq, start, end);
                                         while (pitr.hasNext()) {
                                             pitr.next();
@@ -1302,17 +1302,29 @@ public class RNABloom {
                                     extendWithPairedKmersDFS(fragKmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
                                 }
 
-                                ArrayDeque<ArrayList<Kmer>> segments = breakWithPairedKmers(fragKmers, graph);
-                                if (segments.size() > 1) {
-                                    for (ArrayList<Kmer> segment : segments) {
-                                        if (new HashSet<>(segment).containsAll(fragKmers2)) {
-                                            transcripts.put(new Transcript(fragment, segment));
-                                            break;
+                                ArrayDeque<ArrayList<Kmer>> fragSegments = breakWithPairedKmers(fragKmers, graph);
+                                int numFragSegs = fragSegments.size();
+
+                                for (ArrayList<Kmer> f : fragSegments) {
+                                    if (numFragSegs == 1 || new HashSet<>(f).containsAll(fragKmers2)) {
+                                        ArrayDeque<ArrayList<Kmer>> readSegments = breakWithReadPairedKmers(f, graph);
+                                        
+                                        int numReadSegs = readSegments.size();
+                                        
+                                        if (numReadSegs == 1) {
+                                            transcripts.put(new Transcript(fragment, f));
                                         }
+                                        else if (numReadSegs > 1) {
+                                            for (ArrayList<Kmer> r : readSegments) {
+                                                if (new HashSet<>(r).containsAll(fragKmers2)) {
+                                                    transcripts.put(new Transcript(fragment, r));
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        
+                                        break;
                                     }
-                                }
-                                else {
-                                    transcripts.put(new Transcript(fragment, fragKmers));
                                 }
                             }
                         }
@@ -1590,13 +1602,13 @@ public class RNABloom {
         public void run() {
             try {
                 // connect segments of each read
-                String left = connect(p.left, graph, lookahead);
+                String left = getBestSegment(p.left, graph);
                 
                 if (left.length() < this.leftReadLengthThreshold) {
                     return;
                 } 
                 
-                String right = connect(p.right, graph, lookahead);
+                String right = getBestSegment(p.right, graph);
                 
                 if (right.length() < this.rightReadLengthThreshold) {
                     return;
@@ -1612,6 +1624,22 @@ public class RNABloom {
                 ArrayList<Kmer> rightKmers = graph.getKmers(right);
 
                 if (!leftKmers.isEmpty() && !rightKmers.isEmpty()) {
+                    /*
+                    if (leftKmers.size() > graph.getReadKmerDistance()) {
+                        ArrayDeque<ArrayList<Kmer>> q =  breakWithReadPairedKmers(leftKmers, graph);
+                        if (q.size() != 1) {
+                            System.out.println(left);
+                        }
+                    }
+                    
+                    if (rightKmers.size() > graph.getReadKmerDistance()) {
+                        ArrayDeque<ArrayList<Kmer>> q =  breakWithReadPairedKmers(rightKmers, graph);
+                        if (q.size() != 1) {
+                            System.out.println(right);
+                        }
+                    }
+                    */
+                    
                     if (this.errorCorrectionIterations > 0) {
                         ReadPair correctedReadPair = correctErrorsPE(leftKmers,
                                                             rightKmers,
@@ -1632,6 +1660,12 @@ public class RNABloom {
 
                     ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap, maxCovGradient, true);
 
+                    ArrayDeque<ArrayList<Kmer>> segments = breakWithReadPairedKmers(fragmentKmers, graph);
+                    
+                    if (segments.size() != 1) {
+                        fragmentKmers = null;
+                    }
+                    
                     if (fragmentKmers != null) {
                         int fragLength = fragmentKmers.size() + k - 1;
 
@@ -2185,6 +2219,9 @@ public class RNABloom {
         System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
         System.out.println("Counting Bloom filter FPR: " + covFPR * 100 + " %");
         
+        if (graph.getReadKmerDistance() > 0) {
+            System.out.println("Read paired-kmers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
+        }
         
         System.out.println("Assembling fragments...");
         
