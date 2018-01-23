@@ -1484,6 +1484,12 @@ public class RNABloom {
 
                     ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound-k+1-leftKmers.size()-rightKmers.size(), lookahead, minOverlap, maxCovGradient, true);
 
+                    ArrayDeque<ArrayList<Kmer>> segments = breakWithReadPairedKmers(fragmentKmers, graph);
+                    
+                    if (segments.size() != 1) {
+                        fragmentKmers = null;
+                    }
+                    
                     if (fragmentKmers != null) {
                         int fragLength = fragmentKmers.size() + k - 1;
 
