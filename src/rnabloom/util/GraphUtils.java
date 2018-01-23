@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.ListIterator;
 import rnabloom.RNABloom.ReadPair;
 import rnabloom.bloom.BloomFilter;
+import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer;
 import static rnabloom.util.SeqUtils.*;
@@ -2355,6 +2356,48 @@ public final class GraphUtils {
         return new ReadPair(leftKmers, rightKmers, leftCorrected || rightCorrected);
     }
     
+    public static ArrayDeque<ArrayList<Kmer>> breakWithReadPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph) {
+        /**@TODO*/
+        
+        ArrayDeque<ArrayList<Kmer>> segments = new ArrayDeque<>();
+        
+        int d = graph.getReadKmerDistance();
+        int lastIndex = kmers.size() - 1 - d;
+        
+        int start = -1;
+        int end = -1;
+        
+        for (int i=0; i<=lastIndex; ++i) {
+            if (graph.lookupReadKmerPair(kmers.get(i), kmers.get(i+d))) {
+                if (start < 0) {
+                    start = i;
+                }
+                
+                end = i+d;
+            }
+            else if (start >= 0 && i >= end) {
+                ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
+                for (int j=start; j<=end; ++j) {
+                    sublist.add(kmers.get(j));
+                }
+                segments.add(sublist);
+                
+                start = -1;
+                end = -1;
+            }
+        }
+        
+        if (start >= 0) {
+            ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
+            for (int j=start; j<=end; ++j) {
+                sublist.add(kmers.get(j));
+            }
+            segments.add(sublist);
+        }
+        
+        return segments;
+    }
+    
     public static ArrayDeque<ArrayList<Kmer>> breakWithPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph) {
         /**@TODO Adjust how much paired kmers should interlock*/
         /**@TODO Adjust how many consecutive paired kmers are required*/
@@ -2768,6 +2811,45 @@ public final class GraphUtils {
         }
         
         return path;
+    }
+    
+    public static String getBestSegment(ArrayList<String> segments, BloomFilterDeBruijnGraph graph) {
+        int numSeqs = segments.size();
+        switch (numSeqs) {
+            case 0:
+                return "";
+            case 1:
+                return segments.get(0);
+            default:
+                int k = graph.getK();
+                
+                String best = "";
+                float bestCov = 0;
+                
+                NTHashIterator itr = graph.getHashIterator();
+                long[] hVals = itr.hVals;
+                
+                for (String seg : segments) {
+                    if (seg.length() >= k) {
+                        itr.start(seg);
+                        
+                        float min = Float.MAX_VALUE;
+                        while (itr.hasNext()) {
+                            itr.next();
+                            float c = graph.getCount(hVals);
+                            if (c < min) {
+                                min = c;
+                            }
+                        }
+                        
+                        if (min > bestCov) {
+                            best = seg;
+                        }
+                    }
+                }
+                
+                return best;
+        }        
     }
     
     public static String connect(ArrayList<String> segments, BloomFilterDeBruijnGraph graph, int lookahead) {
