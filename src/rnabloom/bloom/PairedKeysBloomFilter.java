@@ -104,28 +104,24 @@ public class PairedKeysBloomFilter {
         return (hashVal >>> 1) % size;
     }
     
-    public void add(String left, String right) {
-        long[] hashValsPair = hashFunction.getHashValues(left, right, numHash);
-        
-        for (int h=0; h<numHash; ++h) {
-            bitArrayPair.set(getIndex(hashValsPair[h]));
-        }
-    }
-    
-    public void add(final long hashValPair) {        
-        add(hashFunction.getHashValues(hashValPair, numHash));
-    }
+//    public void add(String left, String right) {
+//        long[] hashValsPair = hashFunction.getHashValues(left, right, numHash);
+//        
+//        for (int h=0; h<numHash; ++h) {
+//            bitArrayPair.set(getIndex(hashValsPair[h]));
+//        }
+//    }
     
     public void add(final long[] hashValsPair) {
         for (int h=0; h<numHash; ++h) {
             bitArrayPair.set(getIndex(hashValsPair[h]));
         }
     }
-    
-    public boolean lookup(final long hashValPair) {
-        return lookup(hashFunction.getHashValues(hashValPair, numHash));
+
+    public boolean lookup(final long hashValsPair) {
+        return lookup(hashFunction.getHashValues(hashValsPair, numHash));
     }
-        
+    
     public boolean lookup(final long[] hashValsPair) {
         for (int h=0; h<numHash; ++h) {
             if (!bitArrayPair.get(getIndex(hashValsPair[h]))) {
@@ -136,34 +132,24 @@ public class PairedKeysBloomFilter {
         return true;
     }
 
-    public boolean lookup(final long[] hashValsLeft, final long[] hashValsRight) {
-        boolean found = true;
+//    public boolean lookup(final long hashValsLeft, final long hashValsRight) {
+//        return lookup(hashFunction.getHashValues(hashValsLeft, numHash), hashFunction.getHashValues(hashValsRight, numHash));
+//    }    
+//    
+//    public boolean lookup(final long[] hashValsLeft, final long[] hashValsRight) {
+//        boolean found = true;
+//        
+//        long[] hashVals = hashFunction.getHashValues(hashValsLeft, hashValsRight, numHash);
+//        
+//        for (int h=0; h<numHash; ++h) {
+//            if (!bitArrayPair.get(getIndex(hashVals[h]))) {
+//                found = false;
+//            }
+//        }
+//        
+//        return found;
+//    }
         
-        long[] hashVals = hashFunction.getHashValues(hashValsLeft, hashValsRight, numHash);
-        
-        for (int h=0; h<numHash; ++h) {
-            if (!bitArrayPair.get(getIndex(hashVals[h]))) {
-                found = false;
-            }
-        }
-        
-        return found;
-    }
-    
-    public boolean lookupAndAdd(final long[] hashValsLeft, final long[] hashValsRight) {
-        boolean found = true;
-        
-        long[] hashVals = hashFunction.getHashValues(hashValsLeft, hashValsRight, numHash);
-        
-        for (int h=0; h<numHash; ++h) {
-            if (!bitArrayPair.getAndSet(getIndex(hashVals[h]))) {
-                found = false;
-            }
-        }
-        
-        return found;
-    }
-    
     public void destroy() {
         this.bitArrayPair.destroy();
         this.bitArrayPair = null;

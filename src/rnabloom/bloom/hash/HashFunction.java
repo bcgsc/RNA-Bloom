@@ -134,26 +134,26 @@ public class HashFunction {
 //        return new RightVariantsNTHashIterator(k, numHash);
 //    }
         
-    public long[] getHashValues(final String kmer1,
-                                final String kmer2,
-                                final int numHash) {
-        final long[] hashVals1 = new long[numHash];
-        //murmurhash3_x64_128(kmer1.getBytes(), 0, k, seed, numHash, hashVals1);
-        getHashValues(kmer1, numHash, hashVals1);
-        
-        final long[] hashVals2 = new long[numHash];
-        //murmurhash3_x64_128(kmer2.getBytes(), 0, k, seed, numHash, hashVals2);
-        getHashValues(kmer2, numHash, hashVals2);
-        
-        return getHashValues(hashVals1, hashVals2, numHash);
-    }
-    
-    public long[] getHashValues(final long[] hashVals1,
-                                final long[] hashVals2,
-                                final int numHash) {
-        
-        return getHashValues(combineHashValues(hashVals1[0], hashVals2[0]), numHash);
-    }
+//    public long[] getHashValues(final String kmer1,
+//                                final String kmer2,
+//                                final int numHash) {
+//        final long[] hashVals1 = new long[numHash];
+//        //murmurhash3_x64_128(kmer1.getBytes(), 0, k, seed, numHash, hashVals1);
+//        getHashValues(kmer1, numHash, hashVals1);
+//        
+//        final long[] hashVals2 = new long[numHash];
+//        //murmurhash3_x64_128(kmer2.getBytes(), 0, k, seed, numHash, hashVals2);
+//        getHashValues(kmer2, numHash, hashVals2);
+//        
+//        return getHashValues(hashVals1, hashVals2, numHash);
+//    }
+//    
+//    public long[] getHashValues(final long[] hashVals1,
+//                                final long[] hashVals2,
+//                                final int numHash) {
+//        
+//        return getHashValues(combineHashValues(hashVals1[0], hashVals2[0]), numHash);
+//    }
     
     public static long combineHashValues(long a, long b) {
         // See: http://stackoverflow.com/a/27952689
