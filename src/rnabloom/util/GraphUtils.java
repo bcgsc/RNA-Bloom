@@ -687,15 +687,22 @@ public final class GraphUtils {
         return false;
     }
     
-    public static ArrayDeque<Kmer> getSimilarCoveragePath(BloomFilterDeBruijnGraph graph, 
-                                                        Kmer left, 
-                                                        Kmer right, 
+    public static ArrayList<Kmer> getSimilarCoveragePath(BloomFilterDeBruijnGraph graph, 
+                                                        ArrayList<Kmer> leftKmers, 
+                                                        ArrayList<Kmer> rightKmers, 
                                                         int bound, 
                                                         int lookahead, 
-                                                        float leftCoverageThreshold, 
-                                                        float rightCoverageThreshold,
                                                         float maxCovGradient,
                                                         boolean rescue) {
+        
+        HashSet<Kmer> leftKmersSet = new HashSet<>(leftKmers);
+        HashSet<Kmer> rightKmersSet = new HashSet<>(rightKmers);
+        
+        Kmer left = leftKmers.get(leftKmers.size()-1);
+        Kmer right = rightKmers.get(0);
+        
+        float leftCoverageThreshold = getMinimumKmerCoverage(leftKmers) * maxCovGradient;
+        float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
         
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
@@ -738,34 +745,63 @@ public final class GraphUtils {
                             leftCoverageThreshold = c;
                         }
                     }
-                    else if (leftCoverageThreshold < rightCoverageThreshold) {
-                        itr = neighbors.iterator();
-                        while (itr.hasNext()) {
-                            if (itr.next().count < rightCoverageThreshold) {
-                                itr.remove();
+                    else {
+//                        System.out.println(">L\n" + graph.assemble(leftKmers));
+//                        System.out.println(">L_path\n" + graph.assemble(leftPath));
+//                        System.out.println(">R\n" + graph.assemble(rightKmers));
+                        break;
+                    }
+                }
+
+                if (rightKmersSet.contains(best)) {
+                    if (best.equals(right)) {
+                        ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftKmers.size() + leftPath.size() + rightKmers.size());
+                        fragmentKmers.addAll(leftKmers);
+                        fragmentKmers.addAll(leftPath);
+                        fragmentKmers.addAll(rightKmers);
+                        
+                        return fragmentKmers;
+                    }
+                    else {
+                        int bestIndex = rightKmers.indexOf(best);
+                        
+                        float pathCov = -1;
+                        Iterator<Kmer> itr = leftPath.descendingIterator();
+                        for (int i=0; i<bestIndex; ++i) {
+                            if (itr.hasNext()) {
+                                float c = itr.next().count;
+                                if (c < pathCov || pathCov == -1) {
+                                    pathCov = c;
+                                }
+                            }
+                            else {
+                                break;
                             }
                         }
                         
-                        if (neighbors.size() == 1) {
-                            best = neighbors.pop();
+                        float danglingCov = getMinimumKmerCoverage(rightKmers, 0, bestIndex);
+                        
+                        if (danglingCov < pathCov) {
+                            ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftKmers.size() + leftPath.size() + rightKmers.size() - bestIndex);
+                            fragmentKmers.addAll(leftKmers);
+                            fragmentKmers.addAll(leftPath);
+                            for (int i=bestIndex; i<rightKmers.size(); ++i) {
+                                fragmentKmers.add(rightKmers.get(i));
+                            }
+
+//                        System.out.println(">L\n" + graph.assemble(leftKmers));
+//                        System.out.println(">R\n" + graph.assemble(rightKmers));
+//                        System.out.println(">F\n" + graph.assemble(fragmentKmers));
+                            
+                            return fragmentKmers;
                         }
                         else {
                             break;
                         }
                     }
-                    else {
-                        break;
-                    }
-                }
-
-                if (best.equals(right)) {
-                    if (graph.isLowComplexity(right) && right.hasAtLeastXPredecessors(k, numHash, graph, 2)) {
-                        break;
-                    }
-                    return leftPath;
                 }
                 else {
-                    if (leftPathKmers.contains(best)) {
+                    if (leftPathKmers.contains(best) || leftKmersSet.contains(best)) {
                         break;
                     }
                     else {
@@ -811,60 +847,95 @@ public final class GraphUtils {
                             rightCoverageThreshold = c;
                         }
                     }
-                    else if (rightCoverageThreshold < leftCoverageThreshold) {
-                        itr = neighbors.iterator();
-                        while (itr.hasNext()) {
-                            if (itr.next().count < leftCoverageThreshold) {
-                                itr.remove();
-                            }
-                        }
-                        
-                        if (neighbors.size() == 1) {
-                            best = neighbors.pop();
-                        }
-                        else {
-                            break;
-                        }
-                    }
                     else {
+//                        System.out.println(">L\n" + graph.assemble(leftKmers));
+//                        System.out.println(">L_path\n" + graph.assemble(leftPath));
+//                        System.out.println(">R_path\n" + graph.assemble(rightPath));
+//                        System.out.println(">R\n" + graph.assemble(rightKmers));
                         break;
                     }
                 }
                 
-                if (best.equals(left)) {
-                    if (graph.isLowComplexity(left) && left.hasAtLeastXSuccessors(k, numHash, graph, 2)) {
-                        return null;
+                if (leftKmersSet.contains(best)) {
+                    if (best.equals(left)) {
+                        ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftKmers.size() + rightPath.size() + rightKmers.size());
+                        fragmentKmers.addAll(leftKmers);
+                        fragmentKmers.addAll(rightPath);
+                        fragmentKmers.addAll(rightKmers);
+                        
+                        return fragmentKmers;
                     }
-                    
-                    return rightPath;
+                    else {
+//                        System.out.println(">L\n" + graph.assemble(leftKmers));
+//                        System.out.println(">L_path\n" + graph.assemble(leftPath));
+//                        System.out.println(">R_path\n" + graph.assemble(rightPath));
+//                        System.out.println(">R\n" + graph.assemble(rightKmers));
+                        
+                        int bestIndex = leftKmers.indexOf(best);
+                        
+                        float danglingCov = getMinimumKmerCoverage(leftKmers, bestIndex, leftKmers.size());
+                        
+                        float pathCov = -1;
+                        Iterator<Kmer> itr = rightPath.iterator();
+                        for (int i=leftKmers.size(); i>bestIndex; --i) {
+                            if (itr.hasNext()) {
+                                float c = itr.next().count;
+                                if (c < pathCov || pathCov == -1) {
+                                    pathCov = c;
+                                }
+                            }
+                            else {
+                                break;
+                            }
+                        }
+                        
+                        if (danglingCov < pathCov) {
+                            ArrayList<Kmer> fragmentKmers = new ArrayList<>(bestIndex + rightPath.size() + rightKmers.size());
+                            for (int i=0; i<=bestIndex; ++i) {
+                                fragmentKmers.add(leftKmers.get(i));
+                            }                            
+                            fragmentKmers.addAll(rightPath);
+                            fragmentKmers.addAll(rightKmers);
+                            
+//                            System.out.println(">L\n" + graph.assemble(leftKmers));
+//                            System.out.println(">R\n" + graph.assemble(rightKmers));
+//                            System.out.println(">f\n" + graph.assemble(fragmentKmers));
+                            
+                            return fragmentKmers;
+                        }
+                        else {
+                            return null;
+                        }
+                    }
                 }
                 else {
-                    if (rightPathKmers.contains(best)) {
+                    if (rightPathKmers.contains(best) || rightKmersSet.contains(best)) {
                         return null;
                     }
                     else if (leftPathKmers.contains(best)) {
                         /* right path intersects the left path */
                         
-                        if (graph.isLowComplexity(best) &&
-                                (best.hasAtLeastXSuccessors(k, numHash, graph, 2) ||
-                                    best.hasAtLeastXPredecessors(k, numHash, graph, 2))) {
-                            return null;
-                        }
+//                        if (graph.isLowComplexity(best) &&
+//                                (best.hasAtLeastXSuccessors(k, numHash, graph, 2) ||
+//                                    best.hasAtLeastXPredecessors(k, numHash, graph, 2))) {
+//                            return null;
+//                        }
                         
-                        rightPath.addFirst(best);
-
-                        Iterator<Kmer> itr = leftPath.descendingIterator();
-                        Kmer kmer;
-                        while (itr.hasNext()) {
-                            kmer = itr.next();
-                            if (best.equals(kmer)) {
-                                while (itr.hasNext()) {
-                                    rightPath.addFirst(itr.next());
-                                }
-
-                                return rightPath;
+                        ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftKmers.size() + rightPath.size() + rightKmers.size());
+                        fragmentKmers.addAll(leftKmers);
+                        
+                        for (Kmer kmer : leftPath) {
+                            fragmentKmers.add(kmer);
+                            
+                            if (kmer.equals(best)) {
+                                break;
                             }
                         }
+                        
+                        fragmentKmers.addAll(rightPath);
+                        fragmentKmers.addAll(rightKmers);
+
+                        return fragmentKmers;
                     }
                     else {
                         rightPathKmers.add(best);
@@ -874,6 +945,7 @@ public final class GraphUtils {
             }
         }
         
+        /*
         if (rescue) {
             // left path does not intersect right path
             
@@ -881,7 +953,7 @@ public final class GraphUtils {
                 ArrayDeque<Kmer> successors = kmer.getSuccessors(k, numHash, graph);
                 if (successors.size() > 1) {
                     for (Kmer s : successors) {
-                        if (!leftPathKmers.contains(s) && !graph.isLowComplexity(s)) {
+                        if (!leftPathKmers.contains(s) ) {
                             if (rightPathKmers.contains(s)) {
                                 ArrayDeque<Kmer> path = new ArrayDeque<>(leftPath.size() + rightPath.size());
 
@@ -912,9 +984,9 @@ public final class GraphUtils {
                                 // perform a bounded greedy extension (depth = k) to connect left path to right path
                                 ArrayDeque<Kmer> extension = greedyExtendRight(graph, s, lookahead, k);
                                 for (Kmer e : extension) {
-                                    if (graph.isLowComplexity(e)) {
-                                        break;
-                                    }
+//                                    if (graph.isLowComplexity(e)) {
+//                                        break;
+//                                    }
                                     
                                     if (rightPathKmers.contains(e)) {
                                         ArrayDeque<Kmer> path = new ArrayDeque<>(leftPath.size() + rightPath.size());
@@ -957,6 +1029,7 @@ public final class GraphUtils {
                 }
             }
         }
+        */
         
         return null;
     }
@@ -3009,23 +3082,20 @@ public final class GraphUtils {
         ArrayList<Kmer> fragmentKmers = overlap(leftKmers, rightKmers, graph, minOverlap);
         
         if (fragmentKmers == null) {
-            Kmer leftLastKmer = leftKmers.get(leftKmers.size()-1);
-            Kmer rightFirstKmer = rightKmers.get(0);
 
-            float leftCoverageThreshold = getMinimumKmerCoverage(leftKmers) * maxCovGradient;
-            float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
-            ArrayDeque<Kmer> connectedPath = getSimilarCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead, leftCoverageThreshold, rightCoverageThreshold, maxCovGradient, rescueSearch);
+            fragmentKmers = getSimilarCoveragePath(graph, leftKmers, rightKmers, bound, lookahead, maxCovGradient, rescueSearch);
+//            ArrayDeque<Kmer> connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
 
 //            if (connectedPath == null && exhaustiveSearch) {
 //                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
 //            }
 
-            if (connectedPath != null) {
-                fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
-                fragmentKmers.addAll(leftKmers);
-                fragmentKmers.addAll(connectedPath);
-                fragmentKmers.addAll(rightKmers);
-            }
+//            if (connectedPath != null) {
+//                fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
+//                fragmentKmers.addAll(leftKmers);
+//                fragmentKmers.addAll(connectedPath);
+//                fragmentKmers.addAll(rightKmers);
+//            }
         }
         
         return fragmentKmers;
