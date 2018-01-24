@@ -52,10 +52,18 @@ public class HashFunction {
             itr.start(seq);
             long[] hVals = itr.hVals;
             int i;
+            float c;
             while (itr.hasNext()) {                
                 itr.next();
+                c = graph.getCount(hVals);
+                
+                if (c <= 0) {
+                    // not a valid sequence
+                    return new ArrayList<>();
+                }
+                
                 i = itr.getPos();
-                result.add(new Kmer(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), hVals[0]));
+                result.add(new Kmer(Arrays.copyOfRange(bytes, i, i+k), c, hVals[0]));
             }
         }
         

@@ -44,10 +44,18 @@ public class CanonicalHashFunction extends HashFunction {
             long[] hVals = itr.hVals;
             long[] frhval = itr.frhval;
             int i;
+            float c;
             while (itr.hasNext()) {
                 itr.next();
+                c = graph.getCount(hVals);
+                
+                if (c <= 0) {
+                    // not a valid sequence
+                    return new ArrayList<>();
+                }
+                
                 i = itr.getPos();
-                result.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), frhval[0], frhval[1]));
+                result.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), c, frhval[0], frhval[1]));
             }
         }
         
