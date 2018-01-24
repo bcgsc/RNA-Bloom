@@ -127,7 +127,7 @@ public class BloomFilter implements BloomFilterInterface {
         boolean found = true;
         
         for (int h=0; h<numHash; ++h) {
-            found = bitArray.getAndSet(h) && found;
+            found = bitArray.getAndSet(getIndex(hashVals[h])) && found;
         }
         
         return found;
