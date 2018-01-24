@@ -214,10 +214,15 @@ public class RNABloom {
         graph.clearPkbf();
     }
     
+    public void clearRpkBf() {
+        graph.clearRpkbf();
+    }
+    
     public void clearAllBf() {
         graph.clearDbgbf();
         graph.clearCbf();
         graph.clearPkbf();
+        graph.clearRpkbf();
         
         dbgFPR = 0;
         covFPR = 0;
@@ -3615,14 +3620,15 @@ public class RNABloom {
             final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), "");
             
 
-            System.out.println("Bloom filters     Memory (GB)");
-            System.out.println("=============================");
-            System.out.println("de Bruijn graph:  " + dbgGB);
-            System.out.println("kmer counting:    " + cbfGB);
-            System.out.println("paired kmers:     " + pkbfGB);
-            System.out.println("screening:        " + sbfGB);
-            System.out.println("=============================");
-            System.out.println("Total:            " + (dbgGB+cbfGB+pkbfGB+sbfGB));
+            System.out.println("Bloom filters      Memory (GB)");
+            System.out.println("==============================");
+            System.out.println("de Bruijn graph:   " + dbgGB);
+            System.out.println("kmer counting:     " + cbfGB);
+            System.out.println("paired kmers (SE): " + pkbfGB);
+            System.out.println("paired kmers (PE): " + pkbfGB);
+            System.out.println("screening:         " + sbfGB);
+            System.out.println("==============================");
+            System.out.println("Total:             " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
             
             System.out.println("name:    " + name);
             System.out.println("outdir:  " + outdir);
@@ -3825,6 +3831,7 @@ public class RNABloom {
                     if (newKmerSize) {
                         assembler.clearCBf();
                         assembler.clearPkBf();
+                        assembler.clearRpkBf();
                     }
                 }
                 else {
