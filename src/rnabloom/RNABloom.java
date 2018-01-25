@@ -422,9 +422,9 @@ public class RNABloom {
                                         itr.start(record.seq, start, end);
                                         while (itr.hasNext()) {
                                             itr.next();
-                                            if (screeningBf.lookupThenAdd(hashVals)) {
+//                                            if (screeningBf.lookupThenAdd(hashVals)) {
                                                 addFunction.accept(hashVals);
-                                            }
+//                                            }
                                         }
                                         
                                         if (end - start - k + 1 >= kmerPairDistance) {
@@ -452,9 +452,9 @@ public class RNABloom {
                                         itr.start(record.seq, mSeq.start(), mSeq.end());
                                         while (itr.hasNext()) {
                                             itr.next();
-                                            if (screeningBf.lookupThenAdd(hashVals)) {
+//                                            if (screeningBf.lookupThenAdd(hashVals)) {
                                                 addFunction.accept(hashVals);
-                                            }
+//                                            }
                                         }
                                     }
                                 }
@@ -487,9 +487,9 @@ public class RNABloom {
                                     itr.start(seq, start, end);
                                     while (itr.hasNext()) {
                                         itr.next();
-                                        if (screeningBf.lookupThenAdd(hashVals)) {
+//                                        if (screeningBf.lookupThenAdd(hashVals)) {
                                             addFunction.accept(hashVals);
-                                        }
+//                                        }
                                     }
                                     
                                     if (end - start - k + 1 >= kmerPairDistance) {
@@ -513,9 +513,9 @@ public class RNABloom {
                                     itr.start(seq, mSeq.start(), mSeq.end());
                                     while (itr.hasNext()) {
                                         itr.next();
-                                        if (screeningBf.lookupThenAdd(hashVals)) {
+//                                        if (screeningBf.lookupThenAdd(hashVals)) {
                                             addFunction.accept(hashVals);
-                                        }
+//                                        }
                                     }
                                 }
                             }
@@ -2966,7 +2966,7 @@ public class RNABloom {
             
             // extend LONG fragments
             
-            for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
+            for (int mag=longFragmentsFastas.length-1; mag>0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".L.");
                 String fragmentsFasta = longFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
@@ -2976,7 +2976,7 @@ public class RNABloom {
 
             // extend SHORT fragments
             
-            for (int mag=shortFragmentsFastas.length-1; mag>=0; --mag) {
+            for (int mag=shortFragmentsFastas.length-1; mag>0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".S.");
                 String fragmentsFasta = shortFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
@@ -2986,14 +2986,13 @@ public class RNABloom {
             
             // extend UNCONNECTED reads
             
-            for (int mag=unconnectedReadsFastas.length-1; mag>=0; --mag) {
+            for (int mag=unconnectedReadsFastas.length-1; mag>0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".U.");
                 String fragmentsFasta = unconnectedReadsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                             allowNaiveExtension, extendBranchFreeOnly);
             }
-            
             
             if (sensitiveMode) {
                 System.out.println("Sensitive assembly mode is ON...");
@@ -3004,7 +3003,7 @@ public class RNABloom {
                 extendBranchFreeOnly = true;
             }
             
-            /*
+            
             // extend LONG fragments
             
             writer.setOutputPrefix(txptNamePrefix + "E0.L.");
@@ -3028,7 +3027,7 @@ public class RNABloom {
             System.out.println("Parsing `" + fragmentsFasta + "`...");
             numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                         allowNaiveExtension, extendBranchFreeOnly);
-            */
+            
             
             // extend LONG singleton fragments
 
