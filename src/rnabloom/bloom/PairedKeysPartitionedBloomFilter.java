@@ -112,6 +112,10 @@ public class PairedKeysPartitionedBloomFilter {
         /**@TODO Assert file size*/
     }
 
+    public int getNumhash() {
+        return numHash;
+    }
+    
     public void save(File desc, File leftBits, File rightBits, File pairBits) throws IOException {
         FileWriter writer = new FileWriter(desc, false);
         
