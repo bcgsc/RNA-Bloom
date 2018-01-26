@@ -307,7 +307,9 @@ public class BloomFilterDeBruijnGraph {
         }
         
         if (rpkbf != null) {
-            /**@TODO save bf*/
+            String rpkbfBitsPath = graphFile.getPath() + FILE_RPKBF_PAIR_EXTENSION;
+            String rpkbfDescPath = rpkbfBitsPath + FILE_DESC_EXTENSION;
+            cbf.save(new File(rpkbfDescPath), new File(rpkbfBitsPath));
         }
     }
     
@@ -1228,12 +1230,16 @@ public class BloomFilterDeBruijnGraph {
     public String assemble(ArrayDeque<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
-        for (byte b : kmers.getFirst().bytes) {
-            sb.append((char) b);
-        }
+        Iterator<Kmer> itr = kmers.iterator();
         
-        for (Kmer e : kmers) {
-            sb.append((char) e.bytes[kMinus1]);
+        if (itr.hasNext()) {
+            for (byte b : itr.next().bytes) {
+                sb.append((char) b);
+            }
+            
+            while (itr.hasNext()) {
+                sb.append((char) itr.next().bytes[kMinus1]);
+            }
         }
         
         return sb.toString();
@@ -1258,12 +1264,14 @@ public class BloomFilterDeBruijnGraph {
         
         Iterator<Kmer> itr = kmers.descendingIterator();
         
-        for (byte b : itr.next().bytes) {
-            sb.append((char) b);
-        }
-        
-        while (itr.hasNext()) {
-            sb.append((char) itr.next().bytes[kMinus1]);
+        if (itr.hasNext()) {
+            for (byte b : itr.next().bytes) {
+                sb.append((char) b);
+            }
+
+            while (itr.hasNext()) {
+                sb.append((char) itr.next().bytes[kMinus1]);
+            }
         }
         
         return sb.toString();
@@ -1273,13 +1281,14 @@ public class BloomFilterDeBruijnGraph {
         StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
         Iterator<Kmer> itr = kmers.iterator();
-        
-        for (byte b : itr.next().bytes) {
-            sb.append((char) b);
-        }
-        
-        while (itr.hasNext()) {
-            sb.append((char) itr.next().bytes[kMinus1]);
+        if (itr.hasNext()) {
+            for (byte b : itr.next().bytes) {
+                sb.append((char) b);
+            }
+
+            while (itr.hasNext()) {
+                sb.append((char) itr.next().bytes[kMinus1]);
+            }
         }
                 
         return sb.toString();
