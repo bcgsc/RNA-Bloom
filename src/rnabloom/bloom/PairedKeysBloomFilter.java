@@ -89,7 +89,7 @@ public class PairedKeysBloomFilter {
         return numHash;
     }
     
-    public void save(File desc, File leftBits, File rightBits, File pairBits) throws IOException {
+    public void save(File desc, File bits) throws IOException {
         FileWriter writer = new FileWriter(desc, false);
         
         writer.write(LABEL_SIZE + LABEL_SEPARATOR + this.size + "\n" +
@@ -98,7 +98,7 @@ public class PairedKeysBloomFilter {
                 );
         writer.close();
         
-        FileOutputStream out = new FileOutputStream(pairBits, false);
+        FileOutputStream out = new FileOutputStream(bits, false);
         this.bitArrayPair.write(out);
         out.close();
     }
