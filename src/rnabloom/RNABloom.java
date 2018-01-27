@@ -3481,12 +3481,12 @@ public class RNABloom {
                                     .build();
         options.addOption(optExtend);
 
-        Option optFragDBG = Option.builder("fdbg")
-                                    .longOpt("fdbg")
-                                    .desc("rebuild DBG from fragment k-mers")
+        Option optNoFragDBG = Option.builder("nofdbg")
+                                    .longOpt("nofdbg")
+                                    .desc("do not rebuild DBG from fragment k-mers")
                                     .hasArg(false)
                                     .build();
-        options.addOption(optFragDBG);
+        options.addOption(optNoFragDBG);
         
         Option optSensitive = Option.builder("sensitive")
                                     .longOpt("sensitive")
@@ -3661,7 +3661,7 @@ public class RNABloom {
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
             final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), "0"));
             final boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
-            final boolean fragDBG = line.hasOption(optFragDBG.getOpt());
+            final boolean nofragDBG = line.hasOption(optNoFragDBG.getOpt());
             final boolean extendFragments = line.hasOption(optExtend.getOpt());
             final int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
             final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), "");
@@ -4039,7 +4039,7 @@ public class RNABloom {
 //            }
             
             if (forceOverwrite || !txptsDoneStamp.exists()) {
-                if (fragDBG) {
+                if (!nofragDBG) {
                     if (assembler.isGraphInitialized()) {
                         assembler.clearDbgBf();
                     }
