@@ -3481,6 +3481,13 @@ public class RNABloom {
                                     .build();
         options.addOption(optExtend);
 
+        Option optFragDBG = Option.builder("fdbg")
+                                    .longOpt("fdbg")
+                                    .desc("rebuild DBG from fragment k-mers")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optFragDBG);
+        
         Option optSensitive = Option.builder("sensitive")
                                     .longOpt("sensitive")
                                     .desc("assemble transcripts in sensitive mode")
@@ -3654,6 +3661,7 @@ public class RNABloom {
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
             final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), "0"));
             final boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
+            final boolean fragDBG = line.hasOption(optFragDBG.getOpt());
             final boolean extendFragments = line.hasOption(optExtend.getOpt());
             final int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
             final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), "");
@@ -4031,31 +4039,25 @@ public class RNABloom {
 //            }
             
             if (forceOverwrite || !txptsDoneStamp.exists()) {
-                if (assembler.isGraphInitialized()) {
-                    assembler.clearDbgBf();
+                if (fragDBG) {
+                    if (assembler.isGraphInitialized()) {
+                        assembler.clearDbgBf();
+                    }
+
+                    // repopulate with kmers from fragments
+                    ArrayList<String> fragmentPaths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length + unconnectedReadsFastaPaths.length + 3);
+                    fragmentPaths.addAll(Arrays.asList(longFragmentsFastaPaths));
+                    fragmentPaths.addAll(Arrays.asList(shortFragmentsFastaPaths));
+                    fragmentPaths.addAll(Arrays.asList(unconnectedReadsFastaPaths));
+                    fragmentPaths.add(longSingletonsFastaPath);
+                    fragmentPaths.add(shortSingletonsFastaPath);
+                    fragmentPaths.add(unconnectedSingletonsFastaPath);
+
+                    System.out.println("Rebuilding graph from assembled fragments (k=" + k + ")...");
+                    timer.start();
+                    assembler.populateGraphFromFragments(fragmentPaths, strandSpecific, false);
+                    System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));  
                 }
-//                else {
-//                    assembler.initializeGraph(strandSpecific, 
-//                            dbgbfSize, cbfSize, pkbfSize, 
-//                            dbgbfNumHash, cbfNumHash, pkbfNumHash, true, true);
-//                }
-                
-                // adjust paired kmer distance
-                int[] fragStats = assembler.restoreFragStatsFromFile(fragStatsFile);
-
-                // repopulate with kmers from fragments
-                ArrayList<String> fragmentPaths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length + unconnectedReadsFastaPaths.length + 3);
-                fragmentPaths.addAll(Arrays.asList(longFragmentsFastaPaths));
-                fragmentPaths.addAll(Arrays.asList(shortFragmentsFastaPaths));
-                fragmentPaths.addAll(Arrays.asList(unconnectedReadsFastaPaths));
-                fragmentPaths.add(longSingletonsFastaPath);
-                fragmentPaths.add(shortSingletonsFastaPath);
-                fragmentPaths.add(unconnectedSingletonsFastaPath);
-
-                System.out.println("Rebuilding graph from assembled fragments (k=" + k + ")...");
-                timer.start();
-                assembler.populateGraphFromFragments(fragmentPaths, strandSpecific, false);
-                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));  
                 
                 File transcriptsFile = new File(transcriptsFasta);
                 if (transcriptsFile.exists()) {
