@@ -191,6 +191,10 @@ public class RNABloom {
             //BloomFilterDeBruijnGraph graph2 = new BloomFilterDeBruijnGraph(f);
             //System.out.println(graph2.getDbgbf().equivalent(graph.getDbgbf()));
             //System.out.println(graph2.getCbf().equivalent(graph.getCbf()));
+            
+            System.out.println("DBG Bloom filter FPR:               " + dbgFPR * 100 + " %");
+            System.out.println("Counting Bloom filter FPR:          " + covFPR * 100 + " %");
+            System.out.println("Read paired-kmers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
         } catch (Exception ex) {
             handleException(ex);
         }
