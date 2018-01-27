@@ -40,12 +40,11 @@ public class BloomFilterDeBruijnGraph {
     private int k;
     private int kMinus1;
     private boolean stranded;
-    private int pairedKmersDistance = -1;
-    private long pkbfNumBits;
+    private int fragmentPairedKmersDistance = -1;
     private int pkbfNumHash;
 //    private KmerBitsUtils2 bitsUtils;
     
-    private int singleReadKmersDistance = -1;
+    private int readPairedKmersDistance = -1;
     
     private final static String FILE_DESC_EXTENSION = ".desc";
     private final static String FILE_DBGBF_EXTENSION = ".dbgbf";
@@ -61,9 +60,10 @@ public class BloomFilterDeBruijnGraph {
     private final static String LABEL_K = "k";
     private final static String LABEL_STRANDED = "stranded";
 //    private final static String LABEL_SEED = "seed";
-    private final static String LABEL_PAIRED_KMER_DIST = "pairedKmersDistance";
-    private final static String LABEL_PKBF_NUM_BITS = "pkbfNumBits";
-    private final static String LABEL_PKBF_NUM_HASH = "pkbfNumHash";
+    private final static String LABEL_READ_PAIRED_KMERS_DIST = "readPairedKmersDistance";
+    private final static String LABEL_FRAGMENT_PAIRED_KMERS_DIST = "fragmentPairedKmersDistance";
+//    private final static String LABEL_PKBF_NUM_BITS = "pkbfNumBits";
+//    private final static String LABEL_PKBF_NUM_HASH = "pkbfNumHash";
     
     public BloomFilterDeBruijnGraph(long dbgbfNumBits,
                                     long cbfNumBytes,
@@ -89,7 +89,6 @@ public class BloomFilterDeBruijnGraph {
         }
         this.dbgbf = new BloomFilter(dbgbfNumBits, dbgbfNumHash, this.hashFunction);
         this.cbf = new CountingBloomFilter(cbfNumBytes, cbfNumHash, this.hashFunction);
-        this.pkbfNumBits = pkbfNumBits;
         this.pkbfNumHash = pkbfNumHash;
         
         if (useReadPairedKmers) {
@@ -116,14 +115,11 @@ public class BloomFilterDeBruijnGraph {
                 case LABEL_STRANDED:
                     stranded = Boolean.parseBoolean(val);
                     break;
-                case LABEL_PAIRED_KMER_DIST:
-                    pairedKmersDistance = Integer.parseInt(val);
+                case LABEL_FRAGMENT_PAIRED_KMERS_DIST:
+                    fragmentPairedKmersDistance = Integer.parseInt(val);
                     break;
-                case LABEL_PKBF_NUM_BITS:
-                    pkbfNumBits = Long.parseLong(val);
-                    break;
-                case LABEL_PKBF_NUM_HASH:
-                    pkbfNumHash = Integer.parseInt(val);
+                case LABEL_READ_PAIRED_KMERS_DIST:
+                    readPairedKmersDistance = Integer.parseInt(val);
                     break;
             }
         }
@@ -159,6 +155,7 @@ public class BloomFilterDeBruijnGraph {
         
         if (pkbfDescFile.isFile() && leftBitsFile.isFile() && rightBitsFile.isFile() && pairBitsFile.isFile()) {
             pkbf = new PairedKeysPartitionedBloomFilter(pkbfDescFile, leftBitsFile, rightBitsFile, pairBitsFile, hashFunction);
+            pkbfNumHash = pkbf.getNumhash();
         }
         
         String rpkbfBitsPath = graphFile.getPath() + FILE_RPKBF_PAIR_EXTENSION;
@@ -168,7 +165,8 @@ public class BloomFilterDeBruijnGraph {
         File rpkbfDescFile = new File(rpkbfDescPath);
         
         if (rpkbfBitsFile.isFile() && rpkbfDescFile.isFile()) {
-            this.rpkbf = new PairedKeysBloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
+            this.rpkbf = new PairedKeysBloomFilter(rpkbfDescFile, rpkbfBitsFile, this.hashFunction);
+            pkbfNumHash = rpkbf.getNumhash();
         }
     }
 
@@ -283,9 +281,8 @@ public class BloomFilterDeBruijnGraph {
         writer.write(LABEL_DBGBF_CBF_NUM_HASH + LABEL_SEPARATOR + dbgbfCbfMaxNumHash + "\n" +
                     LABEL_STRANDED + LABEL_SEPARATOR + stranded + "\n" +
                     LABEL_K + LABEL_SEPARATOR + k + "\n" +
-                    LABEL_PAIRED_KMER_DIST + LABEL_SEPARATOR + pairedKmersDistance + "\n" +
-                    LABEL_PKBF_NUM_BITS + LABEL_SEPARATOR + pkbfNumBits + "\n" +
-                    LABEL_PKBF_NUM_HASH + LABEL_SEPARATOR + pkbfNumHash + "\n");
+                    LABEL_READ_PAIRED_KMERS_DIST + LABEL_SEPARATOR + readPairedKmersDistance + "\n" +
+                    LABEL_FRAGMENT_PAIRED_KMERS_DIST + LABEL_SEPARATOR + fragmentPairedKmersDistance + "\n");
         writer.close();
     }
     
@@ -338,7 +335,7 @@ public class BloomFilterDeBruijnGraph {
         pkbf = new PairedKeysPartitionedBloomFilter(new File(pkbfDescPath), new File(leftBitsPath), new File(rightBitsPath), new File(pairBitsPath), hashFunction);
     }
     
-    public void initializePairKmersBloomFilter() {
+    public void initializePairKmersBloomFilter(long pkbfNumBits, int pkbfNumHash) {
         if (this.pkbf == null) {
             this.pkbf = new PairedKeysPartitionedBloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
         }
@@ -348,19 +345,19 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void setPairedKmerDistance(int d) {
-        this.pairedKmersDistance = d;
+        this.fragmentPairedKmersDistance = d;
     }
     
     public int getPairedKmerDistance() {
-        return this.pairedKmersDistance;
+        return this.fragmentPairedKmersDistance;
     }
     
     public void setReadKmerDistance(int d) {
-        this.singleReadKmersDistance = d;
+        this.readPairedKmersDistance = d;
     }
     
     public int getReadKmerDistance() {
-        return singleReadKmersDistance;
+        return readPairedKmersDistance;
     }
     
     public int getK() {
@@ -452,12 +449,12 @@ public class BloomFilterDeBruijnGraph {
         Kmer left, right;
         
         // add paired kmers
-        final int upperBound = kmers.size() - pairedKmersDistance;
+        final int upperBound = kmers.size() - fragmentPairedKmersDistance;
         
         if (upperBound > 0) {
             for (int i=0; i<upperBound; ++i) {
                 left = kmers.get(i);
-                right = kmers.get(i+pairedKmersDistance);
+                right = kmers.get(i+fragmentPairedKmersDistance);
 
                 pkbf.add(left.getHash(),
                         right.getHash(),
@@ -470,7 +467,7 @@ public class BloomFilterDeBruijnGraph {
         Kmer left, right;
         
         // add paired kmers
-        final int upperBound = kmers.size() - pairedKmersDistance;
+        final int upperBound = kmers.size() - fragmentPairedKmersDistance;
         
         if (upperBound <= 0) {
             return false;
@@ -478,7 +475,7 @@ public class BloomFilterDeBruijnGraph {
         
         for (int i=0; i<upperBound; ++i) {
             left = kmers.get(i);
-            right = kmers.get(i+pairedKmersDistance);
+            right = kmers.get(i+fragmentPairedKmersDistance);
             
             if (!pkbf.lookupLeft(left.getHash())) {
                 return false;
@@ -1216,7 +1213,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public PairedNTHashIterator getPairedHashIterator() {
-        return hashFunction.getPairedHashIterator(this.pkbfNumHash, this.pairedKmersDistance);
+        return hashFunction.getPairedHashIterator(this.pkbfNumHash, this.fragmentPairedKmersDistance);
     }
         
     public ArrayList<Kmer> getKmers(String seq) {                
