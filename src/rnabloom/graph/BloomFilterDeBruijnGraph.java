@@ -306,7 +306,7 @@ public class BloomFilterDeBruijnGraph {
         if (rpkbf != null) {
             String rpkbfBitsPath = graphFile.getPath() + FILE_RPKBF_PAIR_EXTENSION;
             String rpkbfDescPath = rpkbfBitsPath + FILE_DESC_EXTENSION;
-            cbf.save(new File(rpkbfDescPath), new File(rpkbfBitsPath));
+            rpkbf.save(new File(rpkbfDescPath), new File(rpkbfBitsPath));
         }
     }
     
