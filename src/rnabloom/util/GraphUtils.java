@@ -56,6 +56,42 @@ public final class GraphUtils {
         return min;
     }
     
+    private static int getMinimumKmerCoverageIndexL2R(final ArrayList<Kmer> kmers, int start, int end) {
+        // search from left to right
+        
+        float min = kmers.get(start).count;
+        int index = start;
+        
+        float c;
+        for (int i=start+1; i<end; ++i) {
+            c = kmers.get(i).count;
+            if (c < min) {
+                min = c;
+                index = i;
+            }
+        }
+        
+        return index;
+    }
+    
+    private static int getMinimumKmerCoverageIndexR2L(final ArrayList<Kmer> kmers, int start, int end) {
+        // search from right to left
+
+        int index = end-1;
+        float min = kmers.get(index).count;
+        
+        float c;
+        for (int i=index-1; i>=start; --i) {
+            c = kmers.get(i).count;
+            if (c < min) {
+                min = c;
+                index = i;
+            }
+        }
+        
+        return index;
+    }
+    
     public static float getMedianKmerCoverage(final ArrayList<Kmer> kmers, int start, int end) {
         int range = end-start+1;
         
@@ -3733,7 +3769,9 @@ public final class GraphUtils {
                 break;
             }
         }
-                
+        
+        start = Math.min(start, getMinimumKmerCoverageIndexL2R(kmers, end, numKmers-1));
+        
         Kmer kmer;
         Kmer p;
         end += minNumPairs;
@@ -3817,6 +3855,8 @@ public final class GraphUtils {
                 break;
             }
         }
+        
+        start = Math.min(start, getMinimumKmerCoverageIndexL2R(kmers, end, numKmers-1));
                 
         Kmer kmer;
         Kmer p;
