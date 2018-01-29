@@ -108,10 +108,10 @@ public final class SeqUtils {
         int d = getDistance(a, b, aLen, bLen);
         
         if (aLen <= bLen) {
-            return ((float) (bLen - d))/bLen;
+            return ((float) (bLen - d))/(float)bLen;
         }
         
-        return ((float) (aLen - d))/aLen;
+        return ((float) (aLen - d))/(float)aLen;
     }
     
     private static int getDistance(String s, String t, int sLen, int tLen) {

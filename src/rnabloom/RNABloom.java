@@ -1295,7 +1295,7 @@ public class RNABloom {
                         }
                     }
                     else {
-//                        if (fragment.equals("CACAATCAACACATCACTGGACACATACAGCCACTTTCTCGCAGAAACATCTCATCTGAAAATTATGAACTTCAACATGAACTATAGCACCGAACCGTCTCAATACCAATCTTACGTCATCGCGAACGCTCCTTCCGCCACAGCGCCAATTTGTACAGAAATCACGTGCTGTGTTTGTTGAGCCTACGGGTCATGCATACGGACG")) {
+//                        if (fragment.equals("GTGCAGGAGGCATTGCTGATGATCTTGAGGCTGTTGTCATACTTCTCATGGTTCACACCCATGACGAACATGGGGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACACCCACTCCTCCAC")) {
 //                            System.out.println(fragment);
 //                        }
                         
@@ -1317,7 +1317,9 @@ public class RNABloom {
                             ArrayList<Kmer> fragKmers2 = new ArrayList<>(fragKmers);
 
 //                            if ((!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) &&
-                            if ((!extendBranchFreeFragmentsOnly || !isFusionTranscript(fragKmers, graph, screeningBf, lookahead)) &&
+                            if ((!extendBranchFreeFragmentsOnly ||
+                                    (!isFusion(fragKmers, graph, screeningBf, lookahead) &&
+                                    !isTemplateSwitch(fragKmers, graph, screeningBf, lookahead))) &&
                                     !represented(fragKmers,
                                                         graph,
                                                         screeningBf,
@@ -3656,7 +3658,7 @@ public class RNABloom {
             final int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "3"));
             final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), Integer.toString(k)));
             final float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
-            final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.95"));
+            final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.90"));
             final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
             final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));

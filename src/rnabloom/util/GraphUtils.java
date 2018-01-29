@@ -544,7 +544,6 @@ public final class GraphUtils {
         int maxIndex = numKmers - 1;
         
         int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
         int maxNumBubbleKmers = 3*k;
         
         int lastRepresentedKmerFoundIndex = -1;
@@ -7383,7 +7382,7 @@ public final class GraphUtils {
         return true;
     }
     
-    public static boolean isFusionTranscript(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead) {
+    public static boolean isFusion(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead) {
         int k = graph.getK();   
         int numKmers = seqKmers.size();
         
@@ -7426,6 +7425,73 @@ public final class GraphUtils {
                 }
                 
                 // otherwise, this is alternative splicing
+            }
+        }
+        
+        return false;
+    }
+    
+    public static boolean isTemplateSwitch(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead) {
+        int k = graph.getK();   
+        int numKmers = seqKmers.size();
+        
+        float leftEdgeCov = getMinimumKmerCoverage(seqKmers, 0, lookahead);
+        float rightEdgeCov = getMinimumKmerCoverage(seqKmers, numKmers-lookahead, numKmers);
+        
+        if (assembledKmers.lookup(seqKmers.get(0).getHash()) &&
+                (!assembledKmers.lookup(seqKmers.get(numKmers-1).getHash()) || leftEdgeCov > rightEdgeCov)) {
+            int i = 1;
+            for (; i < numKmers-1; ++i) {
+                if (!assembledKmers.lookup(seqKmers.get(i).getHash())) {
+                    break;
+                }
+            }
+            
+            if (i == numKmers -1) {
+                return false;
+            }
+            
+            --i;
+            
+            if (i+k < numKmers) {
+                String tipRC = reverseComplement(graph.assemble(seqKmers, i+k, numKmers));
+                
+                ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(0), lookahead, 1000, assembledKmers);
+                ArrayDeque<Kmer> rightExtension = greedyExtendRight(graph, seqKmers.get(i), lookahead, 1000, assembledKmers);
+                
+                leftExtension.addAll(seqKmers.subList(0, i+1));
+                leftExtension.addAll(rightExtension);
+                
+                String backbone = graph.assemble(leftExtension);
+                if (backbone.contains(tipRC)) {
+                    return true;
+                }
+            }
+        }
+        else if (assembledKmers.lookup(seqKmers.get(numKmers-1).getHash()) &&
+                (!assembledKmers.lookup(seqKmers.get(0).getHash()) || leftEdgeCov < rightEdgeCov)) {
+            int j = numKmers-2;
+            for (; j > 0; --j) {
+                if (!assembledKmers.lookup(seqKmers.get(j).getHash())) {
+                    break;
+                }
+            }
+            
+            ++j;
+            
+            if (j-k > 0) {
+                String tipRC = reverseComplement(graph.assemble(seqKmers, 0, j-k));
+                
+                ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(j), lookahead, 1000, assembledKmers);
+                ArrayDeque<Kmer> rightExtension = greedyExtendRight(graph, seqKmers.get(numKmers-1), lookahead, 1000, assembledKmers);
+                
+                leftExtension.addAll(seqKmers.subList(j+1, numKmers));
+                leftExtension.addAll(rightExtension);
+                
+                String backbone = graph.assemble(leftExtension);
+                if (backbone.contains(tipRC)) {
+                    return true;
+                }
             }
         }
         
