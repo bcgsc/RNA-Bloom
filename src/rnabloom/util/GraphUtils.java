@@ -7435,8 +7435,8 @@ public final class GraphUtils {
         int k = graph.getK();   
         int numKmers = seqKmers.size();
         
-        float leftEdgeCov = getMinimumKmerCoverage(seqKmers, 0, lookahead);
-        float rightEdgeCov = getMinimumKmerCoverage(seqKmers, numKmers-lookahead, numKmers);
+        float leftEdgeCov = getMinimumKmerCoverage(seqKmers, 0, Math.min(lookahead, numKmers));
+        float rightEdgeCov = getMinimumKmerCoverage(seqKmers, Math.max(0, numKmers-lookahead), numKmers);
         
         if (assembledKmers.lookup(seqKmers.get(0).getHash()) &&
                 (!assembledKmers.lookup(seqKmers.get(numKmers-1).getHash()) || leftEdgeCov > rightEdgeCov)) {
@@ -7485,7 +7485,7 @@ public final class GraphUtils {
                 ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(j), lookahead, 1000, assembledKmers);
                 ArrayDeque<Kmer> rightExtension = greedyExtendRight(graph, seqKmers.get(numKmers-1), lookahead, 1000, assembledKmers);
                 
-                leftExtension.addAll(seqKmers.subList(j+1, numKmers));
+                leftExtension.addAll(seqKmers.subList(j, numKmers));
                 leftExtension.addAll(rightExtension);
                 
                 String backbone = graph.assemble(leftExtension);

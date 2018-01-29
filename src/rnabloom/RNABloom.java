@@ -1295,9 +1295,9 @@ public class RNABloom {
                         }
                     }
                     else {
-//                        if (fragment.equals("GTGCAGGAGGCATTGCTGATGATCTTGAGGCTGTTGTCATACTTCTCATGGTTCACACCCATGACGAACATGGGGACATCAAGAAGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTGAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACACCCACTCCTCCAC")) {
-//                            System.out.println(fragment);
-//                        }
+                        if (fragment.equals("ATGAAGGGGTCATTGACCTCAACTACATGGTTTACATGTTCCAATATGATTCCACCCATGGCAAATTCCATGGCACCGTCAAGGCTGAGAACGGGAAGCTTGTCATCAATGGAAATCCCATCACCATCTTCCAGGAGCGAGATCCCTCCAAAATCAAGTGGGGCGATGCTGGCGCTGAGTACGTCGTGGAGTCCACTGGCGTCTTCACCACCATGGAGAAGGCTGGGGCTCATTTGCAGGGGGGAGCCAAAAGGGTCATCATCTCTGC")) {
+                            System.out.println(fragment);
+                        }
                         
                         if (minPolyATailLengthRequired > 0) {
                             if (!polyATailPattern.matcher(fragment).matches()) {
