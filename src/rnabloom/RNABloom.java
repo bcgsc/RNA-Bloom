@@ -1319,7 +1319,7 @@ public class RNABloom {
 //                            if ((!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) &&
                             if ((!extendBranchFreeFragmentsOnly ||
                                     (!isFusion(fragKmers, graph, screeningBf, lookahead) &&
-                                    !isTemplateSwitch(fragKmers, graph, screeningBf, lookahead))) &&
+                                        !isTemplateSwitch(fragKmers, graph, screeningBf, lookahead))) &&
                                     !represented(fragKmers,
                                                         graph,
                                                         screeningBf,
@@ -1347,12 +1347,16 @@ public class RNABloom {
                                                 int numReadSegs = readSegments.size();
 
                                                 if (numReadSegs == 1) {
-                                                    transcripts.put(new Transcript(fragment, f));
+                                                    if (!extendBranchFreeFragmentsOnly || !isTemplateSwitch(f, graph, screeningBf, lookahead)) {
+                                                        transcripts.put(new Transcript(fragment, f));
+                                                    }
                                                 }
                                                 else if (numReadSegs > 1) {
                                                     for (ArrayList<Kmer> r : readSegments) {
                                                         if (new HashSet<>(r).containsAll(fragKmers2)) {
-                                                            transcripts.put(new Transcript(fragment, r));
+                                                            if (!extendBranchFreeFragmentsOnly || !isTemplateSwitch(r, graph, screeningBf, lookahead)) {
+                                                                transcripts.put(new Transcript(fragment, r));
+                                                            }
                                                             break;
                                                         }
                                                     }
@@ -1369,12 +1373,16 @@ public class RNABloom {
                                     int numReadSegs = readSegments.size();
 
                                     if (numReadSegs == 1) {
-                                        transcripts.put(new Transcript(fragment, fragKmers));
+                                        if (!extendBranchFreeFragmentsOnly || !isTemplateSwitch(fragKmers, graph, screeningBf, lookahead)) {
+                                            transcripts.put(new Transcript(fragment, fragKmers));
+                                        }
                                     }
                                     else if (numReadSegs > 1) {
                                         for (ArrayList<Kmer> r : readSegments) {
                                             if (new HashSet<>(r).containsAll(fragKmers2)) {
-                                                transcripts.put(new Transcript(fragment, r));
+                                                if (!extendBranchFreeFragmentsOnly || !isTemplateSwitch(r, graph, screeningBf, lookahead)) {
+                                                    transcripts.put(new Transcript(fragment, r));
+                                                }
                                                 break;
                                             }
                                         }
