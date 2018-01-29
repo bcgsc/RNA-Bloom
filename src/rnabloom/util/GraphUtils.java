@@ -4841,12 +4841,12 @@ public final class GraphUtils {
                                             percentIdentity);
                         
             if (!simpleExtension.isEmpty()) {
-                Iterator<Kmer> itr = simpleExtension.descendingIterator();
-                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
-                    itr.remove();
-                }
-                
-                if (!simpleExtension.isEmpty()) {
+//                Iterator<Kmer> itr = simpleExtension.descendingIterator();
+//                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
+//                    itr.remove();
+//                }
+//                
+//                if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
 ////                    usedKmers.addAll(simpleExtension);
                     
@@ -4865,7 +4865,7 @@ public final class GraphUtils {
                     if (neighbors.isEmpty()) {
                         return false;
                     }
-                }
+//                }
             }
             
             if (numKmers < distance) {
@@ -5068,12 +5068,12 @@ public final class GraphUtils {
                                             percentIdentity);
             
             if (!simpleExtension.isEmpty()) {
-                Iterator<Kmer> itr = simpleExtension.descendingIterator();
-                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
-                    itr.remove();
-                }
-                
-                if (!simpleExtension.isEmpty()) {
+//                Iterator<Kmer> itr = simpleExtension.descendingIterator();
+//                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
+//                    itr.remove();
+//                }
+//                
+//                if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
 //                    usedKmers.addAll(simpleExtension);
                     
@@ -5092,7 +5092,7 @@ public final class GraphUtils {
                     if (neighbors.isEmpty()) {
                         return false;
                     }
-                }
+//                }
             }
             
             if (numKmers < distance) {
@@ -7381,6 +7381,55 @@ public final class GraphUtils {
         }
         
         return true;
+    }
+    
+    public static boolean isFusionTranscript(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead) {
+        int k = graph.getK();   
+        int numKmers = seqKmers.size();
+        
+        if (assembledKmers.lookup(seqKmers.get(0).getHash()) &&
+                assembledKmers.lookup(seqKmers.get(numKmers-1).getHash())) {
+            
+            int i = 1;
+            for (; i < numKmers-1; ++i) {
+                if (!assembledKmers.lookup(seqKmers.get(i).getHash())) {
+                    break;
+                }
+            }
+            
+            if (i == numKmers -1) {
+                return false;
+            }
+            
+            --i;
+            
+            int j = numKmers-2;
+            for (; j > i; --j) {
+                if (!assembledKmers.lookup(seqKmers.get(j).getHash())) {
+                    break;
+                }
+            }
+            
+            ++j;
+            
+            if (j - i <= k) {
+                Kmer source1 = seqKmers.get(i);
+                Kmer source2 = seqKmers.get(j);
+                
+                HashSet<Kmer> kmers1 = new HashSet<>(greedyExtendRight(graph, source1, lookahead, 1000, assembledKmers));
+                
+                kmers1.retainAll(greedyExtendLeft(graph, source2, lookahead, 1000, assembledKmers));
+                
+                if (kmers1.isEmpty()) {
+                    // 2 non-intersecting paths; most likely 2 transcripts from different genes
+                    return true;
+                }
+                
+                // otherwise, this is alternative splicing
+            }
+        }
+        
+        return false;
     }
     
 //    public static void main(String[] args) {
