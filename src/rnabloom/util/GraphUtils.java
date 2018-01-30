@@ -7441,13 +7441,13 @@ public final class GraphUtils {
         if (assembledKmers.lookup(seqKmers.get(0).getHash()) &&
                 (!assembledKmers.lookup(seqKmers.get(numKmers-1).getHash()) || leftEdgeCov > rightEdgeCov)) {
             int i = 1;
-            for (; i < numKmers-1; ++i) {
+            for (; i < numKmers; ++i) {
                 if (!assembledKmers.lookup(seqKmers.get(i).getHash())) {
                     break;
                 }
             }
             
-            if (i == numKmers -1) {
+            if (i == numKmers) {
                 return false;
             }
             
@@ -7456,7 +7456,11 @@ public final class GraphUtils {
             if (i+k < numKmers) {
                 String tipRC = reverseComplement(graph.assemble(seqKmers, i+k, numKmers));
                 
-                ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(0), lookahead, 1000, assembledKmers);
+                if (i-lookahead >= 0) {
+                    i -= lookahead;
+                }
+                
+                ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(0), lookahead, 1000, assembledKmers);                
                 ArrayDeque<Kmer> rightExtension = greedyExtendRight(graph, seqKmers.get(i), lookahead, 1000, assembledKmers);
                 
                 leftExtension.addAll(seqKmers.subList(0, i+1));
@@ -7471,10 +7475,14 @@ public final class GraphUtils {
         else if (assembledKmers.lookup(seqKmers.get(numKmers-1).getHash()) &&
                 (!assembledKmers.lookup(seqKmers.get(0).getHash()) || leftEdgeCov < rightEdgeCov)) {
             int j = numKmers-2;
-            for (; j > 0; --j) {
+            for (; j >= 0; --j) {
                 if (!assembledKmers.lookup(seqKmers.get(j).getHash())) {
                     break;
                 }
+            }
+            
+            if (j == -1) {
+                return false;
             }
             
             ++j;
@@ -7482,7 +7490,11 @@ public final class GraphUtils {
             if (j-k > 0) {
                 String tipRC = reverseComplement(graph.assemble(seqKmers, 0, j-k));
                 
-                ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(j), lookahead, 1000, assembledKmers);
+                if (j+lookahead < numKmers) {
+                    j += lookahead;
+                }
+                
+                ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(j), lookahead, 1000, assembledKmers);                
                 ArrayDeque<Kmer> rightExtension = greedyExtendRight(graph, seqKmers.get(numKmers-1), lookahead, 1000, assembledKmers);
                 
                 leftExtension.addAll(seqKmers.subList(j, numKmers));
