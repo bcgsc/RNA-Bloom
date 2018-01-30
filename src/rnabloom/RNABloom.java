@@ -3045,7 +3045,7 @@ public class RNABloom {
             }
             else {
                 // be extra careful with extending low coverage fragments (ie. 01, E0)
-                allowNaiveExtension = false;
+//                allowNaiveExtension = false;
                 skipPotentialArtifacts = true;
             }
             
@@ -3076,6 +3076,7 @@ public class RNABloom {
 
             
             if (!sensitiveMode) {
+                allowNaiveExtension = false;
                 extendBranchFreeOnly = true;
             }
             
