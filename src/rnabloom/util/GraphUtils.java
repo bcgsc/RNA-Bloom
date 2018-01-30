@@ -7453,23 +7453,21 @@ public final class GraphUtils {
             
             --i;
             
-            if (i+k < numKmers) {
-                String tipRC = reverseComplement(graph.assemble(seqKmers, i+k, numKmers));
-                
-                if (i-lookahead >= 0) {
-                    i -= lookahead;
-                }
-                
-                ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(0), lookahead, 1000, assembledKmers);                
-                ArrayDeque<Kmer> rightExtension = greedyExtendRight(graph, seqKmers.get(i), lookahead, 1000, assembledKmers);
-                
-                leftExtension.addAll(seqKmers.subList(0, i+1));
-                leftExtension.addAll(rightExtension);
-                
-                String backbone = graph.assemble(leftExtension);
-                if (backbone.contains(tipRC)) {
-                    return true;
-                }
+            String tipRC = reverseComplement(graph.assemble(seqKmers, Math.min(i+k, numKmers-1), numKmers));
+
+            if (i-lookahead >= 0) {
+                i -= lookahead;
+            }
+
+            ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(0), lookahead, 1000, assembledKmers);                
+            ArrayDeque<Kmer> rightExtension = greedyExtendRight(graph, seqKmers.get(i), lookahead, 1000, assembledKmers);
+
+            leftExtension.addAll(seqKmers.subList(0, i+1));
+            leftExtension.addAll(rightExtension);
+
+            String backbone = graph.assemble(leftExtension);
+            if (backbone.contains(tipRC)) {
+                return true;
             }
         }
         else if (assembledKmers.lookup(seqKmers.get(numKmers-1).getHash()) &&
@@ -7487,23 +7485,21 @@ public final class GraphUtils {
             
             ++j;
             
-            if (j-k > 0) {
-                String tipRC = reverseComplement(graph.assemble(seqKmers, 0, j-k));
-                
-                if (j+lookahead < numKmers) {
-                    j += lookahead;
-                }
-                
-                ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(j), lookahead, 1000, assembledKmers);                
-                ArrayDeque<Kmer> rightExtension = greedyExtendRight(graph, seqKmers.get(numKmers-1), lookahead, 1000, assembledKmers);
-                
-                leftExtension.addAll(seqKmers.subList(j, numKmers));
-                leftExtension.addAll(rightExtension);
-                
-                String backbone = graph.assemble(leftExtension);
-                if (backbone.contains(tipRC)) {
-                    return true;
-                }
+            String tipRC = reverseComplement(graph.assemble(seqKmers, 0, Math.max(1, j-k)));
+
+            if (j+lookahead < numKmers) {
+                j += lookahead;
+            }
+
+            ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(j), lookahead, 1000, assembledKmers);                
+            ArrayDeque<Kmer> rightExtension = greedyExtendRight(graph, seqKmers.get(numKmers-1), lookahead, 1000, assembledKmers);
+
+            leftExtension.addAll(seqKmers.subList(j, numKmers));
+            leftExtension.addAll(rightExtension);
+
+            String backbone = graph.assemble(leftExtension);
+            if (backbone.contains(tipRC)) {
+                return true;
             }
         }
         
