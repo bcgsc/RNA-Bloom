@@ -1264,15 +1264,18 @@ public class RNABloom {
         private boolean keepGoing = true;
         private boolean includeNaiveExtensions = false;
         private boolean extendBranchFreeFragmentsOnly = false;
+        private boolean skipPotentialArtifacts = false;
         
         public TranscriptAssemblyWorker(ArrayBlockingQueue<String> fragments,
                                         ArrayBlockingQueue<Transcript> transcripts,
                                         boolean includeNaiveExtensions,
-                                        boolean extendBranchFreeFragmentsOnly) {
+                                        boolean extendBranchFreeFragmentsOnly,
+                                        boolean skipPotentialArtifacts) {
             this.fragments = fragments;
             this.transcripts = transcripts;
             this.includeNaiveExtensions = includeNaiveExtensions;
             this.extendBranchFreeFragmentsOnly = extendBranchFreeFragmentsOnly;
+            this.skipPotentialArtifacts = skipPotentialArtifacts;
         }
 
         public void stopWhenEmpty () {
@@ -1316,11 +1319,9 @@ public class RNABloom {
                             
                             ArrayList<Kmer> fragKmers2 = new ArrayList<>(fragKmers);
 
-//                            if ((!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) &&
-                            if ((!extendBranchFreeFragmentsOnly ||
-                                    (!isFusion(fragKmers, graph, screeningBf, lookahead) &&
-                                        !isTemplateSwitch(fragKmers, graph, screeningBf, lookahead))) &&
-                                    !represented(fragKmers,
+                            if ( (!extendBranchFreeFragmentsOnly || isBranchFree(fragKmers, graph, maxTipLength)) &&
+                                 (!skipPotentialArtifacts || (!isFusion(fragKmers, graph, screeningBf, lookahead) && !isTemplateSwitch(fragKmers, graph, screeningBf, lookahead))) &&
+                                 !represented(fragKmers,
                                                         graph,
                                                         screeningBf,
                                                         lookahead,
@@ -2877,7 +2878,8 @@ public class RNABloom {
                                                     int sampleSize, 
                                                     int numThreads, 
                                                     boolean includeNaiveExtensions,
-                                                    boolean extendBranchFreeFragmentsOnly) throws InterruptedException, IOException, Exception {
+                                                    boolean extendBranchFreeFragmentsOnly,
+                                                    boolean skipPotentialArtifacts) throws InterruptedException, IOException, Exception {
         
         long numFragmentsParsed = 0;
         FastaReader fin = new FastaReader(fragmentsFasta);
@@ -2888,7 +2890,7 @@ public class RNABloom {
         TranscriptAssemblyWorker[] workers = new TranscriptAssemblyWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
         for (int i=0; i<numThreads; ++i) {
-            workers[i] = new TranscriptAssemblyWorker(fragmentsQueue, transcriptsQueue, includeNaiveExtensions, extendBranchFreeFragmentsOnly);
+            workers[i] = new TranscriptAssemblyWorker(fragmentsQueue, transcriptsQueue, includeNaiveExtensions, extendBranchFreeFragmentsOnly, skipPotentialArtifacts);
             threads[i] = new Thread(workers[i]);
             threads[i].start();
         }
@@ -2955,10 +2957,10 @@ public class RNABloom {
                 TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTransfragLength);
                 
                 System.out.println("Parsing fragments in `" + longFragsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longFragsFasta, writer, sampleSize, numThreads, false, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(longFragsFasta, writer, sampleSize, numThreads, false, false, false);
                 
                 System.out.println("Parsing fragments in `" + shortFragsFasta + "`...");
-                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, false, false);
+                numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortFragsFasta, writer, sampleSize, numThreads, false, false, false);
                 
                 fout.close();
                 foutShort.close();
@@ -3006,6 +3008,7 @@ public class RNABloom {
    
             boolean allowNaiveExtension = true;
             boolean extendBranchFreeOnly = false;
+            boolean skipPotentialArtifacts = false;
             
             // extend LONG fragments
             
@@ -3014,7 +3017,7 @@ public class RNABloom {
                 String fragmentsFasta = longFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
-                                                                            allowNaiveExtension, extendBranchFreeOnly);
+                                                                            allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts);
             }          
 
             // extend SHORT fragments
@@ -3024,7 +3027,7 @@ public class RNABloom {
                 String fragmentsFasta = shortFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
-                                                                            allowNaiveExtension, extendBranchFreeOnly);
+                                                                            allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts);
             }
             
             // extend UNCONNECTED reads
@@ -3034,7 +3037,7 @@ public class RNABloom {
                 String fragmentsFasta = unconnectedReadsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
-                                                                            allowNaiveExtension, extendBranchFreeOnly);
+                                                                            allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts);
             }
             
             if (sensitiveMode) {
@@ -3043,7 +3046,7 @@ public class RNABloom {
             else {
                 // be extra careful with extending low coverage fragments (ie. 01, E0)
                 allowNaiveExtension = false;
-                extendBranchFreeOnly = true;
+                skipPotentialArtifacts = true;
             }
             
 
@@ -3053,7 +3056,7 @@ public class RNABloom {
             String fragmentsFasta = longFragmentsFastas[0];
             System.out.println("Parsing `" + fragmentsFasta + "`...");
             numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
-                                                                        allowNaiveExtension, extendBranchFreeOnly);
+                                                                        allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts);
 
             // extend SHORT fragments
             
@@ -3061,7 +3064,7 @@ public class RNABloom {
             fragmentsFasta = shortFragmentsFastas[0];
             System.out.println("Parsing `" + fragmentsFasta + "`...");
             numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
-                                                                        allowNaiveExtension, extendBranchFreeOnly);
+                                                                        allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts);
             
             // extend UNCONNECTED reads
 
@@ -3069,29 +3072,33 @@ public class RNABloom {
             fragmentsFasta = unconnectedReadsFastas[0];
             System.out.println("Parsing `" + fragmentsFasta + "`...");
             numFragmentsParsed += extendFragmentsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
-                                                                        allowNaiveExtension, extendBranchFreeOnly);
+                                                                        allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts);
 
+            
+            if (!sensitiveMode) {
+                extendBranchFreeOnly = true;
+            }
             
             // extend LONG singleton fragments
 
             writer.setOutputPrefix(txptNamePrefix + "01.L.");
             System.out.println("Parsing `" + longSingletonsFasta + "`...");
             numFragmentsParsed += extendFragmentsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads,
-                                                                        allowNaiveExtension, extendBranchFreeOnly);
+                                                                        allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts);
 
             // extend SHORT singleton fragments
 
             writer.setOutputPrefix(txptNamePrefix + "01.S.");
             System.out.println("Parsing `" + shortSingletonsFasta + "`...");
             numFragmentsParsed += extendFragmentsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads,
-                                                                        allowNaiveExtension, extendBranchFreeOnly);
+                                                                        allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts);
 
             // extend UNCONNECTED reads
 
             writer.setOutputPrefix(txptNamePrefix + "01.U.");
             System.out.println("Parsing `" + unconnectedSingletonsFasta + "`...");
             numFragmentsParsed += extendFragmentsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads,
-                                                                        allowNaiveExtension, extendBranchFreeOnly);
+                                                                        allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts);
             
             fout.close();
             foutShort.close();
