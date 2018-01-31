@@ -7411,7 +7411,7 @@ public final class GraphUtils {
             
             ++j;
             
-            if (j - i <= k) {
+            if (j - i <= 2*k) { // use 2*k instead of k to account for mismatches near breakpoint
                 Kmer source1 = seqKmers.get(i);
                 Kmer source2 = seqKmers.get(j);
                 
