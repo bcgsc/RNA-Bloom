@@ -4840,14 +4840,14 @@ public final class GraphUtils {
                                             percentIdentity);
                         
             if (!simpleExtension.isEmpty()) {
-//                Iterator<Kmer> itr = simpleExtension.descendingIterator();
-//                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
-//                    itr.remove();
-//                }
+                Iterator<Kmer> itr = simpleExtension.descendingIterator();
+                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
+                    itr.remove();
+                }
 //                
-//                if (!simpleExtension.isEmpty()) {
+                if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
-////                    usedKmers.addAll(simpleExtension);
+                    usedKmers.addAll(simpleExtension);
                     
                     numKmers = kmers.size();
 
@@ -4864,7 +4864,7 @@ public final class GraphUtils {
                     if (neighbors.isEmpty()) {
                         return false;
                     }
-//                }
+                }
             }
             
             if (numKmers < distance) {
@@ -5067,14 +5067,14 @@ public final class GraphUtils {
                                             percentIdentity);
             
             if (!simpleExtension.isEmpty()) {
-//                Iterator<Kmer> itr = simpleExtension.descendingIterator();
-//                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
-//                    itr.remove();
-//                }
-//                
-//                if (!simpleExtension.isEmpty()) {
+                Iterator<Kmer> itr = simpleExtension.descendingIterator();
+                while(itr.hasNext() && assembledKmersBloomFilter.lookup(itr.next().getHash())) {
+                    itr.remove();
+                }
+                
+                if (!simpleExtension.isEmpty()) {
                     kmers.addAll(simpleExtension);
-//                    usedKmers.addAll(simpleExtension);
+                    usedKmers.addAll(simpleExtension);
                     
                     numKmers = kmers.size();
 
@@ -5091,7 +5091,7 @@ public final class GraphUtils {
                     if (neighbors.isEmpty()) {
                         return false;
                     }
-//                }
+                }
             }
             
             if (numKmers < distance) {
@@ -7091,6 +7091,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         ArrayDeque<Kmer> result = new ArrayDeque<>();
+        HashSet<Kmer> myUsedKmers = new HashSet<>();
         
         ArrayDeque<Kmer> neighbors = new ArrayDeque<>(4);
         source.getSuccessors(k, numHash, graph, neighbors);
@@ -7101,12 +7102,12 @@ public final class GraphUtils {
             if (neighbors.size() == 1) {
                 best = neighbors.pop();
                 
-                if (usedKmers.contains(best)) {
+                if (usedKmers.contains(best) || myUsedKmers.contains(best)) {
                     return result;
                 }
                 else {
                     result.add(best);
-                    usedKmers.add(best);
+                    myUsedKmers.add(best);
                 }
                 
                 ArrayDeque<Kmer> b = naiveExtendRight(best, graph, maxTipLength, usedKmers);
@@ -7116,7 +7117,7 @@ public final class GraphUtils {
                 }
                 else {
                     result.addAll(b);
-                    usedKmers.addAll(b);
+                    myUsedKmers.addAll(b);
                     best = result.peekLast();
                 }
             }
@@ -7160,7 +7161,7 @@ public final class GraphUtils {
                     
                     ArrayDeque<Kmer> b = branches.pop();
                     result.addAll(b);
-                    usedKmers.addAll(b);
+                    myUsedKmers.addAll(b);
                     best = result.peekLast();
                 }
                 else {
@@ -7197,14 +7198,14 @@ public final class GraphUtils {
                     }
                     
                     result.addAll(bestBranch);
-                    usedKmers.addAll(bestBranch);
+                    myUsedKmers.addAll(bestBranch);
                     best = bestBranch.peekLast();
                     best.getSuccessors(k, numHash, graph, neighbors);
                     if (neighbors.size() == 1) {
                         // bubble branches converge at this kmer
                         best = neighbors.pop();
                         result.add(best);
-                        usedKmers.add(best);
+                        myUsedKmers.add(best);
                     }
                     else {
                         neighbors.clear();
@@ -7232,6 +7233,7 @@ public final class GraphUtils {
         int numHash = graph.getMaxNumHash();
         
         ArrayDeque<Kmer> result = new ArrayDeque<>();
+        HashSet<Kmer> myUsedKmers = new HashSet<>();
         
         ArrayDeque<Kmer> neighbors = new ArrayDeque<>(4);
         source.getPredecessors(k, numHash, graph, neighbors);
@@ -7242,7 +7244,7 @@ public final class GraphUtils {
             if (neighbors.size() == 1) {
                 best = neighbors.pop();
                 
-                if (usedKmers.contains(best)) {
+                if (usedKmers.contains(best) || myUsedKmers.contains(best)) {
                     return result;
                 }
                 
@@ -7255,7 +7257,7 @@ public final class GraphUtils {
                 }
                 else {
                     result.addAll(b);
-                    usedKmers.addAll(b);
+                    myUsedKmers.addAll(b);
                     best = result.peekLast();
                 }
             }
@@ -7297,7 +7299,7 @@ public final class GraphUtils {
                     // one good branch
                     ArrayDeque<Kmer> b = branches.pop();
                     result.addAll(b);
-                    usedKmers.addAll(b);
+                    myUsedKmers.addAll(b);
                     best = result.peekLast();
                 }
                 else {
@@ -7334,14 +7336,14 @@ public final class GraphUtils {
                     }
                     
                     result.addAll(bestBranch);
-                    usedKmers.addAll(bestBranch);
+                    myUsedKmers.addAll(bestBranch);
                     best = bestBranch.peekLast();
                     best.getPredecessors(k, numHash, graph, neighbors);
                     if (neighbors.size() == 1) {
                         // bubble branches converge at this kmer
                         best = neighbors.pop();
                         result.add(best);
-                        usedKmers.add(best);
+                        myUsedKmers.add(best);
                     }
                     else {
                         neighbors.clear();
@@ -7469,19 +7471,19 @@ public final class GraphUtils {
             if (backbone.contains(tipRC)) {
                 return true;
             }
-            else {
-                HashSet<Kmer> intersection = new HashSet<>(rightExtension);
-                intersection.retainAll(greedyExtendLeft(graph, graph.getKmer(getFirstKmer(tipRC, k)), lookahead, 1000, assembledKmers));
-                if (!intersection.isEmpty()) {
-                    return true;
-                }
-
-                intersection = new HashSet<>(leftExtension);
-                intersection.retainAll(greedyExtendRight(graph, graph.getKmer(getLastKmer(tipRC, k)), lookahead, 1000, assembledKmers));
-                if (!intersection.isEmpty()) {
-                    return true;
-                }                
-            }
+//            else {
+//                HashSet<Kmer> intersection = new HashSet<>(rightExtension);
+//                intersection.retainAll(greedyExtendLeft(graph, graph.getKmer(getFirstKmer(tipRC, k)), lookahead, 1000, assembledKmers));
+//                if (!intersection.isEmpty()) {
+//                    return true;
+//                }
+//
+//                intersection = new HashSet<>(leftExtension);
+//                intersection.retainAll(greedyExtendRight(graph, graph.getKmer(getLastKmer(tipRC, k)), lookahead, 1000, assembledKmers));
+//                if (!intersection.isEmpty()) {
+//                    return true;
+//                }                
+//            }
         }
         else if (assembledKmers.lookup(seqKmers.get(numKmers-1).getHash()) &&
                 (!assembledKmers.lookup(seqKmers.get(0).getHash()) || leftEdgeCov < rightEdgeCov)) {
@@ -7514,19 +7516,19 @@ public final class GraphUtils {
             if (backbone.contains(tipRC)) {
                 return true;
             }
-            else {
-                HashSet<Kmer> intersection = new HashSet<>(rightExtension);
-                intersection.retainAll(greedyExtendLeft(graph, graph.getKmer(getFirstKmer(tipRC, k)), lookahead, 1000, assembledKmers));
-                if (!intersection.isEmpty()) {
-                    return true;
-                }
-
-                intersection = new HashSet<>(leftExtension);
-                intersection.retainAll(greedyExtendRight(graph, graph.getKmer(getLastKmer(tipRC, k)), lookahead, 1000, assembledKmers));
-                if (!intersection.isEmpty()) {
-                    return true;
-                }                
-            }
+//            else {
+//                HashSet<Kmer> intersection = new HashSet<>(rightExtension);
+//                intersection.retainAll(greedyExtendLeft(graph, graph.getKmer(getFirstKmer(tipRC, k)), lookahead, 1000, assembledKmers));
+//                if (!intersection.isEmpty()) {
+//                    return true;
+//                }
+//
+//                intersection = new HashSet<>(leftExtension);
+//                intersection.retainAll(greedyExtendRight(graph, graph.getKmer(getLastKmer(tipRC, k)), lookahead, 1000, assembledKmers));
+//                if (!intersection.isEmpty()) {
+//                    return true;
+//                }                
+//            }
         }
         
         return false;
