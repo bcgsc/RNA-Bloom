@@ -7459,7 +7459,7 @@ public final class GraphUtils {
                 i -= lookahead;
             }
 
-            ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(0), lookahead, 1000, assembledKmers);                
+            ArrayDeque<Kmer> leftExtension = greedyExtendLeft(graph, seqKmers.get(0), lookahead, 1000, assembledKmers);
             ArrayDeque<Kmer> rightExtension = greedyExtendRight(graph, seqKmers.get(i), lookahead, 1000, assembledKmers);
 
             leftExtension.addAll(seqKmers.subList(0, i+1));
@@ -7468,6 +7468,19 @@ public final class GraphUtils {
             String backbone = graph.assemble(leftExtension);
             if (backbone.contains(tipRC)) {
                 return true;
+            }
+            else {
+                HashSet<Kmer> intersection = new HashSet<>(rightExtension);
+                intersection.retainAll(greedyExtendLeft(graph, graph.getKmer(getFirstKmer(tipRC, k)), lookahead, 1000, assembledKmers));
+                if (!intersection.isEmpty()) {
+                    return true;
+                }
+
+                intersection = new HashSet<>(leftExtension);
+                intersection.retainAll(greedyExtendRight(graph, graph.getKmer(getLastKmer(tipRC, k)), lookahead, 1000, assembledKmers));
+                if (!intersection.isEmpty()) {
+                    return true;
+                }                
             }
         }
         else if (assembledKmers.lookup(seqKmers.get(numKmers-1).getHash()) &&
@@ -7500,6 +7513,19 @@ public final class GraphUtils {
             String backbone = graph.assemble(leftExtension);
             if (backbone.contains(tipRC)) {
                 return true;
+            }
+            else {
+                HashSet<Kmer> intersection = new HashSet<>(rightExtension);
+                intersection.retainAll(greedyExtendLeft(graph, graph.getKmer(getFirstKmer(tipRC, k)), lookahead, 1000, assembledKmers));
+                if (!intersection.isEmpty()) {
+                    return true;
+                }
+
+                intersection = new HashSet<>(leftExtension);
+                intersection.retainAll(greedyExtendRight(graph, graph.getKmer(getLastKmer(tipRC, k)), lookahead, 1000, assembledKmers));
+                if (!intersection.isEmpty()) {
+                    return true;
+                }                
             }
         }
         
