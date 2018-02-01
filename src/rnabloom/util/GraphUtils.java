@@ -7112,7 +7112,7 @@ public final class GraphUtils {
                 
                 ArrayDeque<Kmer> b = naiveExtendRight(best, graph, maxTipLength, usedKmers);
                 
-                if (b.isEmpty()) {
+                if (b.isEmpty() || myUsedKmers.containsAll(b)) {
                     break;
                 }
                 else {
@@ -7252,7 +7252,7 @@ public final class GraphUtils {
                 
                 ArrayDeque<Kmer> b = naiveExtendLeft(best, graph, maxTipLength, usedKmers);
                 
-                if (b.isEmpty()) {
+                if (b.isEmpty() || myUsedKmers.containsAll(b)) {
                     break;
                 }
                 else {
