@@ -7091,7 +7091,6 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         ArrayDeque<Kmer> result = new ArrayDeque<>();
-        HashSet<Kmer> myUsedKmers = new HashSet<>();
         
         ArrayDeque<Kmer> neighbors = new ArrayDeque<>(4);
         source.getSuccessors(k, numHash, graph, neighbors);
@@ -7102,22 +7101,22 @@ public final class GraphUtils {
             if (neighbors.size() == 1) {
                 best = neighbors.pop();
                 
-                if (usedKmers.contains(best) || myUsedKmers.contains(best)) {
+                if (usedKmers.contains(best)) {
                     return result;
                 }
                 else {
                     result.add(best);
-                    myUsedKmers.add(best);
+                    usedKmers.add(best);
                 }
                 
                 ArrayDeque<Kmer> b = naiveExtendRight(best, graph, maxTipLength, usedKmers);
                 
-                if (b.isEmpty() || myUsedKmers.containsAll(b)) {
+                if (b.isEmpty()) {
                     break;
                 }
                 else {
                     result.addAll(b);
-                    myUsedKmers.addAll(b);
+                    usedKmers.addAll(b);
                     best = result.peekLast();
                 }
             }
@@ -7161,7 +7160,7 @@ public final class GraphUtils {
                     
                     ArrayDeque<Kmer> b = branches.pop();
                     result.addAll(b);
-                    myUsedKmers.addAll(b);
+                    usedKmers.addAll(b);
                     best = result.peekLast();
                 }
                 else {
@@ -7198,14 +7197,14 @@ public final class GraphUtils {
                     }
                     
                     result.addAll(bestBranch);
-                    myUsedKmers.addAll(bestBranch);
+                    usedKmers.addAll(bestBranch);
                     best = bestBranch.peekLast();
                     best.getSuccessors(k, numHash, graph, neighbors);
                     if (neighbors.size() == 1) {
                         // bubble branches converge at this kmer
                         best = neighbors.pop();
                         result.add(best);
-                        myUsedKmers.add(best);
+                        usedKmers.add(best);
                     }
                     else {
                         neighbors.clear();
@@ -7233,7 +7232,6 @@ public final class GraphUtils {
         int numHash = graph.getMaxNumHash();
         
         ArrayDeque<Kmer> result = new ArrayDeque<>();
-        HashSet<Kmer> myUsedKmers = new HashSet<>();
         
         ArrayDeque<Kmer> neighbors = new ArrayDeque<>(4);
         source.getPredecessors(k, numHash, graph, neighbors);
@@ -7244,7 +7242,7 @@ public final class GraphUtils {
             if (neighbors.size() == 1) {
                 best = neighbors.pop();
                 
-                if (usedKmers.contains(best) || myUsedKmers.contains(best)) {
+                if (usedKmers.contains(best)) {
                     return result;
                 }
                 
@@ -7252,12 +7250,12 @@ public final class GraphUtils {
                 
                 ArrayDeque<Kmer> b = naiveExtendLeft(best, graph, maxTipLength, usedKmers);
                 
-                if (b.isEmpty() || myUsedKmers.containsAll(b)) {
+                if (b.isEmpty()) {
                     break;
                 }
                 else {
                     result.addAll(b);
-                    myUsedKmers.addAll(b);
+                    usedKmers.addAll(b);
                     best = result.peekLast();
                 }
             }
@@ -7299,7 +7297,7 @@ public final class GraphUtils {
                     // one good branch
                     ArrayDeque<Kmer> b = branches.pop();
                     result.addAll(b);
-                    myUsedKmers.addAll(b);
+                    usedKmers.addAll(b);
                     best = result.peekLast();
                 }
                 else {
@@ -7336,14 +7334,14 @@ public final class GraphUtils {
                     }
                     
                     result.addAll(bestBranch);
-                    myUsedKmers.addAll(bestBranch);
+                    usedKmers.addAll(bestBranch);
                     best = bestBranch.peekLast();
                     best.getPredecessors(k, numHash, graph, neighbors);
                     if (neighbors.size() == 1) {
                         // bubble branches converge at this kmer
                         best = neighbors.pop();
                         result.add(best);
-                        myUsedKmers.add(best);
+                        usedKmers.add(best);
                     }
                     else {
                         neighbors.clear();
