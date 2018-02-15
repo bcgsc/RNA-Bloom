@@ -770,7 +770,7 @@ public class RNABloom {
         dbgFPR = graph.getDbgbfFPR();
         covFPR = graph.getCbfFPR();
         
-        System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
+//        System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
     }
 
 //    public void addCountsOnly(Collection<String> forwardFastqs,
@@ -2287,7 +2287,6 @@ public class RNABloom {
             System.out.println("Read paired-kmers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
         }
         
-        System.out.println("Assembling fragments...");
         
         long fragmentId = 0;
         long unconnectedReadId = 0;
@@ -2996,10 +2995,6 @@ public class RNABloom {
             if (minPolyATailLengthRequired > 0) {
                 System.out.println("Assembling polyadenylated transcripts only...");
             }
-            else {
-                System.out.println("Assembling transcripts...");
-            }
-        
 
             FastaWriter fout = new FastaWriter(outFasta, false);
             FastaWriter foutShort = new FastaWriter(outFastaShort, false);
@@ -3195,8 +3190,8 @@ public class RNABloom {
     public static void printVersionInfo(boolean exit) {
         System.out.println(
                 "RNA-Bloom version " + VERSION + "\n" +
-                "Ka Ming Nip, Canada's Michael Smith Genome Sciences Centre\n" +
-                "Copyright 2017"
+                "Ka Ming Nip, Canada's Michael Smith Genome Sciences Centre, BC Cancer\n" +
+                "Copyright 2018"
         );
         
         if (exit) {
@@ -3279,7 +3274,6 @@ public class RNABloom {
         options.addOption(optName);
         
         Option optPrefix = Option.builder("prefix")
-                                    .longOpt("prefix")
                                     .desc("assembled transcript name prefix")
                                     .hasArg(true)
                                     .argName("STR")
@@ -3317,6 +3311,13 @@ public class RNABloom {
                                     .build();
         options.addOption(optKmerSize);
         
+        Option optStage = Option.builder("stage")
+                                    .desc("assembly end point, eg. '1' (construct graph), '2' (assemble fragments), '3' (assemble transcripts)")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optStage);
+        
 //        Option optKmerSize2 = Option.builder("k2")
 //                                    .longOpt("kmer2")
 //                                    .desc("2nd kmer size")
@@ -3342,7 +3343,6 @@ public class RNABloom {
         options.addOption(optBaseQualFrag);        
         
         Option optAllHash = Option.builder("hash")
-                                    .longOpt("all-hash")
                                     .desc("number of hash functions for all Bloom filters")
                                     .hasArg(true)
                                     .argName("INT")
@@ -3382,7 +3382,6 @@ public class RNABloom {
         options.addOption(optPkbfHash);        
 
         Option optAllMem = Option.builder("mem")
-                                    .longOpt("all-mem")
                                     .desc("total amount of memory (GB) for all Bloom filters")
                                     .hasArg(true)
                                     .argName("DECIMAL")
@@ -3422,7 +3421,6 @@ public class RNABloom {
         options.addOption(optPkbfMem);
  
         Option optTipLength = Option.builder("tiplength")
-                                    .longOpt("tiplength")
                                     .desc("max tip length allowed")
                                     .hasArg(true)
                                     .argName("INT")
@@ -3430,7 +3428,6 @@ public class RNABloom {
         options.addOption(optTipLength);  
         
         Option optLookahead = Option.builder("lookahead")
-                                    .longOpt("lookahead")
                                     .desc("number of kmers to look ahead during graph traversal")
                                     .hasArg(true)
                                     .argName("INT")
@@ -3438,7 +3435,6 @@ public class RNABloom {
         options.addOption(optLookahead);        
         
         Option optOverlap = Option.builder("overlap")
-                                    .longOpt("overlap")
                                     .desc("min number of overlapping bases between mates")
                                     .hasArg(true)
                                     .argName("INT")
@@ -3446,15 +3442,13 @@ public class RNABloom {
         options.addOption(optOverlap);
         
         Option optBound = Option.builder("bound")
-                                    .longOpt("bound")
-                                    .desc("max distance between mates")
+                                    .desc("max distance between paired reads")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optBound);
 
         Option optSample = Option.builder("sample")
-                                    .longOpt("sample")
                                     .desc("sample size for estimating median fragment length")
                                     .hasArg(true)
                                     .argName("INT")
@@ -3470,7 +3464,6 @@ public class RNABloom {
         options.addOption(optMaxCovGrad);
         
         Option optIndelSize = Option.builder("indel")
-                                    .longOpt("indel")
                                     .desc("maximum indel size allowed")
                                     .hasArg(true)
                                     .argName("INT")
@@ -3481,7 +3474,7 @@ public class RNABloom {
                                     .longOpt("percent")
                                     .desc("minimum percent identity allowed")
                                     .hasArg(true)
-                                    .argName("FLOAT")
+                                    .argName("DECIMAL")
                                     .build();
         options.addOption(optPercentIdentity); 
         
@@ -3494,28 +3487,24 @@ public class RNABloom {
         options.addOption(optErrCorrItr);        
 
         Option optExtend = Option.builder("extend")
-                                    .longOpt("extend")
                                     .desc("extend assembled fragments during fragment assembly")
                                     .hasArg(false)
                                     .build();
         options.addOption(optExtend);
 
         Option optNoFragDBG = Option.builder("nofdbg")
-                                    .longOpt("nofdbg")
                                     .desc("do not rebuild DBG from fragment k-mers")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNoFragDBG);
         
         Option optSensitive = Option.builder("sensitive")
-                                    .longOpt("sensitive")
                                     .desc("assemble transcripts in sensitive mode")
                                     .hasArg(false)
                                     .build();
         options.addOption(optSensitive);
         
         Option optMinKmerPairs = Option.builder("pair")
-                                    .longOpt("pair")
                                     .desc("minimum number of consecutive kmer pairs for assembling transcripts")
                                     .hasArg(true)
                                     .argName("INT")
@@ -3523,7 +3512,6 @@ public class RNABloom {
         options.addOption(optMinKmerPairs);  
         
         Option optMinLength = Option.builder("length")
-                                    .longOpt("length")
                                     .desc("min transcript length in final assembly")
                                     .hasArg(true)
                                     .argName("INT")
@@ -3562,6 +3550,7 @@ public class RNABloom {
                 printVersionInfo(true);
             }
             
+            final int endstage = Integer.parseInt(line.getOptionValue(optStage.getOpt(), "3"));
             final int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), "2"));
             final boolean forceOverwrite = line.hasOption(optForce.getOpt());
             
@@ -3719,6 +3708,10 @@ public class RNABloom {
             if (!forceOverwrite && dbgDoneStamp.exists()) {
                 System.out.println("WARNING: Graph was already generated (k=" + k + ")!");
                 
+                if (endstage == 1) {
+                    System.exit(0);
+                }
+                
                 if (!fragsDoneStamp.exists() || !txptsDoneStamp.exists()) {
                     System.out.println("Loading graph from file `" + graphFile + "`...");
                     assembler.restoreGraph(new File(graphFile));
@@ -3742,7 +3735,7 @@ public class RNABloom {
                     forwardFilesList.addAll(Arrays.asList(fastqsRight));
                 }
                        
-                System.out.println("Building graph from reads (k=" + k + ")...");
+                System.out.println("\n* Stage 1: Construct graph from reads (k=" + k + ")");
                 timer.start();
                 
                 assembler.initializeGraph(strandSpecific, 
@@ -3751,16 +3744,21 @@ public class RNABloom {
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                 assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false, true);
                 
-                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                
                 System.out.println("Saving graph to file `" + graphFile + "`...");
                 assembler.saveGraph(new File(graphFile));
+                
+                System.out.println("* Stage 1 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
                 try {
                     touch(dbgDoneStamp);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                     System.exit(1);
+                }
+                
+                if (endstage <= 1) {
+                    System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+                    System.exit(0);
                 }
             }
                         
@@ -3834,11 +3832,13 @@ public class RNABloom {
                     fragmentsFile.delete();
                 }
                 
+                System.out.println("\n* Stage 2: Assemble fragments");
+                
                 timer.start();
                 
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                 assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
-                
+                                
                 int[] fragStats = assembler.assembleFragmentsMultiThreaded(fqPairs, 
                                                 longFragmentsFastaPaths, 
                                                 shortFragmentsFastaPaths,
@@ -3856,7 +3856,7 @@ public class RNABloom {
                 assembler.savePairedKmersBloomFilter(new File(graphFile));
                 assembler.writeFragStatsToFile(fragStats, fragStatsFile);
                 
-                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                System.out.println("* Stage 2 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
                                 
                 try {
                     touch(fragsDoneStamp);
@@ -3869,6 +3869,11 @@ public class RNABloom {
                 System.out.println("WARNING: Fragments were already assembled (k=" + k + ")!");
             }
 
+            if (endstage <= 2) {
+                System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+                System.exit(0);
+            }
+            
             // Connect unconnected reads by using the 2nd kmer size
             /*
             assembler.setK(k2);
@@ -4072,10 +4077,10 @@ public class RNABloom {
                     fragmentPaths.add(shortSingletonsFastaPath);
                     fragmentPaths.add(unconnectedSingletonsFastaPath);
 
-                    System.out.println("Rebuilding graph from assembled fragments (k=" + k + ")...");
+                    System.out.println("\n* Rebuild graph from assembled fragments (k=" + k + ")");
                     timer.start();
                     assembler.populateGraphFromFragments(fragmentPaths, strandSpecific, false);
-                    System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));  
+                    System.out.println("* Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));  
                 }
                 
                 File transcriptsFile = new File(transcriptsFasta);
@@ -4088,6 +4093,7 @@ public class RNABloom {
                     shortTranscriptsFile.delete();
                 }
                 
+                System.out.println("\n* Stage 3: Assemble transcripts");
                 timer.start();
                 
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
@@ -4107,8 +4113,7 @@ public class RNABloom {
                                                             sensitiveMode,
                                                             txptNamePrefix);
 
-                System.out.println("Transcripts assembled in `" + transcriptsFasta + "`");
-                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                System.out.println("* Stage 3 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
                 try {
                     touch(txptsDoneStamp);
@@ -4116,6 +4121,8 @@ public class RNABloom {
                     ex.printStackTrace();
                     System.exit(1);
                 }
+                
+                System.out.println("\nTranscripts assembled in `" + transcriptsFasta + "`");
             }
             else {
                 System.out.println("WARNING: Transcripts were already assembled!");
@@ -4127,6 +4134,6 @@ public class RNABloom {
             System.exit(1);
         }
         
-        System.out.println("Total Runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+        System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
     }
 }
