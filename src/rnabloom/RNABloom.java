@@ -92,7 +92,7 @@ public class RNABloom {
     private int maxIndelSize;
     private int minPolyATailLengthRequired;
     private float percentIdentity;
-    private float percentError;
+//    private float percentError;
     private int minNumKmerPairs;
     private int longFragmentLengthThreshold = -1;
     
@@ -138,7 +138,7 @@ public class RNABloom {
         this.maxCovGradient = maxCovGradient;
         this.maxIndelSize = maxIndelSize;
         this.percentIdentity = percentIdentity;
-        this.percentError = 1.0f - percentIdentity;
+//        this.percentError = 1.0f - percentIdentity;
         this.minNumKmerPairs = minNumKmerPairs;
         this.minPolyATailLengthRequired = minPolyATail;
         
@@ -177,22 +177,20 @@ public class RNABloom {
         }
     }
     
-    public void restoreGraph(File f) {
+    public void restoreGraph(File f, boolean loadDbgBits) {
         try {
             if (graph != null) {
                 graph.destroy();
             }
             
-            graph = new BloomFilterDeBruijnGraph(f);
+            graph = new BloomFilterDeBruijnGraph(f, loadDbgBits);
 
-            dbgFPR = graph.getDbgbfFPR();
+            if (loadDbgBits) {
+                dbgFPR = graph.getDbgbfFPR();
+                System.out.println("DBG Bloom filter FPR:               " + dbgFPR * 100 + " %");
+            }
+            
             covFPR = graph.getCbfFPR();
-            
-            //BloomFilterDeBruijnGraph graph2 = new BloomFilterDeBruijnGraph(f);
-            //System.out.println(graph2.getDbgbf().equivalent(graph.getDbgbf()));
-            //System.out.println(graph2.getCbf().equivalent(graph.getCbf()));
-            
-            System.out.println("DBG Bloom filter FPR:               " + dbgFPR * 100 + " %");
             System.out.println("Counting Bloom filter FPR:          " + covFPR * 100 + " %");
             System.out.println("Read paired-kmers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
         } catch (Exception ex) {
@@ -3675,7 +3673,7 @@ public class RNABloom {
             final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), "");
             
 
-            System.out.println("Bloom filters      Memory (GB)");
+            System.out.println("\nBloom filters      Memory (GB)");
             System.out.println("==============================");
             System.out.println("de Bruijn graph:   " + dbgGB);
             System.out.println("kmer counting:     " + cbfGB);
@@ -3685,7 +3683,7 @@ public class RNABloom {
             System.out.println("==============================");
             System.out.println("Total:             " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
             
-            System.out.println("name:    " + name);
+            System.out.println("\nname:    " + name);
             System.out.println("outdir:  " + outdir);
             
             File f = new File(outdir);
@@ -3706,7 +3704,7 @@ public class RNABloom {
             }
             
             if (!forceOverwrite && dbgDoneStamp.exists()) {
-                System.out.println("WARNING: Graph was already generated (k=" + k + ")!");
+                System.out.println("WARNING: Graph was already constructed (k=" + k + ")!");
                 
                 if (endstage == 1) {
                     System.exit(0);
@@ -3714,7 +3712,7 @@ public class RNABloom {
                 
                 if (!fragsDoneStamp.exists() || !txptsDoneStamp.exists()) {
                     System.out.println("Loading graph from file `" + graphFile + "`...");
-                    assembler.restoreGraph(new File(graphFile));
+                    assembler.restoreGraph(new File(graphFile), nofragDBG);
                 }
             }
             else {                

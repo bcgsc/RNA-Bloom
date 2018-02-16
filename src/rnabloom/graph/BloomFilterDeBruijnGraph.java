@@ -96,7 +96,7 @@ public class BloomFilterDeBruijnGraph {
         }
     }
     
-    public BloomFilterDeBruijnGraph(File graphFile) throws FileNotFoundException, IOException {
+    public BloomFilterDeBruijnGraph(File graphFile, boolean loadDbgBits) throws FileNotFoundException, IOException {
         BufferedReader br = new BufferedReader(new FileReader(graphFile));
         String line;
         while ((line = br.readLine()) != null) {
@@ -134,7 +134,7 @@ public class BloomFilterDeBruijnGraph {
         
         String dbgbfBitsPath = graphFile.getPath() + FILE_DBGBF_EXTENSION;
         String dbgbfDescPath = dbgbfBitsPath + FILE_DESC_EXTENSION;
-        dbgbf = new BloomFilter(new File(dbgbfDescPath), new File(dbgbfBitsPath), hashFunction);
+        dbgbf = new BloomFilter(new File(dbgbfDescPath), new File(dbgbfBitsPath), hashFunction, loadDbgBits);
         
         String cbfBitsPath = graphFile.getPath() + FILE_CBF_EXTENSION;
         String cbfDescPath = cbfBitsPath + FILE_DESC_EXTENSION;

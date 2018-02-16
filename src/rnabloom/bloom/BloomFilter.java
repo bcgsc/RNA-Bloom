@@ -53,6 +53,10 @@ public class BloomFilter implements BloomFilterInterface {
     private static final String LABEL_FPR = "fpr";
     
     public BloomFilter(File desc, File bits, HashFunction hashFunction) throws FileNotFoundException, IOException {
+        this(desc, bits, hashFunction, true);
+    }
+    
+    public BloomFilter(File desc, File bits, HashFunction hashFunction, boolean loadBits) throws FileNotFoundException, IOException {
         
         BufferedReader br = new BufferedReader(new FileReader(desc));
         String line;
@@ -81,9 +85,11 @@ public class BloomFilter implements BloomFilterInterface {
             this.bitArray = new LargeBitBuffer(size);
         }
         
-        FileInputStream fin = new FileInputStream(bits);
-        this.bitArray.read(fin);
-        fin.close();
+        if (loadBits) {
+            FileInputStream fin = new FileInputStream(bits);
+            this.bitArray.read(fin);
+            fin.close();
+        }
         
         /**@TODO Assert file size*/
     }
