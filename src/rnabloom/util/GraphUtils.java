@@ -2464,7 +2464,7 @@ public final class GraphUtils {
         return new ReadPair(leftKmers, rightKmers, leftCorrected || rightCorrected);
     }
     
-    public static ArrayDeque<ArrayList<Kmer>> breakWithReadPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph) {
+    public static ArrayDeque<ArrayList<Kmer>> breakWithReadPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph, int numPairsRequired) {
         /**@TODO*/
         
         ArrayDeque<ArrayList<Kmer>> segments = new ArrayDeque<>();
@@ -2475,32 +2475,70 @@ public final class GraphUtils {
         int start = -1;
         int end = -1;
         
-        for (int i=0; i<=lastIndex; ++i) {
-            if (graph.lookupReadKmerPair(kmers.get(i), kmers.get(i+d))) {
-                if (start < 0) {
-                    start = i;
+        if (numPairsRequired == 1) {
+            for (int i=0; i<=lastIndex; ++i) {
+                if (graph.lookupReadKmerPair(kmers.get(i), kmers.get(i+d))) {
+                    if (start < 0) {
+                        start = i;
+                    }
+
+                    end = i+d;
                 }
-                
-                end = i+d;
+                else if (start >= 0 && i >= end) {
+                    ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
+                    for (int j=start; j<=end; ++j) {
+                        sublist.add(kmers.get(j));
+                    }
+                    segments.add(sublist);
+
+                    start = -1;
+                    end = -1;
+                }
             }
-            else if (start >= 0 && i >= end) {
+
+            if (start >= 0) {
                 ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
                 for (int j=start; j<=end; ++j) {
                     sublist.add(kmers.get(j));
                 }
                 segments.add(sublist);
-                
-                start = -1;
-                end = -1;
             }
         }
-        
-        if (start >= 0) {
-            ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
-            for (int j=start; j<=end; ++j) {
-                sublist.add(kmers.get(j));
+        else {
+            int numPreviousKmerPairs = 0;
+            for (int i=0; i<=lastIndex; ++i) {
+                if (graph.lookupReadKmerPair(kmers.get(i), kmers.get(i+d))) {
+                    if (++numPreviousKmerPairs >= numPairsRequired) {
+                        if (start < 0) {
+                            start = i-numPairsRequired+1;
+                        }
+                        
+                        end = i+d;
+                    }
+                }
+                else {
+                    if (start >= 0 && i >= end) {
+                        ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
+                        for (int j=start; j<=end; ++j) {
+                            sublist.add(kmers.get(j));
+                        }
+                        segments.add(sublist);
+
+                        start = -1;
+                        end = -1;
+                    }
+                    
+                    numPreviousKmerPairs = 0;
+                }
             }
-            segments.add(sublist);
+            
+            if (start >= 0) {
+                ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
+                for (int j=start; j<=end; ++j) {
+                    sublist.add(kmers.get(j));
+                }
+                segments.add(sublist);
+            }
         }
         
         return segments;
