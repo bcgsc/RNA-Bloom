@@ -780,7 +780,7 @@ public final class GraphUtils {
                             leftCoverageThreshold = c;
                         }
                     }
-                    else {
+                    else {                        
 //                        System.out.println(">L\n" + graph.assemble(leftKmers));
 //                        System.out.println(">L_path\n" + graph.assemble(leftPath));
 //                        System.out.println(">R\n" + graph.assemble(rightKmers));
@@ -2484,7 +2484,7 @@ public final class GraphUtils {
 
                     end = i+d;
                 }
-                else if (start >= 0 && i >= end) {
+                else if (start >= 0 && i > end) {
                     ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
                     for (int j=start; j<=end; ++j) {
                         sublist.add(kmers.get(j));
@@ -2517,7 +2517,7 @@ public final class GraphUtils {
                     }
                 }
                 else {
-                    if (start >= 0 && i >= end) {
+                    if (start >= 0 && i > end) {
                         ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
                         for (int j=start; j<=end; ++j) {
                             sublist.add(kmers.get(j));
