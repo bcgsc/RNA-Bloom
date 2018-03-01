@@ -4867,7 +4867,7 @@ public final class GraphUtils {
         }
         
         int partnerIndex = numKmers-distance;
-        final int minFragmentCoverageThreshold = (int) Math.floor(1.0/maxCovGradient);
+//        final int minFragmentCoverageThreshold = (int) Math.floor(1.0/maxCovGradient);
         
         while (!neighbors.isEmpty()) {
             ArrayDeque<Kmer> simpleExtension = extendRight(cursor,
@@ -4946,7 +4946,7 @@ public final class GraphUtils {
                     
                     float medEdgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
                     float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-                    if (minFragmentCoverage >= minFragmentCoverageThreshold) {
+//                    if (minFragmentCoverage >= minFragmentCoverageThreshold) {
                         ArrayDeque<Kmer> neighborsBackUp = new ArrayDeque<>(neighbors);
                         
                         // only remove neighbors based on coverage when fragment coverage is not too low
@@ -5016,10 +5016,10 @@ public final class GraphUtils {
                                 return false; // ambiguous branches supported by paired kmers
                             }
                         }
-                    }
-                    else {
-                        return false; // ambiguous branches supported by paired kmers
-                    }
+//                    }
+//                    else {
+//                        return false; // ambiguous branches supported by paired kmers
+//                    }
                 }
             }
             
@@ -5094,7 +5094,7 @@ public final class GraphUtils {
         }
         
         int partnerIndex = numKmers-distance;
-        final int minFragmentCoverageThreshold = (int) Math.floor(1.0/maxCovGradient);
+//        final int minFragmentCoverageThreshold = (int) Math.floor(1.0/maxCovGradient);
         
         while (!neighbors.isEmpty()) {
             ArrayDeque<Kmer> simpleExtension = extendLeft(cursor,
@@ -5172,7 +5172,7 @@ public final class GraphUtils {
                     
                     float medEdgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
                     float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-                    if (minFragmentCoverage >= minFragmentCoverageThreshold) {
+//                    if (minFragmentCoverage >= minFragmentCoverageThreshold) {
                         ArrayDeque<Kmer> neighborsBackUp = new ArrayDeque<>(neighbors);
                         
                         // only remove neighbors based on coverage when fragment coverage is not too low
@@ -5242,10 +5242,10 @@ public final class GraphUtils {
                                 return false; // ambiguous branches supported by paired kmers
                             }
                         }
-                    }
-                    else {
-                        return false; // ambiguous branches supported by paired kmers
-                    }
+//                    }
+//                    else {
+//                        return false; // ambiguous branches supported by paired kmers
+//                    }
                 }
             }
             
