@@ -2289,6 +2289,8 @@ public class RNABloom {
         long fragmentId = 0;
         long unconnectedReadId = 0;
         long readPairsParsed = 0;
+        long readPairsConnected = 0;
+        long readPairsNotConnected = 0;
         
         int maxTasksQueueSize = numThreads;
         int maxConcurrentSubmissions = numThreads + maxTasksQueueSize;
@@ -2427,6 +2429,8 @@ public class RNABloom {
                         frag = fragments.poll();
                         
                         if (frag.isUnconnectedRead) {
+                            ++readPairsNotConnected;
+                            
                             if (frag.minCov == 1) {
                                 unconnectedSingletonsOut.write(Long.toString(++unconnectedReadId) + "L ", frag.left);
                                 unconnectedSingletonsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
@@ -2441,6 +2445,8 @@ public class RNABloom {
                             }
                         }
                         else {
+                            ++readPairsConnected;
+                            
                             if (frag.length >= shortestFragmentLengthAllowed) {
                                 ArrayList<Kmer> fragKmers = frag.kmers;
 
@@ -2522,6 +2528,8 @@ public class RNABloom {
                                 }
                                 
                                 if (frag.isUnconnectedRead) {
+                                    ++readPairsNotConnected;
+                                    
                                     if (frag.minCov == 1) {
                                         unconnectedSingletonsOut.write(Long.toString(++unconnectedReadId) + "L ", frag.left);
                                         unconnectedSingletonsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
@@ -2536,6 +2544,8 @@ public class RNABloom {
                                     }
                                 }
                                 else {
+                                    ++readPairsConnected;
+                                    
                                     if (frag.length >= shortestFragmentLengthAllowed) {
                                         ArrayList<Kmer> fragKmers = frag.kmers;
 
@@ -2589,6 +2599,8 @@ public class RNABloom {
                     frag = fragments.poll();
                     
                     if (frag.isUnconnectedRead) {
+                        ++readPairsNotConnected;
+                        
                         if (frag.minCov == 1) {
                             unconnectedSingletonsOut.write(Long.toString(++unconnectedReadId) + "L ", frag.left);
                             unconnectedSingletonsOut.write(Long.toString(unconnectedReadId) + "R", frag.right);
@@ -2603,6 +2615,8 @@ public class RNABloom {
                         }
                     }
                     else {
+                        ++readPairsConnected;
+                        
                         if (frag.length >= shortestFragmentLengthAllowed) {
                             ArrayList<Kmer> fragKmers = frag.kmers;
 
@@ -2667,6 +2681,12 @@ public class RNABloom {
             handleException(ex);
         } finally {
             System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
+            
+            System.out.println("\tconnected:\t" + NumberFormat.getInstance().format(readPairsConnected) + "\t(" + readPairsConnected*100f/readPairsParsed + "%)");
+            System.out.println("\tnot connected:\t" + NumberFormat.getInstance().format(readPairsNotConnected) + "\t(" + readPairsNotConnected*100f/readPairsParsed + "%)");
+            
+            long numDiscarded = readPairsParsed-readPairsConnected-readPairsNotConnected;
+            System.out.println("\tdiscarded:\t" + NumberFormat.getInstance().format(numDiscarded) + "\t(" + numDiscarded*100f/readPairsParsed + "%)");
             
             System.out.println("Paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100   + " %");
             System.out.println("Screening Bloom filter FPR:    " + screeningBf.getFPR() * 100 + " %");
