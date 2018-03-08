@@ -4984,32 +4984,46 @@ public final class GraphUtils {
                             Kmer best = null;
                             float bestCov = 0;
                             float secondCov = 0;
+                            ArrayDeque<Kmer> bestGE = null;
+                            ArrayDeque<Kmer> secondGE = null;
                             
                             for (Kmer kmer : neighbors) {
                                 
                                 ArrayDeque<Kmer> e = extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead);
                                 e.addFirst(kmer);
                                 
+                                ArrayDeque<Kmer> ge = greedyExtendRight(graph, e.getLast(), lookahead, k-lookahead);
+                                Iterator<Kmer> ditr = e.descendingIterator();
+                                while (ditr.hasNext()) {
+                                    ge.addFirst(ditr.next());
+                                }
+                                
                                 float c = getMedianKmerCoverage(e);
                                 
                                 if (best == null) {
                                     best = kmer;
                                     bestCov = c;
+                                    bestGE = ge;
                                 } 
                                 else {
                                     if (bestCov < c) {
                                         secondCov = bestCov;
+                                        secondGE = bestGE;
                                         
                                         best = kmer;
                                         bestCov = c;
+                                        bestGE = ge;
                                     }
                                     else if (secondCov < c) {
                                         secondCov = c;
+                                        secondGE = ge;
                                     }
                                 }
                             }
 
-                            if (bestCov * maxCovGradient >= secondCov) {
+                            if (bestCov * maxCovGradient >= secondCov || 
+                                    secondCov - bestCov * maxCovGradient <= 0.1f * secondCov ||
+                                    getPercentIdentity(graph.assemble(bestGE), graph.assemble(secondGE)) >= percentIdentity) {
                                 cursor = best;
                             }
                             else {
@@ -5210,32 +5224,46 @@ public final class GraphUtils {
                             Kmer best = null;
                             float bestCov = 0;
                             float secondCov = 0;
+                            ArrayDeque<Kmer> bestGE = null;
+                            ArrayDeque<Kmer> secondGE = null;
                             
                             for (Kmer kmer : neighbors) {
                                 
                                 ArrayDeque<Kmer> e = extendLeftWithPairedKmersOnly(kmer, kmers, graph, lookahead);
                                 e.addFirst(kmer);
                                 
+                                ArrayDeque<Kmer> ge = greedyExtendLeft(graph, e.getLast(), lookahead, k-lookahead);
+                                Iterator<Kmer> ditr = e.descendingIterator();
+                                while (ditr.hasNext()) {
+                                    ge.addFirst(ditr.next());
+                                }
+                                
                                 float c = getMedianKmerCoverage(e);
                                 
                                 if (best == null) {
                                     best = kmer;
                                     bestCov = c;
+                                    bestGE = ge;
                                 }
                                 else {
                                     if (bestCov < c) {
                                         secondCov = bestCov;
+                                        secondGE = bestGE;
                                         
                                         best = kmer;
                                         bestCov = c;
+                                        bestGE = ge;
                                     }
                                     else if (secondCov < c) {
                                         secondCov = c;
+                                        secondGE = ge;
                                     }
                                 }
                             }
-
-                            if (bestCov * maxCovGradient >= secondCov) {
+                            
+                            if (bestCov * maxCovGradient >= secondCov || 
+                                    secondCov - bestCov * maxCovGradient <= 0.1f * secondCov ||
+                                    getPercentIdentity(graph.assembleReverseOrder(bestGE), graph.assembleReverseOrder(secondGE)) >= percentIdentity) {
                                 cursor = best;
                             }
                             else {
