@@ -3601,16 +3601,22 @@ public final class GraphUtils {
 //    }
     
     private static LinkedList<Kmer> getSuccessorsRanked(Kmer source, BloomFilterDeBruijnGraph graph, int lookahead, float covThreshold) {
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
-        
         LinkedList<Kmer> results = new LinkedList<>();
+        ArrayDeque<Kmer> neighbors = source.getSuccessors(graph.getK(), graph.getMaxNumHash(), graph);
+        if (neighbors.isEmpty()) {
+            return results;
+        }
+        else if (neighbors.size() == 1) {
+            results.add(neighbors.peek());
+            return results;
+        }
+        
         LinkedList<Float> values = new LinkedList<>();
         
         ListIterator<Kmer> resultsItr;
         ListIterator<Float> valuesItr;
         
-        for (Kmer n : source.getSuccessors(k, numHash, graph)) {
+        for (Kmer n : neighbors) {
             if (n.count >= covThreshold) {
                 float c = getMaxMedianCoverageRight(graph, n, lookahead);
 
@@ -3646,16 +3652,22 @@ public final class GraphUtils {
     }
     
     private static LinkedList<Kmer> getPredecessorsRanked(Kmer source, BloomFilterDeBruijnGraph graph, int lookahead, float covThreshold) {
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
-        
         LinkedList<Kmer> results = new LinkedList<>();
+        ArrayDeque<Kmer> neighbors = source.getPredecessors(graph.getK(), graph.getMaxNumHash(), graph);
+        if (neighbors.isEmpty()) {
+            return results;
+        }
+        else if (neighbors.size() == 1) {
+            results.add(neighbors.peek());
+            return results;
+        }
+        
         LinkedList<Float> values = new LinkedList<>();
         
         ListIterator<Kmer> resultsItr;
         ListIterator<Float> valuesItr;
         
-        for (Kmer n : source.getPredecessors(k, numHash, graph)) {
+        for (Kmer n : neighbors) {
             if (n.count >= covThreshold) {
                 float c = getMaxMedianCoverageLeft(graph, n, lookahead);
 
@@ -3691,16 +3703,22 @@ public final class GraphUtils {
     }
     
     private static LinkedList<Kmer> getSuccessorsRanked(Kmer source, BloomFilterDeBruijnGraph graph, int lookahead) {
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
-        
         LinkedList<Kmer> results = new LinkedList<>();
+        ArrayDeque<Kmer> neighbors = source.getSuccessors(graph.getK(), graph.getMaxNumHash(), graph);
+        if (neighbors.isEmpty()) {
+            return results;
+        }
+        else if (neighbors.size() == 1) {
+            results.add(neighbors.peek());
+            return results;
+        }
+        
         LinkedList<Float> values = new LinkedList<>();
         
         ListIterator<Kmer> resultsItr;
         ListIterator<Float> valuesItr;
         
-        for (Kmer n : source.getSuccessors(k, numHash, graph)) {
+        for (Kmer n : neighbors) {
             float c = getMaxMedianCoverageRight(graph, n, lookahead);
             
             if (results.isEmpty()) {
@@ -3734,16 +3752,22 @@ public final class GraphUtils {
     }
     
     private static LinkedList<Kmer> getPredecessorsRanked(Kmer source, BloomFilterDeBruijnGraph graph, int lookahead) {
-        int k = graph.getK();
-        int numHash = graph.getMaxNumHash();
-        
         LinkedList<Kmer> results = new LinkedList<>();
+        ArrayDeque<Kmer> neighbors = source.getPredecessors(graph.getK(), graph.getMaxNumHash(), graph);
+        if (neighbors.isEmpty()) {
+            return results;
+        }
+        else if (neighbors.size() == 1) {
+            results.add(neighbors.peek());
+            return results;
+        }
+        
         LinkedList<Float> values = new LinkedList<>();
         
         ListIterator<Kmer> resultsItr;
         ListIterator<Float> valuesItr;
         
-        for (Kmer n : source.getPredecessors(k, numHash, graph)) {
+        for (Kmer n : neighbors) {
             float c = getMaxMedianCoverageLeft(graph, n, lookahead);
             
             if (results.isEmpty()) {
