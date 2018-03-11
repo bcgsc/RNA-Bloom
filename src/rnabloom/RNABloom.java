@@ -1294,8 +1294,10 @@ public class RNABloom {
                 }
             }
             else if (numReadSegs > 1) {
+                int numFragKmers = fragKmers.size();
+                
                 for (ArrayList<Kmer> r : readSegments) {
-                    if (new HashSet<>(r).containsAll(fragKmers)) {
+                    if (r.size() >= numFragKmers && graph.assemble(r).contains(fragment)) {
                         if (!skipPotentialArtifacts || !isTemplateSwitch(r, graph, screeningBf, lookahead)) {
                             transcripts.put(new Transcript(fragment, r));
                         }
