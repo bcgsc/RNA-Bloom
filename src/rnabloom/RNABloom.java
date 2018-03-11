@@ -3732,9 +3732,11 @@ public class RNABloom {
                     System.exit(0);
                 }
                 
-                if (!fragsDoneStamp.exists() || !txptsDoneStamp.exists()) {
+                boolean fragmentsDone = fragsDoneStamp.exists();
+                
+                if (!fragmentsDone || !txptsDoneStamp.exists()) {
                     System.out.println("Loading graph from file `" + graphFile + "`...");
-                    assembler.restoreGraph(new File(graphFile), noFragDBG || !fragsDoneStamp.exists());
+                    assembler.restoreGraph(new File(graphFile), noFragDBG || !fragmentsDone);
                 }
             }
             else {                
