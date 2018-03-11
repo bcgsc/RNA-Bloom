@@ -3734,7 +3734,7 @@ public class RNABloom {
                 
                 if (!fragsDoneStamp.exists() || !txptsDoneStamp.exists()) {
                     System.out.println("Loading graph from file `" + graphFile + "`...");
-                    assembler.restoreGraph(new File(graphFile), noFragDBG);
+                    assembler.restoreGraph(new File(graphFile), noFragDBG || !fragsDoneStamp.exists());
                 }
             }
             else {                
