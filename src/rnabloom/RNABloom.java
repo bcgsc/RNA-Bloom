@@ -7,6 +7,7 @@ package rnabloom;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -64,7 +66,7 @@ import static rnabloom.util.SeqUtils.*;
  * @author kmnip
  */
 public class RNABloom {
-    public final static String VERSION = "0.9.1";
+    public final static String VERSION = "0.9.3";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
@@ -2175,7 +2177,7 @@ public class RNABloom {
         }        
     }
     
-    private static final String LABEL_SEPARATOR = ":";
+    private final static String LABEL_SEPARATOR = ":";
     private final static String LABEL_MIN = "min";
     private final static String LABEL_Q1 = "Q1";
     private final static String LABEL_MEDIAN = "M";
@@ -3209,11 +3211,74 @@ public class RNABloom {
             System.exit(0);
         }
     }
+
+    public final static String FIELD_SEPARATOR = "\\s+"; // any white space character
+    
+    public static boolean getPooledReadPaths(String pooledReadPathsListFile,
+            HashMap<String, ArrayList<String>> pooledLeftReadPaths,
+            HashMap<String, ArrayList<String>> pooledRightReadPaths) throws FileNotFoundException, IOException {
+        
+        BufferedReader br = new BufferedReader(new FileReader(pooledReadPathsListFile));
+        
+        String line;
+        int lineNumber = 0;
+        while ((line = br.readLine()) != null) {
+            ++lineNumber;
+            line = line.trim();
+            
+            if (line.isEmpty()) {
+                continue;
+            }
+            
+            String[] entry = line.split(FIELD_SEPARATOR);
+            ArrayList<String> paths;
+            
+            //SAMPLE_ID LEFT/RIGHT PATH
+            if (entry.length == 3) {
+                String id = entry[0];
+                
+                switch (entry[1].toLowerCase()) {
+                    case "left":
+                        paths = pooledLeftReadPaths.get(id);
+                        
+                        if (paths == null) {
+                            paths = new ArrayList<>();
+                            pooledLeftReadPaths.put(id, paths);
+                        }
+                        
+                        paths.add(entry[2]);
+                        
+                        break;
+                    case "right":
+                        paths = pooledRightReadPaths.get(id);
+                        
+                        if (paths == null) {
+                            paths = new ArrayList<>();
+                            pooledRightReadPaths.put(id, paths);
+                        }
+                        
+                        paths.add(entry[2]);
+                        
+                        break;
+                    default:
+                        System.out.println("ERROR: Pool reads path file has unexpected read orientation on line " + lineNumber + ":\n\t" + line);
+                        return false;                        
+                }
+            }
+            else {
+                System.out.println("ERROR: Pool reads path file has unexpected number of columns on line " + lineNumber + ":\n\t" + line);
+                return false;
+            }
+        }
+        
+        br.close();
+        return true;
+    }
     
     /**
      * @param args the command line arguments
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         final String STARTED = "STARTED";
         final String DBG_DONE = "DBG.DONE";
         final String FRAGMENTS_DONE = "FRAGMENTS.DONE";
@@ -3254,6 +3319,14 @@ public class RNABloom {
                                     .argName("FILE")
                                     .build();
         options.addOption(optRightReads);
+        
+        Option optPooledAssembly = Option.builder("pool")
+                                    .longOpt("pool")
+                                    .desc("list of read files for pooled assembly")
+                                    .hasArgs()
+                                    .argName("FILE")
+                                    .build();
+        options.addOption(optPooledAssembly);
         
         Option optRevCompLeft = Option.builder("rcl")
                                     .longOpt("revcomp-left")
@@ -3616,23 +3689,66 @@ public class RNABloom {
                     txptsDoneStamp.delete();
                 }
             }
+                        
+            final String pooledReadsListFile = line.getOptionValue(optPooledAssembly.getOpt());
+            String[] leftReadPaths = line.getOptionValues(optLeftReads.getOpt());
+            String[] rightReadPaths = line.getOptionValues(optRightReads.getOpt());
+            final boolean pooledGraphMode = pooledReadsListFile != null;
             
-            String[] fastqsLeft = line.getOptionValues(optLeftReads.getOpt());
-            String[] fastqsRight = line.getOptionValues(optRightReads.getOpt());
+            HashMap<String, ArrayList<String>> pooledLeftReadPaths = new HashMap<>();
+            HashMap<String, ArrayList<String>> pooledRightReadPaths = new HashMap<>();
             
-            if (fastqsLeft.length == 0) {
-                System.out.println("ERROR: Please specify left read files!");
-                System.exit(1);
-            }
+            if (!pooledGraphMode) {
+                if (leftReadPaths == null || leftReadPaths.length == 0) {
+                    System.out.println("ERROR: Please specify left read files!");
+                    System.exit(1);
+                }
 
-            if (fastqsRight.length == 0) {
-                System.out.println("ERROR: Please specify right read files!");
-                System.exit(1);
+                if (rightReadPaths == null || rightReadPaths.length == 0) {
+                    System.out.println("ERROR: Please specify right read files!");
+                    System.exit(1);
+                }
+
+                if (leftReadPaths.length != rightReadPaths.length) {
+                    System.out.println("ERROR: Read files are not paired properly!");
+                    System.exit(1);
+                }
             }
-            
-            if (fastqsLeft.length != fastqsRight.length) {
-                System.out.println("ERROR: Read files are not paired properly!");
-                System.exit(1);
+            else {
+                System.out.println("Parsing pool reads list file `" + pooledReadsListFile + "`...");
+                boolean parseOK = getPooledReadPaths(pooledReadsListFile, pooledLeftReadPaths, pooledRightReadPaths);
+                
+                if (!parseOK) {
+                    System.out.println("ERROR: Incorrect format of pooled read paths list file!");
+                    System.exit(1);
+                }
+                
+                int numLeftIds = pooledLeftReadPaths.size();
+                int numRightIds = pooledRightReadPaths.size();
+                
+                if (numLeftIds != numRightIds) {
+                    System.out.println("ERROR: Pooled read paths list file has disagreeing number of sample IDs for left (" + numLeftIds + ") and right (" + numRightIds + ") reads!");
+                    System.exit(1);
+                }
+                
+                if (numLeftIds == 0) {
+                    System.out.println("ERROR: Pooled read paths list file is empty!");
+                    System.exit(1);                    
+                }
+                
+                ArrayList<String> leftPathsQueue = new ArrayList<>();
+                ArrayList<String> rightPathsQueue = new ArrayList<>();
+                
+                for (String id : pooledLeftReadPaths.keySet()) {
+                    leftPathsQueue.addAll(pooledLeftReadPaths.get(id));
+                    rightPathsQueue.addAll(pooledRightReadPaths.get(id));
+                }
+                
+                leftReadPaths = new String[leftPathsQueue.size()];
+                rightReadPaths = new String[rightPathsQueue.size()];
+                
+                leftPathsQueue.toArray(leftReadPaths);
+                rightPathsQueue.toArray(rightReadPaths);
             }
             
             final boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
@@ -3646,11 +3762,12 @@ public class RNABloom {
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "3"));
             
             double leftReadFilesTotalBytes = 0;
-            for (String fq : fastqsLeft) {
+            double rightReadFilesTotalBytes = 0;
+            
+            for (String fq : leftReadPaths) {
                 leftReadFilesTotalBytes += new File(fq).length();
             }
-            double rightReadFilesTotalBytes = 0;
-            for (String fq : fastqsRight) {
+            for (String fq : rightReadPaths) {
                 rightReadFilesTotalBytes += new File(fq).length();
             }
             
@@ -3740,17 +3857,17 @@ public class RNABloom {
                 ArrayList<String> backwardFilesList = new ArrayList<>();
                 
                 if (revCompLeft) {
-                    backwardFilesList.addAll(Arrays.asList(fastqsLeft));
+                    backwardFilesList.addAll(Arrays.asList(leftReadPaths));
                 }
                 else {
-                    forwardFilesList.addAll(Arrays.asList(fastqsLeft));
+                    forwardFilesList.addAll(Arrays.asList(leftReadPaths));
                 }
                 
                 if (revCompRight) {
-                    backwardFilesList.addAll(Arrays.asList(fastqsRight));
+                    backwardFilesList.addAll(Arrays.asList(rightReadPaths));
                 }
                 else {
-                    forwardFilesList.addAll(Arrays.asList(fastqsRight));
+                    forwardFilesList.addAll(Arrays.asList(rightReadPaths));
                 }
                        
                 System.out.println("\n* Stage 1: Construct graph from reads (k=" + k + ")");
@@ -3781,372 +3898,206 @@ public class RNABloom {
             }
                         
 
-            FastxFilePair[] fqPairs = new FastxFilePair[fastqsLeft.length];
-            for (int i=0; i<fastqsLeft.length; ++i) {
-                fqPairs[i] = new FastxFilePair(fastqsLeft[i], fastqsRight[i], revCompLeft, revCompRight);
-            }
+            if (pooledGraphMode) {
+                //TODO
+                
+                // assemble fragments for each sample
+                for (String id : pooledLeftReadPaths.keySet()) {
+                    ArrayList<String> lefts = pooledLeftReadPaths.get(id);
+                    ArrayList<String> rights = pooledRightReadPaths.get(id);
+                    
+                    FastxFilePair[] fqPairs = new FastxFilePair[lefts.size()];
+                    for (int i=0; i<lefts.size(); ++i) {
+                        fqPairs[i] = new FastxFilePair(lefts.get(i), rights.get(i), revCompLeft, revCompRight);
+                    }
 
-            String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
-            
-            String[] shortFragmentsFastaPaths = {shortFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
-            
-            String[] unconnectedReadsFastaPaths = {unconnectedReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
-            
-            String longSingletonsFastaPath = longFragmentsFastaPrefix + "01.fa";
-            String shortSingletonsFastaPath = shortFragmentsFastaPrefix + "01.fa";
-            String unconnectedSingletonsFastaPath = unconnectedReadsFastaPrefix + "01.fa";
-                        
-            if (forceOverwrite || !fragsDoneStamp.exists()) {
-                File fragmentsFile;
-                
-                for (String fragmentsFasta : longFragmentsFastaPaths) {
-                    fragmentsFile = new File(fragmentsFasta);
-                    if (fragmentsFile.exists()) {
-                        fragmentsFile.delete();
-                    }
+                    //TODO
                 }
                 
-                for (String fragmentsFasta : shortFragmentsFastaPaths) {
-                    fragmentsFile = new File(fragmentsFasta);
-                    if (fragmentsFile.exists()) {
-                        fragmentsFile.delete();
-                    }
-                }
-                
-                for (String fragmentsFasta : unconnectedReadsFastaPaths) {
-                    fragmentsFile = new File(fragmentsFasta);
-                    if (fragmentsFile.exists()) {
-                        fragmentsFile.delete();
-                    }
-                }
-                
-                fragmentsFile = new File(longSingletonsFastaPath);
-                if (fragmentsFile.exists()) {
-                    fragmentsFile.delete();
-                }
-                
-                fragmentsFile = new File(shortSingletonsFastaPath);
-                if (fragmentsFile.exists()) {
-                    fragmentsFile.delete();
-                }
-                
-                fragmentsFile = new File(unconnectedSingletonsFastaPath);
-                if (fragmentsFile.exists()) {
-                    fragmentsFile.delete();
-                }
-                
-                System.out.println("\n* Stage 2: Assemble fragments");
-                
-                timer.start();
-                
-                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-                assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
-                                
-                int[] fragStats = assembler.assembleFragmentsMultiThreaded(fqPairs, 
-                                                longFragmentsFastaPaths, 
-                                                shortFragmentsFastaPaths,
-                                                unconnectedReadsFastaPaths,
-                                                longSingletonsFastaPath,
-                                                shortSingletonsFastaPath,
-                                                unconnectedSingletonsFastaPath,
-                                                bound, 
-                                                minOverlap,
-                                                sampleSize,
-                                                numThreads,
-                                                maxErrCorrItr,
-                                                extendFragments);
-                
-                assembler.savePairedKmersBloomFilter(new File(graphFile));
-                assembler.writeFragStatsToFile(fragStats, fragStatsFile);
-                
-                System.out.println("* Stage 2 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                                
-                try {
-                    touch(fragsDoneStamp);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    System.exit(1);
+                // assemble transcripts for each sample
+                for (String id : pooledLeftReadPaths.keySet()) {
+                    //TODO
                 }
             }
             else {
-                System.out.println("WARNING: Fragments were already assembled (k=" + k + ")!");
-            }
-
-            if (endstage <= 2) {
-                System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
-                System.exit(0);
-            }
-            
-            // Connect unconnected reads by using the 2nd kmer size
-            /*
-            assembler.setK(k2);
-            
-            String[] unconnectedK2ReadsFastaPaths = {unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                            unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                            unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                            unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                            unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                            unconnectedK2ReadsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
-
-            String unconnectedK2SingletonsFastaPath = unconnectedK2ReadsFastaPrefix + "01.fa";
-
-            if (!forceOverwrite && fragsK2DoneStamp.exists()) {
-                System.out.println("WARNING: Read pairs were already rescued (k=" + k2 + ")!");
-                
-                if (!txptsDoneStamp.exists()) {
-                    System.out.println("Loading graph from file `" + graphK2File + "`...");
-                    File tmp = new File(graphK2File);
-                    assembler.restoreGraph(tmp);
-                    assembler.restorePairedKmersBloomFilter(tmp);
+                FastxFilePair[] fqPairs = new FastxFilePair[leftReadPaths.length];
+                for (int i=0; i<leftReadPaths.length; ++i) {
+                    fqPairs[i] = new FastxFilePair(leftReadPaths[i], rightReadPaths[i], revCompLeft, revCompRight);
                 }
-            }
-            else {
-                boolean newKmerSize = k!=k2;
-                
-                if (assembler.isGraphInitialized()) {
-                    assembler.clearDbgBf();
-                    if (newKmerSize) {
-                        assembler.clearCBf();
-                        assembler.clearPkBf();
-                        assembler.clearRpkBf();
+
+                String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                                longFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                                longFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                                longFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                                longFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                                longFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+
+                String[] shortFragmentsFastaPaths = {shortFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                                shortFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                                shortFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                                shortFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                                shortFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                                shortFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+
+                String[] unconnectedReadsFastaPaths = {unconnectedReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                                unconnectedReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                                unconnectedReadsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                                unconnectedReadsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                                unconnectedReadsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                                unconnectedReadsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+
+                String longSingletonsFastaPath = longFragmentsFastaPrefix + "01.fa";
+                String shortSingletonsFastaPath = shortFragmentsFastaPrefix + "01.fa";
+                String unconnectedSingletonsFastaPath = unconnectedReadsFastaPrefix + "01.fa";
+
+                if (forceOverwrite || !fragsDoneStamp.exists()) {
+                    File fragmentsFile;
+
+                    for (String fragmentsFasta : longFragmentsFastaPaths) {
+                        fragmentsFile = new File(fragmentsFasta);
+                        if (fragmentsFile.exists()) {
+                            fragmentsFile.delete();
+                        }
+                    }
+
+                    for (String fragmentsFasta : shortFragmentsFastaPaths) {
+                        fragmentsFile = new File(fragmentsFasta);
+                        if (fragmentsFile.exists()) {
+                            fragmentsFile.delete();
+                        }
+                    }
+
+                    for (String fragmentsFasta : unconnectedReadsFastaPaths) {
+                        fragmentsFile = new File(fragmentsFasta);
+                        if (fragmentsFile.exists()) {
+                            fragmentsFile.delete();
+                        }
+                    }
+
+                    fragmentsFile = new File(longSingletonsFastaPath);
+                    if (fragmentsFile.exists()) {
+                        fragmentsFile.delete();
+                    }
+
+                    fragmentsFile = new File(shortSingletonsFastaPath);
+                    if (fragmentsFile.exists()) {
+                        fragmentsFile.delete();
+                    }
+
+                    fragmentsFile = new File(unconnectedSingletonsFastaPath);
+                    if (fragmentsFile.exists()) {
+                        fragmentsFile.delete();
+                    }
+
+                    System.out.println("\n* Stage 2: Assemble fragments");
+
+                    timer.start();
+
+                    assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                    assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
+
+                    int[] fragStats = assembler.assembleFragmentsMultiThreaded(fqPairs, 
+                                                    longFragmentsFastaPaths, 
+                                                    shortFragmentsFastaPaths,
+                                                    unconnectedReadsFastaPaths,
+                                                    longSingletonsFastaPath,
+                                                    shortSingletonsFastaPath,
+                                                    unconnectedSingletonsFastaPath,
+                                                    bound, 
+                                                    minOverlap,
+                                                    sampleSize,
+                                                    numThreads,
+                                                    maxErrCorrItr,
+                                                    extendFragments);
+
+                    assembler.savePairedKmersBloomFilter(new File(graphFile));
+                    assembler.writeFragStatsToFile(fragStats, fragStatsFile);
+
+                    System.out.println("* Stage 2 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+
+                    try {
+                        touch(fragsDoneStamp);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        System.exit(1);
                     }
                 }
                 else {
-                    assembler.initializeGraph(strandSpecific, 
-                            dbgbfSize, cbfSize, pkbfSize, 
-                            dbgbfNumHash, cbfNumHash, pkbfNumHash, true, true);
+                    System.out.println("WARNING: Fragments were already assembled (k=" + k + ")!");
                 }
                 
-                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-                
-                // adjust paired kmer distance
-                int[] fragStats = assembler.restoreFragStatsFromFile(fragStatsFile);
-                assembler.setPairedKmerDistance(fragStats[1]);
-                int fragSizeBound = fragStats[3] + 3*(fragStats[3] - fragStats[1])/2;
+                if (endstage <= 2) {
+                    System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+                    System.exit(0);
+                }
 
-                // repopulate with NEW kmers from fragments
-                ArrayList<String> fragmentPaths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length + unconnectedReadsFastaPaths.length + 3);
-                fragmentPaths.addAll(Arrays.asList(longFragmentsFastaPaths));
-                fragmentPaths.addAll(Arrays.asList(shortFragmentsFastaPaths));
-                fragmentPaths.addAll(Arrays.asList(unconnectedReadsFastaPaths));
-                fragmentPaths.add(longSingletonsFastaPath);
-                fragmentPaths.add(shortSingletonsFastaPath);
-                fragmentPaths.add(unconnectedSingletonsFastaPath);
+                if (forceOverwrite || !txptsDoneStamp.exists()) {
+                    if (!noFragDBG) {
+                        if (assembler.isGraphInitialized()) {
+                            assembler.clearDbgBf();
+                        }
 
-                System.out.println("Rebuilding graph from assembled fragments (k=" + k2 + ")...");
-                timer.start();
-                assembler.repopulateGraph(fragmentPaths, strandSpecific, newKmerSize);
-                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));    
-                
-                if (newKmerSize) {
-                    // populate graph with kmers from reads
-                    ArrayList<String> forwardFilesList = new ArrayList<>();
-                    ArrayList<String> backwardFilesList = new ArrayList<>();
+                        // repopulate with kmers from fragments
+                        ArrayList<String> fragmentPaths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length + unconnectedReadsFastaPaths.length + 3);
+                        fragmentPaths.addAll(Arrays.asList(longFragmentsFastaPaths));
+                        fragmentPaths.addAll(Arrays.asList(shortFragmentsFastaPaths));
+                        fragmentPaths.addAll(Arrays.asList(unconnectedReadsFastaPaths));
+                        fragmentPaths.add(longSingletonsFastaPath);
+                        fragmentPaths.add(shortSingletonsFastaPath);
+                        fragmentPaths.add(unconnectedSingletonsFastaPath);
 
-                    if (revCompLeft) {
-                        backwardFilesList.addAll(Arrays.asList(fastqsLeft));
-                    }
-                    else {
-                        forwardFilesList.addAll(Arrays.asList(fastqsLeft));
+                        System.out.println("\n* Rebuild graph from assembled fragments (k=" + k + ")");
+                        timer.start();
+                        assembler.populateGraphFromFragments(fragmentPaths, strandSpecific, false);
+                        System.out.println("* Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));  
                     }
 
-                    if (revCompRight) {
-                        backwardFilesList.addAll(Arrays.asList(fastqsRight));
-                    }
-                    else {
-                        forwardFilesList.addAll(Arrays.asList(fastqsRight));
+                    File transcriptsFile = new File(transcriptsFasta);
+                    if (transcriptsFile.exists()) {
+                        transcriptsFile.delete();
                     }
 
-                    System.out.println("Counting kmers in reads (k=" + k2 + ")...");
+                    File shortTranscriptsFile = new File(shortTranscriptsFasta);
+                    if (shortTranscriptsFile.exists()) {
+                        shortTranscriptsFile.delete();
+                    }
+
+                    System.out.println("\n* Stage 3: Assemble transcripts");
                     timer.start();
-                    assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, true, true);
-                    System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                }
-                
-                // Remove existing output files
-                
-                File fragmentsFile = new File(unconnectedK2SingletonsFastaPath);
-                if (fragmentsFile.exists()) {
-                    fragmentsFile.delete();
-                }
 
-                for (String fragmentsFasta : unconnectedK2ReadsFastaPaths) {
-                    fragmentsFile = new File(fragmentsFasta);
-                    if (fragmentsFile.exists()) {
-                        fragmentsFile.delete();
-                    }
-                }
+                    assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
 
-                String[] allUnconnectedReads = new String[unconnectedReadsFastaPaths.length + 1];
-                for (int i=0; i<unconnectedReadsFastaPaths.length; ++i) {
-                    allUnconnectedReads[i] = unconnectedReadsFastaPaths[unconnectedReadsFastaPaths.length - i - 1];
-                }
-                allUnconnectedReads[unconnectedReadsFastaPaths.length] = unconnectedSingletonsFastaPath;
-                
-                timer.start();
-                assembler.rescueUnconnectedMultiThreaded(allUnconnectedReads, 
-                                                    longFragmentsFastaPaths,
-                                                    shortFragmentsFastaPaths,
-                                                    unconnectedK2ReadsFastaPaths,
-                                                    longSingletonsFastaPath,
-                                                    shortSingletonsFastaPath,
-                                                    unconnectedK2SingletonsFastaPath,
-                                                    fragSizeBound,
-                                                    minOverlap,
-                                                    sampleSize, 
-                                                    numThreads, 
-                                                    maxErrCorrItr,
-                                                    extendFragments);
-                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                
-                // Save DBG-Bf and pk-Bf to disk
-                System.out.println("Saving graph to file `" + graphK2File + "`...");
-                assembler.saveGraph(new File(graphK2File));
-                assembler.savePairedKmersBloomFilter(new File(graphK2File));
-                
-                // Touch stamp
-                try {
-                    touch(fragsK2DoneStamp);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    System.exit(1);
-                }
-            }
-            */
-            
-//            String[] longTransfragsFastaPaths = {longTransfragsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-//                                            longTransfragsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-//                                            longTransfragsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-//                                            longTransfragsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-//                                            longTransfragsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-//                                            longTransfragsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
-//            
-//            String[] shortTransfragsFastaPaths = {shortTransfragsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-//                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-//                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-//                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-//                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-//                                            shortTransfragsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
-//            
-//            if (forceOverwrite || !txfgsDoneStamp.exists()) {
-//                
-//                for (String transfragsFasta : longTransfragsFastaPaths) {
-//                    File transfragsFile = new File(transfragsFasta);
-//                    if (transfragsFile.exists()) {
-//                        transfragsFile.delete();
-//                    }
-//                }
-//                
-//                for (String transfragsFasta : shortTransfragsFastaPaths) {
-//                    File transfragsFile = new File(transfragsFasta);
-//                    if (transfragsFile.exists()) {
-//                        transfragsFile.delete();
-//                    }
-//                }
-//                                
-//                timer.start();
-//                
-//                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-//                
-//                assembler.assembleTransfragsMultiThreaded(longFragmentsFastaPaths, 
-//                                                        shortFragmentsFastaPaths,
-//                                                        unconnectedReadsFastaPaths,
-//                                                        longTransfragsFastaPaths,
-//                                                        shortTransfragsFastaPaths,
-//                                                        numThreads,
-//                                                        sampleSize);
-//
-//                System.out.println("Time elapsed: " + MyTimer.hmsFormat(timer.elapsedMillis()));
-//                
-//                try {
-//                    touch(txfgsDoneStamp);
-//                } catch (Exception ex) {
-//                    ex.printStackTrace();
-//                }
-//            }
-            
-            if (forceOverwrite || !txptsDoneStamp.exists()) {
-                if (!noFragDBG) {
-                    if (assembler.isGraphInitialized()) {
-                        assembler.clearDbgBf();
+                    assembler.assembleTranscriptsMultiThreaded(longFragmentsFastaPaths, 
+                                                                shortFragmentsFastaPaths,
+                                                                unconnectedReadsFastaPaths,
+                                                                longSingletonsFastaPath,
+                                                                shortSingletonsFastaPath,
+                                                                unconnectedSingletonsFastaPath,
+                                                                transcriptsFasta, 
+                                                                shortTranscriptsFasta,
+                                                                graphFile,
+                                                                numThreads,
+                                                                sampleSize,
+                                                                minTranscriptLength,
+                                                                sensitiveMode,
+                                                                reqFragKmersConsistency,
+                                                                txptNamePrefix);
+
+                    System.out.println("* Stage 3 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+
+                    try {
+                        touch(txptsDoneStamp);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        System.exit(1);
                     }
 
-                    // repopulate with kmers from fragments
-                    ArrayList<String> fragmentPaths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length + unconnectedReadsFastaPaths.length + 3);
-                    fragmentPaths.addAll(Arrays.asList(longFragmentsFastaPaths));
-                    fragmentPaths.addAll(Arrays.asList(shortFragmentsFastaPaths));
-                    fragmentPaths.addAll(Arrays.asList(unconnectedReadsFastaPaths));
-                    fragmentPaths.add(longSingletonsFastaPath);
-                    fragmentPaths.add(shortSingletonsFastaPath);
-                    fragmentPaths.add(unconnectedSingletonsFastaPath);
-
-                    System.out.println("\n* Rebuild graph from assembled fragments (k=" + k + ")");
-                    timer.start();
-                    assembler.populateGraphFromFragments(fragmentPaths, strandSpecific, false);
-                    System.out.println("* Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));  
+                    System.out.println("\nTranscripts assembled in `" + transcriptsFasta + "`");
                 }
-                
-                File transcriptsFile = new File(transcriptsFasta);
-                if (transcriptsFile.exists()) {
-                    transcriptsFile.delete();
+                else {
+                    System.out.println("WARNING: Transcripts were already assembled!");
                 }
-                
-                File shortTranscriptsFile = new File(shortTranscriptsFasta);
-                if (shortTranscriptsFile.exists()) {
-                    shortTranscriptsFile.delete();
-                }
-                
-                System.out.println("\n* Stage 3: Assemble transcripts");
-                timer.start();
-                
-                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-                
-                assembler.assembleTranscriptsMultiThreaded(longFragmentsFastaPaths, 
-                                                            shortFragmentsFastaPaths,
-                                                            unconnectedReadsFastaPaths,
-                                                            longSingletonsFastaPath,
-                                                            shortSingletonsFastaPath,
-                                                            unconnectedSingletonsFastaPath,
-                                                            transcriptsFasta, 
-                                                            shortTranscriptsFasta,
-                                                            graphFile,
-                                                            numThreads,
-                                                            sampleSize,
-                                                            minTranscriptLength,
-                                                            sensitiveMode,
-                                                            reqFragKmersConsistency,
-                                                            txptNamePrefix);
-
-                System.out.println("* Stage 3 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                
-                try {
-                    touch(txptsDoneStamp);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    System.exit(1);
-                }
-                
-                System.out.println("\nTranscripts assembled in `" + transcriptsFasta + "`");
-            }
-            else {
-                System.out.println("WARNING: Transcripts were already assembled!");
-            }
-            
+            }      
         }
         catch (ParseException exp) {
             System.out.println("ERROR:" + exp.getMessage() );
