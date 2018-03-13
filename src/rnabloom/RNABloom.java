@@ -3649,9 +3649,6 @@ public class RNABloom {
             final String name = line.getOptionValue(optName.getOpt(), "rnabloom");
             final String outdir = line.getOptionValue(optOutdir.getOpt(), System.getProperty("user.dir") + File.separator + name + "_assembly");
             
-            final String longFragmentsFastaPrefix =      outdir + File.separator + name + ".fragments.long.";
-            final String shortFragmentsFastaPrefix =     outdir + File.separator + name + ".fragments.short.";
-            final String unconnectedReadsFastaPrefix =   outdir + File.separator + name + ".unconnected.";
 //            final String unconnectedK2ReadsFastaPrefix = outdir + File.separator + name + ".unconnected.k2.";
             final String transcriptsFasta =              outdir + File.separator + name + ".transcripts.fa";
             final String shortTranscriptsFasta =         outdir + File.separator + name + ".transcripts.short.fa";
@@ -3915,6 +3912,38 @@ public class RNABloom {
                         fqPairs[i] = new FastxFilePair(lefts.get(i), rights.get(i), revCompLeft, revCompRight);
                     }
 
+                    String sampleOutdir = outdir + File.separator + id;
+                    new File(sampleOutdir).mkdirs();
+                    
+                    final String longFragmentsFastaPrefix =      sampleOutdir + File.separator + name + ".fragments.long.";
+                    final String shortFragmentsFastaPrefix =     sampleOutdir + File.separator + name + ".fragments.short.";
+                    final String unconnectedReadsFastaPrefix =   sampleOutdir + File.separator + name + ".unconnected.";
+
+                    String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                                    longFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                                    longFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                                    longFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                                    longFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                                    longFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+
+                    String[] shortFragmentsFastaPaths = {shortFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                                    shortFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                                    shortFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                                    shortFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                                    shortFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                                    shortFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+
+                    String[] unconnectedReadsFastaPaths = {unconnectedReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
+                                                    unconnectedReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
+                                                    unconnectedReadsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
+                                                    unconnectedReadsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
+                                                    unconnectedReadsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
+                                                    unconnectedReadsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+
+                    String longSingletonsFastaPath = longFragmentsFastaPrefix + "01.fa";
+                    String shortSingletonsFastaPath = shortFragmentsFastaPrefix + "01.fa";
+                    String unconnectedSingletonsFastaPath = unconnectedReadsFastaPrefix + "01.fa";
+                    
                     //TODO
                 }
                 
@@ -3929,6 +3958,10 @@ public class RNABloom {
                     fqPairs[i] = new FastxFilePair(leftReadPaths[i], rightReadPaths[i], revCompLeft, revCompRight);
                 }
 
+                final String longFragmentsFastaPrefix =      outdir + File.separator + name + ".fragments.long.";
+                final String shortFragmentsFastaPrefix =     outdir + File.separator + name + ".fragments.short.";
+                final String unconnectedReadsFastaPrefix =   outdir + File.separator + name + ".unconnected.";
+                
                 String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
                                                 longFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
                                                 longFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
