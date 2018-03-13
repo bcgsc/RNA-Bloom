@@ -1296,8 +1296,10 @@ public class RNABloom {
                 }
             }
             else if (numReadSegs > 1) {
+                int numFragKmers = fragKmers.size();
+                
                 for (ArrayList<Kmer> r : readSegments) {
-                    if (new HashSet<>(r).containsAll(fragKmers)) {
+                    if (r.size() >= numFragKmers && graph.assemble(r).contains(fragment)) {
                         if (!skipPotentialArtifacts || !isTemplateSwitch(r, graph, screeningBf, lookahead)) {
                             transcripts.put(new Transcript(fragment, r));
                         }
@@ -3847,9 +3849,11 @@ public class RNABloom {
                     System.exit(0);
                 }
                 
-                if (!fragsDoneStamp.exists() || !txptsDoneStamp.exists()) {
+                boolean fragmentsDone = fragsDoneStamp.exists();
+                
+                if (!fragmentsDone || !txptsDoneStamp.exists()) {
                     System.out.println("Loading graph from file `" + graphFile + "`...");
-                    assembler.restoreGraph(new File(graphFile), noFragDBG);
+                    assembler.restoreGraph(new File(graphFile), noFragDBG || !fragmentsDone);
                 }
             }
             else {                
