@@ -39,8 +39,12 @@ public class LargeBitBuffer extends AbstractLargeBitBuffer {
     public void setCAS(long index) {
         long byteIndex = index / Byte.SIZE;
         byte expected = backingByteBuffer.get(byteIndex);
-        while (!backingByteBuffer.compareAndSwap(byteIndex, expected, (byte) (expected | (1 << (int) (index % Byte.SIZE))))) {
-            expected = backingByteBuffer.get(byteIndex);
+        while (true) {
+            byte b = backingByteBuffer.compareAndSwap(byteIndex, expected, (byte) (expected | (1 << (int) (index % Byte.SIZE))));
+            if (b == expected) {
+                return;
+            }
+            expected = b;
         }
     }
     

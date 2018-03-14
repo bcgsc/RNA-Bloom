@@ -66,15 +66,15 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     */
 
     @Override
-    public boolean compareAndSwap(long index, byte expected, byte updated) {
+    public byte compareAndSwap(long index, byte expected, byte updated) {
         long i = start + index;
         
-        if (expected == unsafe.getByte(i)) {
+        byte b = unsafe.getByte(i);
+        if (expected == b) {
             unsafe.putByte(i, updated);
-            return true;
         }
                 
-        return false;
+        return b;
     }
 
     @Override
