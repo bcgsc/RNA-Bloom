@@ -3916,25 +3916,9 @@ public class RNABloom {
             HashMap<String, ArrayList<String>> pooledLeftReadPaths = new HashMap<>();
             HashMap<String, ArrayList<String>> pooledRightReadPaths = new HashMap<>();
             
-            if (!pooledGraphMode) {
+            if (pooledGraphMode) {
                 System.out.println("Pooled assembly mode is ON!");
                 
-                if (leftReadPaths == null || leftReadPaths.length == 0) {
-                    System.out.println("ERROR: Please specify left read files!");
-                    System.exit(1);
-                }
-
-                if (rightReadPaths == null || rightReadPaths.length == 0) {
-                    System.out.println("ERROR: Please specify right read files!");
-                    System.exit(1);
-                }
-
-                if (leftReadPaths.length != rightReadPaths.length) {
-                    System.out.println("ERROR: Read files are not paired properly!");
-                    System.exit(1);
-                }
-            }
-            else {
                 System.out.println("Parsing pool reads list file `" + pooledReadsListFile + "`...");
                 boolean parseOK = getPooledReadPaths(pooledReadsListFile, pooledLeftReadPaths, pooledRightReadPaths);
                 
@@ -3969,6 +3953,22 @@ public class RNABloom {
                 
                 leftPathsQueue.toArray(leftReadPaths);
                 rightPathsQueue.toArray(rightReadPaths);
+            }
+            else {
+                if (leftReadPaths == null || leftReadPaths.length == 0) {
+                    System.out.println("ERROR: Please specify left read files!");
+                    System.exit(1);
+                }
+
+                if (rightReadPaths == null || rightReadPaths.length == 0) {
+                    System.out.println("ERROR: Please specify right read files!");
+                    System.exit(1);
+                }
+
+                if (leftReadPaths.length != rightReadPaths.length) {
+                    System.out.println("ERROR: Read files are not paired properly!");
+                    System.exit(1);
+                }
             }
             
             final boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
