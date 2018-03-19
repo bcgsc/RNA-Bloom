@@ -4055,7 +4055,9 @@ public class RNABloom {
             assembler.setParams(strandSpecific, maxTipLen, lookahead, maxCovGradient, maxIndelSize, percentIdentity, minNumKmerPairs, minPolyATail);
 
             try {
-                touch(startedStamp);
+                FileWriter writer = new FileWriter(startedStamp, false);
+                writer.write(String.join(" ", args));
+                writer.close();
             } catch (Exception ex) {
                 ex.printStackTrace();
                 System.exit(1);
