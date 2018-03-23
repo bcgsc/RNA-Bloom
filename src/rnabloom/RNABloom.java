@@ -4126,8 +4126,6 @@ public class RNABloom {
             if (pooledGraphMode) {
                 // assemble fragments for each sample
                 for (String sampleName : pooledLeftReadPaths.keySet()) {
-                    assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-                    
                     ArrayList<String> lefts = pooledLeftReadPaths.get(sampleName);
                     ArrayList<String> rights = pooledRightReadPaths.get(sampleName);
                     
@@ -4159,10 +4157,9 @@ public class RNABloom {
                 
                 // assemble transcripts for each sample
                 for (String sampleName : pooledLeftReadPaths.keySet()) {
-                    assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-                    
                     String sampleOutdir = outdir + File.separator + sampleName;
-                    new File(sampleOutdir).mkdirs();
+                    
+                    assembler.restorePairedKmersBloomFilter(new File(sampleOutdir + File.separator + sampleName + ".graph"));
                     
                     assembleTranscripts(assembler, forceOverwrite,
                                     sampleOutdir, sampleName, txptNamePrefix, strandSpecific,
