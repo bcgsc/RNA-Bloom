@@ -2878,6 +2878,7 @@ public class RNABloom {
         try {
             graph.destroyPkbf();
             graph.restorePkbf(graphFile);
+            graph.updateFragmentKmerDistance(graphFile);
         } catch (Exception ex) {
             handleException(ex);
         }

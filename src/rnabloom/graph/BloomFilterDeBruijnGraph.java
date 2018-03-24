@@ -96,6 +96,21 @@ public class BloomFilterDeBruijnGraph {
         }
     }
     
+    public void updateFragmentKmerDistance(File graphFile) throws FileNotFoundException, IOException {
+       BufferedReader br = new BufferedReader(new FileReader(graphFile));
+        String line;
+        while ((line = br.readLine()) != null) {
+            String[] entry = line.split(LABEL_SEPARATOR);
+            String key = entry[0];
+            String val = entry[1];
+            if (key.equals(LABEL_FRAGMENT_PAIRED_KMERS_DIST)) {
+                fragmentPairedKmersDistance = Integer.parseInt(val);
+                break;
+            }
+        }
+        br.close();
+    }
+    
     public BloomFilterDeBruijnGraph(File graphFile, boolean loadDbgBits) throws FileNotFoundException, IOException {
         BufferedReader br = new BufferedReader(new FileReader(graphFile));
         String line;
