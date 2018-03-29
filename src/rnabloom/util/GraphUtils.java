@@ -5346,6 +5346,58 @@ public final class GraphUtils {
         return false;
     }
     
+    private static boolean extendRightWithHeuristic(ArrayList<Kmer> kmers, 
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int lookahead, 
+                                            int maxTipLength,
+                                            int maxIndelSize,
+                                            float percentIdentity,
+                                            int minNumPairs,
+                                            BloomFilter assembledKmersBloomFilter,
+                                            HashSet<Kmer> usedKmers,
+                                            float maxCovGradient) {
+        final int k = graph.getK();
+        final int numHash = graph.getMaxNumHash();
+        final int fragPairedKmersDist = graph.getPairedKmerDistance();
+        final int readPairedKmersDist = graph.getReadKmerDistance();
+        
+        int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, fragPairedKmersDist, assembledKmersBloomFilter, minNumPairs);
+        int numKmers = kmers.size();
+        LinkedList<Kmer> candidates = getSuccessorsRanked(kmers.get(numKmers-1), graph, lookahead);
+        
+        float bestScore = -1;
+        ArrayList<Kmer> bestExtension = null;
+        
+        for (Kmer candidate : candidates) {
+            ArrayList<Kmer> extension = new ArrayList<>(maxDepth);
+            
+            ArrayDeque<Kmer> neighbors = candidate.getSuccessors(k, numHash, graph);
+            int readPartnerKmerIndex = numKmers - readPairedKmersDist;
+            int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
+            
+            int numReadPartnerKmers = 0;
+            int numFragPartnerKmers = 0;
+            
+            for (int d=0; d<maxDepth; ++d) {
+                /**@TODO*/
+            }
+            
+            
+        }
+        
+        /*
+            h = min(C) * (P + p) / d
+
+            where:
+            C = kmer coverage
+            P = fragment kmer pairs
+            p = read kmer pairs
+            d = depth
+        */
+        
+        return false;
+    }
+    
     public static boolean extendRightWithPairedKmersDFS(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int lookahead, 
