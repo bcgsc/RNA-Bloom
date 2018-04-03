@@ -1536,6 +1536,23 @@ public final class GraphUtils {
         return extension;
     }
     
+    public static ArrayDeque<Kmer> greedyExtendLeftReversed(BloomFilterDeBruijnGraph graph, Kmer source, int lookahead, int bound) {
+        ArrayDeque<Kmer> extension = new ArrayDeque<>(bound);
+        
+        Kmer nextKmer = source;
+        for (int i=0; i<bound; ++i) {
+            nextKmer = greedyExtendLeftOnce(graph, nextKmer, lookahead);
+            
+            if (nextKmer == null) {
+                break;
+            }
+            
+            extension.addLast(nextKmer);
+        }
+        
+        return extension;
+    }
+    
     public static ArrayDeque<Kmer> greedyExtendLeft(final BloomFilterDeBruijnGraph graph,
                                                     final Kmer source,
                                                     final int lookahead,
@@ -5441,7 +5458,7 @@ public final class GraphUtils {
         ArrayDeque<Kmer> bestExtension = null;
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = greedyExtendLeft(graph, candidate, lookahead, maxDepth);
+            ArrayDeque<Kmer> e = greedyExtendLeftReversed(graph, candidate, lookahead, maxDepth);
             e.addFirst(candidate);
             int partnerKmerIndex = numKmers - readPairedKmersDist;
 
@@ -5612,7 +5629,7 @@ public final class GraphUtils {
         ArrayDeque<Kmer> bestExtension = null;
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = greedyExtendLeft(graph, candidate, lookahead, maxDepth);
+            ArrayDeque<Kmer> e = greedyExtendLeftReversed(graph, candidate, lookahead, maxDepth);
             e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
             int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
@@ -5684,6 +5701,114 @@ public final class GraphUtils {
         }
         
         return bestExtension;
+    }
+    
+    public static void extendPE(ArrayList<Kmer> kmers, 
+                                            BloomFilterDeBruijnGraph graph, 
+                                            int lookahead, 
+                                            int maxTipLength,
+                                            BloomFilter assembledKmersBloomFilter,
+                                            int maxIndelSize,
+                                            float percentIdentity,
+                                            int minNumPairs,
+                                            float maxCovGradient) {
+        final int d = graph.getPairedKmerDistance();
+        
+        HashSet<Kmer> usedKmers = new HashSet<>(kmers);
+
+        Collections.reverse(kmers);
+        
+        while (true) {
+            ArrayDeque<Kmer> e =  extendLeftPE(kmers, 
+                                            graph, 
+                                            lookahead);
+            
+            if (e == null || e.isEmpty()) {
+                break;
+            }
+            
+            Iterator<Kmer> itr = e.iterator();
+            boolean used = true;
+            boolean assembled = true;
+            while (itr.hasNext() && (used || assembled)) {
+                Kmer kmer = itr.next();
+                
+                if (!usedKmers.contains(kmer)) {
+                    used = false;
+                }
+                
+                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
+                    assembled = false;
+                }
+            }
+            
+            int endIndex = Math.max(0, kmers.size()-d+e.size());
+            for (int i=kmers.size()-1; i>=endIndex && (used || assembled); --i) {
+                Kmer kmer = kmers.get(i);
+                
+                if (!usedKmers.contains(kmer)) {
+                    used = false;
+                }
+                
+                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
+                    assembled = false;
+                }
+            }
+            
+            if (used || assembled) {
+                break;
+            }
+            
+            kmers.addAll(e);
+            usedKmers.addAll(e);
+        }
+        
+        Collections.reverse(kmers);
+        
+        while (true) {
+            ArrayDeque<Kmer> e =  extendRightPE(kmers, 
+                                            graph, 
+                                            lookahead);
+            
+            if (e == null || e.isEmpty()) {
+                break;
+            }
+            
+            Iterator<Kmer> itr = e.iterator();
+            boolean used = true;
+            boolean assembled = true;
+            while (itr.hasNext() && (used || assembled)) {
+                Kmer kmer = itr.next();
+                
+                if (!usedKmers.contains(kmer)) {
+                    used = false;
+                }
+                
+                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
+                    assembled = false;
+                }
+            }
+            
+            int endIndex = Math.max(0, kmers.size()-d+e.size());
+            for (int i=kmers.size()-1; i>=endIndex && (used || assembled); --i) {
+                Kmer kmer = kmers.get(i);
+                
+                if (!usedKmers.contains(kmer)) {
+                    used = false;
+                }
+                
+                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
+                    assembled = false;
+                }
+            }
+            
+            if (used || assembled) {
+                break;
+            }
+            
+            kmers.addAll(e);
+            usedKmers.addAll(e);
+        }
     }
     
     public static boolean extendRightWithPairedKmersDFS(ArrayList<Kmer> kmers, 
