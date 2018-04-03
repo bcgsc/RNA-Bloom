@@ -1351,12 +1351,14 @@ public class RNABloom {
                                                         maxTipLength,
                                                         percentIdentity)) {
                                 
-                                if (includeNaiveExtensions) {
-                                    extendWithPairedKmers(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
-                                }
-                                else {
-                                    extendWithPairedKmersDFS(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
-                                }
+                                extendPE(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
+                                
+//                                if (includeNaiveExtensions) {
+//                                    extendWithPairedKmers(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
+//                                }
+//                                else {
+//                                    extendWithPairedKmersDFS(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
+//                                }
 
                                 if (kmers.size() > fragKmersDist) {
                                     if (reqFragKmersConsistency) {
