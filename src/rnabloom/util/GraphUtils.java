@@ -5364,6 +5364,7 @@ public final class GraphUtils {
         
         for (Kmer candidate : candidates) {
             ArrayDeque<Kmer> e = greedyExtendRight(graph, candidate, lookahead, maxDepth);
+            e.addFirst(candidate);
             int partnerKmerIndex = numKmers - readPairedKmersDist;
 
             float minCov = pathMinCov;
@@ -5411,6 +5412,7 @@ public final class GraphUtils {
                     
                     itr = e.descendingIterator();
                     for (int i=e.size()-1; i>lastPartneredKmerIndex; --i) {
+                        itr.next();
                         itr.remove();
                     }
                 }
@@ -5440,6 +5442,7 @@ public final class GraphUtils {
         
         for (Kmer candidate : candidates) {
             ArrayDeque<Kmer> e = greedyExtendLeft(graph, candidate, lookahead, maxDepth);
+            e.addFirst(candidate);
             int partnerKmerIndex = numKmers - readPairedKmersDist;
 
             float minCov = pathMinCov;
@@ -5487,6 +5490,7 @@ public final class GraphUtils {
                     
                     itr = e.descendingIterator();
                     for (int i=e.size()-1; i>lastPartneredKmerIndex; --i) {
+                        itr.next();
                         itr.remove();
                     }
                 }
@@ -5512,9 +5516,10 @@ public final class GraphUtils {
         
         float bestScore = Float.MIN_VALUE;
         ArrayDeque<Kmer> bestExtension = null;
-        
+                
         for (Kmer candidate : candidates) {
             ArrayDeque<Kmer> e = greedyExtendRight(graph, candidate, lookahead, maxDepth);
+            e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
             int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
 
@@ -5526,7 +5531,7 @@ public final class GraphUtils {
             int supportingFragKmerPairs = 0;
             int lastReadPartneredKmerIndex = -1;
             int lastFragPartneredKmerIndex = -1;
-            
+                        
             for (int i=0; i<e.size(); ++i) {
                 Kmer eKmer = itr.next();
                 
@@ -5577,6 +5582,7 @@ public final class GraphUtils {
                     
                     itr = e.descendingIterator();
                     for (int i=e.size()-1; i>lastReadPartneredKmerIndex; --i) {
+                        itr.next();
                         itr.remove();
                     }
                 }
@@ -5607,6 +5613,7 @@ public final class GraphUtils {
         
         for (Kmer candidate : candidates) {
             ArrayDeque<Kmer> e = greedyExtendLeft(graph, candidate, lookahead, maxDepth);
+            e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
             int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
 
@@ -5669,6 +5676,7 @@ public final class GraphUtils {
                     
                     itr = e.descendingIterator();
                     for (int i=e.size()-1; i>lastReadPartneredKmerIndex; --i) {
+                        itr.next();
                         itr.remove();
                     }
                 }
