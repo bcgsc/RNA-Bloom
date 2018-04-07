@@ -5518,14 +5518,15 @@ public final class GraphUtils {
     }
     
     private static ArrayDeque<Kmer> extendRightPE(ArrayList<Kmer> kmers, 
-                                            BloomFilterDeBruijnGraph graph, 
-                                            int lookahead) {
+                                            BloomFilterDeBruijnGraph graph,
+                                            int maxTipLen,
+                                            int maxIndelSize,
+                                            float minPercentIdentity) {
         final int k = graph.getK();
         final int numHash = graph.getMaxNumHash();
         final int readPairedKmersDist = graph.getReadKmerDistance();
         final int fragPairedKmersDist = graph.getPairedKmerDistance();
         
-        final int maxDepth = readPairedKmersDist-1;
         final int numKmers = kmers.size();
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);
         
@@ -5535,7 +5536,7 @@ public final class GraphUtils {
         ArrayDeque<Kmer> bestExtension = null;
                 
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = greedyExtendRight(graph, candidate, lookahead, maxDepth);
+            ArrayDeque<Kmer> e = extendRight(candidate, graph, maxTipLen, new HashSet<>(), maxIndelSize, minPercentIdentity);
             e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
             int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
@@ -5549,14 +5550,15 @@ public final class GraphUtils {
             int lastReadPartneredKmerIndex = -1;
             int lastFragPartneredKmerIndex = -1;
                         
-            for (int i=0; i<e.size(); ++i) {
+            int endIndex = Math.min(e.size(), fragPairedKmersDist);
+            for (int i=0; i<endIndex; ++i) {
                 Kmer eKmer = itr.next();
                 
                 if (eKmer.count < minCov) {
                     minCov = eKmer.count;
                 }
                 
-                if (readPartnerKmerIndex >= 0) {
+                if (i < readPairedKmersDist && readPartnerKmerIndex >= 0) {
                     Kmer partner = kmers.get(readPartnerKmerIndex);
                     if (graph.lookupReadKmerPair(partner, eKmer)) {
                         ++supportingReadKmerPairs;
@@ -5567,7 +5569,7 @@ public final class GraphUtils {
                     }
                 }
                 
-                if (fragPartnerKmerIndex >= 0) {
+                if (i < fragPairedKmersDist && fragPartnerKmerIndex >= 0) {
                     Kmer partner = kmers.get(fragPartnerKmerIndex);
                     if (graph.lookupKmerPair(partner, eKmer)) {
                         ++supportingFragKmerPairs;
@@ -5611,7 +5613,9 @@ public final class GraphUtils {
     
     private static ArrayDeque<Kmer> extendLeftPE(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph, 
-                                            int lookahead) {
+                                            int maxTipLen,
+                                            int maxIndelSize,
+                                            float minPercentIdentity) {
         // `kmers` is reversed
         
         final int k = graph.getK();
@@ -5619,7 +5623,6 @@ public final class GraphUtils {
         final int readPairedKmersDist = graph.getReadKmerDistance();
         final int fragPairedKmersDist = graph.getPairedKmerDistance();
         
-        final int maxDepth = readPairedKmersDist-1;
         final int numKmers = kmers.size();
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);
         
@@ -5629,7 +5632,7 @@ public final class GraphUtils {
         ArrayDeque<Kmer> bestExtension = null;
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = greedyExtendLeftReversed(graph, candidate, lookahead, maxDepth);
+            ArrayDeque<Kmer> e = extendLeft(candidate, graph, maxTipLen, new HashSet<>(), maxIndelSize, minPercentIdentity);
             e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
             int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
@@ -5643,14 +5646,15 @@ public final class GraphUtils {
             int lastReadPartneredKmerIndex = -1;
             int lastFragPartneredKmerIndex = -1;
             
-            for (int i=0; i<e.size(); ++i) {
+            int endIndex = Math.min(e.size(), fragPairedKmersDist);
+            for (int i=0; i<endIndex; ++i) {
                 Kmer eKmer = itr.next();
                 
                 if (eKmer.count < minCov) {
                     minCov = eKmer.count;
                 }
                 
-                if (readPartnerKmerIndex >= 0) {
+                if (i < readPairedKmersDist && readPartnerKmerIndex >= 0) {
                     Kmer partner = kmers.get(readPartnerKmerIndex);
                     if (graph.lookupReadKmerPair(eKmer, partner)) {
                         ++supportingReadKmerPairs;
@@ -5661,7 +5665,7 @@ public final class GraphUtils {
                     }
                 }
                 
-                if (fragPartnerKmerIndex >= 0) {
+                if (i < fragPairedKmersDist && fragPartnerKmerIndex >= 0) {
                     Kmer partner = kmers.get(fragPartnerKmerIndex);
                     if (graph.lookupKmerPair(eKmer, partner)) {
                         ++supportingFragKmerPairs;
@@ -5721,7 +5725,9 @@ public final class GraphUtils {
         while (true) {
             ArrayDeque<Kmer> e =  extendLeftPE(kmers, 
                                             graph, 
-                                            lookahead);
+                                            maxTipLength,
+                                            maxIndelSize,
+                                            percentIdentity);
             
             if (e == null || e.isEmpty()) {
                 break;
@@ -5768,7 +5774,9 @@ public final class GraphUtils {
         while (true) {
             ArrayDeque<Kmer> e =  extendRightPE(kmers, 
                                             graph, 
-                                            lookahead);
+                                            maxTipLength,
+                                            maxIndelSize,
+                                            percentIdentity);
             
             if (e == null || e.isEmpty()) {
                 break;
