@@ -5606,9 +5606,106 @@ public final class GraphUtils {
                     }
                 }
             }
+            
+//            int[] result = new int[2];
+//            countKmerPairs(kmers,
+//                           new ArrayList<>(e),
+//                           0,
+//                           graph,
+//                           result);
+//            
+//            int tmp = -1;
         }
         
         return bestExtension;
+    }
+    
+    private static void countKmerPairs(final ArrayList<Kmer> leftKmers,
+                                    final ArrayList<Kmer> rightKmers,
+                                    final int gap,
+                                    final BloomFilterDeBruijnGraph graph,
+                                    final int[] result) {
+
+        final int readPairedKmersDist = graph.getReadKmerDistance();
+        final int fragPairedKmersDist = graph.getPairedKmerDistance();
+
+        int supportingReadKmerPairs = 0;
+        int supportingFragKmerPairs = 0;
+        
+        final int numLeftKmers = leftKmers.size();
+        final int maxRightKmersIndex = Math.min(fragPairedKmersDist - 1 - gap, rightKmers.size() - 1);
+        
+        int leftReadPartnerIndex = numLeftKmers - readPairedKmersDist + gap;
+        int leftFragPartnerIndex = numLeftKmers - fragPairedKmersDist + gap;
+        
+        for (int i=0; i<=maxRightKmersIndex; ++i) {
+            Kmer rightKmer = rightKmers.get(i);
+            if (leftReadPartnerIndex >=0 && leftReadPartnerIndex < numLeftKmers) {
+                if (graph.lookupReadKmerPair(leftKmers.get(leftReadPartnerIndex), rightKmer)) {
+                    ++supportingReadKmerPairs;
+                }
+            }
+            
+            if (leftFragPartnerIndex >= 0 && leftFragPartnerIndex < numLeftKmers) {
+                if (graph.lookupKmerPair(leftKmers.get(leftFragPartnerIndex), rightKmer)) {
+                    ++supportingFragKmerPairs;
+                }
+            }
+            
+            ++leftReadPartnerIndex;
+            ++leftFragPartnerIndex;
+            
+            if (leftReadPartnerIndex >= numLeftKmers && leftFragPartnerIndex >= numLeftKmers) {
+                break;
+            }
+        }
+        
+        result[0] = supportingReadKmerPairs;
+        result[1] = supportingFragKmerPairs;
+    }
+    
+    private static void countKmerPairsReversed(final ArrayList<Kmer> leftKmers,
+                                    final ArrayList<Kmer> rightKmers,
+                                    final int gap,
+                                    final BloomFilterDeBruijnGraph graph,
+                                    final int[] result) {
+
+        final int readPairedKmersDist = graph.getReadKmerDistance();
+        final int fragPairedKmersDist = graph.getPairedKmerDistance();
+
+        int supportingReadKmerPairs = 0;
+        int supportingFragKmerPairs = 0;
+        
+        final int numRightKmers = rightKmers.size();
+        final int maxLeftKmersIndex = Math.min(fragPairedKmersDist - 1 - gap, leftKmers.size() - 1);
+        
+        int rightReadPartnerIndex = numRightKmers - readPairedKmersDist + gap;
+        int rightFragPartnerIndex = numRightKmers - fragPairedKmersDist + gap;
+        
+        for (int i=0; i<=maxLeftKmersIndex; ++i) {
+            Kmer leftKmer = leftKmers.get(i);
+            if (rightReadPartnerIndex >=0 && rightReadPartnerIndex < numRightKmers) {
+                if (graph.lookupReadKmerPair(leftKmer, rightKmers.get(rightReadPartnerIndex))) {
+                    ++supportingReadKmerPairs;
+                }
+            }
+            
+            if (rightFragPartnerIndex >=0 && rightFragPartnerIndex < numRightKmers) {
+                if (graph.lookupKmerPair(leftKmer, rightKmers.get(rightFragPartnerIndex))) {
+                    ++supportingFragKmerPairs;
+                }
+            }
+            
+            ++rightReadPartnerIndex;
+            ++rightFragPartnerIndex;
+            
+            if (rightReadPartnerIndex >= numRightKmers && rightFragPartnerIndex >= numRightKmers) {
+                break;
+            }
+        }
+        
+        result[0] = supportingReadKmerPairs;
+        result[1] = supportingFragKmerPairs;
     }
     
     private static ArrayDeque<Kmer> extendLeftPE(ArrayList<Kmer> kmers, 
@@ -5702,6 +5799,15 @@ public final class GraphUtils {
                     }
                 }
             }
+            
+//            int[] result = new int[2];
+//            countKmerPairsReversed(new ArrayList<>(e),
+//                            kmers,
+//                            0,
+//                            graph,
+//                            result);
+//            
+//            int tmp = -1;
         }
         
         return bestExtension;
