@@ -4984,97 +4984,110 @@ public final class GraphUtils {
                 }
                 else {
                     // two or more neighbors are supported by paired kmers
+                    ArrayDeque<Kmer> e = extendRightPE(kmers, graph, maxTipLength, maxIndelSize, percentIdentity);
+                    if (e == null || e.isEmpty()) {
+                        return false; // ambiguous branches supported by paired kmers
+                    }
+                    else {
+                        cursor = e.getFirst();
+                    }
                     
-                    float medEdgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
-                    float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-//                    if (minFragmentCoverage >= minFragmentCoverageThreshold) {
-                        ArrayDeque<Kmer> neighborsBackUp = new ArrayDeque<>(neighbors);
-                        
-                        // only remove neighbors based on coverage when fragment coverage is not too low
-                        float minCovThreshold = minFragmentCoverage * maxCovGradient;            
-                        itr = neighbors.iterator();
-                        while (itr.hasNext()) {
-                            Kmer kmer = itr.next();
-
-                            if (kmer.count <= minCovThreshold) {
-                                itr.remove();
-                            }
-                        }
-                        
-                        if (neighbors.size() > 1 && medEdgeCoverage > minFragmentCoverage) {
-                            minCovThreshold = medEdgeCoverage * maxCovGradient;
-                            
-                            itr = neighbors.iterator();
-                            while (itr.hasNext()) {
-                                Kmer kmer = itr.next();
-
-                                if (kmer.count <= minCovThreshold) {
-                                    itr.remove();
-                                }
-                            }
-                        }
-
-                        if (neighbors.size() == 1) {
-                            cursor = neighbors.pop();
-                        }
-                        else {
-                            if (neighbors.isEmpty()) {
-                                neighbors = neighborsBackUp;
-                            }
-                            
-                            Kmer best = null;
-                            float bestCov = 0;
-                            float secondCov = 0;
-                            ArrayDeque<Kmer> bestGE = null;
-                            ArrayDeque<Kmer> secondGE = null;
-                            
-                            for (Kmer kmer : neighbors) {
-                                
-                                ArrayDeque<Kmer> e = extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead);
-                                e.addFirst(kmer);
-                                
-                                ArrayDeque<Kmer> ge = greedyExtendRight(graph, e.getLast(), lookahead, k-lookahead);
-                                Iterator<Kmer> ditr = e.descendingIterator();
-                                while (ditr.hasNext()) {
-                                    ge.addFirst(ditr.next());
-                                }
-                                
-                                float c = getMedianKmerCoverage(e);
-                                
-                                if (best == null) {
-                                    best = kmer;
-                                    bestCov = c;
-                                    bestGE = ge;
-                                } 
-                                else {
-                                    if (bestCov < c) {
-                                        secondCov = bestCov;
-                                        secondGE = bestGE;
-                                        
-                                        best = kmer;
-                                        bestCov = c;
-                                        bestGE = ge;
-                                    }
-                                    else if (secondCov < c) {
-                                        secondCov = c;
-                                        secondGE = ge;
-                                    }
-                                }
-                            }
-
-                            if (bestCov * maxCovGradient >= secondCov || 
-                                    secondCov - bestCov * maxCovGradient <= 0.1f * secondCov ||
-                                    getPercentIdentity(graph.assemble(bestGE), graph.assemble(secondGE)) >= percentIdentity) {
-                                cursor = best;
-                            }
-                            else {
-                                return false; // ambiguous branches supported by paired kmers
-                            }
-                        }
-//                    }
-//                    else {
-//                        return false; // ambiguous branches supported by paired kmers
-//                    }
+//                    float medEdgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
+//                    float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
+////                    if (minFragmentCoverage >= minFragmentCoverageThreshold) {
+//                        ArrayDeque<Kmer> neighborsBackUp = new ArrayDeque<>(neighbors);
+//                        
+//                        // only remove neighbors based on coverage when fragment coverage is not too low
+//                        float minCovThreshold = minFragmentCoverage * maxCovGradient;            
+//                        itr = neighbors.iterator();
+//                        while (itr.hasNext()) {
+//                            Kmer kmer = itr.next();
+//
+//                            if (kmer.count <= minCovThreshold) {
+//                                itr.remove();
+//                            }
+//                        }
+//                        
+//                        if (neighbors.size() > 1 && medEdgeCoverage > minFragmentCoverage) {
+//                            minCovThreshold = medEdgeCoverage * maxCovGradient;
+//                            
+//                            itr = neighbors.iterator();
+//                            while (itr.hasNext()) {
+//                                Kmer kmer = itr.next();
+//
+//                                if (kmer.count <= minCovThreshold) {
+//                                    itr.remove();
+//                                }
+//                            }
+//                        }
+//
+//                        if (neighbors.size() == 1) {
+//                            cursor = neighbors.pop();
+//                        }
+//                        else {
+//                            if (neighbors.isEmpty()) {
+//                                neighbors = neighborsBackUp;
+//                            }
+//                            
+//                            Kmer best = null;
+//                            float bestCov = 0;
+//                            float secondCov = 0;
+//                            ArrayDeque<Kmer> bestGE = null;
+//                            ArrayDeque<Kmer> secondGE = null;
+//                            
+//                            for (Kmer kmer : neighbors) {
+//                                
+//                                ArrayDeque<Kmer> e = extendRightWithPairedKmersOnly(kmer, kmers, graph, lookahead);
+//                                e.addFirst(kmer);
+//                                
+//                                ArrayDeque<Kmer> ge = greedyExtendRight(graph, e.getLast(), lookahead, k-lookahead);
+//                                Iterator<Kmer> ditr = e.descendingIterator();
+//                                while (ditr.hasNext()) {
+//                                    ge.addFirst(ditr.next());
+//                                }
+//                                
+//                                float c = getMedianKmerCoverage(e);
+//                                
+//                                if (best == null) {
+//                                    best = kmer;
+//                                    bestCov = c;
+//                                    bestGE = ge;
+//                                } 
+//                                else {
+//                                    if (bestCov < c) {
+//                                        secondCov = bestCov;
+//                                        secondGE = bestGE;
+//                                        
+//                                        best = kmer;
+//                                        bestCov = c;
+//                                        bestGE = ge;
+//                                    }
+//                                    else if (secondCov < c) {
+//                                        secondCov = c;
+//                                        secondGE = ge;
+//                                    }
+//                                }
+//                            }
+//
+//                            if (bestCov * maxCovGradient >= secondCov || 
+//                                    secondCov - bestCov * maxCovGradient <= 0.1f * secondCov ||
+//                                    getPercentIdentity(graph.assemble(bestGE), graph.assemble(secondGE)) >= percentIdentity) {
+//                                cursor = best;
+//                            }
+//                            else {
+//                                ArrayDeque<Kmer> e = extendRightPE(kmers, graph, maxTipLength, maxIndelSize, percentIdentity);
+//                                if (e == null || e.isEmpty()) {
+//                                    return false; // ambiguous branches supported by paired kmers
+//                                }
+//                                else {
+//                                    cursor = e.getLast();
+//                                }
+//                            }
+//                        }
+////                    }
+////                    else {
+////                        return false; // ambiguous branches supported by paired kmers
+////                    }
                 }
             }
             
@@ -5225,96 +5238,104 @@ public final class GraphUtils {
                 else {
                     // two or more neighbors are supported by paired kmers
                     
-                    float medEdgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
-                    float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
-//                    if (minFragmentCoverage >= minFragmentCoverageThreshold) {
-                        ArrayDeque<Kmer> neighborsBackUp = new ArrayDeque<>(neighbors);
-                        
-                        // only remove neighbors based on coverage when fragment coverage is not too low
-                        float minCovThreshold = minFragmentCoverage * maxCovGradient;            
-                        itr = neighbors.iterator();
-                        while (itr.hasNext()) {
-                            Kmer kmer = itr.next();
-
-                            if (kmer.count <= minCovThreshold) {
-                                itr.remove();
-                            }
-                        }
-                        
-                        if (neighbors.size() > 1 && medEdgeCoverage > minFragmentCoverage) {
-                            minCovThreshold = medEdgeCoverage * maxCovGradient;
-                            
-                            itr = neighbors.iterator();
-                            while (itr.hasNext()) {
-                                Kmer kmer = itr.next();
-
-                                if (kmer.count <= minCovThreshold) {
-                                    itr.remove();
-                                }
-                            }
-                        }
-                        
-                        if (neighbors.size() == 1) {
-                            cursor = neighbors.pop();
-                        }
-                        else {
-                            if (neighbors.isEmpty()) {
-                                neighbors = neighborsBackUp;
-                            }
-                            
-                            Kmer best = null;
-                            float bestCov = 0;
-                            float secondCov = 0;
-                            ArrayDeque<Kmer> bestGE = null;
-                            ArrayDeque<Kmer> secondGE = null;
-                            
-                            for (Kmer kmer : neighbors) {
-                                
-                                ArrayDeque<Kmer> e = extendLeftWithPairedKmersOnly(kmer, kmers, graph, lookahead);
-                                e.addFirst(kmer);
-                                
-                                ArrayDeque<Kmer> ge = greedyExtendLeft(graph, e.getLast(), lookahead, k-lookahead);
-                                Iterator<Kmer> ditr = e.descendingIterator();
-                                while (ditr.hasNext()) {
-                                    ge.addFirst(ditr.next());
-                                }
-                                
-                                float c = getMedianKmerCoverage(e);
-                                
-                                if (best == null) {
-                                    best = kmer;
-                                    bestCov = c;
-                                    bestGE = ge;
-                                }
-                                else {
-                                    if (bestCov < c) {
-                                        secondCov = bestCov;
-                                        secondGE = bestGE;
-                                        
-                                        best = kmer;
-                                        bestCov = c;
-                                        bestGE = ge;
-                                    }
-                                    else if (secondCov < c) {
-                                        secondCov = c;
-                                        secondGE = ge;
-                                    }
-                                }
-                            }
-                            
-                            if (bestCov * maxCovGradient >= secondCov || 
-                                    secondCov - bestCov * maxCovGradient <= 0.1f * secondCov ||
-                                    getPercentIdentity(graph.assembleReverseOrder(bestGE), graph.assembleReverseOrder(secondGE)) >= percentIdentity) {
-                                cursor = best;
-                            }
-                            else {
-                                return false; // ambiguous branches supported by paired kmers
-                            }
-                        }
-//                    }
-//                    else {
-//                        return false; // ambiguous branches supported by paired kmers
-//                    }
+                    ArrayDeque<Kmer> e = extendLeftPE(kmers, graph, maxTipLength, maxIndelSize, percentIdentity);
+                    if (e == null || e.isEmpty()) {
+                        return false; // ambiguous branches supported by paired kmers
+                    }
+                    else {
+                        cursor = e.getFirst();
+                    }
+                    
+//                    float medEdgeCoverage = getMedianKmerCoverage(kmers, numKmers-1-lookahead, numKmers-1);
+//                    float minFragmentCoverage = getMinimumKmerCoverage(kmers, numKmers-distance, numKmers-1);
+////                    if (minFragmentCoverage >= minFragmentCoverageThreshold) {
+//                        ArrayDeque<Kmer> neighborsBackUp = new ArrayDeque<>(neighbors);
+//                        
+//                        // only remove neighbors based on coverage when fragment coverage is not too low
+//                        float minCovThreshold = minFragmentCoverage * maxCovGradient;            
+//                        itr = neighbors.iterator();
+//                        while (itr.hasNext()) {
+//                            Kmer kmer = itr.next();
+//
+//                            if (kmer.count <= minCovThreshold) {
+//                                itr.remove();
+//                            }
+//                        }
+//                        
+//                        if (neighbors.size() > 1 && medEdgeCoverage > minFragmentCoverage) {
+//                            minCovThreshold = medEdgeCoverage * maxCovGradient;
+//                            
+//                            itr = neighbors.iterator();
+//                            while (itr.hasNext()) {
+//                                Kmer kmer = itr.next();
+//
+//                                if (kmer.count <= minCovThreshold) {
+//                                    itr.remove();
+//                                }
+//                            }
+//                        }
+//                        
+//                        if (neighbors.size() == 1) {
+//                            cursor = neighbors.pop();
+//                        }
+//                        else {
+//                            if (neighbors.isEmpty()) {
+//                                neighbors = neighborsBackUp;
+//                            }
+//                            
+//                            Kmer best = null;
+//                            float bestCov = 0;
+//                            float secondCov = 0;
+//                            ArrayDeque<Kmer> bestGE = null;
+//                            ArrayDeque<Kmer> secondGE = null;
+//                            
+//                            for (Kmer kmer : neighbors) {
+//                                
+//                                ArrayDeque<Kmer> e = extendLeftWithPairedKmersOnly(kmer, kmers, graph, lookahead);
+//                                e.addFirst(kmer);
+//                                
+//                                ArrayDeque<Kmer> ge = greedyExtendLeft(graph, e.getLast(), lookahead, k-lookahead);
+//                                Iterator<Kmer> ditr = e.descendingIterator();
+//                                while (ditr.hasNext()) {
+//                                    ge.addFirst(ditr.next());
+//                                }
+//                                
+//                                float c = getMedianKmerCoverage(e);
+//                                
+//                                if (best == null) {
+//                                    best = kmer;
+//                                    bestCov = c;
+//                                    bestGE = ge;
+//                                }
+//                                else {
+//                                    if (bestCov < c) {
+//                                        secondCov = bestCov;
+//                                        secondGE = bestGE;
+//                                        
+//                                        best = kmer;
+//                                        bestCov = c;
+//                                        bestGE = ge;
+//                                    }
+//                                    else if (secondCov < c) {
+//                                        secondCov = c;
+//                                        secondGE = ge;
+//                                    }
+//                                }
+//                            }
+//                            
+//                            if (bestCov * maxCovGradient >= secondCov || 
+//                                    secondCov - bestCov * maxCovGradient <= 0.1f * secondCov ||
+//                                    getPercentIdentity(graph.assembleReverseOrder(bestGE), graph.assembleReverseOrder(secondGE)) >= percentIdentity) {
+//                                cursor = best;
+//                            }
+//                            else {
+//                                return false; // ambiguous branches supported by paired kmers
+//                            }
+//                        }
+////                    }
+////                    else {
+////                        return false; // ambiguous branches supported by paired kmers
+////                    }
                 }
             }
             
