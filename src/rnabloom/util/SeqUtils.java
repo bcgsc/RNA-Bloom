@@ -599,9 +599,12 @@ public final class SeqUtils {
                 ++lowerL;
             }
         }
+
+        if (leftLength >= rightLength && left.contains(right)) {
+            return left;
+        }
         
         if (leftLength < rightLength && right.contains(left)) {
-            // overlap: leftLength
             return right;
         }
         
