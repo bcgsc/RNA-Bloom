@@ -1682,14 +1682,53 @@ public class RNABloom {
 //                    return;
 //                }
 
-                ArrayList<Kmer> leftKmers = graph.getKmers(left);
-                if (leftKmers.isEmpty()) {
+                ArrayList<Kmer> leftKmers = graph.getKmers(left);                
+                ArrayList<Kmer> rightKmers = graph.getKmers(right);
+                
+                if (leftKmers.isEmpty() && rightKmers.isEmpty()) {
                     return;
                 }
                 
-                ArrayList<Kmer> rightKmers = graph.getKmers(right);
+                if (leftKmers.isEmpty()) {
+                    boolean hasComplexKmer = false;
+                    float minCov = Float.MAX_VALUE;
+                    if (rightKmers.size() >= lookahead) {
+                        for (Kmer kmer : rightKmers) {
+                            if (kmer.count < minCov) {
+                                minCov = kmer.count;
+                            }
+
+                            if (!hasComplexKmer && !graph.isLowComplexity(kmer)) {
+                                hasComplexKmer = true;
+                            }
+                        }
+                    }
+
+                    if (hasComplexKmer) {
+                        outList.put(new Fragment(left, graph.assemble(rightKmers), null, 0, minCov, true));
+                        return;
+                    }
+                }
+                
                 if (rightKmers.isEmpty()) {
-                    return;
+                    boolean hasComplexKmer = false;
+                    float minCov = Float.MAX_VALUE;
+                    if (leftKmers.size() >= lookahead) {
+                        for (Kmer kmer : leftKmers) {
+                            if (kmer.count < minCov) {
+                                minCov = kmer.count;
+                            }
+
+                            if (!hasComplexKmer && !graph.isLowComplexity(kmer)) {
+                                hasComplexKmer = true;
+                            }
+                        }
+                    }
+
+                    if (hasComplexKmer) {
+                        outList.put(new Fragment(graph.assemble(leftKmers), right, null, 0, minCov, true));
+                        return;
+                    }
                 }
                 
                 if (this.errorCorrectionIterations > 0) {
