@@ -1682,11 +1682,6 @@ public class RNABloom {
 //                    return;
 //                }
 
-                if (left.equals("GGATAAAGAGGGCATCCCCCCTGACCAGCAGAGGCTGATCTTTGCCGGCAAGCAGCTGGAAGATGGCCGCACCCTCTCTGATTACAACATCCAGAAGGAGTCAACCCTGCACCTGGTCCTTCGCC") &&
-                        right.equals("GGATAAAGAGGGCATCCCCCCTGACCAGCAGAGGCTGATCTTTGCCGGCAAGCAGCTGGAAGATGGCCGCACCCTCTCTGATTACAACATCCAGAAGGAGTCAACCCTGCACCTGGTCCTTCGCC")) {
-                    System.out.println("here");
-                }
-
                 ArrayList<Kmer> leftKmers = graph.getKmers(left);                
                 ArrayList<Kmer> rightKmers = graph.getKmers(right);
                 
