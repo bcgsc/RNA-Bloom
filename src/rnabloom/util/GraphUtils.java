@@ -742,138 +742,234 @@ public final class GraphUtils {
         
         float leftCoverageThreshold = getMinimumKmerCoverage(leftKmers) * maxCovGradient;
         
-        ArrayDeque<Kmer> leftPath = new ArrayDeque<>(leftKmers);
-        HashSet<Kmer> leftPathKmers = new HashSet<>(bound);
+        ArrayList<Kmer> leftPath = new ArrayList<>(leftKmers);
         
-        int maxSize = bound + leftKmers.size();
+        int maxSize = bound + leftPath.size();
         while (leftPath.size() < maxSize) {
-            ArrayDeque<Kmer> e = extendRightSE(leftKmers, graph, maxTipLen, maxIndelLen, minPercentIdentity);
-            
-            if (e.isEmpty()) {
-                ArrayDeque<Kmer> neighbors = leftPath.getLast().getSuccessors(k, numHash, graph);
-                
-                // filter by coverage
-                if (neighbors.isEmpty()) {
-                    break;
+            ArrayDeque<Kmer> neighbors = leftPath.get(leftPath.size()-1).getSuccessors(k, numHash, graph);
+
+            // filter by coverage
+            if (neighbors.isEmpty()) {
+                break;
+            }
+            else {
+                Kmer best = null;
+
+                if (neighbors.size() == 1) {
+                    best = neighbors.pop();
                 }
                 else {
-                    Kmer best = null;
-                    
-                    if (neighbors.size() == 1) {
+                    Iterator<Kmer> itr = neighbors.iterator();
+                    while (itr.hasNext()) {
+                        if (itr.next().count < leftCoverageThreshold) {
+                            itr.remove();
+                        }
+                    }
+
+                    if (neighbors.isEmpty()) {
+                        break;
+                    }
+                    else if (neighbors.size() == 1) {
                         best = neighbors.pop();
+
+                        float c = maxCovGradient * best.count;
+                        if (c < leftCoverageThreshold) {
+                            leftCoverageThreshold = c;
+                        }
                     }
                     else {
-                        Iterator<Kmer> itr = neighbors.iterator();
-                        while (itr.hasNext()) {
-                            if (itr.next().count < leftCoverageThreshold) {
-                                itr.remove();
-                            }
-                        }
-
-                        if (neighbors.isEmpty()) {
+                        ArrayDeque<Kmer> e = extendRightSE(leftPath, graph, maxTipLen, maxSize - leftPath.size());
+                        
+                        if (e.isEmpty()) {
                             break;
                         }
-                        else if (neighbors.size() == 1) {
-                            best = neighbors.pop();
+                        
+                        for (Kmer current : e) {
+                            if (rightKmersSet.contains(current)) {
+                                ArrayList<Kmer> result = new ArrayList<>();
+                                result.addAll(leftPath);
 
-                            float c = maxCovGradient * best.count;
-                            if (c < leftCoverageThreshold) {
-                                leftCoverageThreshold = c;
+                                boolean add = false;
+                                itr = rightKmers.iterator();
+                                while (itr.hasNext()) {
+                                    if (add) {
+                                        result.add(itr.next());
+                                    }
+                                    else {
+                                        Kmer kmer = itr.next();
+                                        if (kmer.equals(current)) {
+                                            add = true;
+                                            result.add(kmer);
+                                        }
+                                    }
+                                }
+
+                                return result;
                             }
-                        }
-                        else {
-                            break;
+                            else {
+                                leftPath.add(current);
+                                leftKmersSet.add(current);
+
+                                float c = maxCovGradient * current.count;
+                                if (c < leftCoverageThreshold) {
+                                    leftCoverageThreshold = c;
+                                }
+                            }
                         }
                     }
+                }
 
-                    if (rightKmersSet.contains(best)) {
-                        if (best.equals(right)) {
-                            ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftKmers.size() + leftPath.size() + rightKmers.size());
-                            fragmentKmers.addAll(leftKmers);
+                if (best != null && rightKmersSet.contains(best)) {
+                    if (best.equals(right)) {
+                        ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftPath.size() + rightKmers.size());
+                        fragmentKmers.addAll(leftPath);
+                        fragmentKmers.addAll(rightKmers);
+
+                        return fragmentKmers;
+                    }
+                    else {
+                        int bestIndex = rightKmers.indexOf(best);
+
+                        float pathCov = getMinimumKmerCoverage(leftPath, leftPath.size()-bestIndex, leftPath.size());
+
+                        float danglingCov = getMinimumKmerCoverage(rightKmers, 0, bestIndex);
+
+                        if (danglingCov < pathCov) {
+                            ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftPath.size() + rightKmers.size() - bestIndex);
                             fragmentKmers.addAll(leftPath);
-                            fragmentKmers.addAll(rightKmers);
+                            for (int i=bestIndex; i<rightKmers.size(); ++i) {
+                                fragmentKmers.add(rightKmers.get(i));
+                            }
 
                             return fragmentKmers;
                         }
                         else {
-                            int bestIndex = rightKmers.indexOf(best);
-
-                            float pathCov = -1;
-                            Iterator<Kmer> itr = leftPath.descendingIterator();
-                            for (int i=0; i<bestIndex; ++i) {
-                                if (itr.hasNext()) {
-                                    float c = itr.next().count;
-                                    if (c < pathCov || pathCov == -1) {
-                                        pathCov = c;
-                                    }
-                                }
-                                else {
-                                    break;
-                                }
-                            }
-
-                            float danglingCov = getMinimumKmerCoverage(rightKmers, 0, bestIndex);
-
-                            if (danglingCov < pathCov) {
-                                ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftKmers.size() + leftPath.size() + rightKmers.size() - bestIndex);
-                                fragmentKmers.addAll(leftKmers);
-                                fragmentKmers.addAll(leftPath);
-                                for (int i=bestIndex; i<rightKmers.size(); ++i) {
-                                    fragmentKmers.add(rightKmers.get(i));
-                                }
-
-                                return fragmentKmers;
-                            }
-                            else {
-                                break;
-                            }
-                        }
-                    }
-                    else {
-                        if (leftPathKmers.contains(best) || leftKmersSet.contains(best)) {
                             break;
-                        }
-                        else {
-                            leftPathKmers.add(best);
-                            leftPath.add(best);
                         }
                     }
                 }
+                else {
+                    if (leftKmersSet.contains(best)) {
+                        break;
+                    }
+                    else {
+                        leftPath.add(best);
+                        leftKmersSet.add(best);
+                    }
+                }
+            }
+        }
+        
+        Kmer left = leftKmers.get(leftKmers.size()-1);
+        float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
+        
+        ArrayList<Kmer> rightPath = new ArrayList<>(rightKmers);
+        Collections.reverse(rightPath);
+        
+        maxSize = bound + rightPath.size();
+        while (rightPath.size() < maxSize) {
+            ArrayDeque<Kmer> neighbors = rightPath.get(rightPath.size()-1).getPredecessors(k, numHash, graph);
+
+            // filter by coverage
+            if (neighbors.isEmpty()) {
+                break;
             }
             else {
-                Iterator<Kmer> itr = e.iterator();
-                while (itr.hasNext()) {
-                    Kmer current = itr.next();
-                    if (rightKmersSet.contains(current)) {
-                        // return joined sequence
-                        ArrayList<Kmer> result = new ArrayList<>();
-                        result.addAll(leftPath);
+                Kmer best = null;
+
+                if (neighbors.size() == 1) {
+                    best = neighbors.pop();
+                }
+                else {
+                    Iterator<Kmer> itr = neighbors.iterator();
+                    while (itr.hasNext()) {
+                        if (itr.next().count < rightCoverageThreshold) {
+                            itr.remove();
+                        }
+                    }
+
+                    if (neighbors.isEmpty()) {
+                        break;
+                    }
+                    else if (neighbors.size() == 1) {
+                        best = neighbors.pop();
+
+                        float c = maxCovGradient * best.count;
+                        if (c < rightCoverageThreshold) {
+                            rightCoverageThreshold = c;
+                        }
+                    }
+                    else {
+                        ArrayDeque<Kmer> e = extendLeftSE(rightPath, graph, maxTipLen, maxSize - leftPath.size());
                         
-                        boolean add = false;
-                        itr = rightKmers.iterator();
-                        while (itr.hasNext()) {
-                            if (add) {
-                                result.add(itr.next());
+                        if (e.isEmpty()) {
+                            break;
+                        }
+                        
+                        for (Kmer current : e) {
+                            if (leftKmersSet.contains(current)) {
+                                for (int i=leftPath.size()-1; i>=0; --i) {
+                                    if (leftPath.get(i).equals(current)) {
+                                        break;
+                                    }
+                                    else {
+                                        leftPath.remove(i);
+                                    }
+                                }
+
+                                for (int i=rightPath.size()-1; i>=0; --i) {
+                                    leftPath.add(rightPath.get(i));
+                                }
+
+                                return leftPath;
                             }
                             else {
-                                Kmer kmer = itr.next();
-                                if (kmer.equals(current)) {
-                                    add = true;
-                                    result.add(kmer);
+                                rightPath.add(current);
+                                rightKmersSet.add(current);
+
+                                float c = maxCovGradient * current.count;
+                                if (c < rightCoverageThreshold) {
+                                    rightCoverageThreshold = c;
                                 }
                             }
                         }
-                        
-                        return result;
+                    }
+                }
+
+                if (leftKmersSet.contains(best)) {
+                    if (best.equals(left)) {
+                        ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftKmers.size() + rightPath.size());
+                        fragmentKmers.addAll(leftKmers);
+                        for (int i=rightPath.size()-1; i>=0; --i) {
+                            fragmentKmers.add(rightPath.get(i));
+                        }
+
+                        return fragmentKmers;
                     }
                     else {
-                        leftPath.add(current);
-                        leftPathKmers.add(current);
-                        
-                        float c = maxCovGradient * current.count;
-                        if (c < leftCoverageThreshold) {
-                            leftCoverageThreshold = c;
+                        for (int i=leftPath.size()-1; i>=0; --i) {
+                            if (leftPath.get(i).equals(best)) {
+                                break;
+                            }
+                            else {
+                                leftPath.remove(i);
+                            }
                         }
+
+                        for (int i=rightPath.size()-1; i>=0; --i) {
+                            leftPath.add(rightPath.get(i));
+                        }
+
+                        return leftPath;                         
+                    }
+                }
+                else {
+                    if (rightKmersSet.contains(best)) {
+                        return null;
+                    }
+                    else {
+                        rightPath.add(best);
+                        rightKmersSet.add(best);
                     }
                 }
             }
@@ -3326,26 +3422,20 @@ public final class GraphUtils {
                                                     int lookahead,
                                                     int minOverlap,
                                                     float maxCovGradient,
-                                                    boolean rescueSearch) {
+                                                    int maxTipLen,
+                                                    int maxIndelLen,
+                                                    float minPercentIdentity) {
 
         // 1. Attempt simple overlap
         ArrayList<Kmer> fragmentKmers = overlap(leftKmers, rightKmers, graph, minOverlap);
         
         if (fragmentKmers == null) {
 
-            fragmentKmers = getSimilarCoveragePath(graph, leftKmers, rightKmers, bound, lookahead, maxCovGradient, rescueSearch);
+            fragmentKmers = join(graph, leftKmers, rightKmers, bound, lookahead, maxCovGradient,
+                                    maxTipLen, maxIndelLen, minPercentIdentity);
+//            fragmentKmers = getSimilarCoveragePath(graph, leftKmers, rightKmers, bound, lookahead, maxCovGradient, false);
 //            ArrayDeque<Kmer> connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
 
-//            if (connectedPath == null && exhaustiveSearch) {
-//                connectedPath = findPath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
-//            }
-
-//            if (connectedPath != null) {
-//                fragmentKmers = new ArrayList<>(leftKmers.size() + connectedPath.size() + rightKmers.size());
-//                fragmentKmers.addAll(leftKmers);
-//                fragmentKmers.addAll(connectedPath);
-//                fragmentKmers.addAll(rightKmers);
-//            }
         }
         
         return fragmentKmers;
@@ -5547,8 +5637,7 @@ public final class GraphUtils {
     private static ArrayDeque<Kmer> extendRightSE(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph,
                                             int maxTipLen,
-                                            int maxIndelSize,
-                                            float minPercentIdentity) {
+                                            int bound) {
         final int k = graph.getK();
         final int numHash = graph.getMaxNumHash();
         final int readPairedKmersDist = graph.getReadKmerDistance();
@@ -5562,7 +5651,7 @@ public final class GraphUtils {
         ArrayDeque<Kmer> bestExtension = null;
                 
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = extendRight(candidate, graph, maxTipLen, new HashSet<>(), maxIndelSize, minPercentIdentity);
+            ArrayDeque<Kmer> e = naiveExtendRight(candidate, graph, maxTipLen, bound);
             e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
             
@@ -5625,8 +5714,7 @@ public final class GraphUtils {
     private static ArrayDeque<Kmer> extendLeftSE(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph, 
                                             int maxTipLen,
-                                            int maxIndelSize,
-                                            float minPercentIdentity) {
+                                            int bound) {
         // `kmers` is reversed
         
         final int k = graph.getK();
@@ -5642,7 +5730,7 @@ public final class GraphUtils {
         ArrayDeque<Kmer> bestExtension = null;
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = extendLeft(candidate, graph, maxTipLen, new HashSet<>(), maxIndelSize, minPercentIdentity);
+            ArrayDeque<Kmer> e = naiveExtendLeft(candidate, graph, maxTipLen, bound);
             e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
 
@@ -7864,6 +7952,67 @@ public final class GraphUtils {
         return result;
     }
     
+    public static ArrayDeque<Kmer> naiveExtendRight(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, int bound) {        
+        int k = graph.getK();
+        int numHash = graph.getMaxNumHash();
+        
+//        HashSet<Kmer> usedKmers = new HashSet<>();
+        
+        ArrayDeque<Kmer> result = new ArrayDeque<>();
+        int extensionLength = 0;
+        
+        ArrayDeque<Kmer> neighbors = new ArrayDeque<>(4);
+        kmer.getSuccessors(k, numHash, graph, neighbors);
+        Kmer best = kmer;
+        while (!neighbors.isEmpty()) {
+            /** look for back branches*/
+            for (Kmer s : best.getLeftVariants(k, numHash, graph)) {
+                if (s.hasDepthLeft(k, numHash, graph, maxTipLength)) {
+                    return result;
+                }
+            }
+            
+            if (neighbors.size() == 1) {
+                best = neighbors.pop();
+            }
+            else {
+                best = null;
+                while (!neighbors.isEmpty()) {
+                    Kmer n = neighbors.pop();
+                    if (n.hasDepthRight(k, numHash, graph, maxTipLength)) {
+                        if (best == null) {
+                            best = n;
+                        }
+                        else {
+                            // too many good branches
+                            return result;
+                        }
+                    }
+                }
+            }
+            
+            if (best == null) {
+                break;
+            }
+                        
+//            if (usedKmers.contains(best)) {
+//                break;
+//            }
+            
+            result.add(best);
+            
+            if (++extensionLength > bound) {
+                break;
+            }
+            
+//            usedKmers.add(best);
+            
+            best.getSuccessors(k, numHash, graph, neighbors);
+        }
+        
+        return result;
+    }
+    
     public static ArrayList<Kmer> naiveExtend(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph, int maxTipLength) {
         HashSet<Kmer> usedKmers = new HashSet<>(kmers);
         
@@ -7938,6 +8087,67 @@ public final class GraphUtils {
             
             result.addLast(best);
             usedKmers.add(best);
+            
+            best.getPredecessors(k, numHash, graph, neighbors);
+        }
+        
+        return result;
+    }
+    
+    public static ArrayDeque<Kmer> naiveExtendLeft(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, int bound) {        
+        int k = graph.getK();
+        int numHash = graph.getMaxNumHash();
+        
+//        HashSet<Kmer> usedKmers = new HashSet<>();
+        
+        ArrayDeque<Kmer> result = new ArrayDeque<>();
+        int extensionLength = 0;
+        
+        ArrayDeque<Kmer> neighbors = new ArrayDeque<>(4);
+        kmer.getPredecessors(k, numHash, graph, neighbors);
+        Kmer best = kmer;
+        while (!neighbors.isEmpty()) {
+            /** look for back branches*/
+            for (Kmer s : best.getRightVariants(k, numHash, graph)) {
+                if (s.hasDepthRight(k, numHash, graph, maxTipLength)) {
+                    return result;
+                }
+            }
+            
+            if (neighbors.size() == 1) {
+                best = neighbors.pop();
+            }
+            else {
+                best = null;
+                while (!neighbors.isEmpty()) {
+                    Kmer n = neighbors.pop();
+//                    if (hasDepthLeft(n, graph, maxTipLength)) {
+                    if (n.hasDepthLeft(k, numHash, graph, maxTipLength)) {
+                        if (best == null) {
+                            best = n;
+                        }
+                        else {
+                            // too many good branches
+                            return result;
+                        }
+                    }
+                }
+            }
+            
+            if (best == null) {
+                break;
+            }
+            
+//            if (usedKmers.contains(best)) {
+//                break;
+//            }
+            
+            result.addLast(best);
+            
+            if (++extensionLength > bound) {
+                break;
+            }
+//            usedKmers.add(best);
             
             best.getPredecessors(k, numHash, graph, neighbors);
         }

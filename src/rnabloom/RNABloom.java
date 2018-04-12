@@ -1538,7 +1538,8 @@ public class RNABloom {
                 
                 if (!leftKmers.isEmpty() && !rightKmers.isEmpty()) {
 
-                    ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound-k+1-leftKmers.size()-rightKmers.size(), lookahead, minOverlap, maxCovGradient, true);
+                    ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound-k+1-leftKmers.size()-rightKmers.size(),
+                            lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity);
 
                     ArrayDeque<ArrayList<Kmer>> segments = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
                     
@@ -1749,7 +1750,8 @@ public class RNABloom {
                     }
                 }
 
-                ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound, lookahead, minOverlap, maxCovGradient, true);
+                ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound,
+                        lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity);
 
                 // check for read consistency if fragment is long enough
                 if (fragmentKmers != null && graph.getReadKmerDistance() < fragmentKmers.size()) {
