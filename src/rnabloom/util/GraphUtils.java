@@ -777,84 +777,83 @@ public final class GraphUtils {
                             leftCoverageThreshold = c;
                         }
                     }
-                    else {
-                        ArrayDeque<Kmer> e = extendRightSE(leftPath, graph, maxTipLen, maxSize - leftPath.size());
-                        
-                        if (e.isEmpty()) {
-                            break;
-                        }
-                        
-                        for (Kmer current : e) {
-                            if (rightKmersSet.contains(current)) {
-                                ArrayList<Kmer> result = new ArrayList<>();
-                                result.addAll(leftPath);
-
-                                boolean add = false;
-                                itr = rightKmers.iterator();
-                                while (itr.hasNext()) {
-                                    if (add) {
-                                        result.add(itr.next());
-                                    }
-                                    else {
-                                        Kmer kmer = itr.next();
-                                        if (kmer.equals(current)) {
-                                            add = true;
-                                            result.add(kmer);
-                                        }
-                                    }
-                                }
-
-                                return result;
-                            }
-                            else {
-                                leftPath.add(current);
-                                leftKmersSet.add(current);
-
-                                float c = maxCovGradient * current.count;
-                                if (c < leftCoverageThreshold) {
-                                    leftCoverageThreshold = c;
-                                }
-                            }
-                        }
-                    }
                 }
 
-                if (best != null && rightKmersSet.contains(best)) {
-                    if (best.equals(right)) {
-                        ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftPath.size() + rightKmers.size());
-                        fragmentKmers.addAll(leftPath);
-                        fragmentKmers.addAll(rightKmers);
-
-                        return fragmentKmers;
-                    }
-                    else {
-                        int bestIndex = rightKmers.indexOf(best);
-
-                        float pathCov = getMinimumKmerCoverage(leftPath, leftPath.size()-bestIndex, leftPath.size());
-
-                        float danglingCov = getMinimumKmerCoverage(rightKmers, 0, bestIndex);
-
-                        if (danglingCov < pathCov) {
-                            ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftPath.size() + rightKmers.size() - bestIndex);
+                if (best != null) {
+                    if (rightKmersSet.contains(best)) {
+                        if (best.equals(right)) {
+                            ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftPath.size() + rightKmers.size());
                             fragmentKmers.addAll(leftPath);
-                            for (int i=bestIndex; i<rightKmers.size(); ++i) {
-                                fragmentKmers.add(rightKmers.get(i));
-                            }
+                            fragmentKmers.addAll(rightKmers);
 
                             return fragmentKmers;
                         }
                         else {
+                            int bestIndex = rightKmers.indexOf(best);
+
+                            float pathCov = getMinimumKmerCoverage(leftPath, leftPath.size()-bestIndex, leftPath.size());
+
+                            float danglingCov = getMinimumKmerCoverage(rightKmers, 0, bestIndex);
+
+                            if (danglingCov < pathCov) {
+                                ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftPath.size() + rightKmers.size() - bestIndex);
+                                fragmentKmers.addAll(leftPath);
+                                for (int i=bestIndex; i<rightKmers.size(); ++i) {
+                                    fragmentKmers.add(rightKmers.get(i));
+                                }
+
+                                return fragmentKmers;
+                            }
+                            else {
+                                break;
+                            }
+                        }
+                    }
+                    else {
+                        if (leftKmersSet.contains(best)) {
                             break;
+                        }
+                        else {
+                            leftPath.add(best);
+                            leftKmersSet.add(best);
                         }
                     }
                 }
                 else {
-                    if (leftKmersSet.contains(best)) {
+                    ArrayDeque<Kmer> e = extendRightSE(leftPath, graph, maxTipLen, maxSize - leftPath.size());
+
+                    if (e.isEmpty()) {
                         break;
                     }
-                    else {
-                        leftPath.add(best);
-                        leftKmersSet.add(best);
+
+                    for (Kmer current : e) {
+                        if (rightKmersSet.contains(current)) {
+                            boolean add = false;
+                            Iterator<Kmer> itr = rightKmers.iterator();
+                            while (itr.hasNext()) {
+                                if (add) {
+                                    leftPath.add(itr.next());
+                                }
+                                else {
+                                    Kmer kmer = itr.next();
+                                    if (kmer.equals(current)) {
+                                        add = true;
+                                        leftPath.add(kmer);
+                                    }
+                                }
+                            }
+
+                            return leftPath;
+                        }
+                        else {
+                            leftPath.add(current);
+                            leftKmersSet.add(current);
+
+                            float c = maxCovGradient * current.count;
+                            if (c < leftCoverageThreshold) {
+                                leftCoverageThreshold = c;
+                            }
+                        }
                     }
                 }
             }
@@ -899,77 +898,79 @@ public final class GraphUtils {
                             rightCoverageThreshold = c;
                         }
                     }
-                    else {
-                        ArrayDeque<Kmer> e = extendLeftSE(rightPath, graph, maxTipLen, maxSize - leftPath.size());
-                        
-                        if (e.isEmpty()) {
-                            break;
-                        }
-                        
-                        for (Kmer current : e) {
-                            if (leftKmersSet.contains(current)) {
-                                for (int i=leftPath.size()-1; i>=0; --i) {
-                                    if (leftPath.get(i).equals(current)) {
-                                        break;
-                                    }
-                                    else {
-                                        leftPath.remove(i);
-                                    }
-                                }
-
-                                for (int i=rightPath.size()-1; i>=0; --i) {
-                                    leftPath.add(rightPath.get(i));
-                                }
-
-                                return leftPath;
-                            }
-                            else {
-                                rightPath.add(current);
-                                rightKmersSet.add(current);
-
-                                float c = maxCovGradient * current.count;
-                                if (c < rightCoverageThreshold) {
-                                    rightCoverageThreshold = c;
-                                }
-                            }
-                        }
-                    }
                 }
 
-                if (leftKmersSet.contains(best)) {
-                    if (best.equals(left)) {
-                        ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftKmers.size() + rightPath.size());
-                        fragmentKmers.addAll(leftKmers);
-                        for (int i=rightPath.size()-1; i>=0; --i) {
-                            fragmentKmers.add(rightPath.get(i));
-                        }
+                if (best != null) {
+                    if (leftKmersSet.contains(best)) {
+                        if (best.equals(left)) {
+                            ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftKmers.size() + rightPath.size());
+                            fragmentKmers.addAll(leftKmers);
+                            for (int i=rightPath.size()-1; i>=0; --i) {
+                                fragmentKmers.add(rightPath.get(i));
+                            }
 
-                        return fragmentKmers;
+                            return fragmentKmers;
+                        }
+                        else {
+                            for (int i=leftPath.size()-1; i>=0; --i) {
+                                if (leftPath.get(i).equals(best)) {
+                                    break;
+                                }
+                                else {
+                                    leftPath.remove(i);
+                                }
+                            }
+
+                            for (int i=rightPath.size()-1; i>=0; --i) {
+                                leftPath.add(rightPath.get(i));
+                            }
+
+                            return leftPath;                         
+                        }
                     }
                     else {
-                        for (int i=leftPath.size()-1; i>=0; --i) {
-                            if (leftPath.get(i).equals(best)) {
-                                break;
-                            }
-                            else {
-                                leftPath.remove(i);
-                            }
+                        if (rightKmersSet.contains(best)) {
+                            return null;
                         }
-
-                        for (int i=rightPath.size()-1; i>=0; --i) {
-                            leftPath.add(rightPath.get(i));
+                        else {
+                            rightPath.add(best);
+                            rightKmersSet.add(best);
                         }
-
-                        return leftPath;                         
                     }
                 }
                 else {
-                    if (rightKmersSet.contains(best)) {
-                        return null;
+                    ArrayDeque<Kmer> e = extendLeftSE(rightPath, graph, maxTipLen, maxSize - leftPath.size());
+
+                    if (e.isEmpty()) {
+                        break;
                     }
-                    else {
-                        rightPath.add(best);
-                        rightKmersSet.add(best);
+
+                    for (Kmer current : e) {
+                        if (leftKmersSet.contains(current)) {
+                            for (int i=leftPath.size()-1; i>=0; --i) {
+                                if (leftPath.get(i).equals(current)) {
+                                    break;
+                                }
+                                else {
+                                    leftPath.remove(i);
+                                }
+                            }
+
+                            for (int i=rightPath.size()-1; i>=0; --i) {
+                                leftPath.add(rightPath.get(i));
+                            }
+
+                            return leftPath;
+                        }
+                        else {
+                            rightPath.add(current);
+                            rightKmersSet.add(current);
+
+                            float c = maxCovGradient * current.count;
+                            if (c < rightCoverageThreshold) {
+                                rightCoverageThreshold = c;
+                            }
+                        }
                     }
                 }
             }
