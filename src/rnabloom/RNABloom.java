@@ -1351,14 +1351,14 @@ public class RNABloom {
                                                         maxTipLength,
                                                         percentIdentity)) {
                                 
-//                                extendPE(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
+                                extendPE(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
                                 
-                                if (includeNaiveExtensions) {
-                                    extendWithPairedKmers(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
-                                }
-                                else {
-                                    extendWithPairedKmersDFS(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
-                                }
+//                                if (includeNaiveExtensions) {
+//                                    extendWithPairedKmers(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
+//                                }
+//                                else {
+//                                    extendWithPairedKmersDFS(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
+//                                }
 
                                 if (kmers.size() > fragKmersDist) {
                                     if (reqFragKmersConsistency) {
@@ -1782,8 +1782,7 @@ public class RNABloom {
                         }
 
                         if (hasComplexKmer) {
-                            //if (extendFragments) {
-                            if (extendFragments && minCov <= k*2 && isBranchFree(fragmentKmers, graph, maxTipLength)) {
+                            if (extendFragments) {
                                 fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength);
                             }
 
@@ -4062,7 +4061,7 @@ public class RNABloom {
             final int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
             final int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
             final int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "3"));
-            final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), Integer.toString(k)));
+            final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "5"));
             final float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
             final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.90"));
             final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));

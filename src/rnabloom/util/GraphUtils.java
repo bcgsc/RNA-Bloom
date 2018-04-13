@@ -5819,7 +5819,7 @@ public final class GraphUtils {
         ArrayDeque<Kmer> bestExtension = null;
                 
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = extendRight(candidate, graph, maxTipLen, new HashSet<>(), maxIndelSize, minPercentIdentity);
+            ArrayDeque<Kmer> e = naiveExtendRight(candidate, graph, maxTipLen, fragPairedKmersDist);
             e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
             int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
@@ -6012,7 +6012,7 @@ public final class GraphUtils {
         ArrayDeque<Kmer> bestExtension = null;
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = extendLeft(candidate, graph, maxTipLen, new HashSet<>(), maxIndelSize, minPercentIdentity);
+            ArrayDeque<Kmer> e = naiveExtendLeft(candidate, graph, maxTipLen, fragPairedKmersDist);
             e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
             int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
