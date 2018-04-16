@@ -5799,7 +5799,7 @@ public final class GraphUtils {
         
         return bestExtension;
     }
-    
+        
     private static ArrayDeque<Kmer> extendRightPE(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph,
                                             int maxTipLen,
@@ -5816,6 +5816,7 @@ public final class GraphUtils {
             Kmer c = candidates.peek();
             ArrayDeque<Kmer> e = naiveExtendRight(c, graph, maxTipLen, fragPairedKmersDist);
             e.addFirst(c);
+            return e;
         }
 
         final int readPairedKmersDist = graph.getReadKmerDistance();        
@@ -6014,6 +6015,7 @@ public final class GraphUtils {
             Kmer c = candidates.peek();
             ArrayDeque<Kmer> e = naiveExtendLeft(c, graph, maxTipLen, fragPairedKmersDist);
             e.addFirst(c);
+            return e;
         }
         
         final int readPairedKmersDist = graph.getReadKmerDistance();
