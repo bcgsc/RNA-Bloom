@@ -6134,33 +6134,36 @@ public final class GraphUtils {
             
             Iterator<Kmer> itr = e.iterator();
             boolean used = true;
-            boolean assembled = true;
-            while (itr.hasNext() && (used || assembled)) {
+//            boolean assembled = true;
+//            while (itr.hasNext() && (used || assembled)) {
+            while (itr.hasNext() && used) {
                 Kmer kmer = itr.next();
                 
                 if (!usedKmers.contains(kmer)) {
                     used = false;
                 }
                 
-                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
-                    assembled = false;
-                }
+//                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
+//                    assembled = false;
+//                }
             }
             
             int endIndex = Math.max(0, kmers.size()-d+e.size());
-            for (int i=kmers.size()-1; i>=endIndex && (used || assembled); --i) {
+//            for (int i=kmers.size()-1; i>=endIndex && (used || assembled); --i) {
+            for (int i=kmers.size()-1; i>=endIndex && used; --i) {
                 Kmer kmer = kmers.get(i);
                 
                 if (!usedKmers.contains(kmer)) {
                     used = false;
                 }
                 
-                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
-                    assembled = false;
-                }
+//                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
+//                    assembled = false;
+//                }
             }
             
-            if (used || assembled) {
+//            if (used || assembled) {
+            if (used) {                
                 break;
             }
             
@@ -6183,33 +6186,36 @@ public final class GraphUtils {
             
             Iterator<Kmer> itr = e.iterator();
             boolean used = true;
-            boolean assembled = true;
-            while (itr.hasNext() && (used || assembled)) {
+//            boolean assembled = true;
+//            while (itr.hasNext() && (used || assembled)) {
+            while (itr.hasNext() && used) {
                 Kmer kmer = itr.next();
                 
                 if (!usedKmers.contains(kmer)) {
                     used = false;
                 }
                 
-                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
-                    assembled = false;
-                }
+//                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
+//                    assembled = false;
+//                }
             }
             
             int endIndex = Math.max(0, kmers.size()-d+e.size());
-            for (int i=kmers.size()-1; i>=endIndex && (used || assembled); --i) {
+//            for (int i=kmers.size()-1; i>=endIndex && (used || assembled); --i) {
+            for (int i=kmers.size()-1; i>=endIndex && used; --i) {
                 Kmer kmer = kmers.get(i);
                 
                 if (!usedKmers.contains(kmer)) {
                     used = false;
                 }
                 
-                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
-                    assembled = false;
-                }
+//                if (!assembledKmersBloomFilter.lookup(kmer.getHash())) {
+//                    assembled = false;
+//                }
             }
             
-            if (used || assembled) {
+//            if (used || assembled) {
+            if (used) {
                 break;
             }
             
