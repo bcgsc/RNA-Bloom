@@ -54,10 +54,10 @@ public class CanonicalKmer extends Kmer {
                             combineHashValues(rightPartner.rHashVal, rHashVal));
     }
     
-    @Override
-    public int hashCode(){
-        return (int) getHash(); 
-    }
+//    @Override
+//    public int hashCode(){
+//        return (int) getHash(); 
+//    }
         
     @Override
     public boolean equals(Object obj) {
