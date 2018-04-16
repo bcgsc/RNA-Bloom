@@ -5807,14 +5807,19 @@ public final class GraphUtils {
                                             float minPercentIdentity) {
         final int k = graph.getK();
         final int numHash = graph.getMaxNumHash();
-        final int readPairedKmersDist = graph.getReadKmerDistance();
-        final int fragPairedKmersDist = graph.getPairedKmerDistance();
-        
+        final int fragPairedKmersDist = graph.getPairedKmerDistance();        
         final int numKmers = kmers.size();
-        final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getSuccessors(k, numHash, graph);
         
+        if (candidates.size() == 1) {
+            Kmer c = candidates.peek();
+            ArrayDeque<Kmer> e = naiveExtendRight(c, graph, maxTipLen, fragPairedKmersDist);
+            e.addFirst(c);
+        }
+
+        final int readPairedKmersDist = graph.getReadKmerDistance();        
+        final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);        
         float bestScore = Float.MIN_VALUE;
         ArrayDeque<Kmer> bestExtension = null;
                 
@@ -6000,14 +6005,19 @@ public final class GraphUtils {
         
         final int k = graph.getK();
         final int numHash = graph.getMaxNumHash();
-        final int readPairedKmersDist = graph.getReadKmerDistance();
         final int fragPairedKmersDist = graph.getPairedKmerDistance();
-        
         final int numKmers = kmers.size();
-        final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getPredecessors(k, numHash, graph);
         
+        if (candidates.size() == 1) {
+            Kmer c = candidates.peek();
+            ArrayDeque<Kmer> e = naiveExtendLeft(c, graph, maxTipLen, fragPairedKmersDist);
+            e.addFirst(c);
+        }
+        
+        final int readPairedKmersDist = graph.getReadKmerDistance();
+        final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);
         float bestScore = Float.MIN_VALUE;
         ArrayDeque<Kmer> bestExtension = null;
         
