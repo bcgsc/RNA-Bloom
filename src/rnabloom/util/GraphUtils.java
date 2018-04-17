@@ -2743,7 +2743,7 @@ public final class GraphUtils {
         
         ArrayDeque<ArrayList<Kmer>> segments = new ArrayDeque<>();
         
-        int d = graph.getReadKmerDistance();
+        int d = graph.getReadPairedKmerDistance();
         int lastIndex = kmers.size() - 1 - d;
         
         int start = -1;
@@ -2818,13 +2818,91 @@ public final class GraphUtils {
         return segments;
     }
     
+    public static ArrayDeque<ArrayList<Kmer>> breakWithFragPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph, int numPairsRequired) {
+        ArrayDeque<ArrayList<Kmer>> segments = new ArrayDeque<>();
+        
+        int d = graph.getFragPairedKmerDistance();
+        int lastIndex = kmers.size() - 1 - d;
+        
+        int start = -1;
+        int end = -1;
+        
+        if (numPairsRequired == 1) {
+            for (int i=0; i<=lastIndex; ++i) {
+                if (graph.lookupKmerPair(kmers.get(i), kmers.get(i+d))) {
+                    if (start < 0) {
+                        start = i;
+                    }
+
+                    end = i+d;
+                }
+                else if (start >= 0 && i > end) {
+                    ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
+                    for (int j=start; j<=end; ++j) {
+                        sublist.add(kmers.get(j));
+                    }
+                    segments.add(sublist);
+
+                    start = -1;
+                    end = -1;
+                }
+            }
+
+            if (start >= 0) {
+                ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
+                for (int j=start; j<=end; ++j) {
+                    sublist.add(kmers.get(j));
+                }
+                segments.add(sublist);
+            }
+        }
+        else {
+            int numPreviousKmerPairs = 0;
+            for (int i=0; i<=lastIndex; ++i) {
+                if (graph.lookupKmerPair(kmers.get(i), kmers.get(i+d))) {
+                    if (++numPreviousKmerPairs >= numPairsRequired) {
+                        if (start < 0) {
+                            start = i-numPairsRequired+1;
+                        }
+                        
+                        end = i+d;
+                    }
+                }
+                else {
+                    if (start >= 0 && i > end) {
+                        ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
+                        for (int j=start; j<=end; ++j) {
+                            sublist.add(kmers.get(j));
+                        }
+                        segments.add(sublist);
+
+                        start = -1;
+                        end = -1;
+                    }
+                    
+                    numPreviousKmerPairs = 0;
+                }
+            }
+            
+            if (start >= 0) {
+                ArrayList<Kmer> sublist = new ArrayList<>(end-start+1);
+                for (int j=start; j<=end; ++j) {
+                    sublist.add(kmers.get(j));
+                }
+                segments.add(sublist);
+            }
+        }
+        
+        return segments;
+    }
+    
     public static ArrayDeque<ArrayList<Kmer>> breakWithPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph) {
         /**@TODO Adjust how much paired kmers should interlock*/
         /**@TODO Adjust how many consecutive paired kmers are required*/
         
         ArrayDeque<ArrayList<Kmer>> segments = new ArrayDeque<>();
         
-        int d = graph.getPairedKmerDistance();
+        int d = graph.getFragPairedKmerDistance();
         int lastIndex = kmers.size() - 1 - d;
         
         int start = -1;
@@ -4559,7 +4637,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
-        int distance = graph.getPairedKmerDistance();
+        int distance = graph.getFragPairedKmerDistance();
         int numKmers = kmers.size();
         
         Kmer cursor = kmers.get(numKmers-1);
@@ -4649,7 +4727,7 @@ public final class GraphUtils {
                                                         int maxLength) {
         // each extension must be a paired kmer
         
-        final int distance = graph.getPairedKmerDistance();
+        final int distance = graph.getFragPairedKmerDistance();
         final int numKmers = kmers.size();
         
         ArrayDeque<Kmer> extension = new ArrayDeque<>();
@@ -4741,7 +4819,7 @@ public final class GraphUtils {
                                                         int maxLength) {
         // each extension must be a paired kmer
         
-        final int distance = graph.getPairedKmerDistance();
+        final int distance = graph.getFragPairedKmerDistance();
         final int numKmers = kmers.size();
         
         ArrayDeque<Kmer> extension = new ArrayDeque<>();
@@ -4837,7 +4915,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
-        int distance = graph.getPairedKmerDistance();
+        int distance = graph.getFragPairedKmerDistance();
         int numKmers = kmers.size();
                             
         Kmer cursor = kmers.get(numKmers-1);
@@ -4943,7 +5021,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
-        int distance = graph.getPairedKmerDistance();
+        int distance = graph.getFragPairedKmerDistance();
         int numKmers = kmers.size();
         
         // Note that `kmers` are in reverse order already
@@ -5037,7 +5115,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
-        int distance = graph.getPairedKmerDistance();
+        int distance = graph.getFragPairedKmerDistance();
         int numKmers = kmers.size();
         
         // Note that `kmers` are in reverse order already
@@ -5148,7 +5226,7 @@ public final class GraphUtils {
         
         final int k = graph.getK();
         final int numHash = graph.getMaxNumHash();
-        final int distance = graph.getPairedKmerDistance();
+        final int distance = graph.getFragPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int numKmers = kmers.size();
                             
@@ -5401,7 +5479,7 @@ public final class GraphUtils {
         final int k = graph.getK();
         final int numHash = graph.getMaxNumHash();
         
-        final int distance = graph.getPairedKmerDistance();
+        final int distance = graph.getFragPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int numKmers = kmers.size();
         
@@ -5641,7 +5719,7 @@ public final class GraphUtils {
                                             int bound) {
         final int k = graph.getK();
         final int numHash = graph.getMaxNumHash();
-        final int readPairedKmersDist = graph.getReadKmerDistance();
+        final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         
         final int numKmers = kmers.size();
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - readPairedKmersDist, 0), numKmers);
@@ -5720,7 +5798,7 @@ public final class GraphUtils {
         
         final int k = graph.getK();
         final int numHash = graph.getMaxNumHash();
-        final int readPairedKmersDist = graph.getReadKmerDistance();
+        final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         
         final int numKmers = kmers.size();
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - readPairedKmersDist, 0), numKmers);
@@ -5807,7 +5885,7 @@ public final class GraphUtils {
                                             float minPercentIdentity) {
         final int k = graph.getK();
         final int numHash = graph.getMaxNumHash();
-        final int fragPairedKmersDist = graph.getPairedKmerDistance();        
+        final int fragPairedKmersDist = graph.getFragPairedKmerDistance();        
         final int numKmers = kmers.size();
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getSuccessors(k, numHash, graph);
@@ -5819,7 +5897,7 @@ public final class GraphUtils {
             return e;
         }
 
-        final int readPairedKmersDist = graph.getReadKmerDistance();        
+        final int readPairedKmersDist = graph.getReadPairedKmerDistance();        
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);        
         float bestScore = Float.MIN_VALUE;
         ArrayDeque<Kmer> bestExtension = null;
@@ -5915,8 +5993,8 @@ public final class GraphUtils {
                                     final BloomFilterDeBruijnGraph graph,
                                     final int[] result) {
 
-        final int readPairedKmersDist = graph.getReadKmerDistance();
-        final int fragPairedKmersDist = graph.getPairedKmerDistance();
+        final int readPairedKmersDist = graph.getReadPairedKmerDistance();
+        final int fragPairedKmersDist = graph.getFragPairedKmerDistance();
 
         int supportingReadKmerPairs = 0;
         int supportingFragKmerPairs = 0;
@@ -5959,8 +6037,8 @@ public final class GraphUtils {
                                     final BloomFilterDeBruijnGraph graph,
                                     final int[] result) {
 
-        final int readPairedKmersDist = graph.getReadKmerDistance();
-        final int fragPairedKmersDist = graph.getPairedKmerDistance();
+        final int readPairedKmersDist = graph.getReadPairedKmerDistance();
+        final int fragPairedKmersDist = graph.getFragPairedKmerDistance();
 
         int supportingReadKmerPairs = 0;
         int supportingFragKmerPairs = 0;
@@ -6006,7 +6084,7 @@ public final class GraphUtils {
         
         final int k = graph.getK();
         final int numHash = graph.getMaxNumHash();
-        final int fragPairedKmersDist = graph.getPairedKmerDistance();
+        final int fragPairedKmersDist = graph.getFragPairedKmerDistance();
         final int numKmers = kmers.size();
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getPredecessors(k, numHash, graph);
@@ -6018,7 +6096,7 @@ public final class GraphUtils {
             return e;
         }
         
-        final int readPairedKmersDist = graph.getReadKmerDistance();
+        final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);
         float bestScore = Float.MIN_VALUE;
         ArrayDeque<Kmer> bestExtension = null;
@@ -6117,7 +6195,7 @@ public final class GraphUtils {
                                             float percentIdentity,
                                             int minNumPairs,
                                             float maxCovGradient) {
-        final int d = graph.getPairedKmerDistance();
+        final int d = graph.getFragPairedKmerDistance();
         
         HashSet<Kmer> usedKmers = new HashSet<>(kmers);
 
@@ -6239,7 +6317,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
-        final int distance = graph.getPairedKmerDistance();
+        final int distance = graph.getFragPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
         
@@ -6419,7 +6497,7 @@ public final class GraphUtils {
                                             float maxCovGradient) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
-        final int distance = graph.getPairedKmerDistance();
+        final int distance = graph.getFragPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int maxDepth = maxLeftPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
         
@@ -6598,7 +6676,7 @@ public final class GraphUtils {
                                             HashSet<Kmer> usedKmers) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
-        final int distance = graph.getPairedKmerDistance();
+        final int distance = graph.getFragPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, distance, minNumPairs);
         
@@ -6722,7 +6800,7 @@ public final class GraphUtils {
                                             HashSet<Kmer> usedKmers) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
-        final int distance = graph.getPairedKmerDistance();
+        final int distance = graph.getFragPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int maxDepth = maxLeftPartnerSearchDepth2(kmers, graph, distance, minNumPairs);
         
@@ -6846,7 +6924,7 @@ public final class GraphUtils {
                                             HashSet<Kmer> usedKmers) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
-        final int distance = graph.getPairedKmerDistance();
+        final int distance = graph.getFragPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int maxDepth = maxRightPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
         
@@ -7006,7 +7084,7 @@ public final class GraphUtils {
                                             HashSet<Kmer> usedKmers) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
-        final int distance = graph.getPairedKmerDistance();
+        final int distance = graph.getFragPairedKmerDistance();
 //        int distanceInversePI = Math.max((int) (distance * (1-percentIdentity)), graph.getK());
         int maxDepth = maxLeftPartnerSearchDepth2(kmers, graph, distance, assembledKmersBloomFilter, minNumPairs);
         

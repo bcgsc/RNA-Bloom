@@ -373,7 +373,7 @@ public class RNABloom {
             }
             
             if (storeReadPairedKmers) {
-                kmerPairDistance = graph.getReadKmerDistance();
+                kmerPairDistance = graph.getReadPairedKmerDistance();
                 if (stranded) {
                     if (reverseComplement) {
                         pitr = new ReverseComplementPairedNTHashIterator(k, numHash, kmerPairDistance);
@@ -715,7 +715,7 @@ public class RNABloom {
             ============== single read
         */
         
-        graph.setReadKmerDistance(readLength - k - minNumKmerPairs);
+        graph.setReadPairedKmerDistance(readLength - k - minNumKmerPairs);
     }
     
     public void populateGraph(Collection<String> forwardReadPaths,
@@ -1285,7 +1285,7 @@ public class RNABloom {
             keepGoing = false;
         }
 
-        private void breakIntoReadSegments(String fragment, ArrayList<Kmer> fragKmers, ArrayList<Kmer> txptKmers) throws InterruptedException {
+        private void storeConsistentReadSegments(String fragment, ArrayList<Kmer> fragKmers, ArrayList<Kmer> txptKmers) throws InterruptedException {
             ArrayDeque<ArrayList<Kmer>> readSegments = breakWithReadPairedKmers(txptKmers, graph, lookahead);
 
             int numReadSegs = readSegments.size();
@@ -1312,7 +1312,7 @@ public class RNABloom {
         @Override
         public void run() {
             try {
-                int fragKmersDist = graph.getPairedKmerDistance();
+                int fragKmersDist = graph.getFragPairedKmerDistance();
                 
                 while (true) {
                     String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
@@ -1362,25 +1362,24 @@ public class RNABloom {
 
                                 if (kmers.size() > fragKmersDist) {
                                     if (reqFragKmersConsistency) {
-                                        ArrayDeque<ArrayList<Kmer>> fragSegments = breakWithPairedKmers(kmers, graph);
+                                        ArrayDeque<ArrayList<Kmer>> fragSegments = breakWithFragPairedKmers(kmers, graph, lookahead);
                                         int numFragSegs = fragSegments.size();
 
                                         if (numFragSegs >= 1) {
                                             for (ArrayList<Kmer> f : fragSegments) {
                                                 if (numFragSegs == 1 || new HashSet<>(f).containsAll(originalFragKmers)) {
-                                                    breakIntoReadSegments(fragment, originalFragKmers, kmers);
-
+                                                    storeConsistentReadSegments(fragment, originalFragKmers, kmers);
                                                     break;
                                                 }
                                             }
                                         }
                                     }
                                     else {
-                                        breakIntoReadSegments(fragment, originalFragKmers, kmers);
+                                        storeConsistentReadSegments(fragment, originalFragKmers, kmers);
                                     }
                                 }
                                 else {
-                                    breakIntoReadSegments(fragment, originalFragKmers, kmers);
+                                    storeConsistentReadSegments(fragment, originalFragKmers, kmers);
                                 }
                             }
                         }
@@ -1754,7 +1753,7 @@ public class RNABloom {
                         lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity);
 
                 // check for read consistency if fragment is long enough
-                if (fragmentKmers != null && graph.getReadKmerDistance() < fragmentKmers.size()) {
+                if (fragmentKmers != null && graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
                     ArrayDeque<ArrayList<Kmer>> segments = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
 
                     if (segments.size() != 1) {
@@ -2287,7 +2286,7 @@ public class RNABloom {
     }
     
     public void setPairedKmerDistance(int fragStatQ1) {
-        graph.setPairedKmerDistance(fragStatQ1 - k - minNumKmerPairs);
+        graph.setFragPairedKmerDistance(fragStatQ1 - k - minNumKmerPairs);
     }
     
     public int getPairedReadsMaxDistance(int[] fragStats) {
@@ -2319,7 +2318,7 @@ public class RNABloom {
         System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
         System.out.println("Counting Bloom filter FPR: " + covFPR * 100 + " %");
         
-        if (graph.getReadKmerDistance() > 0) {
+        if (graph.getReadPairedKmerDistance() > 0) {
             System.out.println("Read paired-kmers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
         }
         

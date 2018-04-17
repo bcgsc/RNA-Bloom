@@ -359,19 +359,19 @@ public class BloomFilterDeBruijnGraph {
         }
     }
     
-    public void setPairedKmerDistance(int d) {
+    public void setFragPairedKmerDistance(int d) {
         this.fragmentPairedKmersDistance = d;
     }
     
-    public int getPairedKmerDistance() {
+    public int getFragPairedKmerDistance() {
         return this.fragmentPairedKmersDistance;
     }
     
-    public void setReadKmerDistance(int d) {
+    public void setReadPairedKmerDistance(int d) {
         this.readPairedKmersDistance = d;
     }
     
-    public int getReadKmerDistance() {
+    public int getReadPairedKmerDistance() {
         return readPairedKmersDistance;
     }
     
