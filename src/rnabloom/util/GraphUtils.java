@@ -5734,7 +5734,7 @@ public final class GraphUtils {
             e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
             
-            float minCov = pathMinCov;
+//            float minCov = pathMinCov;
             
             Iterator<Kmer> itr = e.iterator();
             
@@ -5745,9 +5745,9 @@ public final class GraphUtils {
             for (int i=0; i<endIndex; ++i) {
                 Kmer eKmer = itr.next();
                 
-                if (eKmer.count < minCov) {
-                    minCov = eKmer.count;
-                }
+//                if (eKmer.count < minCov) {
+//                    minCov = eKmer.count;
+//                }
                 
                 if (i < readPairedKmersDist && readPartnerKmerIndex >= 0) {
                     Kmer partner = kmers.get(readPartnerKmerIndex);
@@ -5755,9 +5755,9 @@ public final class GraphUtils {
                         ++supportingReadKmerPairs;
                         lastReadPartneredKmerIndex = i;
                     }
-                    else if (lastReadPartneredKmerIndex >= 0 && i-lastReadPartneredKmerIndex > k) {
-                        break;
-                    }
+//                    else if (lastReadPartneredKmerIndex >= 0 && i-lastReadPartneredKmerIndex > k) {
+//                        break;
+//                    }
                 }
                 
                 ++readPartnerKmerIndex;
@@ -5773,7 +5773,7 @@ public final class GraphUtils {
                     d = depth
                 */
                 
-                float score = minCov * supportingReadKmerPairs / (lastReadPartneredKmerIndex + 1);
+                float score = Math.min(pathMinCov, getMedianKmerCoverage(e)) * supportingReadKmerPairs / (lastReadPartneredKmerIndex+1);
                 if (score > bestScore) {
                     bestScore = score;
                     bestExtension = e;
@@ -5813,7 +5813,7 @@ public final class GraphUtils {
             e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
 
-            float minCov = pathMinCov;
+//            float minCov = pathMinCov;
             
             Iterator<Kmer> itr = e.iterator();
             
@@ -5824,9 +5824,9 @@ public final class GraphUtils {
             for (int i=0; i<endIndex; ++i) {
                 Kmer eKmer = itr.next();
                 
-                if (eKmer.count < minCov) {
-                    minCov = eKmer.count;
-                }
+//                if (eKmer.count < minCov) {
+//                    minCov = eKmer.count;
+//                }
                 
                 if (i < readPairedKmersDist && readPartnerKmerIndex >= 0) {
                     Kmer partner = kmers.get(readPartnerKmerIndex);
@@ -5834,9 +5834,9 @@ public final class GraphUtils {
                         ++supportingReadKmerPairs;
                         lastReadPartneredKmerIndex = i;
                     }
-                    else if (lastReadPartneredKmerIndex >= 0 && i-lastReadPartneredKmerIndex > k) {
-                        break;
-                    }
+//                    else if (lastReadPartneredKmerIndex >= 0 && i-lastReadPartneredKmerIndex > k) {
+//                        break;
+//                    }
                 }
                 
                 ++readPartnerKmerIndex;
@@ -5852,7 +5852,7 @@ public final class GraphUtils {
                     d = depth
                 */
                 
-                float score = minCov * supportingReadKmerPairs / (lastReadPartneredKmerIndex + 1);
+                float score = Math.min(pathMinCov, getMedianKmerCoverage(e)) * supportingReadKmerPairs / (lastReadPartneredKmerIndex+1);
                 if (score > bestScore) {
                     bestScore = score;
                     bestExtension = e;
@@ -5901,57 +5901,50 @@ public final class GraphUtils {
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);        
         float bestScore = Float.MIN_VALUE;
         ArrayDeque<Kmer> bestExtension = null;
-                
+        
         for (Kmer candidate : candidates) {
             ArrayDeque<Kmer> e = naiveExtendRight(candidate, graph, maxTipLen, fragPairedKmersDist);
             e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
             int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
-
-            float minCov = pathMinCov;
-            
+        
             Iterator<Kmer> itr = e.iterator();
             
             int supportingReadKmerPairs = 0;
             int supportingFragKmerPairs = 0;
-            int lastReadPartneredKmerIndex = -1;
-            int lastFragPartneredKmerIndex = -1;
+            int lastPartneredKmerIndex = -1;
                         
             int endIndex = Math.min(e.size(), fragPairedKmersDist);
             for (int i=0; i<endIndex; ++i) {
                 Kmer eKmer = itr.next();
                 
-                if (eKmer.count < minCov) {
-                    minCov = eKmer.count;
-                }
-                
                 if (i < readPairedKmersDist && readPartnerKmerIndex >= 0) {
                     Kmer partner = kmers.get(readPartnerKmerIndex);
                     if (graph.lookupReadKmerPair(partner, eKmer)) {
                         ++supportingReadKmerPairs;
-                        lastReadPartneredKmerIndex = i;
+                        lastPartneredKmerIndex = i;
                     }
-                    else if (lastReadPartneredKmerIndex >= 0 && i-lastReadPartneredKmerIndex > k) {
-                        break;
-                    }
+//                    else if (lastReadPartneredKmerIndex >= 0 && i-lastReadPartneredKmerIndex > k) {
+//                        break;
+//                    }
                 }
                 
                 if (i < fragPairedKmersDist && fragPartnerKmerIndex >= 0) {
                     Kmer partner = kmers.get(fragPartnerKmerIndex);
                     if (graph.lookupKmerPair(partner, eKmer)) {
                         ++supportingFragKmerPairs;
-                        lastFragPartneredKmerIndex = i;
+                        lastPartneredKmerIndex = i;
                     }
-                    else if (lastFragPartneredKmerIndex >= 0 && i-lastFragPartneredKmerIndex > readPairedKmersDist) {
-                        break;
-                    }
+//                    else if (lastFragPartneredKmerIndex >= 0 && i-lastFragPartneredKmerIndex > readPairedKmersDist) {
+//                        break;
+//                    }
                 }
                 
                 ++readPartnerKmerIndex;
                 ++fragPartnerKmerIndex;
             }
             
-            if (lastReadPartneredKmerIndex >= 0) {
+            if (lastPartneredKmerIndex >= 0) {
                 /*
                     h = min(C) * p / d
 
@@ -5961,13 +5954,14 @@ public final class GraphUtils {
                     d = depth
                 */
                 
-                float score = minCov * (supportingReadKmerPairs + supportingFragKmerPairs) / (lastReadPartneredKmerIndex + 1);
+                float score = Math.min(pathMinCov, getMedianKmerCoverage(e)) * (supportingReadKmerPairs + supportingFragKmerPairs) / (lastPartneredKmerIndex+1);
+//                System.out.println(score + ": " + graph.assemble(e));
                 if (score > bestScore) {
                     bestScore = score;
                     bestExtension = e;
                     
                     itr = e.descendingIterator();
-                    for (int i=e.size()-1; i>lastReadPartneredKmerIndex; --i) {
+                    for (int i=e.size()-1; i>lastPartneredKmerIndex; --i) {
                         itr.next();
                         itr.remove();
                     }
@@ -6106,51 +6100,44 @@ public final class GraphUtils {
             e.addFirst(candidate);
             int readPartnerKmerIndex = numKmers - readPairedKmersDist;
             int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
-
-            float minCov = pathMinCov;
             
             Iterator<Kmer> itr = e.iterator();
             
             int supportingReadKmerPairs = 0;
             int supportingFragKmerPairs = 0;
-            int lastReadPartneredKmerIndex = -1;
-            int lastFragPartneredKmerIndex = -1;
+            int lastPartneredKmerIndex = -1;
             
             int endIndex = Math.min(e.size(), fragPairedKmersDist);
             for (int i=0; i<endIndex; ++i) {
                 Kmer eKmer = itr.next();
                 
-                if (eKmer.count < minCov) {
-                    minCov = eKmer.count;
-                }
-                
                 if (i < readPairedKmersDist && readPartnerKmerIndex >= 0) {
                     Kmer partner = kmers.get(readPartnerKmerIndex);
                     if (graph.lookupReadKmerPair(eKmer, partner)) {
                         ++supportingReadKmerPairs;
-                        lastReadPartneredKmerIndex = i;
+                        lastPartneredKmerIndex = i;
                     }
-                    else if (lastReadPartneredKmerIndex >= 0 && i-lastReadPartneredKmerIndex > k) {
-                        break;
-                    }
+//                    else if (lastReadPartneredKmerIndex >= 0 && i-lastReadPartneredKmerIndex > k) {
+//                        break;
+//                    }
                 }
                 
                 if (i < fragPairedKmersDist && fragPartnerKmerIndex >= 0) {
                     Kmer partner = kmers.get(fragPartnerKmerIndex);
                     if (graph.lookupKmerPair(eKmer, partner)) {
                         ++supportingFragKmerPairs;
-                        lastFragPartneredKmerIndex = i;
+                        lastPartneredKmerIndex = i;
                     }
-                    else if (lastFragPartneredKmerIndex >= 0 && i-lastFragPartneredKmerIndex > readPairedKmersDist) {
-                        break;
-                    }
+//                    else if (lastFragPartneredKmerIndex >= 0 && i-lastFragPartneredKmerIndex > readPairedKmersDist) {
+//                        break;
+//                    }
                 }
                 
                 ++readPartnerKmerIndex;
                 ++fragPartnerKmerIndex;
             }
             
-            if (lastReadPartneredKmerIndex >= 0) {
+            if (lastPartneredKmerIndex >= 0) {
                 /*
                     h = min(C) * p / d
 
@@ -6160,13 +6147,13 @@ public final class GraphUtils {
                     d = depth
                 */
                 
-                float score = minCov * (supportingReadKmerPairs + supportingFragKmerPairs) / (lastReadPartneredKmerIndex + 1);
+                float score = Math.min(pathMinCov, getMedianKmerCoverage(e)) * (supportingReadKmerPairs + supportingFragKmerPairs) / (lastPartneredKmerIndex+1);
                 if (score > bestScore) {
                     bestScore = score;
                     bestExtension = e;
                     
                     itr = e.descendingIterator();
-                    for (int i=e.size()-1; i>lastReadPartneredKmerIndex; --i) {
+                    for (int i=e.size()-1; i>lastPartneredKmerIndex; --i) {
                         itr.next();
                         itr.remove();
                     }
