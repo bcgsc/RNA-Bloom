@@ -1362,7 +1362,7 @@ public class RNABloom {
 
                                 if (kmers.size() > fragKmersDist) {
                                     if (reqFragKmersConsistency) {
-                                        ArrayDeque<ArrayList<Kmer>> fragSegments = breakWithFragPairedKmers(kmers, graph, lookahead);
+                                        ArrayDeque<ArrayList<Kmer>> fragSegments = breakWithFragPairedKmers(kmers, graph);
                                         int numFragSegs = fragSegments.size();
 
                                         if (numFragSegs >= 1) {

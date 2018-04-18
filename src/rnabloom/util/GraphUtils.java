@@ -2896,9 +2896,8 @@ public final class GraphUtils {
         return segments;
     }
     
-    public static ArrayDeque<ArrayList<Kmer>> breakWithPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph) {
+    public static ArrayDeque<ArrayList<Kmer>> breakWithFragPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph) {
         /**@TODO Adjust how much paired kmers should interlock*/
-        /**@TODO Adjust how many consecutive paired kmers are required*/
         
         ArrayDeque<ArrayList<Kmer>> segments = new ArrayDeque<>();
         
