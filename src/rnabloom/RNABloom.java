@@ -1285,7 +1285,7 @@ public class RNABloom {
             keepGoing = false;
         }
 
-        private void storeConsistentReadSegments(String fragment, ArrayList<Kmer> fragKmers, ArrayList<Kmer> txptKmers) throws InterruptedException {
+        private void storeConsistentReadSegments(String fragment, ArrayList<Kmer> txptKmers) throws InterruptedException {
             ArrayDeque<ArrayList<Kmer>> readSegments = breakWithReadPairedKmers(txptKmers, graph, lookahead);
 
             int numReadSegs = readSegments.size();
@@ -1296,7 +1296,7 @@ public class RNABloom {
                 }
             }
             else if (numReadSegs > 1) {
-                int numFragKmers = fragKmers.size();
+                int numFragKmers = getNumKmers(fragment, k);
                 
                 for (ArrayList<Kmer> r : readSegments) {
                     if (r.size() >= numFragKmers && graph.assemble(r).contains(fragment)) {
@@ -1313,7 +1313,7 @@ public class RNABloom {
         public void run() {
             try {
                 int fragKmersDist = graph.getFragPairedKmerDistance();
-                
+                                
                 while (true) {
                     String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
                     
@@ -1368,18 +1368,18 @@ public class RNABloom {
                                         if (numFragSegs >= 1) {
                                             for (ArrayList<Kmer> f : fragSegments) {
                                                 if (numFragSegs == 1 || new HashSet<>(f).containsAll(originalFragKmers)) {
-                                                    storeConsistentReadSegments(fragment, originalFragKmers, kmers);
+                                                    storeConsistentReadSegments(fragment, f);
                                                     break;
                                                 }
                                             }
                                         }
                                     }
                                     else {
-                                        storeConsistentReadSegments(fragment, originalFragKmers, kmers);
+                                        storeConsistentReadSegments(fragment, kmers);
                                     }
                                 }
                                 else {
-                                    storeConsistentReadSegments(fragment, originalFragKmers, kmers);
+                                    storeConsistentReadSegments(fragment, kmers);
                                 }
                             }
                         }
