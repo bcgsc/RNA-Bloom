@@ -1366,9 +1366,9 @@ public class RNABloom {
                                         int numFragSegs = fragSegments.size();
 
                                         if (numFragSegs >= 1) {
-                                            for (ArrayList<Kmer> f : fragSegments) {
-                                                if (numFragSegs == 1 || new HashSet<>(f).containsAll(originalFragKmers)) {
-                                                    storeConsistentReadSegments(fragment, f);
+                                            for (ArrayList<Kmer> seg : fragSegments) {
+                                                if (numFragSegs == 1 || (seg.size() >= originalFragKmers.size() && new HashSet<>(seg).containsAll(originalFragKmers))) {
+                                                    storeConsistentReadSegments(fragment, seg);
                                                     break;
                                                 }
                                             }
