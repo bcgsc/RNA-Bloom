@@ -28,6 +28,26 @@ import static rnabloom.util.SeqUtils.*;
  */
 public final class GraphUtils {
 
+    public static void printPairedKmersPositions(final ArrayList<Kmer> kmers, final BloomFilterDeBruijnGraph graph) {
+        int fragPairedKmersDist = graph.getFragPairedKmerDistance();
+        
+        int maxIndex = kmers.size() - 1 - fragPairedKmersDist;
+        
+        System.out.println("start");
+        
+        for (int i=0; i<=maxIndex; ++i) {
+            int partnerIndex = i+fragPairedKmersDist;
+            if (graph.lookupKmerPair(kmers.get(i), kmers.get(partnerIndex))) {
+                System.out.println(i + " " + partnerIndex + " " + getMinimumKmerCoverage(kmers, i, partnerIndex));
+            }
+        }
+        
+        ArrayDeque<ArrayList<Kmer>> readSegs = breakWithReadPairedKmers(kmers, graph, 3);
+        ArrayDeque<ArrayList<Kmer>> fragSegs = breakWithFragPairedKmers(kmers, graph);
+        
+        System.out.println("end");
+    }
+    
     public static float getMinimumKmerCoverage(final Iterable<Kmer> kmers) {
         float min = Float.MAX_VALUE;
         
