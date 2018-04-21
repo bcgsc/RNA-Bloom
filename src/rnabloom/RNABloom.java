@@ -66,7 +66,7 @@ import static rnabloom.util.SeqUtils.*;
  * @author kmnip
  */
 public class RNABloom {
-    public final static String VERSION = "0.9.3";
+    public final static String VERSION = "0.9.4";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
@@ -3561,7 +3561,8 @@ public class RNABloom {
     public static void main(String[] args) throws IOException {        
         MyTimer timer = new MyTimer();
         
-        System.out.println("args: " + Arrays.toString(args));
+        System.out.println("RNA-Bloom " + VERSION + "\n\n" +
+                "args: " + Arrays.toString(args));
         
         // -left /home/gengar/test_data/GAPDH/GAPDH_2.fq.gz -right /home/gengar/test_data/GAPDH/GAPDH_1.fq.gz -revcomp-right -stranded -name gapdh -outdir /home/gengar/test_assemblies/GAPDH
         // -left /home/gengar/test_data/SRR1360926/SRR1360926_2.fastq.gz -right /home/gengar/test_data/SRR1360926/SRR1360926_1.fastq.gz -revcomp-right -stranded -name SRR1360926 -outdir /home/gengar/test_assemblies/SRR1360926
