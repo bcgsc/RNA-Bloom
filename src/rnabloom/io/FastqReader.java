@@ -9,6 +9,8 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Iterator;
 //import java.util.NoSuchElementException;
 //import java.util.function.Supplier;
@@ -26,8 +28,8 @@ public final class FastqReader {
     private final BufferedReader br;
     private final Iterator<String> itr;
     
-    public FastqReader(String path) throws IOException {
-        if (path.endsWith(GZIP_EXTENSION)) {
+    public FastqReader(String path) throws IOException {        
+        if (path.endsWith(GZIP_EXTENSION) || Files.probeContentType(Paths.get(path)).equals("application/gzip")) {
             br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))));
         }
         else {
