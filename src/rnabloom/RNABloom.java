@@ -1100,22 +1100,25 @@ public class RNABloom {
         private final FastaWriter fout;
         private final FastaWriter foutShort;
         private final int minTranscriptLength;
+        private final int maxTipLength;
         private String prefix = "";
         private long cid = 0;
         
         public TranscriptWriter(FastaWriter fout, 
                                 FastaWriter foutShort,
-                                int minTranscriptLength) {
+                                int minTranscriptLength,
+                                int maxTipLength) {
             this.fout = fout;
             this.foutShort = foutShort;
             this.minTranscriptLength = minTranscriptLength;
+            this.maxTipLength = maxTipLength;
         }
         
         public void setOutputPrefix(String prefix) {
             this.prefix = prefix;
         }
                 
-        public void write(String fragment, ArrayList<Kmer> transcriptKmers) throws IOException {
+        public void write(String fragment, ArrayList<Kmer> transcriptKmers) throws IOException {            
             if (!represented(transcriptKmers,
                                 graph,
                                 screeningBf,
@@ -3058,7 +3061,7 @@ public class RNABloom {
 
             FastaWriter fout = new FastaWriter(outFasta, false);
             FastaWriter foutShort = new FastaWriter(outFastaShort, false);
-            TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength);
+            TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, sensitiveMode ? maxTipLength : Math.max(k, maxTipLength));
 
    
             boolean allowNaiveExtension = true;
