@@ -5746,6 +5746,7 @@ public final class GraphUtils {
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getSuccessors(k, numHash, graph);
         
         float bestScore = 0;
+        float bestCov = 0;
         ArrayDeque<Kmer> bestExtension = null;
                 
         for (Kmer candidate : candidates) {
@@ -5783,18 +5784,11 @@ public final class GraphUtils {
             }
             
             if (lastReadPartneredKmerIndex >= 0) {
-                /*
-                    h = min(C) * p / d
-
-                    where:
-                    C = kmer coverage
-                    p = read kmer pairs
-                    d = depth
-                */
-                
-                float score = Math.min(pathMinCov, getMedianKmerCoverage(e)) * supportingReadKmerPairs / (lastReadPartneredKmerIndex+1);
-                if (score > bestScore) {
+                float cov = getMedianKmerCoverage(e);
+                float score = Math.min(pathMinCov, cov) * supportingReadKmerPairs / (lastReadPartneredKmerIndex+1);
+                if (score > bestScore || (score == bestScore && cov > bestCov)) {
                     bestScore = score;
+                    bestCov = cov;
                     bestExtension = e;
                     
                     itr = e.descendingIterator();
@@ -5825,6 +5819,7 @@ public final class GraphUtils {
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getPredecessors(k, numHash, graph);
         
         float bestScore = 0;
+        float bestCov = 0;
         ArrayDeque<Kmer> bestExtension = null;
         
         for (Kmer candidate : candidates) {
@@ -5862,18 +5857,11 @@ public final class GraphUtils {
             }
             
             if (lastReadPartneredKmerIndex >= 0) {
-                /*
-                    h = min(C) * p / d
-
-                    where:
-                    C = kmer coverage
-                    p = read or frag kmer pairs
-                    d = depth
-                */
-                
-                float score = Math.min(pathMinCov, getMedianKmerCoverage(e)) * supportingReadKmerPairs / (lastReadPartneredKmerIndex+1);
-                if (score > bestScore) {
+                float cov = getMedianKmerCoverage(e);
+                float score = Math.min(pathMinCov, cov) * supportingReadKmerPairs / (lastReadPartneredKmerIndex+1);
+                if (score > bestScore || (score == bestScore && cov > bestCov)) {
                     bestScore = score;
+                    bestCov = cov;
                     bestExtension = e;
                     
                     itr = e.descendingIterator();
@@ -5919,6 +5907,7 @@ public final class GraphUtils {
         final int readPairedKmersDist = graph.getReadPairedKmerDistance();        
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);        
         float bestScore = 0;
+        float bestCov = 0;
         ArrayDeque<Kmer> bestExtension = null;
         
         for (Kmer candidate : candidates) {
@@ -5964,19 +5953,12 @@ public final class GraphUtils {
             }
             
             if (lastPartneredKmerIndex >= 0) {
-                /*
-                    h = min(C) * p / d
-
-                    where:
-                    C = kmer coverage
-                    p = read kmer pairs
-                    d = depth
-                */
-                
-                float score = Math.min(pathMinCov, getMedianKmerCoverage(e)) * (supportingReadKmerPairs + supportingFragKmerPairs) / (lastPartneredKmerIndex+1);
+                float cov = getMedianKmerCoverage(e);
+                float score = Math.min(pathMinCov, cov) * (supportingReadKmerPairs + supportingFragKmerPairs) / (lastPartneredKmerIndex+1);
 //                System.out.println(score + ": " + graph.assemble(e));
-                if (score > bestScore) {
+                if (score > bestScore || (score == bestScore && cov > bestCov)) {
                     bestScore = score;
+                    bestCov = cov;
                     bestExtension = e;
                     
                     itr = e.descendingIterator();
@@ -6112,6 +6094,7 @@ public final class GraphUtils {
         final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);
         float bestScore = 0;
+        float bestCov = 0;
         ArrayDeque<Kmer> bestExtension = null;
         
         for (Kmer candidate : candidates) {
@@ -6157,18 +6140,11 @@ public final class GraphUtils {
             }
             
             if (lastPartneredKmerIndex >= 0) {
-                /*
-                    h = min(C) * p / d
-
-                    where:
-                    C = kmer coverage
-                    p = read or frag kmer pairs
-                    d = depth
-                */
-                
-                float score = Math.min(pathMinCov, getMedianKmerCoverage(e)) * (supportingReadKmerPairs + supportingFragKmerPairs) / (lastPartneredKmerIndex+1);
-                if (score > bestScore) {
+                float cov = getMedianKmerCoverage(e);
+                float score = Math.min(pathMinCov, cov) * (supportingReadKmerPairs + supportingFragKmerPairs) / (lastPartneredKmerIndex+1);
+                if (score > bestScore || (score == bestScore && cov > bestCov)) {
                     bestScore = score;
+                    bestCov = cov;
                     bestExtension = e;
                     
                     itr = e.descendingIterator();
