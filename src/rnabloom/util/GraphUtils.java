@@ -5745,7 +5745,7 @@ public final class GraphUtils {
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getSuccessors(k, numHash, graph);
         
-        float bestScore = Float.MIN_VALUE;
+        float bestScore = 0;
         ArrayDeque<Kmer> bestExtension = null;
                 
         for (Kmer candidate : candidates) {
@@ -5824,7 +5824,7 @@ public final class GraphUtils {
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getPredecessors(k, numHash, graph);
         
-        float bestScore = Float.MIN_VALUE;
+        float bestScore = 0;
         ArrayDeque<Kmer> bestExtension = null;
         
         for (Kmer candidate : candidates) {
@@ -5918,7 +5918,7 @@ public final class GraphUtils {
 
         final int readPairedKmersDist = graph.getReadPairedKmerDistance();        
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);        
-        float bestScore = Float.MIN_VALUE;
+        float bestScore = 0;
         ArrayDeque<Kmer> bestExtension = null;
         
         for (Kmer candidate : candidates) {
@@ -6111,7 +6111,7 @@ public final class GraphUtils {
         
         final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);
-        float bestScore = Float.MIN_VALUE;
+        float bestScore = 0;
         ArrayDeque<Kmer> bestExtension = null;
         
         for (Kmer candidate : candidates) {
