@@ -3061,7 +3061,8 @@ public class RNABloom {
 
             FastaWriter fout = new FastaWriter(outFasta, false);
             FastaWriter foutShort = new FastaWriter(outFastaShort, false);
-            TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, sensitiveMode ? maxTipLength : Math.max(k, maxTipLength));
+            //TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, sensitiveMode ? maxTipLength : Math.max(k, maxTipLength));
+            TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, maxTipLength);
 
    
             boolean allowNaiveExtension = true;
