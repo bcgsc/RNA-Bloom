@@ -4040,11 +4040,11 @@ public class RNABloom {
                 rightReadFilesTotalBytes += new File(fq).length();
             }
             
-            final float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, 0.75f * Math.min(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
-            final float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8f)));
-            final float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8f)));
-            final float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 6f / 8f)));
-            final float pkbfGB = Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8f)));
+            final float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, 0.80f * Math.min(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
+            final float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
+            final float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8.5f)));
+            final float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 6f / 8.5f)));
+            final float pkbfGB = Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
             
             final long sbfSize = (long) (NUM_BITS_1GB * sbfGB);
             final long dbgbfSize = (long) (NUM_BITS_1GB * dbgGB);
