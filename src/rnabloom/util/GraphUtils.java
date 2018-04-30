@@ -151,19 +151,32 @@ public final class GraphUtils {
         }
         
         return counts[halfNumKmers];
+    }
+    
+    public static float getMedianKmerCoverage(final ArrayDeque<Kmer>... kmers) {
+        int numKmers = 0;
+        for (ArrayDeque<Kmer> c : kmers) {
+            numKmers += c.size();
+        }
         
-//        ArrayList<Float> counts = new ArrayList<>(numKmers);
-//        for (Kmer kmer : kmers) {
-//            counts.add(kmer.count);
-//        }
-//        
-//        Collections.sort(counts);
-//        
-//        if (numKmers % 2 == 0) {
-//            return (counts.get(halfNumKmers) + counts.get(halfNumKmers -1))/2.0f;
-//        }
-//        
-//        return counts.get(halfNumKmers);
+        float[] counts = new float[numKmers];
+        int i = -1;
+        for (ArrayDeque<Kmer> c : kmers) {
+            Iterator<Kmer> itr = c.iterator();
+            while (itr.hasNext()) {
+                counts[++i] = itr.next().count;
+            }
+        }
+        
+        Arrays.sort(counts);
+        
+        int halfNumKmers = numKmers/2;
+        
+        if (numKmers % 2 == 0) {
+            return (counts[halfNumKmers] + counts[halfNumKmers-1])/2.0f;
+        }
+        
+        return counts[halfNumKmers];
     }
     
     public static float getMaxMedianCoverageRight(final BloomFilterDeBruijnGraph graph, final Kmer source, final int lookahead) {
@@ -5904,86 +5917,114 @@ public final class GraphUtils {
             return e;
         }
 
-        final int readPairedKmersDist = graph.getReadPairedKmerDistance();        
+//        final int readPairedKmersDist = graph.getReadPairedKmerDistance();        
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);        
         float bestScore = 0;
         float bestCov = 0;
         ArrayDeque<Kmer> bestExtension = null;
+        int[] result = new int[3];
         
         for (Kmer candidate : candidates) {
             ArrayDeque<Kmer> e = naiveExtendRight(candidate, graph, maxTipLen, fragPairedKmersDist);
             e.addFirst(candidate);
-            int readPartnerKmerIndex = numKmers - readPairedKmersDist;
-            int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
-        
-            Iterator<Kmer> itr = e.iterator();
+
+//            int supportingReadKmerPairs = 0;
+//            int supportingFragKmerPairs = 0;
+//            int lastPartneredKmerIndex = -1;
+//            
+//            int readPartnerKmerIndex = numKmers - readPairedKmersDist;
+//            int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
+//            
+//            Iterator<Kmer> itr = e.iterator();            
+//            int endIndex = Math.min(e.size(), fragPairedKmersDist);
+//            for (int i=0; i<endIndex; ++i) {
+//                Kmer eKmer = itr.next();
+//                
+//                if (i < readPairedKmersDist && readPartnerKmerIndex >= 0) {
+//                    Kmer partner = kmers.get(readPartnerKmerIndex);
+//                    if (graph.lookupReadKmerPair(partner, eKmer)) {
+//                        ++supportingReadKmerPairs;
+//                        lastPartneredKmerIndex = i;
+//                    }
+//                }
+//                
+//                if (i < fragPairedKmersDist && fragPartnerKmerIndex >= 0) {
+//                    Kmer partner = kmers.get(fragPartnerKmerIndex);
+//                    if (graph.lookupKmerPair(partner, eKmer)) {
+//                        ++supportingFragKmerPairs;
+//                        lastPartneredKmerIndex = i;
+//                    }
+//                }
+//                
+//                ++readPartnerKmerIndex;
+//                ++fragPartnerKmerIndex;
+//            }
             
-            int supportingReadKmerPairs = 0;
-            int supportingFragKmerPairs = 0;
-            int lastPartneredKmerIndex = -1;
-                        
-            int endIndex = Math.min(e.size(), fragPairedKmersDist);
-            for (int i=0; i<endIndex; ++i) {
-                Kmer eKmer = itr.next();
-                
-                if (i < readPairedKmersDist && readPartnerKmerIndex >= 0) {
-                    Kmer partner = kmers.get(readPartnerKmerIndex);
-                    if (graph.lookupReadKmerPair(partner, eKmer)) {
-                        ++supportingReadKmerPairs;
-                        lastPartneredKmerIndex = i;
-                    }
-//                    else if (lastReadPartneredKmerIndex >= 0 && i-lastReadPartneredKmerIndex > k) {
-//                        break;
-//                    }
-                }
-                
-                if (i < fragPairedKmersDist && fragPartnerKmerIndex >= 0) {
-                    Kmer partner = kmers.get(fragPartnerKmerIndex);
-                    if (graph.lookupKmerPair(partner, eKmer)) {
-                        ++supportingFragKmerPairs;
-                        lastPartneredKmerIndex = i;
-                    }
-//                    else if (lastFragPartneredKmerIndex >= 0 && i-lastFragPartneredKmerIndex > readPairedKmersDist) {
-//                        break;
-//                    }
-                }
-                
-                ++readPartnerKmerIndex;
-                ++fragPartnerKmerIndex;
-            }
+            countKmerPairs(kmers, e, 0, graph, result);
+            
+            int lastPartneredKmerIndex = result[2];
             
             if (lastPartneredKmerIndex >= 0) {
                 float cov = getMedianKmerCoverage(e);
-                float score = Math.min(pathMinCov, cov) * (supportingReadKmerPairs + supportingFragKmerPairs) / (lastPartneredKmerIndex+1);
+                float score = Math.min(pathMinCov, cov) * (result[0] + result[1]) / (lastPartneredKmerIndex+1);
 //                System.out.println(score + ": " + graph.assemble(e));
                 if (score > bestScore || (score == bestScore && cov > bestCov)) {
                     bestScore = score;
                     bestCov = cov;
                     bestExtension = e;
                     
-                    itr = e.descendingIterator();
+                    Iterator<Kmer> itr = e.descendingIterator();
                     for (int i=e.size()-1; i>lastPartneredKmerIndex; --i) {
                         itr.next();
                         itr.remove();
                     }
                 }
             }
-            
-//            int[] result = new int[2];
-//            countKmerPairs(kmers,
-//                           new ArrayList<>(e),
-//                           0,
-//                           graph,
-//                           result);
-//            
-//            int tmp = -1;
+            else {
+                int gap = e.size();
+                ArrayDeque<Kmer> nextCandidates = e.getLast().getSuccessors(k, numHash, graph);
+                
+                float bestNextCov = 0;
+                float bestNextScore = 0;
+                ArrayDeque<Kmer> bestNextExtension = null;
+                for (Kmer nextCandidate : nextCandidates) {
+                    ArrayDeque<Kmer> ne = naiveExtendRight(nextCandidate, graph, maxTipLen, fragPairedKmersDist-gap);
+                    ne.addFirst(nextCandidate);
+                    
+                    countKmerPairs(kmers, ne, gap, graph, result);
+                    
+                    float cov = getMedianKmerCoverage(e, ne);
+                    int lastIndex = result[2];
+                    if (lastIndex >= 0) {
+                        float score = Math.min(pathMinCov, cov) * (result[0] + result[1]) / (lastIndex+gap+1);
+                        if (score > bestNextScore || (score == bestNextScore && cov > bestNextCov)) {
+                            bestNextScore = score;
+                            bestNextCov = cov;
+                            bestNextExtension = ne;
+
+                            Iterator<Kmer> itr = ne.descendingIterator();
+                            for (int i=ne.size()-1; i>lastIndex; --i) {
+                                itr.next();
+                                itr.remove();
+                            }
+                        }
+                    }
+                }
+                
+                if (bestNextScore > bestScore || (bestNextScore == bestScore && bestNextCov > bestCov)) {
+                    bestScore = bestNextScore;
+                    bestCov = bestNextCov;
+                    e.addAll(bestNextExtension);
+                    bestExtension = e;
+                }
+            }
         }
         
         return bestExtension;
     }
     
     private static void countKmerPairs(final ArrayList<Kmer> leftKmers,
-                                    final ArrayList<Kmer> rightKmers,
+                                    final ArrayDeque<Kmer> rightKmers,
                                     final int gap,
                                     final BloomFilterDeBruijnGraph graph,
                                     final int[] result) {
@@ -5999,18 +6040,22 @@ public final class GraphUtils {
         
         int leftReadPartnerIndex = numLeftKmers - readPairedKmersDist + gap;
         int leftFragPartnerIndex = numLeftKmers - fragPairedKmersDist + gap;
+        int lastSupportedKmerIndex = -1;
         
+        Iterator<Kmer> itr = rightKmers.iterator();
         for (int i=0; i<=maxRightKmersIndex; ++i) {
-            Kmer rightKmer = rightKmers.get(i);
+            Kmer rightKmer = itr.next();
             if (leftReadPartnerIndex >=0 && leftReadPartnerIndex < numLeftKmers) {
                 if (graph.lookupReadKmerPair(leftKmers.get(leftReadPartnerIndex), rightKmer)) {
                     ++supportingReadKmerPairs;
+                    lastSupportedKmerIndex = i;
                 }
             }
             
             if (leftFragPartnerIndex >= 0 && leftFragPartnerIndex < numLeftKmers) {
                 if (graph.lookupKmerPair(leftKmers.get(leftFragPartnerIndex), rightKmer)) {
                     ++supportingFragKmerPairs;
+                    lastSupportedKmerIndex = i;
                 }
             }
             
@@ -6024,9 +6069,10 @@ public final class GraphUtils {
         
         result[0] = supportingReadKmerPairs;
         result[1] = supportingFragKmerPairs;
+        result[2] = lastSupportedKmerIndex;
     }
     
-    private static void countKmerPairsReversed(final ArrayList<Kmer> leftKmers,
+    private static void countKmerPairsReversed(final ArrayDeque<Kmer> leftKmers,
                                     final ArrayList<Kmer> rightKmers,
                                     final int gap,
                                     final BloomFilterDeBruijnGraph graph,
@@ -6043,18 +6089,22 @@ public final class GraphUtils {
         
         int rightReadPartnerIndex = numRightKmers - readPairedKmersDist + gap;
         int rightFragPartnerIndex = numRightKmers - fragPairedKmersDist + gap;
+        int lastSupportedKmerIndex = -1;
         
+        Iterator<Kmer> itr = leftKmers.iterator();
         for (int i=0; i<=maxLeftKmersIndex; ++i) {
-            Kmer leftKmer = leftKmers.get(i);
+            Kmer leftKmer = itr.next();
             if (rightReadPartnerIndex >=0 && rightReadPartnerIndex < numRightKmers) {
                 if (graph.lookupReadKmerPair(leftKmer, rightKmers.get(rightReadPartnerIndex))) {
                     ++supportingReadKmerPairs;
+                    lastSupportedKmerIndex = i;
                 }
             }
             
             if (rightFragPartnerIndex >=0 && rightFragPartnerIndex < numRightKmers) {
                 if (graph.lookupKmerPair(leftKmer, rightKmers.get(rightFragPartnerIndex))) {
                     ++supportingFragKmerPairs;
+                    lastSupportedKmerIndex = i;
                 }
             }
             
@@ -6068,6 +6118,7 @@ public final class GraphUtils {
         
         result[0] = supportingReadKmerPairs;
         result[1] = supportingFragKmerPairs;
+        result[2] = lastSupportedKmerIndex;
     }
     
     private static ArrayDeque<Kmer> extendLeftPE(ArrayList<Kmer> kmers, 
@@ -6091,78 +6142,106 @@ public final class GraphUtils {
             return e;
         }
         
-        final int readPairedKmersDist = graph.getReadPairedKmerDistance();
+//        final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);
         float bestScore = 0;
         float bestCov = 0;
         ArrayDeque<Kmer> bestExtension = null;
+        int[] result = new int[3];
         
         for (Kmer candidate : candidates) {
             ArrayDeque<Kmer> e = naiveExtendLeft(candidate, graph, maxTipLen, fragPairedKmersDist);
             e.addFirst(candidate);
-            int readPartnerKmerIndex = numKmers - readPairedKmersDist;
-            int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
             
-            Iterator<Kmer> itr = e.iterator();
-            
-            int supportingReadKmerPairs = 0;
-            int supportingFragKmerPairs = 0;
-            int lastPartneredKmerIndex = -1;
-            
-            int endIndex = Math.min(e.size(), fragPairedKmersDist);
-            for (int i=0; i<endIndex; ++i) {
-                Kmer eKmer = itr.next();
-                
-                if (i < readPairedKmersDist && readPartnerKmerIndex >= 0) {
-                    Kmer partner = kmers.get(readPartnerKmerIndex);
-                    if (graph.lookupReadKmerPair(eKmer, partner)) {
-                        ++supportingReadKmerPairs;
-                        lastPartneredKmerIndex = i;
-                    }
-//                    else if (lastReadPartneredKmerIndex >= 0 && i-lastReadPartneredKmerIndex > k) {
-//                        break;
+//            int supportingReadKmerPairs = 0;
+//            int supportingFragKmerPairs = 0;
+//            int lastPartneredKmerIndex = -1;
+//                        
+//            int readPartnerKmerIndex = numKmers - readPairedKmersDist;
+//            int fragPartnerKmerIndex = numKmers - fragPairedKmersDist;
+//            
+//            Iterator<Kmer> itr = e.iterator();
+//            int endIndex = Math.min(e.size(), fragPairedKmersDist);
+//            for (int i=0; i<endIndex; ++i) {
+//                Kmer eKmer = itr.next();
+//                
+//                if (i < readPairedKmersDist && readPartnerKmerIndex >= 0) {
+//                    Kmer partner = kmers.get(readPartnerKmerIndex);
+//                    if (graph.lookupReadKmerPair(eKmer, partner)) {
+//                        ++supportingReadKmerPairs;
+//                        lastPartneredKmerIndex = i;
 //                    }
-                }
-                
-                if (i < fragPairedKmersDist && fragPartnerKmerIndex >= 0) {
-                    Kmer partner = kmers.get(fragPartnerKmerIndex);
-                    if (graph.lookupKmerPair(eKmer, partner)) {
-                        ++supportingFragKmerPairs;
-                        lastPartneredKmerIndex = i;
-                    }
-//                    else if (lastFragPartneredKmerIndex >= 0 && i-lastFragPartneredKmerIndex > readPairedKmersDist) {
-//                        break;
+//                }
+//                
+//                if (i < fragPairedKmersDist && fragPartnerKmerIndex >= 0) {
+//                    Kmer partner = kmers.get(fragPartnerKmerIndex);
+//                    if (graph.lookupKmerPair(eKmer, partner)) {
+//                        ++supportingFragKmerPairs;
+//                        lastPartneredKmerIndex = i;
 //                    }
-                }
-                
-                ++readPartnerKmerIndex;
-                ++fragPartnerKmerIndex;
-            }
+//                }
+//                
+//                ++readPartnerKmerIndex;
+//                ++fragPartnerKmerIndex;
+//            }
+            
+            countKmerPairsReversed(e, kmers, 0, graph, result);
+            
+            int lastPartneredKmerIndex = result[2];
             
             if (lastPartneredKmerIndex >= 0) {
                 float cov = getMedianKmerCoverage(e);
-                float score = Math.min(pathMinCov, cov) * (supportingReadKmerPairs + supportingFragKmerPairs) / (lastPartneredKmerIndex+1);
+                float score = Math.min(pathMinCov, cov) * (result[0] + result[1]) / (lastPartneredKmerIndex+1);
                 if (score > bestScore || (score == bestScore && cov > bestCov)) {
                     bestScore = score;
                     bestCov = cov;
                     bestExtension = e;
                     
-                    itr = e.descendingIterator();
+                    Iterator<Kmer> itr = e.descendingIterator();
                     for (int i=e.size()-1; i>lastPartneredKmerIndex; --i) {
                         itr.next();
                         itr.remove();
                     }
                 }
             }
-            
-//            int[] result = new int[2];
-//            countKmerPairsReversed(new ArrayList<>(e),
-//                            kmers,
-//                            0,
-//                            graph,
-//                            result);
-//            
-//            int tmp = -1;
+            else {
+                int gap = e.size();
+                ArrayDeque<Kmer> nextCandidates = e.getLast().getPredecessors(k, numHash, graph);
+                
+                float bestNextCov = 0;
+                float bestNextScore = 0;
+                ArrayDeque<Kmer> bestNextExtension = null;
+                for (Kmer nextCandidate : nextCandidates) {
+                    ArrayDeque<Kmer> ne = naiveExtendLeft(nextCandidate, graph, maxTipLen, fragPairedKmersDist-gap);
+                    ne.addFirst(nextCandidate);
+                    
+                    countKmerPairsReversed(ne, kmers, gap, graph, result);
+                    
+                    float cov = getMedianKmerCoverage(e, ne);
+                    int lastIndex = result[2];
+                    if (lastIndex >= 0) {
+                        float score = Math.min(pathMinCov, cov) * (result[0] + result[1]) / (lastIndex+gap+1);
+                        if (score > bestNextScore || (score == bestNextScore && cov > bestNextCov)) {
+                            bestNextScore = score;
+                            bestNextCov = cov;
+                            bestNextExtension = ne;
+
+                            Iterator<Kmer> itr = ne.descendingIterator();
+                            for (int i=ne.size()-1; i>lastIndex; --i) {
+                                itr.next();
+                                itr.remove();
+                            }
+                        }
+                    }
+                }
+                
+                if (bestNextScore > bestScore || (bestNextScore == bestScore && bestNextCov > bestCov)) {
+                    bestScore = bestNextScore;
+                    bestCov = bestNextCov;
+                    e.addAll(bestNextExtension);
+                    bestExtension = e;
+                }
+            }
         }
         
         return bestExtension;
