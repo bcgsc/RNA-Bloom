@@ -229,20 +229,14 @@ public class RNABloom {
     }
     
     public void clearAllBf() {
-        graph.clearDbgbf();
-        graph.clearCbf();
-        graph.clearPkbf();
-        graph.clearRpkbf();
+        graph.clearAllBf();
         
         dbgFPR = 0;
         covFPR = 0;
     }
 
     public void destroyAllBf() {
-        graph.destroyDbgbf();
-        graph.destroyCbf();
-        graph.destroyPkbf();
-        graph.destroyRpkbf();
+        graph.destroy();
         
         if (screeningBf != null) {
             screeningBf.destroy();
