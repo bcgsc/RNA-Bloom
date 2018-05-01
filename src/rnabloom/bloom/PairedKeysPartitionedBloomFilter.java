@@ -274,20 +274,34 @@ public class PairedKeysPartitionedBloomFilter {
 //    }
     
     public void destroy() {
-        this.bitArrayLeft.destroy();
-        this.bitArrayLeft = null;
+        if (this.bitArrayLeft != null) {
+            this.bitArrayLeft.destroy();
+            this.bitArrayLeft = null;
+        }
         
-        this.bitArrayRight.destroy();
-        this.bitArrayRight = null;
+        if (this.bitArrayRight != null) {
+            this.bitArrayRight.destroy();
+            this.bitArrayRight = null;
+        }
         
-        this.bitArrayPair.destroy();
-        this.bitArrayPair = null;
+        if (this.bitArrayPair != null) {
+            this.bitArrayPair.destroy();
+            this.bitArrayPair = null;
+        }
     }
     
     public void empty() {
-        this.bitArrayLeft.empty();
-        this.bitArrayRight.empty();
-        this.bitArrayPair.empty();
+        if (this.bitArrayLeft != null) {
+            this.bitArrayLeft.empty();
+        }
+        
+        if (this.bitArrayRight != null) {
+            this.bitArrayRight.empty();
+        }       
+        
+        if (this.bitArrayPair != null) {
+            this.bitArrayPair.empty();
+        }
     }
     
     public boolean equivalent(PairedKeysPartitionedBloomFilter bf) {
