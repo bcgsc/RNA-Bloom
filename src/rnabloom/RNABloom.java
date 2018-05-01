@@ -237,6 +237,21 @@ public class RNABloom {
         dbgFPR = 0;
         covFPR = 0;
     }
+
+    public void destroyAllBf() {
+        graph.destroyDbgbf();
+        graph.destroyCbf();
+        graph.destroyPkbf();
+        graph.destroyRpkbf();
+        
+        if (screeningBf != null) {
+            screeningBf.destroy();
+            screeningBf = null;
+        }
+        
+        dbgFPR = 0;
+        covFPR = 0;
+    }
     
     public class FastqToGraphWorker implements Runnable {
         
@@ -767,12 +782,26 @@ public class RNABloom {
             handleException(ex);
         }
         
-        dbgFPR = graph.getDbgbfFPR();
-        covFPR = graph.getCbfFPR();
+        dbgFPR = graph.getDbgbf().getFPR();
+        covFPR = graph.getCbf().getFPR();
         
+        System.out.println(    "DBG Bloom filter FPR:                 " + dbgFPR * 100 + " %");
+        System.out.println(    "Counting Bloom filter FPR:            " + covFPR * 100 + " %");
+        
+        if (graph.getReadPairedKmerDistance() > 0) {
+            System.out.println("Reads paired-kmers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
+        }
 //        System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
     }
 
+    public double suggestedProportionalChangeInSize(float fpr) {
+        double p1 = graph.getDbgbf().getProportionalChangeInSize(fpr);
+        double p2 = graph.getCbf().getProportionalChangeInSize(fpr);
+        double p3 = graph.getRpkbf().getProportionalChangeInSize(fpr);
+        
+        return Math.max(Math.max(p1, p2), p3);
+    }
+    
 //    public void addCountsOnly(Collection<String> forwardFastqs,
 //                            Collection<String> reverseFastqs,
 //                            boolean strandSpecific,
@@ -2316,15 +2345,7 @@ public class RNABloom {
         
         if (covFPR <= 0) {
             covFPR = graph.getCbf().getFPR();
-        }
-        
-        System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
-        System.out.println("Counting Bloom filter FPR: " + covFPR * 100 + " %");
-        
-        if (graph.getReadPairedKmerDistance() > 0) {
-            System.out.println("Read paired-kmers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
-        }
-        
+        }        
         
         long fragmentId = 0;
         long unconnectedReadId = 0;
@@ -3781,7 +3802,15 @@ public class RNABloom {
                                     .argName("DECIMAL")
                                     .build();
         options.addOption(optPkbfMem);
- 
+
+        Option optFpr = Option.builder("fpr")
+                                    .longOpt("fpr")
+                                    .desc("max Bloom filter false-positive rate allowed")
+                                    .hasArg(true)
+                                    .argName("DECIMAL")
+                                    .build();
+        options.addOption(optFpr);
+        
         Option optTipLength = Option.builder("tiplength")
                                     .desc("max tip length allowed")
                                     .hasArg(true)
@@ -4047,10 +4076,10 @@ public class RNABloom {
             final float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 6f / 8.5f)));
             final float pkbfGB = Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
             
-            final long sbfSize = (long) (NUM_BITS_1GB * sbfGB);
-            final long dbgbfSize = (long) (NUM_BITS_1GB * dbgGB);
-            final long cbfSize = (long) (NUM_BYTES_1GB * cbfGB);
-            final long pkbfSize = (long) (NUM_BITS_1GB * pkbfGB);
+            long sbfSize = (long) (NUM_BITS_1GB * sbfGB);
+            long dbgbfSize = (long) (NUM_BITS_1GB * dbgGB);
+            long cbfSize = (long) (NUM_BYTES_1GB * cbfGB);
+            long pkbfSize = (long) (NUM_BITS_1GB * pkbfGB);
             
             final int allNumHash = Integer.parseInt(line.getOptionValue(optAllHash.getOpt(), "2"));
             final String allNumHashStr = Integer.toString(allNumHash);
@@ -4058,6 +4087,8 @@ public class RNABloom {
             final int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), allNumHashStr));
             final int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), allNumHashStr));
             final int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), allNumHashStr));
+            
+            final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), "0.10"));
             
             /**@TODO ensure that sbfNumHash and pkbfNumHash <= max(dbgbfNumHash, cbfNumHash) */
                         
@@ -4080,15 +4111,15 @@ public class RNABloom {
             final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), "");
             
 
-            System.out.println("\nBloom filters      Memory (GB)");
-            System.out.println("==============================");
-            System.out.println("de Bruijn graph:   " + dbgGB);
-            System.out.println("kmer counting:     " + cbfGB);
-            System.out.println("paired kmers (SE): " + pkbfGB);
-            System.out.println("paired kmers (PE): " + pkbfGB);
-            System.out.println("screening:         " + sbfGB);
-            System.out.println("==============================");
-            System.out.println("Total:             " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
+            System.out.println("\nBloom filters         Memory (GB)");
+            System.out.println("====================================");
+            System.out.println("de Bruijn graph:      " + dbgGB);
+            System.out.println("kmer counting:        " + cbfGB);
+            System.out.println("paired kmers (reads): " + pkbfGB);
+            System.out.println("paired kmers (frags): " + pkbfGB);
+            System.out.println("screening:            " + sbfGB);
+            System.out.println("====================================");
+            System.out.println("Total:                " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
             
 
             System.out.println("\nname:   " + name);
@@ -4153,6 +4184,33 @@ public class RNABloom {
                         dbgbfNumHash, cbfNumHash, pkbfNumHash, false, true);
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                 assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false, true);
+                
+                double suggestedChangeInSize = assembler.suggestedProportionalChangeInSize(maxFPR);
+                if (suggestedChangeInSize > 1.0d) {
+                    System.out.println("WARNING: Bloom filter FPR is higher than expected!");
+                    
+                    suggestedChangeInSize = assembler.suggestedProportionalChangeInSize(maxFPR*0.75f);
+                    
+                    System.out.println("Adjusting Bloom filter sizes to " + suggestedChangeInSize*100 + " %");
+                    
+                    assembler.destroyAllBf();
+                    
+                    dbgbfSize *= suggestedChangeInSize;
+                    cbfSize *= suggestedChangeInSize;
+                    pkbfSize *= suggestedChangeInSize;
+                    sbfSize *= suggestedChangeInSize;
+                    
+                    assembler.initializeGraph(strandSpecific, 
+                            dbgbfSize, cbfSize, pkbfSize, 
+                            dbgbfNumHash, cbfNumHash, pkbfNumHash, false, true);
+                    
+                    assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                    
+                    System.out.println("Repopulate graph ...");
+                    
+                    assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false, true);
+                }    
+                
                 
                 System.out.println("Saving graph to file `" + graphFile + "`...");
                 assembler.saveGraph(new File(graphFile));
