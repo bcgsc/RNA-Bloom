@@ -2743,8 +2743,8 @@ public class RNABloom {
             long numDiscarded = readPairsParsed-readPairsConnected-readPairsNotConnected;
             System.out.println("\tdiscarded:\t" + NumberFormat.getInstance().format(numDiscarded) + "\t(" + numDiscarded*100f/readPairsParsed + "%)");
             
-            System.out.println("Paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100   + " %");
-            System.out.println("Screening Bloom filter FPR:    " + screeningBf.getFPR() * 100 + " %");
+            System.out.println("Fragments paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100   + " %");
+            System.out.println("Screening Bloom filter FPR:              " + screeningBf.getFPR() * 100 + " %");
         }
 
         return fragLengthsStats;
