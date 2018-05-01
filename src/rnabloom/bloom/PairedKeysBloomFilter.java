@@ -13,6 +13,8 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import static java.lang.Math.exp;
+import static java.lang.Math.log;
 import static java.lang.Math.pow;
 import rnabloom.bloom.buffer.AbstractLargeBitBuffer;
 import rnabloom.bloom.buffer.BufferComparator;
@@ -30,6 +32,7 @@ public class PairedKeysBloomFilter {
     protected int numHash;
     protected long size;
     protected HashFunction hashFunction;
+    protected long popcount = -1;
     
     public PairedKeysBloomFilter(long size, int numHash, HashFunction hashFunction) {
         this.size = size;
@@ -155,12 +158,16 @@ public class PairedKeysBloomFilter {
 //    }
         
     public void destroy() {
-        this.bitArrayPair.destroy();
-        this.bitArrayPair = null;
+        if (this.bitArrayPair != null) {
+            this.bitArrayPair.destroy();
+            this.bitArrayPair = null;
+        }
     }
     
     public void empty() {
-        this.bitArrayPair.empty();
+        if (this.bitArrayPair != null) {
+            this.bitArrayPair.empty();
+        }
     }
     
     public boolean equivalent(PairedKeysPartitionedBloomFilter bf) {
@@ -170,8 +177,16 @@ public class PairedKeysBloomFilter {
     }
     
     public float getFPR() {      
+        popcount = bitArrayPair.popCount();
 //        return (float) pow(1 - exp((float)(-numHash * bitArrayPair.popCount()) / partitionSize), numHash);
-        return (float) pow((double)(bitArrayPair.popCount()) / (double)(size), numHash);
+        return (float) pow((double)(popcount) / (double)(size), numHash);
     }
-    
+        
+    public double getProportionalChangeInSize(float fpr) {
+        if (popcount < 0) {
+            popcount = bitArrayPair.popCount();
+        }
+        
+        return (double)(popcount) / (size * exp(log(fpr)/numHash));
+    }
 }

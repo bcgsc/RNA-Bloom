@@ -16,14 +16,13 @@ import java.io.IOException;
 import rnabloom.bloom.buffer.UnsafeByteBuffer;
 import rnabloom.bloom.buffer.AbstractLargeByteBuffer;
 import rnabloom.bloom.buffer.LargeByteBuffer;
-//import static java.lang.Math.exp;
-//import static java.lang.Math.log;
+import static java.lang.Math.exp;
+import static java.lang.Math.log;
 import static java.lang.Math.pow;
 import static java.lang.Math.random;
 import static java.lang.Math.scalb;
 import rnabloom.bloom.buffer.BufferComparator;
 import rnabloom.bloom.hash.HashFunction;
-import static java.lang.Math.scalb;
 
 /**
  *
@@ -182,11 +181,19 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         m = size
         n = pop count
         */
-                
+        
+        popcount = counts.popCount();
 //        return (float) pow(1 - exp((float)(-numHash * counts.popCount()) / size), numHash);
-        return (float) pow((double)(counts.popCount()) / (double)(size), numHash);
+        return (float) pow((double)(popcount) / (double)(size), numHash);
     }
- 
+
+    public double getProportionalChangeInSize(float fpr) {
+        if (popcount < 0) {
+            popcount = counts.popCount();
+        }
+        
+        return (double)(popcount) / (size * exp(log(fpr)/numHash));
+    }
 //    public long updatePopcount() {
 //        popcount = counts.popCount();
 //        return popcount;
@@ -213,12 +220,16 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
 //    }
     
     public void empty() {
-        this.counts.empty();
+        if (this.counts != null) {
+            this.counts.empty();
+        }
     }
     
     public void destroy() {
-        this.counts.destroy();
-        this.counts = null;
+        if (this.counts != null) {
+            this.counts.destroy();
+            this.counts = null;
+        }
     }
     
     public boolean equivalent(CountingBloomFilter bf) {

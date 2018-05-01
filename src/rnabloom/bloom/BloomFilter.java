@@ -17,8 +17,8 @@ import rnabloom.bloom.buffer.LargeBitBuffer;
 import rnabloom.bloom.buffer.UnsafeBitBuffer;
 import rnabloom.bloom.buffer.AbstractLargeBitBuffer;
 import static java.lang.Math.pow;
-//import static java.lang.Math.exp;
-//import static java.lang.Math.log;
+import static java.lang.Math.exp;
+import static java.lang.Math.log;
 import rnabloom.bloom.buffer.BufferComparator;
 import rnabloom.bloom.hash.HashFunction;
 
@@ -179,7 +179,14 @@ public class BloomFilter implements BloomFilterInterface {
 //        return (float) pow(1 - exp((float)(-numHash * popcount) / size), numHash);
         return (float) pow((double)(popcount) / (double)(size), numHash);
     }
-    
+        
+    public double getProportionalChangeInSize(float fpr) {
+        if (popcount < 0) {
+            popcount = bitArray.popCount();
+        }
+        
+        return (double)(popcount) / (size * exp(log(fpr)/numHash));
+    }
 //    public long updatePopcount() {
 //        popcount = bitArray.popCount();
 //        return popcount;
@@ -206,12 +213,16 @@ public class BloomFilter implements BloomFilterInterface {
 //    }
     
     public void empty() {
-        this.bitArray.empty();
+        if (this.bitArray != null) {
+            this.bitArray.empty();
+        }
     }
     
     public void destroy() {
-        this.bitArray.destroy();
-        this.bitArray = null;
+        if (this.bitArray != null) {
+            this.bitArray.destroy();
+            this.bitArray = null;
+        }
     }
     
     public boolean equivalent(BloomFilter bf) {
