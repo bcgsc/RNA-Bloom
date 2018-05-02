@@ -1689,33 +1689,31 @@ public class RNABloom {
         @Override
         public void run() {
             try {
+                ArrayList<Kmer> leftKmers = null;
+                ArrayList<Kmer> rightKmers = null;
+                
                 // connect segments of each read
                 String left = getBestSegment(p.left, graph);
                 
-                if (left.length() < this.leftReadLengthThreshold) {
-                    return;
+                if (left.length() >= this.leftReadLengthThreshold) {
+                    leftKmers = graph.getKmers(left);
                 } 
                 
                 String right = getBestSegment(p.right, graph);
                 
-                if (right.length() < this.rightReadLengthThreshold) {
-                    return;
+                if (right.length() >= this.rightReadLengthThreshold) {
+                    rightKmers = graph.getKmers(right);
                 }
-
-//                right = chompRightPolyX(right, polyXMinLen, polyXMaxMismatches);
-//                
-//                if (right.length() < this.rightReadLengthThreshold) {
-//                    return;
-//                }
-
-                ArrayList<Kmer> leftKmers = graph.getKmers(left);                
-                ArrayList<Kmer> rightKmers = graph.getKmers(right);
                 
-                if (leftKmers.isEmpty() && rightKmers.isEmpty()) {
+                boolean leftBad = leftKmers == null || leftKmers.isEmpty();
+                boolean rightBad = rightKmers == null || rightKmers.isEmpty();
+                
+                if (leftBad && rightBad) {
+                    // this read pair is discarded
                     return;
                 }
                 
-                if (leftKmers.isEmpty()) {
+                if (leftBad) {
                     boolean hasComplexKmer = false;
                     float minCov = Float.MAX_VALUE;
                     if (rightKmers.size() >= lookahead) {
@@ -1731,12 +1729,12 @@ public class RNABloom {
                     }
 
                     if (hasComplexKmer) {
-                        outList.put(new Fragment(left, graph.assemble(rightKmers), null, 0, minCov, true));
+                        outList.put(new Fragment("N", graph.assemble(rightKmers), null, 0, minCov, true));
                         return;
                     }
                 }
                 
-                if (rightKmers.isEmpty()) {
+                if (rightBad) {
                     boolean hasComplexKmer = false;
                     float minCov = Float.MAX_VALUE;
                     if (leftKmers.size() >= lookahead) {
@@ -1752,7 +1750,7 @@ public class RNABloom {
                     }
 
                     if (hasComplexKmer) {
-                        outList.put(new Fragment(graph.assemble(leftKmers), right, null, 0, minCov, true));
+                        outList.put(new Fragment(graph.assemble(leftKmers), "N", null, 0, minCov, true));
                         return;
                     }
                 }
@@ -2555,7 +2553,7 @@ public class RNABloom {
 //                    if (p.originalLeftLength > 2*p.numLeftBasesTrimmed &&
 //                            p.originalRightLength > 2*p.numRightBasesTrimmed) {
                     
-                    if (!p.left.isEmpty() && !p.right.isEmpty()) {
+//                    if (!p.left.isEmpty() && !p.right.isEmpty()) {
                         
                         service.submit(new FragmentAssembler(p,
                                                             fragments,
@@ -2642,7 +2640,7 @@ public class RNABloom {
                                 }
                             }
                         }
-                    }
+//                    }
                 }
                 
                 service.terminate();
