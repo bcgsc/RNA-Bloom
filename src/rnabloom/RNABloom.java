@@ -779,8 +779,8 @@ public class RNABloom {
         dbgFPR = graph.getDbgbf().getFPR();
         covFPR = graph.getCbf().getFPR();
         
-        System.out.println(    "DBG Bloom filter FPR:                 " + dbgFPR * 100 + " %");
-        System.out.println(    "Counting Bloom filter FPR:            " + covFPR * 100 + " %");
+        System.out.println(    "DBG Bloom filter FPR:                " + dbgFPR * 100 + " %");
+        System.out.println(    "Counting Bloom filter FPR:           " + covFPR * 100 + " %");
         
         if (graph.getReadPairedKmerDistance() > 0) {
             System.out.println("Reads paired-kmers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
