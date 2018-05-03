@@ -766,6 +766,7 @@ public final class GraphUtils {
                                         float minPercentIdentity) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
+        int pkd = graph.getReadPairedKmerDistance();
         
         HashSet<Kmer> leftKmersSet = new HashSet<>(leftKmers);
         HashSet<Kmer> rightKmersSet = new HashSet<>(rightKmers);
@@ -812,17 +813,13 @@ public final class GraphUtils {
                 if (best != null) {
                     if (rightKmersSet.contains(best)) {
                         if (best.equals(right)) {
-                            ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftPath.size() + rightKmers.size());
-                            fragmentKmers.addAll(leftPath);
-                            fragmentKmers.addAll(rightKmers);
-
-                            return fragmentKmers;
+                            leftPath.addAll(rightKmers);
+                            return leftPath;
                         }
                         else {
                             int bestIndex = rightKmers.indexOf(best);
 
                             float pathCov = getMinimumKmerCoverage(leftPath, leftPath.size()-bestIndex, leftPath.size());
-
                             float danglingCov = getMinimumKmerCoverage(rightKmers, 0, bestIndex);
 
                             if (danglingCov < pathCov) {
@@ -835,12 +832,18 @@ public final class GraphUtils {
                                 return fragmentKmers;
                             }
                             else {
-                                break;
+                                if (graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), best)) {
+                                    leftPath.add(best);
+                                    leftKmersSet.add(best);
+                                }
+                                else {
+                                    break;
+                                }
                             }
                         }
                     }
                     else {
-                        if (leftKmersSet.contains(best)) {
+                        if (leftKmersSet.contains(best) && !graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), best)) {
                             break;
                         }
                         else {
@@ -858,22 +861,35 @@ public final class GraphUtils {
 
                     for (Kmer current : e) {
                         if (rightKmersSet.contains(current)) {
-                            boolean add = false;
-                            Iterator<Kmer> itr = rightKmers.iterator();
-                            while (itr.hasNext()) {
-                                if (add) {
-                                    leftPath.add(itr.next());
+                            if (current.equals(right)) {
+                                leftPath.addAll(rightKmers);
+                                return leftPath;
+                            }
+                            else {
+                                int bestIndex = rightKmers.indexOf(current);
+
+                                float pathCov = getMinimumKmerCoverage(leftPath, leftPath.size()-bestIndex, leftPath.size());
+                                float danglingCov = getMinimumKmerCoverage(rightKmers, 0, bestIndex);
+
+                                if (danglingCov < pathCov) {
+                                    ArrayList<Kmer> fragmentKmers = new ArrayList<>(leftPath.size() + rightKmers.size() - bestIndex);
+                                    fragmentKmers.addAll(leftPath);
+                                    for (int i=bestIndex; i<rightKmers.size(); ++i) {
+                                        fragmentKmers.add(rightKmers.get(i));
+                                    }
+
+                                    return fragmentKmers;
                                 }
                                 else {
-                                    Kmer kmer = itr.next();
-                                    if (kmer.equals(current)) {
-                                        add = true;
-                                        leftPath.add(kmer);
+                                    if (graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), current)) {
+                                        leftPath.add(current);
+                                        leftKmersSet.add(current);
+                                    }
+                                    else {
+                                        break;
                                     }
                                 }
                             }
-
-                            return leftPath;
                         }
                         else {
                             leftPath.add(current);
@@ -956,7 +972,7 @@ public final class GraphUtils {
                         }
                     }
                     else {
-                        if (rightKmersSet.contains(best)) {
+                        if (rightKmersSet.contains(best) && !graph.lookupReadKmerPair(best, rightPath.get(rightPath.size()-pkd))) {
                             return null;
                         }
                         else {
