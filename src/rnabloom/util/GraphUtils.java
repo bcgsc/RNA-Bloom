@@ -832,7 +832,7 @@ public final class GraphUtils {
                                 return fragmentKmers;
                             }
                             else {
-                                if (graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), best)) {
+                                if (pkd <= leftPath.size() && graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), best)) {
                                     leftPath.add(best);
                                     leftKmersSet.add(best);
                                 }
@@ -843,7 +843,8 @@ public final class GraphUtils {
                         }
                     }
                     else {
-                        if (leftKmersSet.contains(best) && !graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), best)) {
+                        if (leftKmersSet.contains(best) &&
+                                !(pkd <= leftPath.size() && graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), best))) {
                             break;
                         }
                         else {
@@ -881,11 +882,12 @@ public final class GraphUtils {
                                     return fragmentKmers;
                                 }
                                 else {
-                                    if (graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), current)) {
+                                    if (pkd <= leftPath.size() && graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), current)) {
                                         leftPath.add(current);
                                         leftKmersSet.add(current);
                                     }
                                     else {
+                                        maxSize = -1;
                                         break;
                                     }
                                 }
@@ -972,7 +974,8 @@ public final class GraphUtils {
                         }
                     }
                     else {
-                        if (rightKmersSet.contains(best) && !graph.lookupReadKmerPair(best, rightPath.get(rightPath.size()-pkd))) {
+                        if (rightKmersSet.contains(best) &&
+                                !(pkd <= rightPath.size() && graph.lookupReadKmerPair(best, rightPath.get(rightPath.size()-pkd)))) {
                             return null;
                         }
                         else {
