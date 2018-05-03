@@ -756,14 +756,14 @@ public final class GraphUtils {
     }
     
     public static ArrayList<Kmer> join(BloomFilterDeBruijnGraph graph, 
-                                                        ArrayList<Kmer> leftKmers, 
-                                                        ArrayList<Kmer> rightKmers, 
-                                                        int bound, 
-                                                        int lookahead, 
-                                                        float maxCovGradient,
-                                                        int maxTipLen,
-                                                        int maxIndelLen,
-                                                        float minPercentIdentity) {
+                                        ArrayList<Kmer> leftKmers, 
+                                        ArrayList<Kmer> rightKmers, 
+                                        int bound, 
+                                        int lookahead, 
+                                        float maxCovGradient,
+                                        int maxTipLen,
+                                        int maxIndelLen,
+                                        float minPercentIdentity) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
@@ -799,10 +799,7 @@ public final class GraphUtils {
                         }
                     }
 
-                    if (neighbors.isEmpty()) {
-                        break;
-                    }
-                    else if (neighbors.size() == 1) {
+                    if (neighbors.size() == 1) {
                         best = neighbors.pop();
 
                         float c = maxCovGradient * best.count;
@@ -920,10 +917,7 @@ public final class GraphUtils {
                         }
                     }
 
-                    if (neighbors.isEmpty()) {
-                        break;
-                    }
-                    else if (neighbors.size() == 1) {
+                    if (neighbors.size() == 1) {
                         best = neighbors.pop();
 
                         float c = maxCovGradient * best.count;
@@ -1009,7 +1003,7 @@ public final class GraphUtils {
             }
         }
         
-        return null; // TODO
+        return null;
     }
     
     public static ArrayList<Kmer> getSimilarCoveragePath(BloomFilterDeBruijnGraph graph, 
