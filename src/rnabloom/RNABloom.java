@@ -3118,6 +3118,7 @@ public class RNABloom {
             else {
                 // be extra careful with extending low coverage fragments (ie. 01, E0)
 //                allowNaiveExtension = false;
+                extendBranchFreeOnly = true;
                 skipPotentialArtifacts = true;
             }
             
@@ -3145,12 +3146,6 @@ public class RNABloom {
             System.out.println("Parsing `" + fragmentsFasta + "`...");
             numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                     allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts, reqFragKmersConsistency);
-
-            
-            if (!sensitiveMode) {
-//                allowNaiveExtension = false;
-                extendBranchFreeOnly = true;
-            }
             
             // extend LONG singleton fragments
 
