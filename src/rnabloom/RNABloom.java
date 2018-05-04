@@ -3295,39 +3295,24 @@ public class RNABloom {
             }
             
             String[] entry = line.split(FIELD_SEPARATOR);
-            ArrayList<String> paths;
             
-            //SAMPLE_ID LEFT/RIGHT PATH
+            //SAMPLE_ID LEFT_PATH RIGHT_PATH
             if (entry.length == 3) {
                 String id = entry[0];
-                
-                switch (entry[1].toLowerCase()) {
-                    case "left":
-                        paths = pooledLeftReadPaths.get(id);
-                        
-                        if (paths == null) {
-                            paths = new ArrayList<>();
-                            pooledLeftReadPaths.put(id, paths);
-                        }
-                        
-                        paths.add(entry[2]);
-                        
-                        break;
-                    case "right":
-                        paths = pooledRightReadPaths.get(id);
-                        
-                        if (paths == null) {
-                            paths = new ArrayList<>();
-                            pooledRightReadPaths.put(id, paths);
-                        }
-                        
-                        paths.add(entry[2]);
-                        
-                        break;
-                    default:
-                        System.out.println("ERROR: Pool reads path file has unexpected read orientation on line " + lineNumber + ":\n\t" + line);
-                        return false;                        
+
+                ArrayList<String> paths = pooledLeftReadPaths.get(id);
+                if (paths == null) {
+                    paths = new ArrayList<>();
+                    pooledLeftReadPaths.put(id, paths);
                 }
+                paths.add(entry[1]);
+
+                paths = pooledRightReadPaths.get(id);
+                if (paths == null) {
+                    paths = new ArrayList<>();
+                    pooledRightReadPaths.put(id, paths);
+                }
+                paths.add(entry[2]);
             }
             else {
                 System.out.println("ERROR: Pool reads path file has unexpected number of columns on line " + lineNumber + ":\n\t" + line);
