@@ -1780,6 +1780,10 @@ public class RNABloom {
 
                 // check for read consistency if fragment is long enough
                 if (fragmentKmers != null && graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
+                    if (extendFragments && isBranchFree(fragmentKmers, graph, maxTipLength)) {
+                        fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength);
+                    }
+                    
                     ArrayDeque<ArrayList<Kmer>> segments = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
 
                     if (segments.size() != 1) {
@@ -1807,10 +1811,6 @@ public class RNABloom {
                         }
 
                         if (hasComplexKmer) {
-                            if (extendFragments && isBranchFree(fragmentKmers, graph, maxTipLength)) {
-                                fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength);
-                            }
-
                             if (this.storeKmerPairs) {
                                 graph.addPairedKmers(fragmentKmers);
                             }
