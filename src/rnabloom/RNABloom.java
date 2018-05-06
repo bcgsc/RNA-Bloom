@@ -1368,7 +1368,9 @@ public class RNABloom {
                             ArrayList<Kmer> originalFragKmers = new ArrayList<>(kmers);
 
                             if ( (!extendBranchFreeFragmentsOnly || isBranchFree(kmers, graph, maxTipLength)) &&
-                                 (!skipPotentialArtifacts || (!isFusion(kmers, graph, screeningBf, lookahead) && !isTemplateSwitch(kmers, graph, screeningBf, lookahead))) &&
+                                 (!skipPotentialArtifacts || (!isFusion(kmers, graph, screeningBf, lookahead) &&
+                                                              !isTemplateSwitch(kmers, graph, screeningBf, lookahead) &&
+                                                              !isBluntEndArtifact(kmers, graph, screeningBf, lookahead))) &&
                                  !represented(kmers,
                                                         graph,
                                                         screeningBf,
@@ -3118,7 +3120,7 @@ public class RNABloom {
             else {
                 // be extra careful with extending low coverage fragments (ie. 01, E0)
 //                allowNaiveExtension = false;
-                extendBranchFreeOnly = true;
+//                extendBranchFreeOnly = true;
                 skipPotentialArtifacts = true;
             }
             
@@ -3146,6 +3148,10 @@ public class RNABloom {
             System.out.println("Parsing `" + fragmentsFasta + "`...");
             numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                     allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts, reqFragKmersConsistency);
+            
+            if (!sensitiveMode) {
+                extendBranchFreeOnly = true;
+            }
             
             // extend LONG singleton fragments
 

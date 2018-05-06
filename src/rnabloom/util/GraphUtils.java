@@ -113,7 +113,7 @@ public final class GraphUtils {
     }
     
     public static float getMedianKmerCoverage(final ArrayList<Kmer> kmers, int start, int end) {
-        int range = end-start+1;
+        int range = end-start;
         
         float[] covs = new float[range];
         for (int i=0; i<range; ++i) {
@@ -8232,6 +8232,56 @@ public final class GraphUtils {
         return false;
     }
     
+    public static boolean hasDepthRight(Kmer source, BloomFilterDeBruijnGraph graph, int depth, BloomFilter bf) {
+        int k = graph.getK();
+        int numHash = graph.getMaxNumHash();
+        
+        ArrayDeque<ArrayDeque> frontier = new ArrayDeque<>();
+        ArrayDeque<Kmer> alts = source.getSuccessors(k, numHash, graph, bf);
+        frontier.add(alts);
+        
+        while (!frontier.isEmpty()) {
+            alts = frontier.peekLast();
+            if (alts.isEmpty()) {
+                frontier.removeLast();
+            }
+            else {
+                frontier.add(alts.pop().getSuccessors(k, numHash, graph, bf));
+            }
+
+            if (frontier.size() >= depth) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    public static boolean hasDepthLeft(Kmer source, BloomFilterDeBruijnGraph graph, int depth, BloomFilter bf) {
+        int k = graph.getK();
+        int numHash = graph.getMaxNumHash();
+        
+        ArrayDeque<ArrayDeque> frontier = new ArrayDeque<>();
+        ArrayDeque<Kmer> alts = source.getPredecessors(k, numHash, graph, bf);
+        frontier.add(alts);
+        
+        while (!frontier.isEmpty()) {
+            alts = frontier.peekLast();
+            if (alts.isEmpty()) {
+                frontier.removeLast();
+            }
+            else {
+                frontier.add(alts.pop().getPredecessors(k, numHash, graph, bf));
+            }
+
+            if (frontier.size() >= depth) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
     public static ArrayDeque<Kmer> naiveExtendRight(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, HashSet<Kmer> terminators) {        
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
@@ -8937,6 +8987,56 @@ public final class GraphUtils {
 //                    return true;
 //                }                
 //            }
+        }
+        
+        return false;
+    }
+    
+    public static boolean isBluntEndArtifact(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead) {
+        int k = graph.getK();   
+        int numKmers = seqKmers.size();
+        int d = graph.getReadPairedKmerDistance();
+        
+        float leftEdgeCov = getMinimumKmerCoverage(seqKmers, 0, Math.min(lookahead, numKmers));
+        float rightEdgeCov = getMinimumKmerCoverage(seqKmers, Math.max(0, numKmers-lookahead), numKmers);
+        
+        if (assembledKmers.lookup(seqKmers.get(0).getHash()) &&
+                (!assembledKmers.lookup(seqKmers.get(numKmers-1).getHash()) || leftEdgeCov > rightEdgeCov)) {
+            int i = 1;
+            for (; i < numKmers; ++i) {
+                if (!assembledKmers.lookup(seqKmers.get(i).getHash())) {
+                    break;
+                }
+            }
+            
+            if (i == numKmers || i < numKmers-d) {
+                return false;
+            }
+
+            if (!hasDepthRight(seqKmers.get(numKmers-1), graph, lookahead) &&
+                    getMedianKmerCoverage(seqKmers, 0, i) > getMedianKmerCoverage(seqKmers, i, numKmers) &&
+                    hasDepthRight(seqKmers.get(i-1), graph, numKmers-i, assembledKmers)) {
+                return true;
+            }
+        }
+        else if (assembledKmers.lookup(seqKmers.get(numKmers-1).getHash()) &&
+                (!assembledKmers.lookup(seqKmers.get(0).getHash()) || leftEdgeCov < rightEdgeCov)) {
+            int j = numKmers-2;
+            for (; j >= 0; --j) {
+                if (!assembledKmers.lookup(seqKmers.get(j).getHash())) {
+                    break;
+                }
+            }
+            
+            if (j == -1 || j > d) {
+                return false;
+            }
+            
+            if (!hasDepthLeft(seqKmers.get(0), graph, lookahead) &&
+                    getMedianKmerCoverage(seqKmers, j+1, numKmers) > getMedianKmerCoverage(seqKmers, 0, j+1) &&
+                    hasDepthLeft(seqKmers.get(j+1), graph, j+1, assembledKmers)) {
+                return true;
+            }
         }
         
         return false;
