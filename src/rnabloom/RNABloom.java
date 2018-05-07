@@ -1701,20 +1701,24 @@ public class RNABloom {
                     leftKmers = graph.getKmers(left);
                 } 
                 
+                if (leftKmers == null || leftKmers.isEmpty()) {
+                    return;
+                }
+                
                 String right = getBestSegment(p.right, graph);
                 
                 if (right.length() >= this.rightReadLengthThreshold) {
                     rightKmers = graph.getKmers(right);
                 }
                 
-                boolean leftBad = leftKmers == null || leftKmers.isEmpty();
-                boolean rightBad = rightKmers == null || rightKmers.isEmpty();
+//                boolean leftBad = leftKmers == null || leftKmers.isEmpty();
+//                boolean rightBad = rightKmers == null || rightKmers.isEmpty();
                 
-                if (leftBad && rightBad) {
-                    // this read pair is discarded
+                if (rightKmers == null || rightKmers.isEmpty()) {
                     return;
                 }
                 
+                /*
                 if (leftBad) {
                     boolean hasComplexKmer = false;
                     float minCov = Float.MAX_VALUE;
@@ -1756,6 +1760,7 @@ public class RNABloom {
                         return;
                     }
                 }
+                */
                 
                 if (this.errorCorrectionIterations > 0) {
                     ReadPair correctedReadPair = correctErrorsPE(leftKmers,
