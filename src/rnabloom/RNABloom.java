@@ -3408,10 +3408,7 @@ public class RNABloom {
                 fragmentsFile.delete();
             }
 
-            System.out.println("\n* Stage 2: Assemble fragments for \"" + name + "\"");
 
-            MyTimer timer = new MyTimer();
-            timer.start();
 
             assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
             assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
@@ -3432,8 +3429,6 @@ public class RNABloom {
 
             assembler.savePairedKmersBloomFilter(new File(graphFile));
             assembler.writeFragStatsToFile(fragStats, fragStatsFile);
-
-            System.out.println("* Stage 2 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
 
             try {
                 touch(fragsDoneStamp);
@@ -3502,10 +3497,10 @@ public class RNABloom {
                 fragmentPaths.add(shortSingletonsFastaPath);
                 fragmentPaths.add(unconnectedSingletonsFastaPath);
 
-                System.out.println("\n* Rebuild graph from assembled fragments for \"" + name + "\"");
+                System.out.println("Rebuilding graph from assembled fragments...");
                 timer.start();
                 assembler.populateGraphFromFragments(fragmentPaths, strandSpecific, false);
-                System.out.println("* Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));  
+                System.out.println("Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));  
             }
 
             final String transcriptsFasta =       outdir + File.separator + name + ".transcripts.fa";
@@ -3521,7 +3516,7 @@ public class RNABloom {
                 shortTranscriptsFile.delete();
             }
 
-            System.out.println("\n* Stage 3: Assemble transcripts for \"" + name + "\"");
+            System.out.println("Assembling transcripts...");
             timer.start();
 
             assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
@@ -3542,7 +3537,7 @@ public class RNABloom {
                                                         reqFragKmersConsistency,
                                                         txptNamePrefix);
 
-            System.out.println("* Stage 3 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+            System.out.println("Transcripts assembled in " + MyTimer.hmsFormat(timer.elapsedMillis()));
 
             try {
                 touch(txptsDoneStamp);
@@ -3551,7 +3546,7 @@ public class RNABloom {
                 System.exit(1);
             }
 
-            System.out.println("\nTranscripts assembled in `" + transcriptsFasta + "`");
+            System.out.println("Assembled transcripts at `" + transcriptsFasta + "`");
         }
         else {
             System.out.println("WARNING: Transcripts were already assembled for \"" + name + "!");
@@ -3981,6 +3976,11 @@ public class RNABloom {
             if (pooledGraphMode) {
                 System.out.println("Pooled assembly mode is ON!");
                 
+                if (!new File(pooledReadsListFile).isFile()) {
+                    System.out.println("ERROR: Cannot find pooled read paths list `" + pooledReadsListFile + "`");
+                    System.exit(1);
+                }
+                
                 System.out.println("Parsing pool reads list file `" + pooledReadsListFile + "`...");
                 boolean parseOK = getPooledReadPaths(pooledReadsListFile, pooledLeftReadPaths, pooledRightReadPaths);
                 
@@ -4216,7 +4216,16 @@ public class RNABloom {
 
             if (pooledGraphMode) {
                 // assemble fragments for each sample
+                int numSamples = pooledLeftReadPaths.size();
+                int sampleId = 0;
+                
+                System.out.println("\n* Stage 2: Assemble fragments for " + numSamples + " samples");
+                MyTimer stageTimer = new MyTimer();
+                stageTimer.start();
+                
                 for (String sampleName : pooledLeftReadPaths.keySet()) {
+                    System.out.println("** Working on \"" + sampleName + "\" (sample " + ++sampleId + " of " + numSamples + ")...");
+                    
                     ArrayList<String> lefts = pooledLeftReadPaths.get(sampleName);
                     ArrayList<String> rights = pooledRightReadPaths.get(sampleName);
                     
@@ -4228,11 +4237,19 @@ public class RNABloom {
                     String sampleOutdir = outdir + File.separator + sampleName;
                     new File(sampleOutdir).mkdirs();
                     
+                    
+                    MyTimer sampleTimer = new MyTimer();
+                    sampleTimer.start();
+                    
                     assembleFragments(assembler, forceOverwrite,
                                     sampleOutdir, sampleName, fqPairs,
                                     sbfSize, pkbfSize, sbfNumHash, pkbfNumHash, numThreads,
                                     bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments);
+                    
+                    System.out.println("** Fragments assembled in " + MyTimer.hmsFormat(sampleTimer.elapsedMillis()) + "\n");
                 }
+                
+                System.out.println("* Stage 2 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                 
                 try {
                     touch(fragsDoneStamp);
@@ -4241,13 +4258,19 @@ public class RNABloom {
                     System.exit(1);
                 }
                 
-               if (endstage <= 2) {
+                if (endstage <= 2) {
                     System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
                     System.exit(0);
                 }
                 
                 // assemble transcripts for each sample
+                sampleId = 0;
+                System.out.println("\n* Stage 3: Assemble transcripts for " + numSamples + " samples");
+                stageTimer.start();
+                
                 for (String sampleName : pooledLeftReadPaths.keySet()) {
+                    System.out.println("** Working on \"" + sampleName + "\" (sample " + ++sampleId + " of " + numSamples + ")...");
+                    
                     String sampleOutdir = outdir + File.separator + sampleName;
                     
                     assembler.restorePairedKmersBloomFilter(new File(sampleOutdir + File.separator + sampleName + ".graph"));
@@ -4256,7 +4279,11 @@ public class RNABloom {
                                     sampleOutdir, sampleName, txptNamePrefix, strandSpecific,
                                     sbfSize, sbfNumHash, numThreads, noFragDBG,
                                     sampleSize, minTranscriptLength, sensitiveMode, reqFragKmersConsistency);
+                    
+                    System.out.print("\n");
                 }
+                
+                System.out.println("* Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));                
                 
                 try {
                     touch(txptsDoneStamp);
@@ -4271,20 +4298,31 @@ public class RNABloom {
                     fqPairs[i] = new FastxFilePair(leftReadPaths[i], rightReadPaths[i], revCompLeft, revCompRight);
                 }
 
+                System.out.println("\n* Stage 2: Assemble fragments for \"" + name + "\"");
+                MyTimer stageTimer = new MyTimer();
+                stageTimer.start();
+                
                 assembleFragments(assembler, forceOverwrite,
                                     outdir, name, fqPairs,
                                     sbfSize, pkbfSize, sbfNumHash, pkbfNumHash, numThreads,
                                     bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments);
+                
+                System.out.println("* Stage 2 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                 
                 if (endstage <= 2) {
                     System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
                     System.exit(0);
                 }
 
+                System.out.println("\n* Stage 3: Assemble transcripts for \"" + name + "\"");
+                stageTimer.start();
+                
                 assembleTranscripts(assembler, forceOverwrite,
                                 outdir, name, txptNamePrefix, strandSpecific,
                                 sbfSize, sbfNumHash, numThreads, noFragDBG,
                                 sampleSize, minTranscriptLength, sensitiveMode, reqFragKmersConsistency);
+                
+                System.out.println("* Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }      
         }
         catch (ParseException exp) {
