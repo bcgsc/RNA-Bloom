@@ -59,6 +59,7 @@ import rnabloom.io.FastxPairReader;
 import rnabloom.io.FileFormatException;
 import rnabloom.util.GraphUtils;
 import static rnabloom.util.GraphUtils.*;
+import rnabloom.util.SeqProfiler;
 import static rnabloom.util.SeqUtils.*;
 
 /**
@@ -561,6 +562,59 @@ public class RNABloom {
         }
     }
     
+    public class SeqProfile {
+        public int maxReadLength;
+        public float lowerPercentGCTheshold;
+        public float upperPercentGCThreshold;
+        
+        public SeqProfile(int maxReadLength, float lowerPercentGCTheshold, float upperPercentGCThreshold) {
+            this.maxReadLength = maxReadLength;
+            this.lowerPercentGCTheshold = lowerPercentGCTheshold;
+            this.upperPercentGCThreshold = upperPercentGCThreshold;
+        }
+    }
+    
+    public SeqProfile getSeqProfile(String path) {
+        SeqProfiler p = new SeqProfiler();
+        int maxSampleSize = 1000;
+        
+        try {
+            if (FastqReader.isFastq(path)) {
+                FastqRecord r = new FastqRecord();
+                FastqReader fr = new FastqReader(path);
+                for (int i=0; i<maxSampleSize && fr.hasNext(); ++i) {
+                    fr.nextWithoutName(r);
+                    p.add(r.seq);
+                }
+                fr.close();
+            }
+            else if (FastaReader.isFasta(path)) {
+                FastaReader fr = new FastaReader(path);
+                for (int i=0; i<maxSampleSize && fr.hasNext(); ++i) {
+                    p.add(fr.next());
+                }
+                fr.close();                
+            }
+            else {
+                System.out.println("Incompatible file format in `" + path + "`");
+            }
+            
+            int[] gc = p.evalGC();
+            int[] lens = p.evalLen();
+            
+            int maxLen = lens[4];
+            float lowerPercentGCThreshold = (gc[1]-1.5f*(gc[3]-gc[1]))/maxLen;
+            float upperPercentGCThreshold = (gc[3]+1.5f*(gc[3]-gc[1]))/maxLen;
+            
+            return new SeqProfile(maxLen, lowerPercentGCThreshold, upperPercentGCThreshold);
+        }
+        catch (IOException ex) {
+            System.out.println("ERROR: " + ex.getMessage());
+        }
+        
+        return null;
+    }
+    
     public int getMaxReadLength(String path) {
         int max = -1;
         
@@ -677,6 +731,27 @@ public class RNABloom {
         } catch (Exception ex) {
             handleException(ex);
         }
+    }
+    
+    public SeqProfile profileReads(String... readPaths) {
+        SeqProfile profile = null;
+        
+        for (String path : readPaths) {
+            SeqProfile p = this.getSeqProfile(path);
+            
+            if (p != null) {
+                if (profile == null) {
+                    profile = p;
+                }
+                else {
+                    profile.maxReadLength = Math.max(profile.maxReadLength, p.maxReadLength);
+                    profile.lowerPercentGCTheshold = Math.min(profile.lowerPercentGCTheshold, p.lowerPercentGCTheshold);
+                    profile.upperPercentGCThreshold = Math.max(profile.upperPercentGCThreshold, p.upperPercentGCThreshold);
+                }
+            }
+        }
+        
+        return profile;
     }
     
     public void setReadKmerDistance(Collection<String> forwardReadPaths,
@@ -1697,7 +1772,7 @@ public class RNABloom {
                 // connect segments of each read
                 String left = getBestSegment(p.left, graph);
                 
-                if (left.length() >= this.leftReadLengthThreshold) {
+                if (left.length() >= this.leftReadLengthThreshold && !isLowComplexity2(left)) {
                     leftKmers = graph.getKmers(left);
                 } 
                 
@@ -1707,7 +1782,7 @@ public class RNABloom {
                 
                 String right = getBestSegment(p.right, graph);
                 
-                if (right.length() >= this.rightReadLengthThreshold) {
+                if (right.length() >= this.rightReadLengthThreshold && !isLowComplexity2(right)) {
                     rightKmers = graph.getKmers(right);
                 }
                 
@@ -2375,7 +2450,7 @@ public class RNABloom {
                                                                 new FastaWriter(shortFragmentsFastaPaths[3], true),
                                                                 new FastaWriter(shortFragmentsFastaPaths[4], true),
                                                                 new FastaWriter(shortFragmentsFastaPaths[5], true)};
-
+            
             FastaWriter[] unconnectedReadsOut = new FastaWriter[]{new FastaWriter(unconnectedReadsFastaPaths[0], true),
                                                                 new FastaWriter(unconnectedReadsFastaPaths[1], true),
                                                                 new FastaWriter(unconnectedReadsFastaPaths[2], true),

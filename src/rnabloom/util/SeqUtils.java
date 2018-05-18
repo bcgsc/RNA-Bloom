@@ -217,6 +217,28 @@ public final class SeqUtils {
         }
     }
     
+    public static int[] countN(String seq) {
+        int[] result = new int[4];
+        countN(seq, result);
+        return result;
+    }
+    
+    public static void countN(String seq, int[] result) {
+        result[0] = 0;
+        result[1] = 0;
+        result[2] = 0;
+        result[3] = 0;
+        
+        PrimitiveIterator.OfInt itr = seq.chars().iterator();
+        int i;
+        while (itr.hasNext()) {
+            i = nucleotideArrayIndex(itr.nextInt());
+            if (i >= 0) {
+                ++result[i];
+            }
+        }
+    }
+    
     private static final float LOW_COMPLEXITY_THRESHOLD = 0.95f;
     
     public static final boolean isLowComplexity2(byte[] bytes) {
