@@ -563,14 +563,71 @@ public class RNABloom {
     }
     
     public class SeqProfile {
-        public int maxReadLength;
-        public float lowerPercentGCTheshold;
-        public float upperPercentGCThreshold;
+//        private int[] lenStats;
+//        private int[] aStats;
+//        private int[] cStats;
+//        private int[] gStats;
+//        private int[] tStats;
+        private float minA;
+        private float maxA;
+        private float minC;
+        private float maxC;
+        private float minG;
+        private float maxG;
+        private float minT;
+        private float maxT;
         
-        public SeqProfile(int maxReadLength, float lowerPercentGCTheshold, float upperPercentGCThreshold) {
-            this.maxReadLength = maxReadLength;
-            this.lowerPercentGCTheshold = lowerPercentGCTheshold;
-            this.upperPercentGCThreshold = upperPercentGCThreshold;
+        public SeqProfile(int[] lenStats, int[] aStats, int[] cStats, int[] gStats, int[] tStats) {
+//            this.lenStats = lenStats;
+//            this.aStats = aStats;
+//            this.cStats = cStats;
+//            this.gStats = gStats;
+//            this.tStats = tStats;
+            
+            int maxLen = lenStats[4];
+            
+            float bound = (aStats[3] - aStats[1]) * 1.5f;
+            minA = (aStats[1] - bound)/maxLen;
+            maxA = (aStats[3] + bound)/maxLen;
+            
+            bound = (cStats[3] - cStats[1]) * 1.5f;
+            minC = (cStats[1] - bound)/maxLen;
+            maxC = (cStats[3] + bound)/maxLen;
+            
+            bound = (gStats[3] - gStats[1]) * 1.5f;
+            minG = (gStats[1] - bound)/maxLen;
+            maxG = (gStats[3] + bound)/maxLen;
+            
+            bound = (tStats[3] - tStats[1]) * 1.5f;
+            minT = (tStats[1] - bound)/maxLen;
+            maxT = (tStats[3] + bound)/maxLen;
+        }
+        
+        public boolean agree(String seq) {
+            int[] numACGT = countN(seq);
+            int len = seq.length();
+            
+            float a = (float) (numACGT[0])/len;
+            if (a < minA || a > maxA) {
+                return false;
+            }
+            
+            float c = (float) (numACGT[1])/len;
+            if (c < minC || c > maxC) {
+                return false;
+            }
+            
+            float g = (float) (numACGT[2])/len;
+            if (g < minG || g > maxG) {
+                return false;
+            }
+            
+            float t = (float) (numACGT[3])/len;
+            if (t < minT || t > maxT) {
+                return false;
+            }
+            
+            return true;
         }
     }
     
@@ -599,14 +656,13 @@ public class RNABloom {
                 System.out.println("Incompatible file format in `" + path + "`");
             }
             
-            int[] gc = p.evalGC();
-            int[] lens = p.evalLen();
+            int[] aStats = p.evalA();
+            int[] cStats = p.evalC();
+            int[] gStats = p.evalG();
+            int[] tStats = p.evalT();
+            int[] lenStats = p.evalLen();
             
-            int maxLen = lens[4];
-            float lowerPercentGCThreshold = (gc[1]-1.5f*(gc[3]-gc[1]))/maxLen;
-            float upperPercentGCThreshold = (gc[3]+1.5f*(gc[3]-gc[1]))/maxLen;
-            
-            return new SeqProfile(maxLen, lowerPercentGCThreshold, upperPercentGCThreshold);
+            return new SeqProfile(lenStats, aStats, cStats, gStats, tStats);
         }
         catch (IOException ex) {
             System.out.println("ERROR: " + ex.getMessage());
@@ -732,28 +788,7 @@ public class RNABloom {
             handleException(ex);
         }
     }
-    
-    public SeqProfile profileReads(String... readPaths) {
-        SeqProfile profile = null;
         
-        for (String path : readPaths) {
-            SeqProfile p = this.getSeqProfile(path);
-            
-            if (p != null) {
-                if (profile == null) {
-                    profile = p;
-                }
-                else {
-                    profile.maxReadLength = Math.max(profile.maxReadLength, p.maxReadLength);
-                    profile.lowerPercentGCTheshold = Math.min(profile.lowerPercentGCTheshold, p.lowerPercentGCTheshold);
-                    profile.upperPercentGCThreshold = Math.max(profile.upperPercentGCThreshold, p.upperPercentGCThreshold);
-                }
-            }
-        }
-        
-        return profile;
-    }
-    
     public void setReadKmerDistance(Collection<String> forwardReadPaths,
                                     Collection<String> reverseReadPaths) {
         
@@ -1734,8 +1769,6 @@ public class RNABloom {
         private int errorCorrectionIterations;
         private int leftReadLengthThreshold;
         private int rightReadLengthThreshold;
-        private int polyXMinLen;
-        private int polyXMaxMismatches;
         private boolean extendFragments;
         
         public FragmentAssembler(PairedReadSegments p,
@@ -1746,8 +1779,6 @@ public class RNABloom {
                                 int errorCorrectionIterations,
                                 int leftReadLengthThreshold,
                                 int rightReadLengthThreshold,
-                                int polyXMinLen,
-                                int polyXMaxMismatches,
                                 boolean extendFragments) {
             
             this.p = p;
@@ -1758,8 +1789,6 @@ public class RNABloom {
             this.errorCorrectionIterations = errorCorrectionIterations;
             this.leftReadLengthThreshold = leftReadLengthThreshold;
             this.rightReadLengthThreshold = rightReadLengthThreshold;
-            this.polyXMinLen = polyXMinLen;
-            this.polyXMaxMismatches = polyXMaxMismatches;
             this.extendFragments = extendFragments;
         }
         
@@ -1772,8 +1801,13 @@ public class RNABloom {
                 // connect segments of each read
                 String left = getBestSegment(p.left, graph);
                 
-                if (left.length() >= this.leftReadLengthThreshold && !isLowComplexity2(left)) {
-                    leftKmers = graph.getKmers(left);
+                if (left.length() >= this.leftReadLengthThreshold) {
+                    if (!isLowComplexity2(left)) {
+                        leftKmers = graph.getKmers(left);
+                    }
+//                    else {
+//                        System.out.println(left);
+//                    }
                 } 
                 
                 if (leftKmers == null || leftKmers.isEmpty()) {
@@ -1782,8 +1816,13 @@ public class RNABloom {
                 
                 String right = getBestSegment(p.right, graph);
                 
-                if (right.length() >= this.rightReadLengthThreshold && !isLowComplexity2(right)) {
-                    rightKmers = graph.getKmers(right);
+                if (right.length() >= this.rightReadLengthThreshold) {
+                    if (!isLowComplexity2(right)) {
+                        rightKmers = graph.getKmers(right);
+                    }
+//                    else {
+//                        System.out.println(right);
+//                    }
                 }
                 
 //                boolean leftBad = leftKmers == null || leftKmers.isEmpty();
@@ -2464,7 +2503,7 @@ public class RNABloom {
             
             PairedReadSegments p;
             ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
-                        
+            
             for (FastxFilePair fxPair: fastqPairs) {
 
                 FastxPairReader fxpr = null;
@@ -2483,8 +2522,6 @@ public class RNABloom {
 
                 int leftReadLengthThreshold = k;
                 int rightReadLengthThreshold = k;
-                int polyXMinLen = k;
-                int polyXMaxMismatches = 1;
                 
                 // set up thread pool
                 MyExecutorService service = new MyExecutorService(numThreads, maxTasksQueueSize);
@@ -2504,8 +2541,6 @@ public class RNABloom {
                                                             maxErrCorrIterations, 
                                                             leftReadLengthThreshold,
                                                             rightReadLengthThreshold,
-                                                            polyXMinLen,
-                                                            polyXMaxMismatches,
                                                             extendFragments
                         ));
 
@@ -2645,8 +2680,6 @@ public class RNABloom {
                                                             maxErrCorrIterations, 
                                                             leftReadLengthThreshold, 
                                                             rightReadLengthThreshold,
-                                                            polyXMinLen,
-                                                            polyXMaxMismatches,
                                                             extendFragments
                         ));
 
