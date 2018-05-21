@@ -17,11 +17,11 @@ public class SeqProfiler {
     private int size = 0;
     
     private ArrayList<Integer> lengths = new ArrayList<>();
-//    private ArrayList<Integer> a = new ArrayList<>();
-//    private ArrayList<Integer> c = new ArrayList<>();
-//    private ArrayList<Integer> g = new ArrayList<>();
-//    private ArrayList<Integer> t = new ArrayList<>();
-    private ArrayList<Integer> gc = new ArrayList<>();
+    private ArrayList<Integer> a = new ArrayList<>();
+    private ArrayList<Integer> c = new ArrayList<>();
+    private ArrayList<Integer> g = new ArrayList<>();
+    private ArrayList<Integer> t = new ArrayList<>();
+//    private ArrayList<Integer> gc = new ArrayList<>();
     
     public SeqProfiler() {
     }
@@ -33,11 +33,10 @@ public class SeqProfiler {
         
         countN(seq, tempResult);
         
-//        a.add(tempResult[0]);
-//        c.add(tempResult[1]);
-//        g.add(tempResult[2]);
-//        t.add(tempResult[3]);
-        gc.add(tempResult[1] + tempResult[2]);
+        a.add(tempResult[0]);
+        c.add(tempResult[1]);
+        g.add(tempResult[2]);
+        t.add(tempResult[3]);
         
         ++size;
     }
@@ -50,25 +49,25 @@ public class SeqProfiler {
         return getStats(lengths);
     }
     
-//    public int[] evalA() {
-//        return getStats(a);
-//    }
-//
-//    public int[] evalC() {
-//        return getStats(c);
-//    }
-//
-//    public int[] evalG() {
-//        return getStats(g);
-//    }
-//    
-//    public int[] evalT() {
-//        return getStats(t);
-//    }
-    
-    public int[] evalGC() {
-        return getStats(gc);
+    public int[] evalA() {
+        return getStats(a);
     }
+
+    public int[] evalC() {
+        return getStats(c);
+    }
+
+    public int[] evalG() {
+        return getStats(g);
+    }
+    
+    public int[] evalT() {
+        return getStats(t);
+    }
+    
+//    public int[] evalGC() {
+//        return getStats(gc);
+//    }
     
     private int[] getStats(ArrayList<Integer> list) {
         if (size <= 0) {
