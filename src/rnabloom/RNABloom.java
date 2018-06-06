@@ -67,7 +67,7 @@ import static rnabloom.util.SeqUtils.*;
  * @author kmnip
  */
 public class RNABloom {
-    public final static String VERSION = "0.9.6";
+    public final static String VERSION = "0.9.7";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
