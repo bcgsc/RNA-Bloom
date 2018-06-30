@@ -1,6 +1,6 @@
 # RNA-Bloom
 
-RNA-Bloom is a *de novo* transcript sequence assembler for bulk and single cell paired-end RNA-seq data.
+RNA-Bloom is a fast and memory-efficient *de novo* transcript sequence assembler for bulk and single cell paired-end RNA-seq data.
 
 Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca)
 
@@ -29,6 +29,16 @@ java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -t THREADS -outdir OU
 ```
 cell1 /path/to/cell1/left.fastq.gz /path/to/cell1/right.fastq.gz
 cell2 /path/to/cell2/left.fastq.gz /path/to/cell2/right.fastq.gz
+```
+
+### limit the total size of Bloom filters to 3GB:
+```
+java -jar RNA-Bloom.jar -mem 3 ...
+```
+
+### limit the size of Java heap to 1GB:
+```
+java -Xmx1g -jar RNA-Bloom.jar ...
 ```
 
 ### for a list of all available options:
