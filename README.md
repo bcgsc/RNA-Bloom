@@ -1,4 +1,6 @@
-![Logo](rnabloom_logo.png)
+<p align="center">
+  <img src="rnabloom_logo.png" alt="RNA-Bloom's logo"/>
+</p>
 
 **RNA-Bloom** is a fast and memory-efficient *de novo* transcript sequence assembler for bulk and single cell paired-end RNA-seq data.
 
@@ -52,7 +54,7 @@ java -jar RNA-Bloom.jar -mem 3 ...
 ```
 Otherwise, it is adjusted automatically based on the size of input read files.
 
-### for a list of all available options in RNA-Bloom:
+### list all available options in RNA-Bloom:
 ```
 java -jar RNA-Bloom.jar -help
 ```
