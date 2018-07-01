@@ -10,6 +10,13 @@ Copyright 2018 Canada's Michael Smith Genome Sciences Centre, BC Cancer
 
 ## Quick Start
 
+### install RNA-Bloom:
+1. Download the binary tarball `rnabloom_vX.X.X.tar.gz` from the [releases](https://github.com/bcgsc/RNA-Bloom/releases) section.
+2. Extract the downloaded tarball with the command:
+```
+tar -zxf rnabloom_vX.X.X.tar.gz
+```
+
 ### bulk RNA-seq data:
 ```
 java -jar RNA-Bloom.jar -left LEFT.fastq.gz -right RIGHT.fastq.gz -revcomp-right -t THREADS -outdir OUTDIR
@@ -19,7 +26,7 @@ java -jar RNA-Bloom.jar -left LEFT.fastq.gz -right RIGHT.fastq.gz -revcomp-right
 ```
 java -jar RNA-Bloom.jar -stranded -left LEFT.fastq.gz -right RIGHT.fastq.gz -revcomp-right -t THREADS -outdir OUTDIR
 ```
-Note that dUTP protocols produce reads in the RF orientation, where `/2` denotes left reads in forward orientation and `/1` denotes right reads in reverse orientation. In this case, please specify your reads paths as `-left reads_2.fastq -right reads_1.fastq`.
+Note that dUTP protocols produce reads in the F2R1 orientation, where `/2` denotes left reads in forward orientation and `/1` denotes right reads in reverse orientation. In this case, please specify your reads paths as `-left reads_2.fastq -right reads_1.fastq`.
 
 ### single cell RNA-seq data:
 ```
