@@ -10,7 +10,7 @@ Copyright 2018 Canada's Michael Smith Genome Sciences Centre, BC Cancer
 
 --------------------------------------------------------------------------------
 
-## :ballot_box_with_check: Dependency
+## Dependency :pushpin:
 
 * [Java SE Runtime Environment (JRE) 8](http://www.oracle.com/technetwork/java/javase/downloads/jre8-downloads-2133155.html)
 
@@ -28,7 +28,7 @@ Java HotSpot(TM) 64-Bit Server VM (build 25.101-b13, mixed mode)
 
 Support for JRE 9 to be announced.
 
-## :wrench: Installation
+## Installation :wrench:
 
 1. Download the binary tarball `rnabloom_vX.X.X.tar.gz` from the [releases](https://github.com/bcgsc/RNA-Bloom/releases) section.
 2. Extract the downloaded tarball with the command:
@@ -41,7 +41,7 @@ tar -zxf rnabloom_vX.X.X.tar.gz
 
 If you decide to move the files to another location, make sure `RNA-Bloom.jar` and `lib/` are under the same directory.
 
-## :running: Quick Start
+## Quick Start :running:
 
 ### assemble bulk RNA-seq data:
 ```
