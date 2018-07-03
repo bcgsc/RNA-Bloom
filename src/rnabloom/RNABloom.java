@@ -1734,15 +1734,17 @@ public class RNABloom {
                         lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity);
 
                 // check for read consistency if fragment is long enough
-                if (fragmentKmers != null && graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
-                    if (extendFragments && isBranchFree(fragmentKmers, graph, maxTipLength)) {
+                if (fragmentKmers != null) {
+                    if (extendFragments) {
                         fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength);
                     }
                     
-                    ArrayDeque<ArrayList<Kmer>> segments = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
+                    if (graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
+                        ArrayDeque<ArrayList<Kmer>> segments = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
 
-                    if (segments.size() != 1) {
-                        fragmentKmers = null;
+                        if (segments.size() != 1) {
+                            fragmentKmers = null;
+                        }
                     }
                 }
 
