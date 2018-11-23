@@ -72,6 +72,22 @@ This file consists of 3 columns, ie.
 2. path of left reads
 3. path of right reads
 
+### set the Bloom filter sizes based on the maximum allowed false positive rate and the expected number of unique k-mers:
+```
+java -jar RNA-Bloom.jar -fpr 0.1 -nk 28077715 ...
+```
+The number of unique k-mers in your dataset can be estimated efficiently with [ntCard](https://github.com/bcgsc/ntCard).
+
+Make sure the same k-mer size to be used in RNA-Bloom (eg. 25) is specified in ntCard, eg.
+```
+ntcard -k 25 -c 65535 LEFT.fastq.gz RIGHT.fastq.gz
+```
+ntCard would generate a histogram file `freq_kXX.hist`, where `F0` on the 2nd row is the number of unique k-mers, eg.
+```
+F1	140110302
+F0	28077715
+```
+
 ### limit the total size of Bloom filters to 3GB:
 ```
 java -jar RNA-Bloom.jar -mem 3 ...
