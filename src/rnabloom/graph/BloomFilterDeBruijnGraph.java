@@ -618,6 +618,10 @@ public class BloomFilterDeBruijnGraph {
         return cbf.getFPR();
     }
     
+    public float getRpkbfFPR() {
+        return rpkbf.getFPR();
+    }
+    
     public float getPkbfFPR() {
         return pkbf.getFPR();
     }

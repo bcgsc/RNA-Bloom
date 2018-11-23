@@ -192,7 +192,28 @@ public class PairedKeysBloomFilter {
 //        return (float) pow(1 - exp((float)(-numHash * bitArrayPair.popCount()) / partitionSize), numHash);
         return (float) pow((double)(popcount) / (double)(size), numHash);
     }
+
+    public static long getExpectedSize(long expNumElements, float fpr, float numHash) {
+        //return (long) Math.ceil(expNumElements/Math.exp(Math.log1p(fpr)/numHash));
         
+        double r = (double) (-numHash) / log(1 - exp(log(fpr) / (double) numHash));
+        return (long) Math.ceil(expNumElements * r);
+    }
+
+    public long getOptimalSize(float fpr) {
+        if (popcount > 0) {
+            double r = (double) (-numHash) / log(1 - exp(log(fpr) / (double) numHash));
+            return (long) Math.ceil(popcount * r);
+        }
+        else {
+            return size;
+        }
+    }
+    
+    public long getPopCount() {
+        return popcount;
+    }
+    
     public double getProportionalChangeInSize(float fpr) {
         if (popcount < 0) {
             popcount = bitArrayPair.popCount();

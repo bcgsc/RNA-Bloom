@@ -50,6 +50,9 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import rnabloom.bloom.BloomFilter;
+import rnabloom.bloom.CountingBloomFilter;
+import rnabloom.bloom.PairedKeysBloomFilter;
+import rnabloom.bloom.PairedKeysPartitionedBloomFilter;
 import rnabloom.bloom.hash.CanonicalNTHashIterator;
 import rnabloom.bloom.hash.CanonicalPairedNTHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
@@ -801,6 +804,24 @@ public class RNABloom {
         double p3 = graph.getRpkbf().getProportionalChangeInSize(fpr);
         
         return Math.max(Math.max(p1, p2), p3);
+    }
+    
+    public boolean withinMaxFPR(float fpr) {
+        return graph.getDbgbfFPR() <= fpr || graph.getCbfFPR() <= fpr || graph.getRpkbfFPR() <= fpr;
+    }
+    
+    public long[] getOptimalBloomFilterSizes(float maxFPR) {
+        long maxPopCount = Math.max(screeningBf.getPopCount(), Math.max(graph.getDbgbf().getPopCount(), Math.max(graph.getCbf().getPopCount(), graph.getRpkbf().getPopCount())));
+        
+        long sbfSize = BloomFilter.getExpectedSize(maxPopCount, maxFPR, screeningBf.getNumHash());
+
+        long dbgbfSize = BloomFilter.getExpectedSize(maxPopCount, maxFPR, graph.getDbgbfNumHash());
+
+        long cbfSize = CountingBloomFilter.getExpectedSize(maxPopCount, maxFPR, graph.getCbfNumHash());
+
+        long pkbfSize = PairedKeysBloomFilter.getExpectedSize(maxPopCount, maxFPR, graph.getPkbfNumHash());
+                
+        return new long[]{sbfSize, dbgbfSize, cbfSize, pkbfSize};
     }
     
 //    public void addCountsOnly(Collection<String> forwardFastqs,
@@ -3436,6 +3457,14 @@ public class RNABloom {
                                     .build();
         options.addOption(optPkbfHash);        
 
+        Option optNumKmers = Option.builder("nk")
+                                    .longOpt("num-kmers")
+                                    .desc("expected number of unique k-mers")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optNumKmers);
+                
         Option optAllMem = Option.builder("mem")
                                     .desc("total amount of memory (GB) for all Bloom filters")
                                     .hasArg(true)
@@ -3739,11 +3768,11 @@ public class RNABloom {
             }
             
             final float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, 0.80f * Math.min(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
-            final float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
-            final float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8.5f)));
-            final float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 6f / 8.5f)));
-            final float pkbfGB = Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
-            
+            float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
+            float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8.5f)));
+            float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 6f / 8.5f)));
+            float pkbfGB = Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
+                        
             long sbfSize = (long) (NUM_BITS_1GB * sbfGB);
             long dbgbfSize = (long) (NUM_BITS_1GB * dbgGB);
             long cbfSize = (long) (NUM_BYTES_1GB * cbfGB);
@@ -3757,6 +3786,21 @@ public class RNABloom {
             final int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), allNumHashStr));
             
             final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), "0.10"));
+            
+            long expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt(), "-1"));
+            if (expNumKmers > 0) {
+                sbfSize = BloomFilter.getExpectedSize(expNumKmers, maxFPR, sbfNumHash);
+                sbfGB = sbfSize / (float) NUM_BITS_1GB;
+                
+                dbgbfSize = BloomFilter.getExpectedSize(expNumKmers, maxFPR, dbgbfNumHash);
+                dbgGB = dbgbfSize / (float) NUM_BITS_1GB;
+                
+                cbfSize = CountingBloomFilter.getExpectedSize(expNumKmers, maxFPR, cbfNumHash);
+                cbfGB = cbfSize / (float) NUM_BYTES_1GB;
+                
+                pkbfSize = PairedKeysBloomFilter.getExpectedSize(expNumKmers, maxFPR, pkbfNumHash);
+                pkbfGB = pkbfSize / (float) NUM_BITS_1GB;
+            }
             
             /**@TODO ensure that sbfNumHash and pkbfNumHash <= max(dbgbfNumHash, cbfNumHash) */
                         
@@ -3853,20 +3897,34 @@ public class RNABloom {
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                 assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false, true);
                 
-                double suggestedChangeInSize = assembler.suggestedProportionalChangeInSize(maxFPR);
-                if (suggestedChangeInSize > 1.0d) {
-                    System.out.println("WARNING: Bloom filter FPR is higher than expected!");
+                if (!assembler.withinMaxFPR(maxFPR)) {
+                    System.out.println("WARNING: Bloom filter FPR is higher than the maximum allowed FPR (" + maxFPR*100 +"%)!");
                     
-                    suggestedChangeInSize = assembler.suggestedProportionalChangeInSize(maxFPR*0.75f);
-                    
-                    System.out.println("Adjusting Bloom filter sizes to " + suggestedChangeInSize*100 + " %");
-                    
+                    System.out.println("Adjusting Bloom filter sizes...");
+
+                    long[] suggestedSizes = assembler.getOptimalBloomFilterSizes(maxFPR);
+
                     assembler.destroyAllBf();
                     
-                    dbgbfSize *= suggestedChangeInSize;
-                    cbfSize *= suggestedChangeInSize;
-                    pkbfSize *= suggestedChangeInSize;
-                    sbfSize *= suggestedChangeInSize;
+                    dbgbfSize = suggestedSizes[1];
+                    cbfSize = suggestedSizes[2];
+                    pkbfSize = suggestedSizes[3];
+                    sbfSize = suggestedSizes[0];
+
+                    dbgGB = dbgbfSize / (float) NUM_BITS_1GB;
+                    cbfGB = cbfSize / (float) NUM_BYTES_1GB;
+                    pkbfGB = pkbfSize / (float) NUM_BITS_1GB;
+                    sbfGB = sbfSize / (float) NUM_BITS_1GB;
+                    
+                    System.out.println("Bloom filters         Memory (GB)");
+                    System.out.println("====================================");
+                    System.out.println("de Bruijn graph:      " + dbgGB);
+                    System.out.println("kmer counting:        " + cbfGB);
+                    System.out.println("paired kmers (reads): " + pkbfGB);
+                    System.out.println("paired kmers (frags): " + pkbfGB);
+                    System.out.println("screening:            " + sbfGB);
+                    System.out.println("====================================");
+                    System.out.println("Total:                " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
                     
                     assembler.initializeGraph(strandSpecific, 
                             dbgbfSize, cbfSize, pkbfSize, 

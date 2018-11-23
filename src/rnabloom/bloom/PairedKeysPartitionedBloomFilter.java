@@ -24,6 +24,8 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import static java.lang.Math.exp;
+import static java.lang.Math.log;
 import static java.lang.Math.pow;
 import rnabloom.bloom.buffer.AbstractLargeBitBuffer;
 import rnabloom.bloom.buffer.BufferComparator;
@@ -346,5 +348,29 @@ public class PairedKeysPartitionedBloomFilter {
     public float getPairFPR() {        
 //        return (float) pow(1 - exp((float)(-numHash * bitArrayPair.popCount()) / partitionSize), numHash);
         return (float) pow((double)(bitArrayPair.popCount()) / (double)(size), numHash);
+    }
+    
+    public static long getExpectedSize(long expNumElements, float fpr, float numHash) {
+        double r = (double) (-numHash) / log(1 - exp(log(fpr) / (double) numHash));
+        return (long) Math.ceil(expNumElements * r);
+    }
+    
+    public long getOptimalSize(float fpr) {
+        long popcountLeft = bitArrayLeft.popCount();
+        long popcountRight = bitArrayRight.popCount();
+        long popcountPair = bitArrayPair.popCount();
+        
+        long popcount = Math.max(Math.max(popcountLeft, popcountRight), popcountPair);
+        
+        double r = (double) (-numHash) / log(1 - exp(log(fpr) / (double) numHash));
+        return (long) Math.ceil(popcount * r);
+    }
+    
+    public long getPopCount() {
+        long popcountLeft = bitArrayLeft.popCount();
+        long popcountRight = bitArrayRight.popCount();
+        long popcountPair = bitArrayPair.popCount();
+        
+        return Math.max(Math.max(popcountLeft, popcountRight), popcountPair);
     }
 }
