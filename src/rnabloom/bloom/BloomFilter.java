@@ -186,14 +186,10 @@ public class BloomFilter implements BloomFilterInterface {
         */
         
         popcount = bitArray.popCount();
-        
-//        return (float) pow(1 - exp((float)(-numHash * popcount) / size), numHash);
         return (float) pow((double)(popcount) / (double)(size), numHash);
     }
 
-    public static long getExpectedSize(long expNumElements, float fpr, float numHash) {
-        //return (long) Math.ceil(expNumElements/Math.exp(Math.log1p(fpr)/numHash));
-        
+    public static long getExpectedSize(long expNumElements, float fpr, int numHash) {
         double r = (double) (-numHash) / log(1 - exp(log(fpr) / (double) numHash));
         return (long) Math.ceil(expNumElements * r);
     }
@@ -212,13 +208,6 @@ public class BloomFilter implements BloomFilterInterface {
         }
     }
     
-    public double getProportionalChangeInSize(float fpr) {
-        if (popcount < 0) {
-            popcount = bitArray.popCount();
-        }
-        
-        return (double)(popcount) / (size * exp(log(fpr)/numHash));
-    }
 //    public long updatePopcount() {
 //        popcount = bitArray.popCount();
 //        return popcount;

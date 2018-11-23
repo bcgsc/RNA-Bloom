@@ -797,14 +797,6 @@ public class RNABloom {
         }
 //        System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
     }
-
-    public double suggestedProportionalChangeInSize(float fpr) {
-        double p1 = graph.getDbgbf().getProportionalChangeInSize(fpr);
-        double p2 = graph.getCbf().getProportionalChangeInSize(fpr);
-        double p3 = graph.getRpkbf().getProportionalChangeInSize(fpr);
-        
-        return Math.max(Math.max(p1, p2), p3);
-    }
     
     public boolean withinMaxFPR(float fpr) {
         return graph.getDbgbfFPR() <= fpr || graph.getCbfFPR() <= fpr || graph.getRpkbfFPR() <= fpr;

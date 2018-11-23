@@ -350,7 +350,7 @@ public class PairedKeysPartitionedBloomFilter {
         return (float) pow((double)(bitArrayPair.popCount()) / (double)(size), numHash);
     }
     
-    public static long getExpectedSize(long expNumElements, float fpr, float numHash) {
+    public static long getExpectedSize(long expNumElements, float fpr, int numHash) {
         double r = (double) (-numHash) / log(1 - exp(log(fpr) / (double) numHash));
         return (long) Math.ceil(expNumElements * r);
     }
