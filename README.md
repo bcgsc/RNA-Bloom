@@ -80,7 +80,7 @@ The number of unique k-mers in your dataset can be estimated efficiently with [n
 
 Make sure the same k-mer size to be used in RNA-Bloom (eg. 25) is specified in ntCard, eg.
 ```
-ntcard -k 25 -c 65535 LEFT.fastq.gz RIGHT.fastq.gz
+ntcard -k 25 -c 65535 -p freq LEFT.fastq.gz RIGHT.fastq.gz
 ```
 ntCard would generate a histogram file `freq_kXX.hist`, where `F0` on the 2nd row is the number of unique k-mers, eg.
 ```
