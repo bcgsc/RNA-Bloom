@@ -52,7 +52,6 @@ import org.apache.commons.cli.ParseException;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysBloomFilter;
-import rnabloom.bloom.PairedKeysPartitionedBloomFilter;
 import rnabloom.bloom.hash.CanonicalNTHashIterator;
 import rnabloom.bloom.hash.CanonicalPairedNTHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
@@ -3298,7 +3297,7 @@ public class RNABloom {
                 
         Option optLeftReads = Option.builder("l")
                                     .longOpt("left")
-                                    .desc("left reads file")
+                                    .desc("left reads file(s)")
                                     .hasArgs()
                                     .argName("FILE")
                                     .build();
@@ -3306,7 +3305,7 @@ public class RNABloom {
         
         Option optRightReads = Option.builder("r")
                                     .longOpt("right")
-                                    .desc("right reads file")
+                                    .desc("right reads file(s)")
                                     .hasArgs()
                                     .argName("FILE")
                                     .build();
@@ -3322,51 +3321,55 @@ public class RNABloom {
         
         Option optRevCompLeft = Option.builder("rcl")
                                     .longOpt("revcomp-left")
-                                    .desc("reverse-complement left reads")
+                                    .desc("reverse-complement left reads [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optRevCompLeft);
 
         Option optRevCompRight = Option.builder("rcr")
                                     .longOpt("revcomp-right")
-                                    .desc("reverse-complement right reads")
+                                    .desc("reverse-complement right reads [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optRevCompRight);
         
         Option optStranded = Option.builder("ss")
                                     .longOpt("stranded")
-                                    .desc("strand specific")
+                                    .desc("reads are strand specific [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optStranded);
         
+        final String optNameDefault = "rnabloom";
         Option optName = Option.builder("n")
                                     .longOpt("name")
-                                    .desc("assembly name")
+                                    .desc("assembly name [" + optNameDefault + "]")
                                     .hasArg(true)
                                     .argName("STR")
                                     .build();
         options.addOption(optName);
         
+        final String optPrefixDefault = "";
         Option optPrefix = Option.builder("prefix")
-                                    .desc("assembled transcript name prefix")
+                                    .desc("assembled transcript name prefix in FASTA header")
                                     .hasArg(true)
                                     .argName("STR")
                                     .build();
         options.addOption(optPrefix);
         
+        final String optThreadsDefault = "2";
         Option optThreads = Option.builder("t")
                                     .longOpt("threads")
-                                    .desc("run in INT threads")
+                                    .desc("number of threads to run [" + optThreadsDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optThreads);
         
+        final String optOutdirDefault = System.getProperty("user.dir") + File.separator + "rnabloom_assembly";
         Option optOutdir = Option.builder("o")
                                     .longOpt("outdir")
-                                    .desc("output directory")
+                                    .desc("output directory [" + optOutdirDefault + "]")
                                     .hasArg(true)
                                     .argName("PATH")
                                     .build();
@@ -3374,44 +3377,49 @@ public class RNABloom {
         
         Option optForce = Option.builder("f")
                                     .longOpt("force")
-                                    .desc("force overwrite existing files")
+                                    .desc("force overwrite existing files [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optForce);
         
+        final String optKmerSizeDefault = "25"; 
         Option optKmerSize = Option.builder("k")
                                     .longOpt("kmer")
-                                    .desc("kmer size")
+                                    .desc("kmer size [" + optKmerSizeDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optKmerSize);
         
+        final String optStageDefault = "3";
         Option optStage = Option.builder("stage")
-                                    .desc("assembly end point, eg. '1' (construct graph), '2' (assemble fragments), '3' (assemble transcripts)")
+                                    .desc("assembly end point, eg. '1' (construct graph), '2' (assemble fragments), '3' (assemble transcripts) [" + optStageDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optStage);
         
+        final String optBaseQualDbgDefault = "3";
         Option optBaseQualDbg = Option.builder("q")
                                     .longOpt("qual-dbg")
-                                    .desc("min base quality for constructing DBG")
+                                    .desc("minimum base quality for constructing DBG [" + optBaseQualDbgDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optBaseQualDbg);
 
+        final String optBaseQualFragDefault = "3";
         Option optBaseQualFrag = Option.builder("Q")
                                     .longOpt("qual-frag")
-                                    .desc("min base quality for fragment assembly")
+                                    .desc("minimum base quality for fragment reconstruction [" + optBaseQualFragDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optBaseQualFrag);        
         
+        final String optAllHashDefault = "2";
         Option optAllHash = Option.builder("hash")
-                                    .desc("number of hash functions for all Bloom filters")
+                                    .desc("number of hash functions for all Bloom filters [" + optAllHashDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3419,7 +3427,7 @@ public class RNABloom {
         
         Option optSbfHash = Option.builder("sh")
                                     .longOpt("sbf-hash")
-                                    .desc("number of hash functions for screening Bloom filter")
+                                    .desc("number of hash functions for screening Bloom filter [" + optAllHashDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3427,7 +3435,7 @@ public class RNABloom {
         
         Option optDbgbfHash = Option.builder("dh")
                                     .longOpt("dbgbf-hash")
-                                    .desc("number of hash functions for de Bruijn graph Bloom filter")
+                                    .desc("number of hash functions for de Bruijn graph Bloom filter [" + optAllHashDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3435,7 +3443,7 @@ public class RNABloom {
 
         Option optCbfHash = Option.builder("ch")
                                     .longOpt("cbf-hash")
-                                    .desc("number of hash functions for kmer counting Bloom filter")
+                                    .desc("number of hash functions for kmer counting Bloom filter [" + optAllHashDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3443,7 +3451,7 @@ public class RNABloom {
         
         Option optPkbfHash = Option.builder("ph")
                                     .longOpt("pkbf-hash")
-                                    .desc("number of hash functions for paired kmers Bloom filter")
+                                    .desc("number of hash functions for paired kmers Bloom filter [" + optAllHashDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3456,9 +3464,10 @@ public class RNABloom {
                                     .argName("INT")
                                     .build();
         options.addOption(optNumKmers);
-                
+        
         Option optAllMem = Option.builder("mem")
-                                    .desc("total amount of memory (GB) for all Bloom filters")
+                                    .longOpt("memory")
+                                    .desc("total amount of memory (GB) for all Bloom filters [auto]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
@@ -3466,7 +3475,7 @@ public class RNABloom {
         
         Option optSbfMem = Option.builder("sm")
                                     .longOpt("sbf-mem")
-                                    .desc("amount of memory (GB) for screening Bloom filter")
+                                    .desc("amount of memory (GB) for screening Bloom filter [auto]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
@@ -3474,7 +3483,7 @@ public class RNABloom {
         
         Option optDbgbfMem = Option.builder("dm")
                                     .longOpt("dbgbf-mem")
-                                    .desc("amount of memory (GB) for de Bruijn graph Bloom filter")
+                                    .desc("amount of memory (GB) for de Bruijn graph Bloom filter [auto]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
@@ -3482,7 +3491,7 @@ public class RNABloom {
 
         Option optCbfMem = Option.builder("cm")
                                     .longOpt("cbf-mem")
-                                    .desc("amount of memory (GB) for kmer counting Bloom filter")
+                                    .desc("amount of memory (GB) for kmer counting Bloom filter [auto]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
@@ -3490,127 +3499,140 @@ public class RNABloom {
         
         Option optPkbfMem = Option.builder("pm")
                                     .longOpt("pkbf-mem")
-                                    .desc("amount of memory (GB) for paired kmers Bloom filter")
+                                    .desc("amount of memory (GB) for paired kmers Bloom filter [auto]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
         options.addOption(optPkbfMem);
 
+        final String optFprDefault = "0.10";
         Option optFpr = Option.builder("fpr")
                                     .longOpt("fpr")
-                                    .desc("max Bloom filter false-positive rate allowed")
+                                    .desc("maximum Bloom filter false-positive rate allowed [" + optFprDefault + "]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
         options.addOption(optFpr);
         
+        final String optTipLengthDefault = "5";
         Option optTipLength = Option.builder("tiplength")
-                                    .desc("max tip length allowed")
+                                    .desc("maximum tip length allowed [" + optTipLengthDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optTipLength);  
         
+        final String optLookaheadDefault = "3";
         Option optLookahead = Option.builder("lookahead")
-                                    .desc("number of kmers to look ahead during graph traversal")
+                                    .desc("number of kmers to look ahead during graph traversal [" + optLookaheadDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optLookahead);        
         
+        final String optOverlapDefault = "10";
         Option optOverlap = Option.builder("overlap")
-                                    .desc("min number of overlapping bases between mates")
+                                    .desc("min number of overlapping bases between read mates [" + optOverlapDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optOverlap);
         
+        final String optBoundDefault = "500";
         Option optBound = Option.builder("bound")
-                                    .desc("max distance between paired reads")
+                                    .desc("maximum distance between read mates [" + optBoundDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optBound);
 
+        final String optSampleDefault = "1000";
         Option optSample = Option.builder("sample")
-                                    .desc("sample size for estimating median fragment length")
+                                    .desc("sample size for estimating read and fragment lengths [" + optSampleDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optSample);
         
+        final String optMaxCovGradDefault = "0.50";
         Option optMaxCovGrad = Option.builder("grad")
                                     .longOpt("maxcovgrad")
-                                    .desc("max coverage gradient for error correction")
+                                    .desc("maximum coverage gradient for error correction [" + optMaxCovGradDefault + "]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
         options.addOption(optMaxCovGrad);
         
+        final String optIndelSizeDefault = "1";
         Option optIndelSize = Option.builder("indel")
-                                    .desc("maximum indel size allowed")
+                                    .desc("maximum indel size allowed [" + optIndelSizeDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optIndelSize);  
 
+        final String optPercentIdentityDefault = "0.90";
         Option optPercentIdentity = Option.builder("p")
                                     .longOpt("percent")
-                                    .desc("minimum percent identity allowed")
+                                    .desc("minimum percent identity allowed [" + optPercentIdentityDefault + "]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
         options.addOption(optPercentIdentity); 
         
+        final String optErrCorrItrDefault = "1";
         Option optErrCorrItr = Option.builder("e")
                                     .longOpt("errcorritr")
-                                    .desc("max number of iterations of read error correction")
+                                    .desc("max number of iterations of read error correction [" + optErrCorrItrDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optErrCorrItr);        
 
         Option optExtend = Option.builder("extend")
-                                    .desc("extend assembled fragments during fragment assembly")
+                                    .desc("extend assembled fragments during fragment reconstruction [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optExtend);
 
         Option optNoFragDBG = Option.builder("nofdbg")
-                                    .desc("do not rebuild DBG from fragment k-mers")
+                                    .desc("do not rebuild DBG from fragment k-mers [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNoFragDBG);
 
         Option optNoFragmentsConsistency = Option.builder("nofc")
-                                    .desc("turn off assembly consistency with fragment paired k-mers")
+                                    .desc("turn off assembly consistency with fragment paired k-mers [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNoFragmentsConsistency);
         
         Option optSensitive = Option.builder("sensitive")
-                                    .desc("assemble transcripts in sensitive mode")
+                                    .desc("assemble transcripts in sensitive mode [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optSensitive);
         
+        final String optMinKmerPairsDefault = "10";
         Option optMinKmerPairs = Option.builder("pair")
-                                    .desc("minimum number of consecutive kmer pairs for assembling transcripts")
+                                    .desc("minimum number of consecutive kmer pairs for assembling transcripts [" + optMinKmerPairsDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optMinKmerPairs);  
         
+        final String optMinLengthDefault = "200";
         Option optMinLength = Option.builder("length")
-                                    .desc("min transcript length in final assembly")
+                                    .desc("minimum transcript length in output assembly [" + optMinLengthDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optMinLength);  
         
+        final String optPolyATailDefault = "0";
         Option optPolyATail = Option.builder("a")
                                     .longOpt("polya")
-                                    .desc("only assemble transcripts with poly-A tails of the minimum length specified")
+                                    .desc("assemble transcripts with poly-A tails of the minimum length specified [" + optPolyATailDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3640,12 +3662,12 @@ public class RNABloom {
                 printVersionInfo(true);
             }
             
-            final int endstage = Integer.parseInt(line.getOptionValue(optStage.getOpt(), "3"));
-            final int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), "2"));
+            final int endstage = Integer.parseInt(line.getOptionValue(optStage.getOpt(), optStageDefault));
+            final int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), optThreadsDefault));
             final boolean forceOverwrite = line.hasOption(optForce.getOpt());
             
-            final String name = line.getOptionValue(optName.getOpt(), "rnabloom");
-            final String outdir = line.getOptionValue(optOutdir.getOpt(), System.getProperty("user.dir") + File.separator + name + "_assembly");
+            final String name = line.getOptionValue(optName.getOpt(), optNameDefault);
+            final String outdir = line.getOptionValue(optOutdir.getOpt(), optOutdirDefault);
             
             final String graphFile = outdir + File.separator + name + ".graph";
             
@@ -3744,10 +3766,10 @@ public class RNABloom {
             final boolean revCompRight = line.hasOption(optRevCompRight.getOpt());
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             
-            final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), "25"));
+            final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), optKmerSizeDefault));
             
-            final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), "3"));
-            final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), "3"));
+            final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
+            final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), optBaseQualFragDefault));
             
             double leftReadFilesTotalBytes = 0;
             double rightReadFilesTotalBytes = 0;
@@ -3770,14 +3792,13 @@ public class RNABloom {
             long cbfSize = (long) (NUM_BYTES_1GB * cbfGB);
             long pkbfSize = (long) (NUM_BITS_1GB * pkbfGB);
             
-            final int allNumHash = Integer.parseInt(line.getOptionValue(optAllHash.getOpt(), "2"));
-            final String allNumHashStr = Integer.toString(allNumHash);
-            final int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), allNumHashStr));
-            final int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), allNumHashStr));
-            final int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), allNumHashStr));
-            final int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), allNumHashStr));
+            final int allNumHash = Integer.parseInt(line.getOptionValue(optAllHash.getOpt(), optAllHashDefault));
+            final int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), optAllHashDefault));
+            final int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), optAllHashDefault));
+            final int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), optAllHashDefault));
+            final int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), optAllHashDefault));
             
-            final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), "0.10"));
+            final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), optFprDefault));
             
             long expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt(), "-1"));
             if (expNumKmers > 0) {
@@ -3796,23 +3817,23 @@ public class RNABloom {
             
             /**@TODO ensure that sbfNumHash and pkbfNumHash <= max(dbgbfNumHash, cbfNumHash) */
                         
-            final int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), "10"));
-            final int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), "1000"));
-            final int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), "500"));
-            final int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), "3"));
-            final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), "5"));
-            final float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), "0.5"));
-            final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), "0.90"));
-            final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), "1"));
-            final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), "1"));
-            final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), "200"));
-            final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), "0"));
+            final int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), optOverlapDefault));
+            final int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), optSampleDefault));
+            final int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), optBoundDefault));
+            final int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), optLookaheadDefault));
+            final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), optTipLengthDefault));
+            final float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), optMaxCovGradDefault));
+            final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), optPercentIdentityDefault));
+            final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), optIndelSizeDefault));
+            final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), optErrCorrItrDefault));
+            final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), optMinLengthDefault));
+            final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), optPolyATailDefault));
             final boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
             final boolean noFragDBG = line.hasOption(optNoFragDBG.getOpt());
             final boolean reqFragKmersConsistency = !line.hasOption(optNoFragmentsConsistency.getOpt());
             final boolean extendFragments = line.hasOption(optExtend.getOpt());
-            final int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), "10"));
-            final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), "");
+            final int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), optMinKmerPairsDefault));
+            final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), optPrefixDefault);
             
 
             System.out.println("\nBloom filters         Memory (GB)");
