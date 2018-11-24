@@ -2982,7 +2982,7 @@ public class RNABloom {
         
         HelpFormatter formatter = new HelpFormatter();
         formatter.setOptionComparator(null);
-        formatter.printHelp( "java -jar RNA-Bloom.jar", options, true);
+        formatter.printHelp( "java -jar rnabloom.jar", options, true);
         
         if (error) {
             System.exit(1);
