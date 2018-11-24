@@ -17,7 +17,7 @@ set -u
 
 if [ $# -eq 0 ]
 then
-java ${JVM_OPTS} -jar ${DIR}/RNA-Bloom.jar --help
+java ${JVM_OPTS} -jar ${DIR}/rnabloom.jar --help
 else
-java ${JVM_OPTS} -jar ${DIR}/RNA-Bloom.jar "$@"
+java ${JVM_OPTS} -jar ${DIR}/rnabloom.jar "$@"
 fi
