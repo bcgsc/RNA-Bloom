@@ -3285,10 +3285,7 @@ public class RNABloom {
      */
     public static void main(String[] args) throws IOException {        
         MyTimer timer = new MyTimer();
-        
-        System.out.println("RNA-Bloom " + VERSION + "\n\n" +
-                "args: " + Arrays.toString(args));
-            
+                    
         // Based on: http://commons.apache.org/proper/commons-cli/usage.html
         CommandLineParser parser = new DefaultParser();
 
@@ -3653,7 +3650,7 @@ public class RNABloom {
 
         try {
             CommandLine line = parser.parse(options, args);
-
+            
             if (line.getOptions().length == 0 || line.hasOption(optHelp.getOpt())) {
                 printHelp(options, false);
             }
@@ -3661,6 +3658,9 @@ public class RNABloom {
             if (line.hasOption(optVersion.getOpt())) {
                 printVersionInfo(true);
             }
+            
+            System.out.println("RNA-Bloom version " + VERSION + "\n" +
+                               "args: " + Arrays.toString(args) + "\n");
             
             final int endstage = Integer.parseInt(line.getOptionValue(optStage.getOpt(), optStageDefault));
             final int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), optThreadsDefault));
