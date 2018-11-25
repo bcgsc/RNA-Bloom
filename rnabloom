@@ -8,16 +8,16 @@ set -eo pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
-if [ -z ${JVM_OPTS} ]
+if [ -z ${RNABLOOM_JAVA_OPTIONS} ]
 then
-    JVM_OPTS=''
+    RNABLOOM_JAVA_OPTIONS=''
 fi
 
 set -u
 
 if [ $# -eq 0 ]
 then
-java ${JVM_OPTS} -jar ${DIR}/rnabloom.jar --help
+java ${RNABLOOM_JAVA_OPTIONS} -jar ${DIR}/RNA-Bloom.jar --help
 else
-java ${JVM_OPTS} -jar ${DIR}/rnabloom.jar "$@"
+java ${RNABLOOM_JAVA_OPTIONS} -jar ${DIR}/RNA-Bloom.jar "$@"
 fi

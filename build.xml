@@ -71,7 +71,7 @@
 
     -->
 <target name="-post-jar">
-    <property name="store.jar.name" value="rnabloom"/>
+    <property name="store.jar.name" value="RNA-Bloom"/>
     <property name="store.dir" value="dist"/>
     <property name="store.jar" value="${store.dir}/${store.jar.name}.jar"/>
     <echo message="Packaging ${application.title} into a single JAR at ${store.jar}"/>
@@ -82,10 +82,17 @@
             <attribute name="Main-Class" value="${main.class}"/>
         </manifest>
     </jar>
+    <delete file="${store.dir}/${application.title}.jar"/>
+    <delete dir="${store.dir}/lib"/>
     <zip destfile="${store.jar}">
         <zipfileset src="${store.dir}/temp_final.jar"
         excludes="META-INF/*.SF, META-INF/*.DSA, META-INF/*.RSA"/>
     </zip>
     <delete file="${store.dir}/temp_final.jar"/>
+    <delete file="${store.dir}/README.TXT"/>
+    <copy file="README.md" todir="${store.dir}"/>
+    <copy file="LICENSE" todir="${store.dir}"/>
+    <copy file="rnabloom" todir="${store.dir}"/>
+    <chmod file="${store.dir}/rnabloom" perm="+x"/>
 </target>
 </project>
