@@ -577,7 +577,7 @@ public class RNABloom {
             if (FastqReader.isFastq(path)) {
                 FastqRecord r = new FastqRecord();
                 FastqReader fr = new FastqReader(path);
-                for (int i=0; i< 10 && fr.hasNext(); ++i) {
+                for (int i=0; i< 100 && fr.hasNext(); ++i) {
                     fr.nextWithoutName(r);
                     max = Math.max(max, r.seq.length());
                 }
@@ -585,7 +585,7 @@ public class RNABloom {
             }
             else if (FastaReader.isFasta(path)) {
                 FastaReader fr = new FastaReader(path);
-                for (int i=0; i< 10 && fr.hasNext(); ++i) {
+                for (int i=0; i< 100 && fr.hasNext(); ++i) {
                     max = Math.max(max, fr.next().length());
                 }
                 fr.close();                
@@ -721,6 +721,10 @@ public class RNABloom {
             exitOnError("Cannot determine read length from read files.");
         }
 
+        if (readLength < k) {
+            exitOnError("The read length (" + readLength + ") is too short for k-mer size (" + k + ").");
+        }
+        
         System.out.println("Read length: " + readLength);
         
         /*
@@ -802,14 +806,13 @@ public class RNABloom {
     }
     
     public long[] getOptimalBloomFilterSizes(float maxFPR) {
-        long maxPopCount = Math.max(screeningBf.getPopCount(), Math.max(graph.getDbgbf().getPopCount(), Math.max(graph.getCbf().getPopCount(), graph.getRpkbf().getPopCount())));
+        long maxPopCount = Math.max(screeningBf.getPopCount(),
+                                Math.max(graph.getDbgbf().getPopCount(),
+                                    Math.max(graph.getCbf().getPopCount(), graph.getRpkbf().getPopCount())));
         
         long sbfSize = BloomFilter.getExpectedSize(maxPopCount, maxFPR, screeningBf.getNumHash());
-
         long dbgbfSize = BloomFilter.getExpectedSize(maxPopCount, maxFPR, graph.getDbgbfNumHash());
-
         long cbfSize = CountingBloomFilter.getExpectedSize(maxPopCount, maxFPR, graph.getCbfNumHash());
-
         long pkbfSize = PairedKeysBloomFilter.getExpectedSize(maxPopCount, maxFPR, graph.getPkbfNumHash());
                 
         return new long[]{sbfSize, dbgbfSize, cbfSize, pkbfSize};
@@ -2982,7 +2985,7 @@ public class RNABloom {
         
         HelpFormatter formatter = new HelpFormatter();
         formatter.setOptionComparator(null);
-        formatter.printHelp( "java -jar rnabloom.jar", options, true);
+        formatter.printHelp( "java -jar RNA-Bloom.jar", options, true);
         
         if (error) {
             System.exit(1);
@@ -2994,7 +2997,7 @@ public class RNABloom {
     
     public static void printVersionInfo(boolean exit) {
         System.out.println(
-                "RNA-Bloom version " + VERSION + "\n" +
+                "RNA-Bloom v" + VERSION + "\n" +
                 "Ka Ming Nip, Canada's Michael Smith Genome Sciences Centre, BC Cancer\n" +
                 "Copyright 2018"
         );
@@ -3545,7 +3548,7 @@ public class RNABloom {
 
         final String optSampleDefault = "1000";
         Option optSample = Option.builder("sample")
-                                    .desc("sample size for estimating read and fragment lengths [" + optSampleDefault + "]")
+                                    .desc("sample size for estimating fragment lengths [" + optSampleDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3659,7 +3662,7 @@ public class RNABloom {
                 printVersionInfo(true);
             }
             
-            System.out.println("RNA-Bloom version " + VERSION + "\n" +
+            System.out.println("RNA-Bloom v" + VERSION + "\n" +
                                "args: " + Arrays.toString(args) + "\n");
             
             final int endstage = Integer.parseInt(line.getOptionValue(optStage.getOpt(), optStageDefault));
