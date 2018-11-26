@@ -71,6 +71,7 @@
 
     -->
 <target name="-post-jar">
+    <property name="version" value="0.9.10"/>
     <property name="store.jar.name" value="RNA-Bloom"/>
     <property name="store.dir" value="dist"/>
     <property name="store.jar" value="${store.dir}/${store.jar.name}.jar"/>
@@ -94,5 +95,8 @@
     <copy file="LICENSE" todir="${store.dir}"/>
     <copy file="rnabloom" todir="${store.dir}"/>
     <chmod file="${store.dir}/rnabloom" perm="+x"/>
+    <tar destfile="${store.dir}/rnabloom_v${version}.tar.gz" compression="gzip">
+        <tarfileset dir="${store.dir}" prefix="RNA-Bloom_v${version}"/>
+    </tar>
 </target>
 </project>
