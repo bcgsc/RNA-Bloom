@@ -3796,10 +3796,11 @@ public class RNABloom {
             long pkbfSize = (long) (NUM_BITS_1GB * pkbfGB);
             
             final int allNumHash = Integer.parseInt(line.getOptionValue(optAllHash.getOpt(), optAllHashDefault));
-            final int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), optAllHashDefault));
-            final int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), optAllHashDefault));
-            final int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), optAllHashDefault));
-            final int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), optAllHashDefault));
+            final String allNumHashStr = Integer.toString(allNumHash);
+            final int sbfNumHash = Integer.parseInt(line.getOptionValue(optSbfHash.getOpt(), allNumHashStr));
+            final int dbgbfNumHash = Integer.parseInt(line.getOptionValue(optDbgbfHash.getOpt(), allNumHashStr));
+            final int cbfNumHash = Integer.parseInt(line.getOptionValue(optCbfHash.getOpt(), allNumHashStr));
+            final int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), allNumHashStr));
             
             final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), optFprDefault));
             
