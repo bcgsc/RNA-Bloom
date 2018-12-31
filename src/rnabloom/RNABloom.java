@@ -3709,6 +3709,16 @@ public class RNABloom {
             final String name = line.getOptionValue(optName.getOpt(), optNameDefault);
             final String outdir = line.getOptionValue(optOutdir.getOpt(), optOutdirDefault);
             
+            System.out.println("name:   " + name);
+            System.out.println("outdir: " + outdir);
+            
+            File f = new File(outdir);
+            if (!f.exists()) {
+                System.out.println("WARNING: Output directory does not exist!");
+                f.mkdirs();
+                System.out.println("Created output directory at `" + outdir + "`");
+            }
+            
             final String graphFile = outdir + File.separator + name + ".graph";
             
             File startedStamp = new File(outdir + File.separator + STAMP_STARTED);
@@ -3843,7 +3853,7 @@ public class RNABloom {
             
             long expNumKmers = -1L;
             if (line.hasOption(optNtcard.getOpt())) {
-                System.out.println("K-mer counting with ntcard...");
+                System.out.println("\nK-mer counting with ntcard...");
                 String histogramPathPrefix = outdir + File.separator + name;
 
                 timer.start();
@@ -3905,17 +3915,6 @@ public class RNABloom {
             System.out.println("====================================");
             System.out.println("Total:                " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
             
-
-            System.out.println("\nname:   " + name);
-            System.out.println(  "outdir: " + outdir);
-            
-            File f = new File(outdir);
-            if (!f.exists()) {
-                System.out.println("WARNING: Output directory does not exist!");
-                f.mkdirs();
-                System.out.println("Created output directory at `" + outdir + "`");
-            }
-
             RNABloom assembler = new RNABloom(k, qDBG, qFrag);
             assembler.setParams(strandSpecific, maxTipLen, lookahead, maxCovGradient, maxIndelSize, percentIdentity, minNumKmerPairs, minPolyATail);
 
