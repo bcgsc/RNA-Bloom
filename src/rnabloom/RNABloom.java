@@ -40,6 +40,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
@@ -3278,6 +3280,35 @@ public class RNABloom {
         }
     }
     
+    private static long getNumUniqueKmers(int threads, int k, String histogramPathPrefix, String[] leftReadPaths, String[] rightReadPaths) throws IOException, InterruptedException {
+        long numKmers = -1L;
+        
+        String cmd = "ntcard -t " + threads + " -k " + k + " -c 65535 -p " + histogramPathPrefix + " " + String.join(" ", leftReadPaths) + " " + String.join(" ", rightReadPaths);
+        
+        Runtime rt = Runtime.getRuntime();
+        System.out.println("Running command: `" + cmd + "`");
+        Process pr = rt.exec(cmd);
+        int exitVal = pr.waitFor();
+        
+        if (exitVal == 0) {
+            String histogramPath = histogramPathPrefix + "_k" + k + ".hist";
+            
+            BufferedReader br = new BufferedReader(new FileReader(histogramPath));
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.length() > 0) {
+                    String[] cols = line.split("\t");
+                    if (cols[0].equals("F0")) {
+                        numKmers = Long.parseLong(cols[1]);
+                        break; 
+                    }
+                }
+            }    
+        }
+        
+        return numKmers;
+    }
+    
     private static final String STAMP_STARTED = "STARTED";
     private static final String STAMP_DBG_DONE = "DBG.DONE";
     private static final String STAMP_FRAGMENTS_DONE = "FRAGMENTS.DONE";
@@ -3464,6 +3495,12 @@ public class RNABloom {
                                     .argName("INT")
                                     .build();
         options.addOption(optNumKmers);
+        
+        Option optNtcard = Option.builder("ntcard")
+                                    .desc("run ntcard to count the number of unique k-mers")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optNtcard);        
         
         Option optAllMem = Option.builder("mem")
                                     .longOpt("memory")
@@ -3804,7 +3841,25 @@ public class RNABloom {
             
             final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), optFprDefault));
             
-            long expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt(), "-1"));
+            long expNumKmers = -1L;
+            if (line.hasOption(optNtcard.getOpt())) {
+                System.out.println("K-mer counting with ntcard...");
+                String histogramPathPrefix = outdir + File.separator + name;
+
+                timer.start();
+                expNumKmers = getNumUniqueKmers(numThreads, k, histogramPathPrefix, leftReadPaths, rightReadPaths);
+                System.out.println("Number of unique k-mers: " + expNumKmers);
+                System.out.println("K-mer counting completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                    
+                if (expNumKmers < 0) {
+                    System.out.println("ERROR: Cannot get number of unique k-mers from ntcard!");
+                    System.exit(1);
+                }
+            }
+            else {
+                expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt()));
+            }
+            
             if (expNumKmers > 0) {
                 sbfSize = BloomFilter.getExpectedSize(expNumKmers, maxFPR, sbfNumHash);
                 sbfGB = sbfSize / (float) NUM_BITS_1GB;
@@ -3960,12 +4015,7 @@ public class RNABloom {
                 
                 System.out.println("* Stage 1 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
-                try {
-                    touch(dbgDoneStamp);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    System.exit(1);
-                }
+                touch(dbgDoneStamp);
                 
                 if (endstage <= 1) {
                     System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
@@ -4011,12 +4061,7 @@ public class RNABloom {
                 
                 System.out.println("* Stage 2 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                 
-                try {
-                    touch(fragsDoneStamp);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    System.exit(1);
-                }
+                touch(fragsDoneStamp);
                 
                 if (endstage <= 2) {
                     System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
@@ -4045,12 +4090,7 @@ public class RNABloom {
                 
                 System.out.println("* Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));                
                 
-                try {
-                    touch(txptsDoneStamp);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    System.exit(1);
-                }
+                touch(txptsDoneStamp);
             }
             else {
                 FastxFilePair[] fqPairs = new FastxFilePair[leftReadPaths.length];
@@ -4085,8 +4125,8 @@ public class RNABloom {
                 System.out.println("* Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }      
         }
-        catch (ParseException exp) {
-            System.out.println("ERROR:" + exp.getMessage() );
+        catch (Exception exp) {
+            System.out.println("ERROR: " + exp.getMessage() );
             System.exit(1);
         }
         
