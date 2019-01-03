@@ -3288,13 +3288,13 @@ public class RNABloom {
         if (forceOverwrite || !new File(histogramPath).isFile()) {
             String cmd = "ntcard -t " + threads + " -k " + k + " -c 65535 -p " + histogramPathPrefix + " " + String.join(" ", leftReadPaths) + " " + String.join(" ", rightReadPaths);
             Runtime rt = Runtime.getRuntime();
-            System.out.println("Running command: `" + cmd + "`");
+            System.out.println("Running command: `" + cmd + "`...");
             Process pr = rt.exec(cmd);
             exitVal = pr.waitFor();
         }
         
         if (exitVal == 0) {
-            System.out.println("Parsing file `" + histogramPath + "` ...");
+            System.out.println("Parsing histogram file `" + histogramPath + "`...");
             BufferedReader br = new BufferedReader(new FileReader(histogramPath));
             String line;
             while ((line = br.readLine()) != null) {
@@ -3862,18 +3862,17 @@ public class RNABloom {
                 
                 timer.start();
                 expNumKmers = getNumUniqueKmers(numThreads, k, histogramPathPrefix, leftReadPaths, rightReadPaths, forceOverwrite);
-                System.out.println("Number of unique k-mers: " + expNumKmers);
-                System.out.println("K-mer counting completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
                     
                 if (expNumKmers < 0) {
                     System.out.println("ERROR: Cannot get number of unique k-mers from ntcard!");
                     System.exit(1);
                 }
                 
-                
+                System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
+                System.out.println("K-mer counting completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));                
             }
             else {
-                expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt()));
+                expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt(), "-1"));
             }
             
             if (expNumKmers > 0) {
@@ -4132,6 +4131,7 @@ public class RNABloom {
         }
         catch (Exception exp) {
             System.out.println("ERROR: " + exp.getMessage() );
+            exp.printStackTrace();
             System.exit(1);
         }
         
