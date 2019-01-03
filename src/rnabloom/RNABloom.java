@@ -3276,23 +3276,25 @@ public class RNABloom {
             System.out.println("Assembled transcripts at `" + transcriptsFasta + "`");
         }
         else {
-            System.out.println("WARNING: Transcripts were already assembled for \"" + name + "!");
+            System.out.println("WARNING: Transcripts were already assembled for \"" + name + "\"!");
         }
     }
     
-    private static long getNumUniqueKmers(int threads, int k, String histogramPathPrefix, String[] leftReadPaths, String[] rightReadPaths) throws IOException, InterruptedException {
+    private static long getNumUniqueKmers(int threads, int k, String histogramPathPrefix, String[] leftReadPaths, String[] rightReadPaths, boolean forceOverwrite) throws IOException, InterruptedException {
         long numKmers = -1L;
+        String histogramPath = histogramPathPrefix + "_k" + k + ".hist";
+        int exitVal = 0;
         
-        String cmd = "ntcard -t " + threads + " -k " + k + " -c 65535 -p " + histogramPathPrefix + " " + String.join(" ", leftReadPaths) + " " + String.join(" ", rightReadPaths);
-        
-        Runtime rt = Runtime.getRuntime();
-        System.out.println("Running command: `" + cmd + "`");
-        Process pr = rt.exec(cmd);
-        int exitVal = pr.waitFor();
+        if (forceOverwrite || !new File(histogramPath).isFile()) {
+            String cmd = "ntcard -t " + threads + " -k " + k + " -c 65535 -p " + histogramPathPrefix + " " + String.join(" ", leftReadPaths) + " " + String.join(" ", rightReadPaths);
+            Runtime rt = Runtime.getRuntime();
+            System.out.println("Running command: `" + cmd + "`");
+            Process pr = rt.exec(cmd);
+            exitVal = pr.waitFor();
+        }
         
         if (exitVal == 0) {
-            String histogramPath = histogramPathPrefix + "_k" + k + ".hist";
-            
+            System.out.println("Parsing file `" + histogramPath + "` ...");
             BufferedReader br = new BufferedReader(new FileReader(histogramPath));
             String line;
             while ((line = br.readLine()) != null) {
@@ -3300,10 +3302,12 @@ public class RNABloom {
                     String[] cols = line.split("\t");
                     if (cols[0].equals("F0")) {
                         numKmers = Long.parseLong(cols[1]);
+                        br.close();
                         break; 
                     }
                 }
-            }    
+            }
+            br.close();
         }
         
         return numKmers;
@@ -3855,9 +3859,9 @@ public class RNABloom {
             if (line.hasOption(optNtcard.getOpt())) {
                 System.out.println("\nK-mer counting with ntcard...");
                 String histogramPathPrefix = outdir + File.separator + name;
-
+                
                 timer.start();
-                expNumKmers = getNumUniqueKmers(numThreads, k, histogramPathPrefix, leftReadPaths, rightReadPaths);
+                expNumKmers = getNumUniqueKmers(numThreads, k, histogramPathPrefix, leftReadPaths, rightReadPaths, forceOverwrite);
                 System.out.println("Number of unique k-mers: " + expNumKmers);
                 System.out.println("K-mer counting completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
                     
@@ -3865,6 +3869,8 @@ public class RNABloom {
                     System.out.println("ERROR: Cannot get number of unique k-mers from ntcard!");
                     System.exit(1);
                 }
+                
+                
             }
             else {
                 expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt()));
