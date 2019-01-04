@@ -3437,7 +3437,7 @@ public class RNABloom {
         final String optBaseQualDbgDefault = "3";
         Option optBaseQualDbg = Option.builder("q")
                                     .longOpt("qual-dbg")
-                                    .desc("minimum base quality for constructing DBG [" + optBaseQualDbgDefault + "]")
+                                    .desc("minimum base quality in reads for constructing DBG [" + optBaseQualDbgDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3446,7 +3446,7 @@ public class RNABloom {
         final String optBaseQualFragDefault = "3";
         Option optBaseQualFrag = Option.builder("Q")
                                     .longOpt("qual-frag")
-                                    .desc("minimum base quality for fragment reconstruction [" + optBaseQualFragDefault + "]")
+                                    .desc("minimum base quality in reads for fragment reconstruction [" + optBaseQualFragDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3494,14 +3494,14 @@ public class RNABloom {
 
         Option optNumKmers = Option.builder("nk")
                                     .longOpt("num-kmers")
-                                    .desc("expected number of unique k-mers [null]")
+                                    .desc("expected number of unique k-mers in input reads")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optNumKmers);
         
         Option optNtcard = Option.builder("ntcard")
-                                    .desc("run ntcard to count the number of unique k-mers [false]")
+                                    .desc("run `ntCard` to count the number of unique k-mers in input reads [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNtcard);        
@@ -3549,7 +3549,7 @@ public class RNABloom {
         final String optFprDefault = "0.10";
         Option optFpr = Option.builder("fpr")
                                     .longOpt("fpr")
-                                    .desc("maximum Bloom filter false-positive rate allowed [" + optFprDefault + "]")
+                                    .desc("maximum allowable false-positive rate of Bloom filters [" + optFprDefault + "]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
@@ -3557,7 +3557,7 @@ public class RNABloom {
         
         final String optTipLengthDefault = "5";
         Option optTipLength = Option.builder("tiplength")
-                                    .desc("maximum tip length allowed [" + optTipLengthDefault + "]")
+                                    .desc("maximum branch length to be considered a tip [" + optTipLengthDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3573,7 +3573,7 @@ public class RNABloom {
         
         final String optOverlapDefault = "10";
         Option optOverlap = Option.builder("overlap")
-                                    .desc("min number of overlapping bases between read mates [" + optOverlapDefault + "]")
+                                    .desc("minimum number of overlapping bases between read mates [" + optOverlapDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3598,7 +3598,7 @@ public class RNABloom {
         final String optMaxCovGradDefault = "0.50";
         Option optMaxCovGrad = Option.builder("grad")
                                     .longOpt("maxcovgrad")
-                                    .desc("maximum coverage gradient for error correction [" + optMaxCovGradDefault + "]")
+                                    .desc("maximum k-mer coverage gradient for error correction [" + optMaxCovGradDefault + "]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
@@ -3606,7 +3606,7 @@ public class RNABloom {
         
         final String optIndelSizeDefault = "1";
         Option optIndelSize = Option.builder("indel")
-                                    .desc("maximum indel size allowed [" + optIndelSizeDefault + "]")
+                                    .desc("maximum size of indels to be collapsed [" + optIndelSizeDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3615,7 +3615,7 @@ public class RNABloom {
         final String optPercentIdentityDefault = "0.90";
         Option optPercentIdentity = Option.builder("p")
                                     .longOpt("percent")
-                                    .desc("minimum percent identity allowed [" + optPercentIdentityDefault + "]")
+                                    .desc("minimum percent identity of sequences to be collapsed [" + optPercentIdentityDefault + "]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
@@ -3624,14 +3624,14 @@ public class RNABloom {
         final String optErrCorrItrDefault = "1";
         Option optErrCorrItr = Option.builder("e")
                                     .longOpt("errcorritr")
-                                    .desc("max number of iterations of read error correction [" + optErrCorrItrDefault + "]")
+                                    .desc("number of iterations of error-correction in reads [" + optErrCorrItrDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optErrCorrItr);        
 
         Option optExtend = Option.builder("extend")
-                                    .desc("extend assembled fragments during fragment reconstruction [false]")
+                                    .desc("extend fragments outward during fragment reconstruction [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optExtend);
@@ -3673,7 +3673,7 @@ public class RNABloom {
         final String optPolyATailDefault = "0";
         Option optPolyATail = Option.builder("a")
                                     .longOpt("polya")
-                                    .desc("assemble transcripts with poly-A tails of the minimum length specified [" + optPolyATailDefault + "]")
+                                    .desc("only assemble transcripts with poly-A tails of the minimum length specified [" + optPolyATailDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
