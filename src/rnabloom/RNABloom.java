@@ -3494,14 +3494,14 @@ public class RNABloom {
 
         Option optNumKmers = Option.builder("nk")
                                     .longOpt("num-kmers")
-                                    .desc("expected number of unique k-mers")
+                                    .desc("expected number of unique k-mers [null]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optNumKmers);
         
         Option optNtcard = Option.builder("ntcard")
-                                    .desc("run ntcard to count the number of unique k-mers")
+                                    .desc("run ntcard to count the number of unique k-mers [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNtcard);        
