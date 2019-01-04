@@ -96,7 +96,14 @@
     <copy file="rnabloom" todir="${store.dir}"/>
     <chmod file="${store.dir}/rnabloom" perm="+x"/>
     <tar destfile="${store.dir}/rnabloom_v${version}.tar.gz" compression="gzip">
-        <tarfileset dir="${store.dir}" prefix="RNA-Bloom_v${version}"/>
+        <tarfileset dir="${store.dir}" prefix="RNA-Bloom_v${version}">
+            <include name="README.md"/>
+            <include name="LICENSE"/>
+            <include name="${application.title}.jar"/>
+        </tarfileset>
+        <tarfileset dir="${store.dir}" prefix="RNA-Bloom_v${version}" filemode="755">
+            <include name="rnabloom"/>
+        </tarfileset>
     </tar>
 </target>
 </project>
