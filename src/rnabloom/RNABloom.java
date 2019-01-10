@@ -2917,6 +2917,24 @@ public class RNABloom {
         }
     }
     
+    public void redundancyReduction(String inFasta, String outFasta) {
+        try {
+            int numRemoved = removeRedundancy(inFasta,
+                                                outFasta,
+                                                k,
+                                                screeningBf,
+                                                lookahead,
+                                                maxIndelSize,
+                                                maxTipLength,
+                                                percentIdentity);
+            
+            System.out.println("Removed " + numRemoved + " redundant sequences.");
+        }
+        catch (Exception ex) {
+            handleException(ex);
+        }
+    }
+        
     private static class MyTimer {
         private final long globalStartTime;
         private long startTime;
@@ -3231,6 +3249,7 @@ public class RNABloom {
             }
 
             final String transcriptsFasta =       outdir + File.separator + name + ".transcripts.fa";
+            final String transcriptsNrFasta =     outdir + File.separator + name + ".transcripts.nr.fa";
             final String shortTranscriptsFasta =  outdir + File.separator + name + ".transcripts.short.fa";
             
             File transcriptsFile = new File(transcriptsFasta);
@@ -3264,6 +3283,8 @@ public class RNABloom {
                                                         reqFragKmersConsistency,
                                                         txptNamePrefix);
 
+            assembler.redundancyReduction(transcriptsFasta, transcriptsNrFasta);
+            
             System.out.println("Transcripts assembled in " + MyTimer.hmsFormat(timer.elapsedMillis()));
 
             try {
