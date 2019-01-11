@@ -9036,7 +9036,7 @@ public final class GraphUtils {
         
         return false;
     }
-    
+        
     public static boolean isTemplateSwitch(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead) {
         int k = graph.getK();   
         int numKmers = seqKmers.size();

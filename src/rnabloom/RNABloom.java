@@ -1339,7 +1339,18 @@ public class RNABloom {
             int numReadSegs = readSegments.size();
 
             if (numReadSegs == 1) {
-                if (!skipPotentialArtifacts || !isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
+                if (skipPotentialArtifacts) {
+                    if (!isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
+                        String seq = trimTemplateSwitchSeq(graph.assemble(txptKmers), k);
+                        if (seq == null) {
+                            transcripts.put(new Transcript(fragment, txptKmers));
+                        }
+                        else {
+                            transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
+                        }
+                    }
+                }
+                else {
                     transcripts.put(new Transcript(fragment, txptKmers));
                 }
             }
@@ -1348,9 +1359,21 @@ public class RNABloom {
                 
                 for (ArrayList<Kmer> r : readSegments) {
                     if (r.size() >= numFragKmers && graph.assemble(r).contains(fragment)) {
-                        if (!skipPotentialArtifacts || !isTemplateSwitch(r, graph, screeningBf, lookahead)) {
+                        if (skipPotentialArtifacts) {
+                            if (!isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
+                                String seq = trimTemplateSwitchSeq(graph.assemble(r), k);
+                                if (seq == null) {
+                                    transcripts.put(new Transcript(fragment, r));
+                                }
+                                else {
+                                    transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
+                                }
+                            }
+                        }
+                        else {
                             transcripts.put(new Transcript(fragment, r));
                         }
+                        
                         break;
                     }
                 }

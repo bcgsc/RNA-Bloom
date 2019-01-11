@@ -565,6 +565,70 @@ public final class SeqUtils {
         
         return new String(rc);
     }
+    
+    public static final String trimTemplateSwitchSeq(String seq, int seedSize) {
+        int seqLen = seq.length();
+        String seed = seq.substring(0, seedSize);
+        int seedRevCompIndex = seq.indexOf(reverseComplement(seed));
+        
+        int lastGoodSeedSize = -1;
+        if (seedRevCompIndex >= 0) {
+            lastGoodSeedSize = seedSize;
+            while (seedRevCompIndex >= 0 && lastGoodSeedSize < seqLen) {
+                seed = seq.substring(0, ++lastGoodSeedSize);
+                seedRevCompIndex = seq.indexOf(reverseComplement(seed));
+            }
+            --lastGoodSeedSize;
+        }
+        
+        if (lastGoodSeedSize >= 0) {
+            return seq.substring(lastGoodSeedSize);
+        }
+        
+        seed = seq.substring(seqLen-seedSize, seqLen);
+        seedRevCompIndex = seq.indexOf(reverseComplement(seed));
+        
+        lastGoodSeedSize = -1;
+        if (seedRevCompIndex >= 0) {
+            lastGoodSeedSize = seedSize;
+            while (seedRevCompIndex >= 0 && lastGoodSeedSize < seqLen) {
+                seed = seq.substring(seqLen - (++lastGoodSeedSize), seqLen);
+                seedRevCompIndex = seq.indexOf(reverseComplement(seed));
+            }
+            --lastGoodSeedSize;
+        }
+        
+        if (lastGoodSeedSize >= 0) {
+            return seq.substring(0,seqLen-lastGoodSeedSize);
+        }
+        
+        return null;
+    }
+    
+    public static final byte[] reverseComplement(byte[] seq) {
+        int seqLen = seq.length;
+        byte[] rc = new byte[seqLen];
+        
+        int start = seqLen;
+        for (byte b : seq) {
+            switch(b) {
+                case CHAR_A_BYTE:
+                    rc[--start] = CHAR_T_BYTE;
+                    break;
+                case CHAR_C_BYTE:
+                    rc[--start] = CHAR_G_BYTE;
+                    break;
+                case CHAR_G_BYTE:
+                    rc[--start] = CHAR_C_BYTE;
+                    break;
+                case CHAR_T_BYTE:
+                    rc[--start] = CHAR_A_BYTE;
+                    break;
+            }
+        }
+        
+        return rc;
+    }
         
     public static final String smallestStrand(String seq) {
         String rc = reverseComplement(seq);
@@ -866,7 +930,8 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        byte b = (byte) 0b00111111;
-        System.out.println(countBits(b));
+        String seq = "ATATACACCTATACATCTGGACCTGTCACCGTGGGAATAGGCTAGTGTGGAAGAGCGGCTGCCTGGAAGGCTTGGCTCGGGGCCAGCTGTAGGTGGTTAGAATAGACAGATGCTCCTGTACCTATCTGGGTGAGTGGTGGAGTGTGGACGGTCATGTCTTGATGTCCAGCAGGGGCATCCGCTTGTGCTGGTAGCTGCTCTGCCAGCCATGAACCACCTTGGGGTCTCCCACATCAGAGAGCAGCTCCTGCTCAGCTTCCTGGAGTTCTTCTGCAGGGTCATAGCTATACATGGGAAGCAGATGATGGCGAAGCCGGTCCACCCGCTTTTTCTTCTGCACATACATTACCACGGCCACCACCACCCCGACCAGGGTGATGAGGAAGAAAGGCCCCAGCACATAGCCCACCATAGAGTCGCTGTTGGCCTGGGGGGCATTGGGCACTGTCGTGTTACTCATGACATCAGTAGCCAGATGGCTGAATGGATGGACTGCATGGGCAGTGGTGGCCTCGGGAGGGCGCCTCCTCTGGGCTCCCTCCCGAGGCCACCACTGCCCATGCAGTCCATCCATTCAGCCATCTGGCTACTGATGTCATGAGTAACACGACAGTGCCCAATGCCCCCCAGGCCAACAGCGACTCTATGGTGGGCTATGTGCTGGGGCCTTTCTTCCTCATCACCCTGGTCGGGGTGGTGGTGGCCGTGGTAATGTATGTGCAGAAGAAAAAGCG";
+        System.out.println(seq.length());
+        System.out.println(trimTemplateSwitchSeq(seq, 25));
     }
 }
