@@ -71,10 +71,9 @@ public class KmerBitsUtils {
         return bits;
     }
     
-    public static String bitsToSeq(BitSet bits) {
-        int numBits = bits.length();
-        int len = numBits/2;
-        StringBuilder sb = new StringBuilder(len);
+    public static String bitsToSeq(BitSet bits, int strLen) {
+        int numBits = strLen*2;
+        StringBuilder sb = new StringBuilder(strLen);
         
         for (int i=0; i<numBits; ++i) {
             if (bits.get(i)) {
@@ -387,27 +386,15 @@ public class KmerBitsUtils {
     }
         
     public static void main(String[] args) {
-        String seq = "TCGAGTTAAGCAGATGCTCAGTGCC";
+        String seq = "CACGAGACCTCTCTACATCTCGTATGCCGTCTTCTGCTTGAAAAAAAAAAGGCAGCTCCCAGATGGGTCTTGTCCCAGGTGCGGCTACAGCAGTGGGGCGCAGGACTGTTGAAGCCTTCGGAGACCCTGTCTCTTATACAAATCTCCGAGCCCACGAGAGCTCTCAGGATATCGTATGGATGAGACAGCTTGAACACAAA";
+        int len = seq.length();
         
-        KmerBitsUtils utils = new KmerBitsUtils(25);
+        BitSet bits = seqToBits(seq);
         
-        BitSet bits = utils.kmerToBits(seq);
+        String seq2 = bitsToSeq(bits, len);
         
-        System.out.println(seq);
-        System.out.println(utils.bitsToKmer(bits));
+        System.out.println(seq + "\n" + seq2);
+        System.out.println(seq.equals(seq2));
         
-        System.out.println(utils.getFirstBase(bits));
-        System.out.println(utils.getLastBase(bits));
-        System.out.println(utils.getBase(bits, 5));
-        
-        BitSet bitsLeftShifted = utils.shiftLeft(bits);
-        utils.setLastBase(bitsLeftShifted, 'G');
-        System.out.println(utils.bitsToKmer(bitsLeftShifted));
-        
-        BitSet bitsRightShifted = utils.shiftRight(bits);
-        utils.setFirstBase(bitsRightShifted, 'G');
-        System.out.println(utils.bitsToKmer(bitsRightShifted));
-        
-        System.out.println(utils.isLowComplexity(bits));
     }
 }

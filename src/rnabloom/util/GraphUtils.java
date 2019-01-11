@@ -35,7 +35,6 @@ import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer;
 import rnabloom.io.FastaReader;
-import rnabloom.io.FastaRecord;
 import rnabloom.io.FastaWriter;
 import static rnabloom.util.KmerBitsUtils.bitsToSeq;
 import static rnabloom.util.KmerBitsUtils.seqToBits;
@@ -596,7 +595,7 @@ public final class GraphUtils {
         
         @Override
         public String toString() {
-            return bitsToSeq(this.bits);
+            return bitsToSeq(this.bits, this.length);
         }
         
         @Override
