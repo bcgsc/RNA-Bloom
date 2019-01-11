@@ -1650,7 +1650,7 @@ public class RNABloom {
             try {
                 ArrayList<Kmer> leftKmers = null;
                 ArrayList<Kmer> rightKmers = null;
-                
+                                
                 // connect segments of each read
                 String left = getBestSegment(p.left, graph);
                 
@@ -1668,7 +1668,7 @@ public class RNABloom {
                 }
                 
                 String right = getBestSegment(p.right, graph);
-                
+                                
                 if (right.length() >= this.rightReadLengthThreshold) {
                     if (!isLowComplexity2(right)) {
                         rightKmers = graph.getKmers(right);
@@ -1831,6 +1831,7 @@ public class RNABloom {
                 }
             }
             catch (Exception ex) {
+                ex.printStackTrace();
                 throw new RuntimeException(ex);
             }
         }
@@ -2848,6 +2849,7 @@ public class RNABloom {
             
             if (sensitiveMode) {
                 System.out.println("Sensitive assembly mode is ON...");
+                skipPotentialArtifacts = false;
             }
             else {
                 // be extra careful with extending low coverage fragments (ie. 01, E0)
@@ -2856,7 +2858,7 @@ public class RNABloom {
                 skipPotentialArtifacts = true;
             }
             
-
+            
             // extend LONG fragments
             
             writer.setOutputPrefix(txptNamePrefix + "E0.L.");
@@ -2881,9 +2883,9 @@ public class RNABloom {
             numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                     allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts, reqFragKmersConsistency);
             
-            if (!sensitiveMode) {
-                extendBranchFreeOnly = true;
-            }
+//            if (!sensitiveMode) {
+//                extendBranchFreeOnly = true;
+//            }
             
             // extend LONG singleton fragments
 
@@ -2928,7 +2930,7 @@ public class RNABloom {
                                                 maxTipLength,
                                                 percentIdentity);
             
-            System.out.println("Removed " + numRemoved + " redundant sequences.");
+            System.out.println("Removed " + NumberFormat.getInstance().format(numRemoved) + " redundant sequences.");
         }
         catch (Exception ex) {
             handleException(ex);

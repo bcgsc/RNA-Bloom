@@ -620,7 +620,6 @@ public final class GraphUtils {
         
         try {
             while (true) {
-                fr.next();
                 seqs.add(new Sequence(fr.next()));
             }
         }
@@ -908,6 +907,7 @@ public final class GraphUtils {
 
                 if (neighbors.size() == 1) {
                     best = neighbors.pop();
+                    leftCoverageThreshold = Math.min(leftCoverageThreshold, best.count*maxCovGradient);
                 }
                 else {
                     Iterator<Kmer> itr = neighbors.iterator();
@@ -919,11 +919,7 @@ public final class GraphUtils {
 
                     if (neighbors.size() == 1) {
                         best = neighbors.pop();
-
-                        float c = maxCovGradient * best.count;
-                        if (c < leftCoverageThreshold) {
-                            leftCoverageThreshold = c;
-                        }
+                        leftCoverageThreshold = Math.min(leftCoverageThreshold, best.count*maxCovGradient);
                     }
                 }
 
@@ -936,7 +932,7 @@ public final class GraphUtils {
                         else {
                             int bestIndex = rightKmers.indexOf(best);
 
-                            float pathCov = getMinimumKmerCoverage(leftPath, leftPath.size()-bestIndex, leftPath.size());
+                            float pathCov = getMinimumKmerCoverage(leftPath, Math.max(0, leftPath.size()-bestIndex), leftPath.size());
                             float danglingCov = getMinimumKmerCoverage(rightKmers, 0, bestIndex);
 
                             if (danglingCov < pathCov) {
@@ -973,7 +969,7 @@ public final class GraphUtils {
                 else {
                     ArrayDeque<Kmer> e = extendRightSE(leftPath, graph, maxTipLen, maxSize - leftPath.size());
 
-                    if (e.isEmpty()) {
+                    if (e == null || e.isEmpty()) {
                         break;
                     }
 
@@ -986,7 +982,7 @@ public final class GraphUtils {
                             else {
                                 int bestIndex = rightKmers.indexOf(current);
 
-                                float pathCov = getMinimumKmerCoverage(leftPath, leftPath.size()-bestIndex, leftPath.size());
+                                float pathCov = getMinimumKmerCoverage(leftPath, Math.max(0, leftPath.size()-bestIndex), leftPath.size());
                                 float danglingCov = getMinimumKmerCoverage(rightKmers, 0, bestIndex);
 
                                 if (danglingCov < pathCov) {
@@ -1043,6 +1039,7 @@ public final class GraphUtils {
 
                 if (neighbors.size() == 1) {
                     best = neighbors.pop();
+                    rightCoverageThreshold = Math.min(rightCoverageThreshold, best.count*maxCovGradient);
                 }
                 else {
                     Iterator<Kmer> itr = neighbors.iterator();
@@ -1054,11 +1051,7 @@ public final class GraphUtils {
 
                     if (neighbors.size() == 1) {
                         best = neighbors.pop();
-
-                        float c = maxCovGradient * best.count;
-                        if (c < rightCoverageThreshold) {
-                            rightCoverageThreshold = c;
-                        }
+                        rightCoverageThreshold = Math.min(rightCoverageThreshold, best.count*maxCovGradient);
                     }
                 }
 
@@ -1104,7 +1097,7 @@ public final class GraphUtils {
                 else {
                     ArrayDeque<Kmer> e = extendLeftSE(rightPath, graph, maxTipLen, maxSize - leftPath.size());
 
-                    if (e.isEmpty()) {
+                    if (e == null || e.isEmpty()) {
                         break;
                     }
 
@@ -2542,12 +2535,14 @@ public final class GraphUtils {
                         float[] m3;
                         for (char n : NUCLEOTIDES) {
                             testKmers = graph.getKmers(left + n + right);
-                            m3 = getMinMedMaxKmerCoverage(testKmers);
-                            
-                            float medCov = m3[1];
-                            if (m3[0] > 0 && medCov > bestCov) {
-                                bestCov = medCov;
-                                bestKmers = testKmers;
+                            if (!testKmers.isEmpty()) {
+                                m3 = getMinMedMaxKmerCoverage(testKmers);
+
+                                float medCov = m3[1];
+                                if (m3[0] > 0 && medCov > bestCov) {
+                                    bestCov = medCov;
+                                    bestKmers = testKmers;
+                                }
                             }
                         }
                         
@@ -2683,10 +2678,12 @@ public final class GraphUtils {
                         for (String var : graph.getRightVariants(kmer.toString())) {
                             String alt = var + tail;
                             ArrayList<Kmer> altKmers = graph.getKmers(alt);
-                            float[] m = getMinMedMaxKmerCoverage(altKmers);
-                            if (m[0] > 0 && m[1] > bestCov) {
-                                bestCov = m[1];
-                                bestAlt = altKmers;
+                            if (!altKmers.isEmpty()) {
+                                float[] m = getMinMedMaxKmerCoverage(altKmers);
+                                if (m[0] > 0 && m[1] > bestCov) {
+                                    bestCov = m[1];
+                                    bestAlt = altKmers;
+                                }
                             }
                         }
                         
@@ -2716,10 +2713,12 @@ public final class GraphUtils {
                         for (String var : graph.getLeftVariants(kmer.toString())) {
                             String alt = head + var;
                             ArrayList<Kmer> altKmers = graph.getKmers(alt);
-                            float[] m = getMinMedMaxKmerCoverage(altKmers);
-                            if (m[0] > 0 && m[1] > bestCov) {
-                                bestCov = m[1];
-                                bestAlt = altKmers;
+                            if (!altKmers.isEmpty()) {
+                                float[] m = getMinMedMaxKmerCoverage(altKmers);
+                                if (m[0] > 0 && m[1] > bestCov) {
+                                    bestCov = m[1];
+                                    bestAlt = altKmers;
+                                }
                             }
                         }
                         
@@ -2820,7 +2819,10 @@ public final class GraphUtils {
 
             // find cov threshold in left kmers
             boolean leftThresholdFound = false;
-            int startIndex = numLeftKmers - 1 - numFalsePositivesAllowed;
+            int startIndex = numLeftKmers - 1;
+            if (startIndex > numFalsePositivesAllowed) {
+                startIndex -= numFalsePositivesAllowed;
+            }
             float leftCovThreshold = covs[startIndex];
             float c;
             for (int i=startIndex-1; i>=0; --i) {
@@ -2847,7 +2849,10 @@ public final class GraphUtils {
             
             // find cov threshold in right kmers
             boolean rightThresholdFound = false;
-            startIndex = numRightKmers - 1 - numFalsePositivesAllowed;
+            startIndex = numRightKmers - 1;
+            if (startIndex > numFalsePositivesAllowed) {
+                startIndex -= numFalsePositivesAllowed;
+            }
             float rightCovThreshold = covs[startIndex];
             for (int i=startIndex-1; i>=0; --i) {
                 c = covs[i];
@@ -2859,42 +2864,53 @@ public final class GraphUtils {
             }
             
             // set coverage threshold for both reads
+            float covThreshold = -1;
             
-            if (leftThresholdFound || rightThresholdFound) {
-                float covThreshold = Math.min(leftCovThreshold, rightCovThreshold);
-                
-                if (covThreshold >= minCovThreshold) {
-                    // correct left read
-                    ArrayList<Kmer> leftKmers2 = correctErrorHelper(leftKmers,
-                                                                    graph, 
-                                                                    lookahead,
-                                                                    maxIndelSize,
-                                                                    covThreshold,
-                                                                    percentIdentity);
-
-                    if (leftKmers2 != null) {
-                        leftKmers = leftKmers2;
-                        leftCorrected = true;
-                    }
-
-                    // correct right read
-                    ArrayList<Kmer> rightKmers2 = correctErrorHelper(rightKmers,
-                                                                    graph, 
-                                                                    lookahead,
-                                                                    maxIndelSize,
-                                                                    covThreshold,
-                                                                    percentIdentity);
-
-                    if (rightKmers2 != null) {
-                        rightKmers = rightKmers2;
-                        rightCorrected = true;
-                    }
-
-                    if (leftKmers2 == null && rightKmers2 == null) {
-                        break;
-                    }
-
+            if (leftThresholdFound && rightThresholdFound) {
+                covThreshold = Math.min(leftCovThreshold, rightCovThreshold);
+            }
+            else if (leftThresholdFound) {
+                if (leftCovThreshold <= rightCovThreshold) {
+                    covThreshold = leftCovThreshold;
                 }
+            }
+            else if (rightThresholdFound) {
+                if (rightCovThreshold <= leftCovThreshold) {
+                    covThreshold = rightCovThreshold;
+                }
+            }
+                
+            if (covThreshold >= minCovThreshold) {
+                // correct left read
+                ArrayList<Kmer> leftKmers2 = correctErrorHelper(leftKmers,
+                                                                graph, 
+                                                                lookahead,
+                                                                maxIndelSize,
+                                                                covThreshold,
+                                                                percentIdentity);
+
+                if (leftKmers2 != null) {
+                    leftKmers = leftKmers2;
+                    leftCorrected = true;
+                }
+
+                // correct right read
+                ArrayList<Kmer> rightKmers2 = correctErrorHelper(rightKmers,
+                                                                graph, 
+                                                                lookahead,
+                                                                maxIndelSize,
+                                                                covThreshold,
+                                                                percentIdentity);
+
+                if (rightKmers2 != null) {
+                    rightKmers = rightKmers2;
+                    rightCorrected = true;
+                }
+
+                if (leftKmers2 == null && rightKmers2 == null) {
+                    break;
+                }
+
             }
         }
         
