@@ -566,7 +566,8 @@ public final class SeqUtils {
         return new String(rc);
     }
     
-    public static final String trimTemplateSwitchSeq(String seq, int seedSize) {
+    public static final String trimHairPinSegment(String seq, int seedSize) {
+        int lariatSize = 100;
         int seqLen = seq.length();
         String seed = seq.substring(0, seedSize);
         int seedRevCompIndex = seq.indexOf(reverseComplement(seed));
@@ -574,15 +575,19 @@ public final class SeqUtils {
         int lastGoodSeedSize = -1;
         if (seedRevCompIndex >= 0) {
             lastGoodSeedSize = seedSize;
-            while (seedRevCompIndex >= 0 && lastGoodSeedSize < seqLen) {
+            while (lastGoodSeedSize < seqLen) {
                 seed = seq.substring(0, ++lastGoodSeedSize);
-                seedRevCompIndex = seq.indexOf(reverseComplement(seed));
+                int i = seq.indexOf(reverseComplement(seed));
+                if (i < 0) {
+                    break;
+                }
+                seedRevCompIndex = i;
             }
             --lastGoodSeedSize;
         }
         
-        if (lastGoodSeedSize >= 0) {
-            return seq.substring(lastGoodSeedSize);
+        if (lastGoodSeedSize >= 0 && seedRevCompIndex <= lastGoodSeedSize + lariatSize) {
+            return seq.substring(seedRevCompIndex);
         }
         
         seed = seq.substring(seqLen-seedSize, seqLen);
@@ -591,15 +596,19 @@ public final class SeqUtils {
         lastGoodSeedSize = -1;
         if (seedRevCompIndex >= 0) {
             lastGoodSeedSize = seedSize;
-            while (seedRevCompIndex >= 0 && lastGoodSeedSize < seqLen) {
+            while (lastGoodSeedSize < seqLen) {
                 seed = seq.substring(seqLen - (++lastGoodSeedSize), seqLen);
-                seedRevCompIndex = seq.indexOf(reverseComplement(seed));
+                int i = seq.indexOf(reverseComplement(seed));
+                if (i < 0) {
+                    break;
+                }
+                seedRevCompIndex = i;
             }
             --lastGoodSeedSize;
         }
         
-        if (lastGoodSeedSize >= 0) {
-            return seq.substring(0,seqLen-lastGoodSeedSize);
+        if (lastGoodSeedSize >= 0 && seedRevCompIndex + lastGoodSeedSize + lariatSize >= seqLen - lastGoodSeedSize) {
+            return seq.substring(0,seedRevCompIndex+lastGoodSeedSize);
         }
         
         return null;
@@ -932,6 +941,6 @@ public final class SeqUtils {
     public static void main(String[] args) {
         String seq = "ATATACACCTATACATCTGGACCTGTCACCGTGGGAATAGGCTAGTGTGGAAGAGCGGCTGCCTGGAAGGCTTGGCTCGGGGCCAGCTGTAGGTGGTTAGAATAGACAGATGCTCCTGTACCTATCTGGGTGAGTGGTGGAGTGTGGACGGTCATGTCTTGATGTCCAGCAGGGGCATCCGCTTGTGCTGGTAGCTGCTCTGCCAGCCATGAACCACCTTGGGGTCTCCCACATCAGAGAGCAGCTCCTGCTCAGCTTCCTGGAGTTCTTCTGCAGGGTCATAGCTATACATGGGAAGCAGATGATGGCGAAGCCGGTCCACCCGCTTTTTCTTCTGCACATACATTACCACGGCCACCACCACCCCGACCAGGGTGATGAGGAAGAAAGGCCCCAGCACATAGCCCACCATAGAGTCGCTGTTGGCCTGGGGGGCATTGGGCACTGTCGTGTTACTCATGACATCAGTAGCCAGATGGCTGAATGGATGGACTGCATGGGCAGTGGTGGCCTCGGGAGGGCGCCTCCTCTGGGCTCCCTCCCGAGGCCACCACTGCCCATGCAGTCCATCCATTCAGCCATCTGGCTACTGATGTCATGAGTAACACGACAGTGCCCAATGCCCCCCAGGCCAACAGCGACTCTATGGTGGGCTATGTGCTGGGGCCTTTCTTCCTCATCACCCTGGTCGGGGTGGTGGTGGCCGTGGTAATGTATGTGCAGAAGAAAAAGCG";
         System.out.println(seq.length());
-        System.out.println(trimTemplateSwitchSeq(seq, 25));
+        System.out.println(trimHairPinSegment(seq, 25));
     }
 }
