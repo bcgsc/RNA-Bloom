@@ -1341,7 +1341,7 @@ public class RNABloom {
             if (numReadSegs == 1) {
                 if (skipPotentialArtifacts) {
                     if (!isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
-                        String seq = trimTemplateSwitchSeq(graph.assemble(txptKmers), k);
+                        String seq = trimTemplateSwitchSeq(graph.assemble(txptKmers), k);                        
                         if (seq == null) {
                             transcripts.put(new Transcript(fragment, txptKmers));
                         }

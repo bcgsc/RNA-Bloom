@@ -132,7 +132,7 @@ public class PairedKeysBloomFilter {
     
     public void add(final long[] hashValsPair) {
         for (int h=0; h<numHash; ++h) {
-            bitArrayPair.set(getIndex(hashValsPair[h]));
+            bitArrayPair.setCAS(getIndex(hashValsPair[h]));
         }
     }
 
