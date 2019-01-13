@@ -566,49 +566,96 @@ public final class SeqUtils {
         return new String(rc);
     }
     
-    public static final String trimHairPinSegment(String seq, int seedSize) {
-        int lariatSize = 100;
+    public static final String cutHairPinLoop(final String seq, final int seedSize, final float minPercentIdentity) {
         int seqLen = seq.length();
-        String seed = seq.substring(0, seedSize);
-        int seedRevCompIndex = seq.indexOf(reverseComplement(seed));
+        int halfLen = seqLen/2;
         
-        int lastGoodSeedSize = -1;
-        if (seedRevCompIndex >= 0) {
-            lastGoodSeedSize = seedSize;
-            while (lastGoodSeedSize < seqLen) {
-                seed = seq.substring(0, ++lastGoodSeedSize);
-                int i = seq.indexOf(reverseComplement(seed));
-                if (i < 0) {
-                    break;
+        final int maxSeedSearchDepth = 200;
+        final int maxLoopDiameter = 50;
+        
+        int lastSeedIndex = Math.min(maxSeedSearchDepth-seedSize, halfLen);
+        
+        for (int i=0; i<lastSeedIndex; ++i) {
+            String seed = seq.substring(i, i+seedSize);
+            int seedRevCompIndex = seq.indexOf(reverseComplement(seed));
+
+            if (seedRevCompIndex >= 0) {
+                int endIndex = seedRevCompIndex + seedSize;
+                int halfIndex = (i + endIndex)/2;
+
+                String left = seq.substring(i, halfIndex);
+                String right = seq.substring(halfIndex, endIndex);
+
+                float pid = getPercentIdentity(left, reverseComplement(right));
+
+                if (pid >= minPercentIdentity) {
+                    if (halfIndex < halfLen) {
+                        return seq.substring(halfIndex);
+                    }
+                    else {
+                        return seq.substring(0, halfIndex);
+                    }
                 }
-                seedRevCompIndex = i;
-            }
-            --lastGoodSeedSize;
-        }
-        
-        if (lastGoodSeedSize >= 0 && seedRevCompIndex <= lastGoodSeedSize + lariatSize) {
-            return seq.substring(seedRevCompIndex);
-        }
-        
-        seed = seq.substring(seqLen-seedSize, seqLen);
-        seedRevCompIndex = seq.indexOf(reverseComplement(seed));
-        
-        lastGoodSeedSize = -1;
-        if (seedRevCompIndex >= 0) {
-            lastGoodSeedSize = seedSize;
-            while (lastGoodSeedSize < seqLen) {
-                seed = seq.substring(seqLen - (++lastGoodSeedSize), seqLen);
-                int i = seq.indexOf(reverseComplement(seed));
-                if (i < 0) {
-                    break;
+                else if (i+seedSize < halfIndex-maxLoopDiameter) {
+                    left = seq.substring(i, halfIndex-maxLoopDiameter);
+                    right = seq.substring(halfIndex+maxLoopDiameter, endIndex);
+
+                    pid = getPercentIdentity(left, reverseComplement(right));
+                    
+                    if (pid >= minPercentIdentity) {
+                        if (halfIndex < halfLen) {
+                            return seq.substring(halfIndex);
+                        }
+                        else {
+                            return seq.substring(0, halfIndex);
+                        }
+                    }
                 }
-                seedRevCompIndex = i;
+                
+                break;
             }
-            --lastGoodSeedSize;
         }
         
-        if (lastGoodSeedSize >= 0 && seedRevCompIndex + lastGoodSeedSize + lariatSize >= seqLen - lastGoodSeedSize) {
-            return seq.substring(0,seedRevCompIndex+lastGoodSeedSize);
+        lastSeedIndex = Math.max(seqLen-1-maxSeedSearchDepth, halfLen-1);
+        
+        for (int i=seqLen-seedSize-1; i>=lastSeedIndex; --i) {
+            String seed = seq.substring(i, i+seedSize);
+            int seedRevCompIndex = seq.indexOf(reverseComplement(seed));
+
+            if (seedRevCompIndex >= 0) {
+                int halfIndex = (seedRevCompIndex + i + seedSize)/2;
+                
+                String left = seq.substring(seedRevCompIndex, halfIndex);
+                String right = seq.substring(halfIndex, i+seedSize);
+
+                float pid = getPercentIdentity(left, reverseComplement(right));
+
+                if (pid >= minPercentIdentity) {
+                    if (halfIndex < halfLen) {
+                        return seq.substring(halfIndex);
+                    }
+                    else {
+                        return seq.substring(0, halfIndex);
+                    }
+                }
+                else if (i > halfIndex+maxLoopDiameter) {
+                    left = seq.substring(seedRevCompIndex, halfIndex-maxLoopDiameter);
+                    right = seq.substring(halfIndex+maxLoopDiameter, i+seedSize);
+
+                    pid = getPercentIdentity(left, reverseComplement(right));
+                    
+                    if (pid >= minPercentIdentity) {
+                        if (halfIndex < halfLen) {
+                            return seq.substring(halfIndex);
+                        }
+                        else {
+                            return seq.substring(0, halfIndex);
+                        }
+                    }
+                }
+                
+                break;
+            }
         }
         
         return null;
@@ -939,8 +986,9 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        String seq = "ATATACACCTATACATCTGGACCTGTCACCGTGGGAATAGGCTAGTGTGGAAGAGCGGCTGCCTGGAAGGCTTGGCTCGGGGCCAGCTGTAGGTGGTTAGAATAGACAGATGCTCCTGTACCTATCTGGGTGAGTGGTGGAGTGTGGACGGTCATGTCTTGATGTCCAGCAGGGGCATCCGCTTGTGCTGGTAGCTGCTCTGCCAGCCATGAACCACCTTGGGGTCTCCCACATCAGAGAGCAGCTCCTGCTCAGCTTCCTGGAGTTCTTCTGCAGGGTCATAGCTATACATGGGAAGCAGATGATGGCGAAGCCGGTCCACCCGCTTTTTCTTCTGCACATACATTACCACGGCCACCACCACCCCGACCAGGGTGATGAGGAAGAAAGGCCCCAGCACATAGCCCACCATAGAGTCGCTGTTGGCCTGGGGGGCATTGGGCACTGTCGTGTTACTCATGACATCAGTAGCCAGATGGCTGAATGGATGGACTGCATGGGCAGTGGTGGCCTCGGGAGGGCGCCTCCTCTGGGCTCCCTCCCGAGGCCACCACTGCCCATGCAGTCCATCCATTCAGCCATCTGGCTACTGATGTCATGAGTAACACGACAGTGCCCAATGCCCCCCAGGCCAACAGCGACTCTATGGTGGGCTATGTGCTGGGGCCTTTCTTCCTCATCACCCTGGTCGGGGTGGTGGTGGCCGTGGTAATGTATGTGCAGAAGAAAAAGCG";
+        //String seq = "GCAGCAGCAGCAGCAGCAGCAGCAGCAACAGCAGCAGCAGCAGCAGCGCCTGTGGGAAAAACTAGAGGCTAGAGCCATGGATGACCAACGCGACCTCATCTCTAACCATGAACAGTTGCCCATACTGGGCAACCGCCCTAGAGAGCCAGAAAGGTGCAGCCGTGGAGCTCTGTACACCGGTGTCTCTGTCCTGGTGGCTCTGCTCTTGGCTGGGCAGGCCACCACTGCTTACTTCCTGTACCAGCAACAGGGCCGCCTAGACAAGCTGACCATCACCTCCCAGAACCTGCAACTGGAGAGCCTTCGCATGAAGCTTCCGAAATCTGCCAAACCTGTGAGCCAGATGCGGATGGCTACTCCCTTGCTGATGCGTCCAATGTCCATGGATAACATGCTCCTTGGGCCTGTGAAGAACGTTACCAAGTACGGCAACATGACCCAGGACCATGTGATGCATCTGCTCACGAGGTCTGGACCCCTGGAGTACCCGCAGCTGAAGGGGACCTTCCCAGAGAATCTGAAGCATCTTAAGAACTCCATGGATGGCGTGAACTGGAAGATCTTCGAGAGCTGGATGAAGCAGTGGCTCTTGTTTGAGATGAGCAAGAACTCCCTGGAGGAGAAGAAGCCCACCGAGGCTCCACCTAAAGAGCCACTGCTTCATCCAGCTCTCGAAGATCTTCCAGTTCACGCCATCCATGGAGTTCTTAAGATGCTTCAGATTCTCTGGGAAGGTCCCCTTCAGCTG";
+        String seq = "CAGCTGAAGGGGACCTTCCCAGAGAATCTGAAGCATCTTAAGAACTCCATGGATGGCGTGAACTGGAAGATCTTCGAGAGCTGGATGAAGCAGTGGCTCTTTAGGTGGAGCCTCGGTGGGCTTCTTCTCCTCCAGGGAGTTCTTGCTCATCTCAAACAAGAGCCACTGCTTCATCCAGCTCTCGAAGATCTTCCAGTTCACGCCATCCATGGAGTTCTTAAGATGCTTCAGATTCTCTGGGAAGGTCCCCTTCAGCTGCGGGTACTCCAGGGGTCCAGACCTCGTGAGCAGATGCATCACATGGTCCTGGGTCATGTTGCCGTACTTGGTAACGTTCTTCACAGGCCCAAGGAGCATGTTATCCATGGACATTGGACGCATCAGCAAGGGAGTAGCCATCCGCATCTGGCTCACAGGTTTGGCAGATTTCGGAAGCTTCATGCGAAGGCTCTCCAGTTGCAGGTTCTGGGAGGTGATGGTCAGCTTGTCTAGGCGGCCCTGTTGCTGGTACAGGAAGTAAGCAGTGGTGGCCTGCCCAGCCAAGAGCAGAGCCACCAGGACAGAGACACCGGTGTACAGAGCTCCACGGCTGCACCTTTCTGGCTCTCTAGGGCGGTTGCCCAGTATGGGCAACTGTTCATGGTTAGAGATGAGGTCGCGTTGGTCATCCATGGCTCTAGCCTCTAGTTTTTCCCACAGGCGCTGCTGCTGCTGCTGCTGTTGCTGCTGCTGCTGCTGCTGCTGCTGC";
         System.out.println(seq.length());
-        System.out.println(trimHairPinSegment(seq, 25));
+        System.out.println(cutHairPinLoop(seq, 25, 0.9f));
     }
 }

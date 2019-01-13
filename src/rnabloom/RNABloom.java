@@ -1333,7 +1333,7 @@ public class RNABloom {
             keepGoing = false;
         }
 
-        private void storeConsistentReadSegments(String fragment, ArrayList<Kmer> txptKmers) throws InterruptedException {
+        private void storeConsistentReadSegments(String fragment, ArrayList<Kmer> txptKmers, float minPercentIdentity) throws InterruptedException {
             ArrayDeque<ArrayList<Kmer>> readSegments = breakWithReadPairedKmers(txptKmers, graph, lookahead);
 
             int numReadSegs = readSegments.size();
@@ -1341,7 +1341,7 @@ public class RNABloom {
             if (numReadSegs == 1) {
                 if (skipPotentialArtifacts) {
                     if (!isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
-                        String seq = trimHairPinSegment(graph.assemble(txptKmers), k);                        
+                        String seq = cutHairPinLoop(graph.assemble(txptKmers), k, minPercentIdentity);                        
                         if (seq == null) {
                             transcripts.put(new Transcript(fragment, txptKmers));
                         }
@@ -1361,7 +1361,7 @@ public class RNABloom {
                     if (r.size() >= numFragKmers && graph.assemble(r).contains(fragment)) {
                         if (skipPotentialArtifacts) {
                             if (!isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
-                                String seq = trimHairPinSegment(graph.assemble(r), k);
+                                String seq = cutHairPinLoop(graph.assemble(r), k, minPercentIdentity);
                                 if (seq == null) {
                                     transcripts.put(new Transcript(fragment, r));
                                 }
@@ -1428,18 +1428,18 @@ public class RNABloom {
                                         if (numFragSegs >= 1) {
                                             for (ArrayList<Kmer> seg : fragSegments) {
                                                 if (numFragSegs == 1 || (seg.size() >= originalFragKmers.size() && new HashSet<>(seg).containsAll(originalFragKmers))) {
-                                                    storeConsistentReadSegments(fragment, seg);
+                                                    storeConsistentReadSegments(fragment, seg, percentIdentity);
                                                     break;
                                                 }
                                             }
                                         }
                                     }
                                     else {
-                                        storeConsistentReadSegments(fragment, kmers);
+                                        storeConsistentReadSegments(fragment, kmers, percentIdentity);
                                     }
                                 }
                                 else {
-                                    storeConsistentReadSegments(fragment, kmers);
+                                    storeConsistentReadSegments(fragment, kmers, percentIdentity);
                                 }
                             }
                         }
