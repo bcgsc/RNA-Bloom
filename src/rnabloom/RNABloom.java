@@ -1340,7 +1340,7 @@ public class RNABloom {
 
             if (numReadSegs == 1) {
                 if (skipPotentialArtifacts) {
-                    if (!isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
+//                    if (!isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
                         String seq = cutHairPinLoop(graph.assemble(txptKmers), k, minPercentIdentity);                        
                         if (seq == null) {
                             transcripts.put(new Transcript(fragment, txptKmers));
@@ -1348,7 +1348,7 @@ public class RNABloom {
                         else {
                             transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
                         }
-                    }
+//                    }
                 }
                 else {
                     transcripts.put(new Transcript(fragment, txptKmers));
@@ -1356,19 +1356,19 @@ public class RNABloom {
             }
             else if (numReadSegs > 1) {
                 int numFragKmers = getNumKmers(fragment, k);
-                
                 for (ArrayList<Kmer> r : readSegments) {
-                    if (r.size() >= numFragKmers && graph.assemble(r).contains(fragment)) {
+                    String rAssembled = graph.assemble(r);
+                    if (r.size() >= numFragKmers && rAssembled.contains(fragment)) {
                         if (skipPotentialArtifacts) {
-                            if (!isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
-                                String seq = cutHairPinLoop(graph.assemble(r), k, minPercentIdentity);
+//                            if (!isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
+                                String seq = cutHairPinLoop(rAssembled, k, minPercentIdentity);
                                 if (seq == null) {
                                     transcripts.put(new Transcript(fragment, r));
                                 }
                                 else {
                                     transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
                                 }
-                            }
+//                            }
                         }
                         else {
                             transcripts.put(new Transcript(fragment, r));
@@ -1400,7 +1400,7 @@ public class RNABloom {
                                 continue;
                             }
                         }
-
+                        
                         ArrayList<Kmer> kmers = graph.getKmers(fragment);
                         
                         if (!kmers.isEmpty()) {
@@ -1408,7 +1408,7 @@ public class RNABloom {
 
                             if ( (!extendBranchFreeFragmentsOnly || isBranchFree(kmers, graph, maxTipLength)) &&
                                  (!skipPotentialArtifacts || (!isFusion(kmers, graph, screeningBf, lookahead) &&
-                                                              !isTemplateSwitch(kmers, graph, screeningBf, lookahead) &&
+//                                                              !isTemplateSwitch(kmers, graph, screeningBf, lookahead) &&
                                                               !isBluntEndArtifact(kmers, graph, screeningBf, lookahead))) &&
                                  !represented(kmers,
                                                         graph,

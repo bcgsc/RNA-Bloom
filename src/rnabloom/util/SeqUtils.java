@@ -570,14 +570,14 @@ public final class SeqUtils {
         int seqLen = seq.length();
         int halfLen = seqLen/2;
         
-        final int maxSeedSearchDepth = 200;
+        final int maxSeedSearchDepth = Math.min(halfLen, 200);
         final int maxLoopDiameter = 50;
         
-        int lastSeedIndex = Math.min(maxSeedSearchDepth-seedSize, halfLen);
+        int lastSeedIndex = maxSeedSearchDepth - seedSize;
         
-        for (int i=0; i<lastSeedIndex; ++i) {
+        for (int i=0; i<lastSeedIndex; i+=seedSize) {
             String seed = seq.substring(i, i+seedSize);
-            int seedRevCompIndex = seq.indexOf(reverseComplement(seed));
+            int seedRevCompIndex = seq.indexOf(reverseComplement(seed), i+seedSize);
 
             if (seedRevCompIndex >= 0) {
                 int endIndex = seedRevCompIndex + seedSize;
@@ -616,13 +616,13 @@ public final class SeqUtils {
             }
         }
         
-        lastSeedIndex = Math.max(seqLen-1-maxSeedSearchDepth, halfLen-1);
+        lastSeedIndex = seqLen-maxSeedSearchDepth;
         
-        for (int i=seqLen-seedSize-1; i>=lastSeedIndex; --i) {
+        for (int i=seqLen-seedSize; i>=lastSeedIndex; i-=seedSize) {
             String seed = seq.substring(i, i+seedSize);
             int seedRevCompIndex = seq.indexOf(reverseComplement(seed));
 
-            if (seedRevCompIndex >= 0) {
+            if (seedRevCompIndex >= 0 && seedRevCompIndex < i-seedSize) {
                 int halfIndex = (seedRevCompIndex + i + seedSize)/2;
                 
                 String left = seq.substring(seedRevCompIndex, halfIndex);
