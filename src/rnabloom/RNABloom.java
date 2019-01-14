@@ -1340,7 +1340,7 @@ public class RNABloom {
 
             if (numReadSegs == 1) {
                 if (skipPotentialArtifacts) {
-//                    if (!isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
+                    if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
                         String seq = cutHairPinLoop(graph.assemble(txptKmers), k, minPercentIdentity);                        
                         if (seq == null) {
                             transcripts.put(new Transcript(fragment, txptKmers));
@@ -1348,7 +1348,7 @@ public class RNABloom {
                         else {
                             transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
                         }
-//                    }
+                    }
                 }
                 else {
                     transcripts.put(new Transcript(fragment, txptKmers));
@@ -1360,7 +1360,7 @@ public class RNABloom {
                     String rAssembled = graph.assemble(r);
                     if (r.size() >= numFragKmers && rAssembled.contains(fragment)) {
                         if (skipPotentialArtifacts) {
-//                            if (!isTemplateSwitch(txptKmers, graph, screeningBf, lookahead)) {
+                            if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
                                 String seq = cutHairPinLoop(rAssembled, k, minPercentIdentity);
                                 if (seq == null) {
                                     transcripts.put(new Transcript(fragment, r));
@@ -1368,7 +1368,7 @@ public class RNABloom {
                                 else {
                                     transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
                                 }
-//                            }
+                            }
                         }
                         else {
                             transcripts.put(new Transcript(fragment, r));
@@ -1407,16 +1407,15 @@ public class RNABloom {
                             ArrayList<Kmer> originalFragKmers = new ArrayList<>(kmers);
 
                             if ( (!extendBranchFreeFragmentsOnly || isBranchFree(kmers, graph, maxTipLength)) &&
-                                 (!skipPotentialArtifacts || (!isFusion(kmers, graph, screeningBf, lookahead) &&
-//                                                              !isTemplateSwitch(kmers, graph, screeningBf, lookahead) &&
-                                                              !isBluntEndArtifact(kmers, graph, screeningBf, lookahead))) &&
                                  !represented(kmers,
                                                         graph,
                                                         screeningBf,
                                                         lookahead,
                                                         maxIndelSize,
                                                         maxTipLength,
-                                                        percentIdentity)) {
+                                                        percentIdentity) &&
+                                 (!skipPotentialArtifacts || (!isFusion(kmers, graph, screeningBf, lookahead) &&
+                                                              !isBluntEndArtifact(kmers, graph, screeningBf, lookahead))) ) {
                                 
                                 extendPE(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient);
 
@@ -2838,7 +2837,12 @@ public class RNABloom {
    
             boolean allowNaiveExtension = true;
             boolean extendBranchFreeOnly = false;
-            boolean skipPotentialArtifacts = false;
+            boolean skipPotentialArtifacts = true;
+            
+            if (sensitiveMode) {
+                System.out.println("Sensitive assembly mode is ON...");
+                skipPotentialArtifacts = false;
+            }
             
             // extend LONG fragments
             
@@ -2869,19 +2873,7 @@ public class RNABloom {
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                         allowNaiveExtension, extendBranchFreeOnly, skipPotentialArtifacts, reqFragKmersConsistency);
             }
-            
-            if (sensitiveMode) {
-                System.out.println("Sensitive assembly mode is ON...");
-                skipPotentialArtifacts = false;
-            }
-            else {
-                // be extra careful with extending low coverage fragments (ie. 01, E0)
-//                allowNaiveExtension = false;
-//                extendBranchFreeOnly = true;
-                skipPotentialArtifacts = true;
-            }
-            
-            
+                        
             // extend LONG fragments
             
             writer.setOutputPrefix(txptNamePrefix + "E0.L.");

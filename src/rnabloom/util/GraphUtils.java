@@ -9036,7 +9036,142 @@ public final class GraphUtils {
         
         return false;
     }
+
+    public static boolean isTemplateSwitch2(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead, float minPercentIdentity) {
+        int numKmers = seqKmers.size();
+        int k = graph.getK();
+        int maxNumKmersInLoop = 2*k;
         
+//        String test = "GATGATGTTCTGGAGAGCCCCGCGGCCATCACGCCACAGTTTCCCGGAGGGGCCATCCACAGTCTTCTGGGTGGCAGTGATGGCATGGACTGTGGTCATGAGTCCTTCCACGATACCAAAGTTGTCATGGATGACCTTGGCCAGGGGTGCTAAGCAGTTGGTGGTGAAGCAGGCGTCGGAGGGCCCCCTCAAGGGCATCCTGGGCTACACTAAGCACCAGGTGGTCTCCTCTGACTTCAACAGCGACACCCACTCCTCCACCTTTGACGCTGGGGCTGGCATTGCCCTCAACGACCACTTTGTCAAGCTCATTTCCTGGTATGACAACGAATTTGGCTACAGCAACAGGGTGGTGGACCTCATGGCCCACATGGCCTCCAAGGAGTAAGACCCCTGGACCACCAGCCCCAGCAAGAGCACAAGAGGAAGAGAGAGACCCTCACTGCTGGGGAGTCCCTGCCACACTCAGTCCCCCACCACACTGAATCTCCCCTCCTCACAGTTGCCATGTAGACCCCTTGAAGAGGGGAGGGGCCTAGGGAGCCGCACCTTGTCATGTACCATCAATAAAGTACCCTGTGCTCAACC";
+//        boolean found = false;
+//        if (graph.assemble(seqKmers).contains(test)) {
+//            found = true;
+//        }
+        
+        if (assembledKmers.lookup(seqKmers.get(numKmers-1).getHash())) {
+            int start = Math.max(0, numKmers-2);
+            for (; start>=0; --start) {
+                if (!assembledKmers.lookup(seqKmers.get(start).getHash())) {
+                    if (start-k >=0) {
+                        ArrayDeque<Kmer> path = getMaxCoveragePath(graph, 
+                                                    seqKmers.get(start-k), 
+                                                    seqKmers.get(start+1),
+                                                    k+1, 
+                                                    lookahead, 
+                                                    assembledKmers);
+                        if (path != null) {
+                            start -= k; 
+                            continue;
+                        }
+                    }
+                    
+                    ++start;
+                    break;
+                }
+            }
+            
+            if (start < k) {
+                // no unassembled kmers
+                return false;
+            }
+            
+            float medCoverage = getMedianKmerCoverage(seqKmers, start, numKmers);
+
+            int backBoneKmerIndex = -1;
+            for (int i=start; i<numKmers; ++i) {
+                if (seqKmers.get(i).count >= medCoverage) {
+                    backBoneKmerIndex = i;
+                    break;
+                }
+            }
+
+            if (backBoneKmerIndex >= 0) {
+                Kmer backBoneKmer = seqKmers.get(backBoneKmerIndex);
+
+                ArrayDeque<Kmer> extension = greedyExtendLeft(graph, backBoneKmer, lookahead, 1000, assembledKmers);
+                extension.add(backBoneKmer);
+                extension.addAll(greedyExtendRight(graph, backBoneKmer, lookahead, 1000, assembledKmers));
+                
+                String backBone = graph.assemble(extension);
+
+                String tipRC = reverseComplement(graph.assemble(seqKmers, 0, Math.max(1, start-maxNumKmersInLoop)));
+
+                if (backBone.contains(tipRC)) {
+                    return true;
+                }
+
+//                if (found) {
+//                    System.out.println(">seq\n" + graph.assemble(seqKmers));
+//                    System.out.println(">backbone\n" + backBone);
+//                    System.out.println(">tipRC\n" + tipRC);
+//                    System.out.println("yoohoo");
+//                }
+            }
+        }
+        
+        if (assembledKmers.lookup(seqKmers.get(0).getHash())) {
+            int end = Math.min(1, numKmers-1);
+            for (; end<numKmers; ++end) {
+                if (!assembledKmers.lookup(seqKmers.get(end).getHash())) {
+                    if (end+k < numKmers) {
+                        ArrayDeque<Kmer> path = getMaxCoveragePath(graph, 
+                                                    seqKmers.get(end-1), 
+                                                    seqKmers.get(end+k),
+                                                    k+1, 
+                                                    lookahead, 
+                                                    assembledKmers);
+                        if (path != null) {
+                            end += k;
+                            continue;
+                        }
+                    }
+                    
+                    break;
+                }
+            }
+            
+            if (end >= numKmers-k) {
+                // no unassembled kmers
+                return false;
+            }
+            
+            float medCoverage = getMedianKmerCoverage(seqKmers, 0, end);
+
+            int backBoneKmerIndex = -1;
+            for (int i=0; i<end; ++i) {
+                if (seqKmers.get(i).count >= medCoverage) {
+                    backBoneKmerIndex = i;
+                    break;
+                }
+            }
+
+            if (backBoneKmerIndex >= 0) {
+                Kmer backBoneKmer = seqKmers.get(backBoneKmerIndex);
+
+                ArrayDeque<Kmer> extension = greedyExtendLeft(graph, backBoneKmer, lookahead, 1000, assembledKmers);
+                extension.add(backBoneKmer);
+                extension.addAll(greedyExtendRight(graph, backBoneKmer, lookahead, 1000, assembledKmers));                
+
+                String backBone = graph.assemble(extension);
+
+                String tipRC = reverseComplement(graph.assemble(seqKmers, Math.min(numKmers-1, end+maxNumKmersInLoop), numKmers));
+
+                if (backBone.contains(tipRC)) {
+                    return true;
+                }
+
+//                if (found) {
+//                    System.out.println(">seq\n" + graph.assemble(seqKmers));
+//                    System.out.println(">backbone\n" + backBone);
+//                    System.out.println(">tipRC\n" + tipRC);
+//                    System.out.println("yoohoo");
+//                }
+            }
+        }
+        
+        return false;
+    }
+    
     public static boolean isTemplateSwitch(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead) {
         int k = graph.getK();   
         int numKmers = seqKmers.size();

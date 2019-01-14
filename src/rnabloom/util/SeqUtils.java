@@ -571,7 +571,8 @@ public final class SeqUtils {
         int halfLen = seqLen/2;
         
         final int maxSeedSearchDepth = Math.min(halfLen, 200);
-        final int maxLoopDiameter = 50;
+        final int maxLoopLength = Math.max(200, halfLen);
+        final int maxLoopDiameter = maxLoopLength/2;
         
         int lastSeedIndex = maxSeedSearchDepth - seedSize;
         
@@ -583,24 +584,19 @@ public final class SeqUtils {
                 int endIndex = seedRevCompIndex + seedSize;
                 int halfIndex = (i + endIndex)/2;
 
-                String left = seq.substring(i, halfIndex);
-                String right = seq.substring(halfIndex, endIndex);
-
-                float pid = getPercentIdentity(left, reverseComplement(right));
-
-                if (pid >= minPercentIdentity) {
-                    if (halfIndex < halfLen) {
+                if (i+seedSize >= seedRevCompIndex-maxLoopLength) {
+                   if (halfIndex < halfLen) {
                         return seq.substring(halfIndex);
                     }
                     else {
                         return seq.substring(0, halfIndex);
                     }
                 }
-                else if (i+seedSize < halfIndex-maxLoopDiameter) {
-                    left = seq.substring(i, halfIndex-maxLoopDiameter);
-                    right = seq.substring(halfIndex+maxLoopDiameter, endIndex);
+                else {
+                    String left = seq.substring(i, halfIndex-maxLoopDiameter);
+                    String right = seq.substring(halfIndex+maxLoopDiameter, endIndex);
 
-                    pid = getPercentIdentity(left, reverseComplement(right));
+                    float pid = getPercentIdentity(left, reverseComplement(right));
                     
                     if (pid >= minPercentIdentity) {
                         if (halfIndex < halfLen) {
@@ -620,17 +616,12 @@ public final class SeqUtils {
         
         for (int i=seqLen-seedSize; i>=lastSeedIndex; i-=seedSize) {
             String seed = seq.substring(i, i+seedSize);
-            int seedRevCompIndex = seq.indexOf(reverseComplement(seed));
+            int seedRevCompIndex = seq.lastIndexOf(reverseComplement(seed));
 
             if (seedRevCompIndex >= 0 && seedRevCompIndex < i-seedSize) {
                 int halfIndex = (seedRevCompIndex + i + seedSize)/2;
                 
-                String left = seq.substring(seedRevCompIndex, halfIndex);
-                String right = seq.substring(halfIndex, i+seedSize);
-
-                float pid = getPercentIdentity(left, reverseComplement(right));
-
-                if (pid >= minPercentIdentity) {
+                if (seedRevCompIndex+seedSize >= i-maxLoopLength) {
                     if (halfIndex < halfLen) {
                         return seq.substring(halfIndex);
                     }
@@ -638,11 +629,11 @@ public final class SeqUtils {
                         return seq.substring(0, halfIndex);
                     }
                 }
-                else if (i > halfIndex+maxLoopDiameter) {
-                    left = seq.substring(seedRevCompIndex, halfIndex-maxLoopDiameter);
-                    right = seq.substring(halfIndex+maxLoopDiameter, i+seedSize);
+                else {
+                    String left = seq.substring(seedRevCompIndex, halfIndex-maxLoopDiameter);
+                    String right = seq.substring(halfIndex+maxLoopDiameter, i+seedSize);
 
-                    pid = getPercentIdentity(left, reverseComplement(right));
+                    float pid = getPercentIdentity(left, reverseComplement(right));
                     
                     if (pid >= minPercentIdentity) {
                         if (halfIndex < halfLen) {
@@ -986,9 +977,12 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        //String seq = "GCAGCAGCAGCAGCAGCAGCAGCAGCAACAGCAGCAGCAGCAGCAGCGCCTGTGGGAAAAACTAGAGGCTAGAGCCATGGATGACCAACGCGACCTCATCTCTAACCATGAACAGTTGCCCATACTGGGCAACCGCCCTAGAGAGCCAGAAAGGTGCAGCCGTGGAGCTCTGTACACCGGTGTCTCTGTCCTGGTGGCTCTGCTCTTGGCTGGGCAGGCCACCACTGCTTACTTCCTGTACCAGCAACAGGGCCGCCTAGACAAGCTGACCATCACCTCCCAGAACCTGCAACTGGAGAGCCTTCGCATGAAGCTTCCGAAATCTGCCAAACCTGTGAGCCAGATGCGGATGGCTACTCCCTTGCTGATGCGTCCAATGTCCATGGATAACATGCTCCTTGGGCCTGTGAAGAACGTTACCAAGTACGGCAACATGACCCAGGACCATGTGATGCATCTGCTCACGAGGTCTGGACCCCTGGAGTACCCGCAGCTGAAGGGGACCTTCCCAGAGAATCTGAAGCATCTTAAGAACTCCATGGATGGCGTGAACTGGAAGATCTTCGAGAGCTGGATGAAGCAGTGGCTCTTGTTTGAGATGAGCAAGAACTCCCTGGAGGAGAAGAAGCCCACCGAGGCTCCACCTAAAGAGCCACTGCTTCATCCAGCTCTCGAAGATCTTCCAGTTCACGCCATCCATGGAGTTCTTAAGATGCTTCAGATTCTCTGGGAAGGTCCCCTTCAGCTG";
-        String seq = "CAGCTGAAGGGGACCTTCCCAGAGAATCTGAAGCATCTTAAGAACTCCATGGATGGCGTGAACTGGAAGATCTTCGAGAGCTGGATGAAGCAGTGGCTCTTTAGGTGGAGCCTCGGTGGGCTTCTTCTCCTCCAGGGAGTTCTTGCTCATCTCAAACAAGAGCCACTGCTTCATCCAGCTCTCGAAGATCTTCCAGTTCACGCCATCCATGGAGTTCTTAAGATGCTTCAGATTCTCTGGGAAGGTCCCCTTCAGCTGCGGGTACTCCAGGGGTCCAGACCTCGTGAGCAGATGCATCACATGGTCCTGGGTCATGTTGCCGTACTTGGTAACGTTCTTCACAGGCCCAAGGAGCATGTTATCCATGGACATTGGACGCATCAGCAAGGGAGTAGCCATCCGCATCTGGCTCACAGGTTTGGCAGATTTCGGAAGCTTCATGCGAAGGCTCTCCAGTTGCAGGTTCTGGGAGGTGATGGTCAGCTTGTCTAGGCGGCCCTGTTGCTGGTACAGGAAGTAAGCAGTGGTGGCCTGCCCAGCCAAGAGCAGAGCCACCAGGACAGAGACACCGGTGTACAGAGCTCCACGGCTGCACCTTTCTGGCTCTCTAGGGCGGTTGCCCAGTATGGGCAACTGTTCATGGTTAGAGATGAGGTCGCGTTGGTCATCCATGGCTCTAGCCTCTAGTTTTTCCCACAGGCGCTGCTGCTGCTGCTGCTGTTGCTGCTGCTGCTGCTGCTGCTGCTGC";
-        System.out.println(seq.length());
-        System.out.println(cutHairPinLoop(seq, 25, 0.9f));
+        String seq1 = "GCAGTCATCATCATCAAGCAGCAGCTCAGACGTATCGCAGCATCAGCAGCAGCAGTTACGTAGCTCAAGACTGATCGTGATGCTAGC";
+        String seq2 = "AGACGTATCGCAGCATCAGCAGCAGCAGTTACGTAGCTCAA";
+        
+        float pid = getPercentIdentity(seq1, seq2);
+        System.out.println(pid);
+        
+        System.out.flush();
     }
 }
