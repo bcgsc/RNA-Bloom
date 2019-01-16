@@ -370,7 +370,7 @@ public class RNABloom {
         private NTHashIterator itr;
         private PairedNTHashIterator pitr = null;
         private int kmerPairDistance = 0;
-        private long numReads = 0;
+        private int numReads = 0;
         private boolean successful = false;
         private final Consumer<long[]> addFunction;
         private boolean storeReadPairedKmers = false;
@@ -757,7 +757,7 @@ public class RNABloom {
 
         /** parse the reads */
         
-        long numReads = 0;
+        int numReads = 0;
         int numHash = graph.getMaxNumHash();
         
         ExecutorService service = Executors.newFixedThreadPool(numThreads);
