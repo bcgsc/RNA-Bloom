@@ -3668,11 +3668,11 @@ public class RNABloom {
                                     .build();
         options.addOption(optErrCorrItr);        
 
-        Option optExtend = Option.builder("extend")
-                                    .desc("extend fragments outward during fragment reconstruction [false]")
+        Option optNoExtend = Option.builder("noextend")
+                                    .desc("do not extend fragments outward during fragment reconstruction [false]")
                                     .hasArg(false)
                                     .build();
-        options.addOption(optExtend);
+        options.addOption(optNoExtend);
 
         Option optNoFragDBG = Option.builder("nofdbg")
                                     .desc("do not rebuild DBG from fragment k-mers [false]")
@@ -3943,7 +3943,7 @@ public class RNABloom {
             final boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
             final boolean noFragDBG = line.hasOption(optNoFragDBG.getOpt());
             final boolean reqFragKmersConsistency = !line.hasOption(optNoFragmentsConsistency.getOpt());
-            final boolean extendFragments = line.hasOption(optExtend.getOpt());
+            final boolean extendFragments = !line.hasOption(optNoExtend.getOpt());
             final int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), optMinKmerPairsDefault));
             final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), optPrefixDefault);
             
