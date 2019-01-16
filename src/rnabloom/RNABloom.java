@@ -370,7 +370,7 @@ public class RNABloom {
         private NTHashIterator itr;
         private PairedNTHashIterator pitr = null;
         private int kmerPairDistance = 0;
-        private int numReads = 0;
+        private long numReads = 0;
         private boolean successful = false;
         private final Consumer<long[]> addFunction;
         private boolean storeReadPairedKmers = false;
@@ -757,7 +757,7 @@ public class RNABloom {
 
         /** parse the reads */
         
-        int numReads = 0;
+        long numReads = 0;
         int numHash = graph.getMaxNumHash();
         
         ExecutorService service = Executors.newFixedThreadPool(numThreads);
@@ -3668,11 +3668,11 @@ public class RNABloom {
                                     .build();
         options.addOption(optErrCorrItr);        
 
-        Option optNoExtend = Option.builder("noextend")
-                                    .desc("do not extend fragments outward during fragment reconstruction [false]")
+        Option optExtend = Option.builder("extend")
+                                    .desc("extend fragments outward during fragment reconstruction [false]")
                                     .hasArg(false)
                                     .build();
-        options.addOption(optNoExtend);
+        options.addOption(optExtend);
 
         Option optNoFragDBG = Option.builder("nofdbg")
                                     .desc("do not rebuild DBG from fragment k-mers [false]")
@@ -3943,7 +3943,7 @@ public class RNABloom {
             final boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
             final boolean noFragDBG = line.hasOption(optNoFragDBG.getOpt());
             final boolean reqFragKmersConsistency = !line.hasOption(optNoFragmentsConsistency.getOpt());
-            final boolean extendFragments = !line.hasOption(optNoExtend.getOpt());
+            final boolean extendFragments = line.hasOption(optExtend.getOpt());
             final int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), optMinKmerPairsDefault));
             final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), optPrefixDefault);
             
