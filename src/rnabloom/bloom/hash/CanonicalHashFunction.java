@@ -74,6 +74,55 @@ public class CanonicalHashFunction extends HashFunction {
     }
     
     @Override
+    public ArrayList<Kmer> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph, float minCoverage) {
+        int seqLength = seq.length();
+        
+        ArrayList<Kmer> currentSegment = new ArrayList<>();
+        ArrayList<Kmer> longestSegment = currentSegment;
+        
+        if (seqLength >= k) {
+            float currentMinC = Float.MAX_VALUE;
+            float longestMinC = Float.MAX_VALUE;
+            int longestLen = 0;
+            
+            byte[] bytes = stringToBytes(seq, seqLength);
+
+            CanonicalNTHashIterator itr = new CanonicalNTHashIterator(k, numHash);
+            itr.start(seq);
+            long[] hVals = itr.hVals;
+            long[] frhval = itr.frhval;
+            int i;
+            float c;
+            while (itr.hasNext()) {
+                itr.next();
+                c = graph.getCount(hVals);
+                
+                if (c >= minCoverage) {
+                    i = itr.getPos();
+                    currentSegment.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), c, frhval[0], frhval[1]));
+                    currentMinC = Math.min(currentMinC, c);
+                }
+                else if (!currentSegment.isEmpty()) {
+                    if (longestSegment != currentSegment) {
+                        int len = currentSegment.size();
+
+                        if (len > longestLen || (len == longestLen && currentMinC > longestMinC)) {
+                            longestSegment = currentSegment;
+                            longestMinC = currentMinC;
+                            longestLen = len;
+                        }
+                    }
+                    
+                    currentSegment = new ArrayList<>();
+                    currentMinC = Float.MAX_VALUE;
+                }
+            }
+        }
+        
+        return longestSegment;
+    }
+    
+    @Override
     public void getHashValues(final String kmer,
                               final int numHash,
                               final long[] out) {

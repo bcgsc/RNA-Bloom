@@ -1250,6 +1250,10 @@ public class BloomFilterDeBruijnGraph {
         return hashFunction.getKmers(seq, this.dbgbfCbfMaxNumHash, this);
     }
     
+    public ArrayList<Kmer> getKmers(String seq, float minCoverage) {                
+        return hashFunction.getKmers(seq, this.dbgbfCbfMaxNumHash, this, minCoverage);
+    }
+    
     public ArrayList<Kmer> getKmers(String seq, int start, int end) {                
         return hashFunction.getKmers(seq, start, end, this.dbgbfCbfMaxNumHash, this);
     }

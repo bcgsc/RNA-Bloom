@@ -1551,7 +1551,7 @@ public class RNABloom {
                 if (!leftKmers.isEmpty() && !rightKmers.isEmpty()) {
 
                     ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound-k+1-leftKmers.size()-rightKmers.size(),
-                            lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity);
+                            lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity, 1);
 
                     ArrayDeque<ArrayList<Kmer>> segments = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
                     
@@ -1645,6 +1645,7 @@ public class RNABloom {
         private int leftReadLengthThreshold;
         private int rightReadLengthThreshold;
         private boolean extendFragments;
+        private int minKmerCov;
         
         public FragmentAssembler(PairedReadSegments p,
                                 ArrayBlockingQueue<Fragment> outList,
@@ -1654,7 +1655,8 @@ public class RNABloom {
                                 int errorCorrectionIterations,
                                 int leftReadLengthThreshold,
                                 int rightReadLengthThreshold,
-                                boolean extendFragments) {
+                                boolean extendFragments,
+                                int minKmerCov) {
             
             this.p = p;
             this.outList = outList;
@@ -1665,6 +1667,7 @@ public class RNABloom {
             this.leftReadLengthThreshold = leftReadLengthThreshold;
             this.rightReadLengthThreshold = rightReadLengthThreshold;
             this.extendFragments = extendFragments;
+            this.minKmerCov = minKmerCov;
         }
         
         @Override
@@ -1678,13 +1681,15 @@ public class RNABloom {
                 
                 if (left.length() >= this.leftReadLengthThreshold) {
                     if (!isLowComplexity2(left)) {
-                        leftKmers = graph.getKmers(left);
+                        if (minKmerCov > 1) {
+                            leftKmers = graph.getKmers(left, minKmerCov);
+                        }
+                        else {
+                            leftKmers = graph.getKmers(left);
+                        }
                     }
-//                    else {
-//                        System.out.println(left);
-//                    }
                 } 
-                
+                                
                 if (leftKmers == null || leftKmers.isEmpty()) {
                     return;
                 }
@@ -1693,11 +1698,13 @@ public class RNABloom {
                                 
                 if (right.length() >= this.rightReadLengthThreshold) {
                     if (!isLowComplexity2(right)) {
-                        rightKmers = graph.getKmers(right);
+                        if (minKmerCov > 1) {
+                            rightKmers = graph.getKmers(right, minKmerCov);
+                        }
+                        else {
+                            rightKmers = graph.getKmers(right);
+                        }
                     }
-//                    else {
-//                        System.out.println(right);
-//                    }
                 }
                 
 //                boolean leftBad = leftKmers == null || leftKmers.isEmpty();
@@ -1770,7 +1777,7 @@ public class RNABloom {
                 }
 
                 ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound,
-                        lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity);
+                        lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity, minKmerCov);
 
                 // check for read consistency if fragment is long enough
                 if (fragmentKmers != null) {
@@ -2328,7 +2335,8 @@ public class RNABloom {
                                                 int sampleSize, 
                                                 int numThreads, 
                                                 int maxErrCorrIterations,
-                                                boolean extendFragments) {
+                                                boolean extendFragments,
+                                                int minKmerCov) {
         
         if (dbgFPR <= 0) {
             dbgFPR = graph.getDbgbf().getFPR();
@@ -2419,7 +2427,8 @@ public class RNABloom {
                                                             maxErrCorrIterations, 
                                                             leftReadLengthThreshold,
                                                             rightReadLengthThreshold,
-                                                            extendFragments
+                                                            extendFragments,
+                                                            minKmerCov
                         ));
 
                         if (fragments.remainingCapacity() == 0) {
@@ -2552,7 +2561,8 @@ public class RNABloom {
                                                         maxErrCorrIterations, 
                                                         leftReadLengthThreshold, 
                                                         rightReadLengthThreshold,
-                                                        extendFragments
+                                                        extendFragments,
+                                                        minKmerCov
                     ));
 
                     if (fragments.remainingCapacity() <= maxConcurrentSubmissions) {
@@ -3095,7 +3105,7 @@ public class RNABloom {
     public static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, FastxFilePair[] fqPairs,
             long sbfSize, long pkbfSize, int sbfNumHash, int pkbfNumHash, int numThreads,
-            int bound, int minOverlap, int sampleSize, int maxErrCorrItr, boolean extendFragments) {
+            int bound, int minOverlap, int sampleSize, int maxErrCorrItr, boolean extendFragments, int minKmerCoverage) {
         
         final String longFragmentsFastaPrefix =      outdir + File.separator + name + ".fragments.long.";
         final String shortFragmentsFastaPrefix =     outdir + File.separator + name + ".fragments.short.";
@@ -3187,7 +3197,8 @@ public class RNABloom {
                                             sampleSize,
                                             numThreads,
                                             maxErrCorrItr,
-                                            extendFragments);
+                                            extendFragments,
+                                            minKmerCoverage);
 
             assembler.savePairedKmersBloomFilter(new File(graphFile));
             assembler.writeFragStatsToFile(fragStats, fragStatsFile);
@@ -3207,12 +3218,16 @@ public class RNABloom {
     private static void assembleTranscripts(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, String txptNamePrefix, boolean strandSpecific,
             long sbfSize, int sbfNumHash, int numThreads, boolean noFragDBG,
-            int sampleSize, int minTranscriptLength, boolean sensitiveMode, boolean reqFragKmersConsistency) {
+            int sampleSize, int minTranscriptLength, boolean sensitiveMode, boolean reqFragKmersConsistency, boolean restorePairedKmersBloomFilter) {
         
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
         
         if (forceOverwrite || !txptsDoneStamp.exists()) {
             MyTimer timer = new MyTimer();
+            
+            if (restorePairedKmersBloomFilter) {
+                assembler.restorePairedKmersBloomFilter(new File(outdir + File.separator + name + ".graph"));
+            }
             
             final String longFragmentsFastaPrefix =      outdir + File.separator + name + ".fragments.long.";
             final String shortFragmentsFastaPrefix =     outdir + File.separator + name + ".fragments.short.";
@@ -3489,6 +3504,15 @@ public class RNABloom {
                                     .argName("INT")
                                     .build();
         options.addOption(optBaseQualFrag);        
+        
+        final String optMinKmerCovDefault = "1"; 
+        Option optMinKmerCov = Option.builder("c")
+                                    .longOpt("mincov")
+                                    .desc("minimum k-mer coverage [" + optMinKmerCovDefault + "]")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optMinKmerCov);
         
         final String optAllHashDefault = "2";
         Option optAllHash = Option.builder("hash")
@@ -3862,6 +3886,7 @@ public class RNABloom {
             
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), optBaseQualFragDefault));
+            final int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), optMinKmerCovDefault));
             
             double leftReadFilesTotalBytes = 0;
             double rightReadFilesTotalBytes = 0;
@@ -4096,7 +4121,7 @@ public class RNABloom {
                     assembleFragments(assembler, forceOverwrite,
                                     sampleOutdir, sampleName, fqPairs,
                                     sbfSize, pkbfSize, sbfNumHash, pkbfNumHash, numThreads,
-                                    bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments);
+                                    bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments, minKmerCov);
                     
                     System.out.println("** Fragments assembled in " + MyTimer.hmsFormat(sampleTimer.elapsedMillis()) + "\n");
                 }
@@ -4120,12 +4145,10 @@ public class RNABloom {
                     
                     String sampleOutdir = outdir + File.separator + sampleName;
                     
-                    assembler.restorePairedKmersBloomFilter(new File(sampleOutdir + File.separator + sampleName + ".graph"));
-                    
                     assembleTranscripts(assembler, forceOverwrite,
                                     sampleOutdir, sampleName, txptNamePrefix, strandSpecific,
                                     sbfSize, sbfNumHash, numThreads, noFragDBG,
-                                    sampleSize, minTranscriptLength, sensitiveMode, reqFragKmersConsistency);
+                                    sampleSize, minTranscriptLength, sensitiveMode, reqFragKmersConsistency, true);
                     
                     System.out.print("\n");
                 }
@@ -4147,7 +4170,7 @@ public class RNABloom {
                 assembleFragments(assembler, forceOverwrite,
                                     outdir, name, fqPairs,
                                     sbfSize, pkbfSize, sbfNumHash, pkbfNumHash, numThreads,
-                                    bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments);
+                                    bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments, minKmerCov);
                 
                 System.out.println("* Stage 2 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                 
@@ -4162,7 +4185,7 @@ public class RNABloom {
                 assembleTranscripts(assembler, forceOverwrite,
                                 outdir, name, txptNamePrefix, strandSpecific,
                                 sbfSize, sbfNumHash, numThreads, noFragDBG,
-                                sampleSize, minTranscriptLength, sensitiveMode, reqFragKmersConsistency);
+                                sampleSize, minTranscriptLength, sensitiveMode, reqFragKmersConsistency, false);
                 
                 System.out.println("* Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }      

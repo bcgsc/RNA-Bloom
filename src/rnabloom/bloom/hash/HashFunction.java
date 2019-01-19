@@ -80,6 +80,53 @@ public class HashFunction {
         
         return result;
     }
+
+    public ArrayList<Kmer> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph, float minCoverage) {       
+        int seqLength = seq.length();
+        
+        ArrayList<Kmer> currentSegment = new ArrayList<>();
+        ArrayList<Kmer> longestSegment = currentSegment;
+                
+        if (seqLength >= k) {
+            float currentMinC = Float.MAX_VALUE;
+            float longestMinC = Float.MAX_VALUE;
+            int longestLen = 0;
+            
+            byte[] bytes = stringToBytes(seq, seqLength);
+
+            NTHashIterator itr = new NTHashIterator(k, numHash);
+            itr.start(seq);
+            long[] hVals = itr.hVals;
+            int i;
+            float c;
+            while (itr.hasNext()) {                
+                itr.next();
+                c = graph.getCount(hVals);
+                
+                if (c >= minCoverage) {
+                    i = itr.getPos();
+                    currentSegment.add(new Kmer(Arrays.copyOfRange(bytes, i, i+k), c, hVals[0]));
+                    currentMinC = Math.min(currentMinC, c);
+                }
+                else if (!currentSegment.isEmpty()) {
+                    if (longestSegment != currentSegment) {
+                        int len = currentSegment.size();
+
+                        if (len > longestLen || (len == longestLen && currentMinC > longestMinC)) {
+                            longestSegment = currentSegment;
+                            longestMinC = currentMinC;
+                            longestLen = len;
+                        }
+                    }
+                    
+                    currentSegment = new ArrayList<>();
+                    currentMinC = Float.MAX_VALUE;
+                }
+            }
+        }
+        
+        return longestSegment;
+    }
     
     public ArrayList<Kmer> getKmers(final String seq, final int start, final int end, final int numHash, BloomFilterDeBruijnGraph graph) {
         ArrayList<Kmer> result = new ArrayList<>();

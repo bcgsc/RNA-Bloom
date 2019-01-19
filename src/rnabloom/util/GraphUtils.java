@@ -878,7 +878,8 @@ public final class GraphUtils {
                                         float maxCovGradient,
                                         int maxTipLen,
                                         int maxIndelLen,
-                                        float minPercentIdentity) {
+                                        float minPercentIdentity,
+                                        float minKmerCov) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         int pkd = graph.getReadPairedKmerDistance();
@@ -889,7 +890,7 @@ public final class GraphUtils {
 
         Kmer right = rightKmers.get(0);
         
-        float leftCoverageThreshold = getMinimumKmerCoverage(leftKmers) * maxCovGradient;
+        float leftCoverageThreshold = Math.max(minKmerCov, getMinimumKmerCoverage(leftKmers) * maxCovGradient);
         
         ArrayList<Kmer> leftPath = new ArrayList<>(leftKmers);
         
@@ -905,8 +906,11 @@ public final class GraphUtils {
                 Kmer best = null;
 
                 if (neighbors.size() == 1) {
-                    best = neighbors.pop();
-                    leftCoverageThreshold = Math.min(leftCoverageThreshold, best.count*maxCovGradient);
+                    Kmer neighbor = neighbors.pop();
+                    if (neighbor.count >= minKmerCov) {
+                        best = neighbor;
+                        leftCoverageThreshold = Math.max(minKmerCov, Math.min(leftCoverageThreshold, best.count*maxCovGradient));
+                    }
                 }
                 else {
                     Iterator<Kmer> itr = neighbors.iterator();
@@ -918,7 +922,7 @@ public final class GraphUtils {
 
                     if (neighbors.size() == 1) {
                         best = neighbors.pop();
-                        leftCoverageThreshold = Math.min(leftCoverageThreshold, best.count*maxCovGradient);
+                        leftCoverageThreshold = Math.max(minKmerCov, Math.min(leftCoverageThreshold, best.count*maxCovGradient));
                     }
                 }
 
@@ -1011,7 +1015,7 @@ public final class GraphUtils {
 
                             float c = maxCovGradient * current.count;
                             if (c < leftCoverageThreshold) {
-                                leftCoverageThreshold = c;
+                                leftCoverageThreshold = Math.max(c, minKmerCov);
                             }
                         }
                     }
@@ -1020,7 +1024,7 @@ public final class GraphUtils {
         }
         
         Kmer left = leftKmers.get(leftKmers.size()-1);
-        float rightCoverageThreshold = getMinimumKmerCoverage(rightKmers) * maxCovGradient;
+        float rightCoverageThreshold = Math.max(minKmerCov, getMinimumKmerCoverage(rightKmers) * maxCovGradient);
         
         ArrayList<Kmer> rightPath = new ArrayList<>(rightKmers);
         Collections.reverse(rightPath);
@@ -1037,8 +1041,11 @@ public final class GraphUtils {
                 Kmer best = null;
 
                 if (neighbors.size() == 1) {
-                    best = neighbors.pop();
-                    rightCoverageThreshold = Math.min(rightCoverageThreshold, best.count*maxCovGradient);
+                    Kmer neighbor = neighbors.pop();
+                    if (neighbor.count >= minKmerCov) {
+                        best = neighbor;
+                        rightCoverageThreshold = Math.max(minKmerCov, Math.min(rightCoverageThreshold, best.count*maxCovGradient));
+                    }
                 }
                 else {
                     Iterator<Kmer> itr = neighbors.iterator();
@@ -1050,7 +1057,7 @@ public final class GraphUtils {
 
                     if (neighbors.size() == 1) {
                         best = neighbors.pop();
-                        rightCoverageThreshold = Math.min(rightCoverageThreshold, best.count*maxCovGradient);
+                        rightCoverageThreshold = Math.max(minKmerCov, Math.min(rightCoverageThreshold, best.count*maxCovGradient));
                     }
                 }
 
@@ -1123,7 +1130,7 @@ public final class GraphUtils {
 
                             float c = maxCovGradient * current.count;
                             if (c < rightCoverageThreshold) {
-                                rightCoverageThreshold = c;
+                                rightCoverageThreshold = Math.max(c, minKmerCov);
                             }
                         }
                     }
@@ -3602,7 +3609,7 @@ public final class GraphUtils {
         
         return leftWing + graph.assemble(pathKmers) + rightWing;
     }
-        
+
     public static ArrayList<Kmer> overlap(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, BloomFilterDeBruijnGraph graph, int minOverlap) {
 //        int k = graph.getK();
         
@@ -3694,7 +3701,8 @@ public final class GraphUtils {
                                                     float maxCovGradient,
                                                     int maxTipLen,
                                                     int maxIndelLen,
-                                                    float minPercentIdentity) {
+                                                    float minPercentIdentity,
+                                                    float minKmerCov) {
 
         // 1. Attempt simple overlap
         ArrayList<Kmer> fragmentKmers = overlap(leftKmers, rightKmers, graph, minOverlap);
@@ -3702,7 +3710,7 @@ public final class GraphUtils {
         if (fragmentKmers == null) {
 
             fragmentKmers = join(graph, leftKmers, rightKmers, bound, lookahead, maxCovGradient,
-                                    maxTipLen, maxIndelLen, minPercentIdentity);
+                                    maxTipLen, maxIndelLen, minPercentIdentity, minKmerCov);
 //            fragmentKmers = getSimilarCoveragePath(graph, leftKmers, rightKmers, bound, lookahead, maxCovGradient, false);
 //            ArrayDeque<Kmer> connectedPath = getMaxCoveragePath(graph, leftLastKmer, rightFirstKmer, bound, lookahead);
 
