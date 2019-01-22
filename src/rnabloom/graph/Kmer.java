@@ -189,14 +189,18 @@ public class Kmer {
     }
     
     public ArrayDeque<Kmer> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        return getPredecessors(k, numHash, graph, 1);
+    }
+    
+    public ArrayDeque<Kmer> getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, float minKmerCov) {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
-        getPredecessors(k, numHash, graph, result);
+        getPredecessors(k, numHash, graph, result, minKmerCov);
         
         return result;
     }
     
-    public void getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result) {
+    public void getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result, float minKmerCov) {
   
         PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, (char) bytes[k-1]);
@@ -206,7 +210,7 @@ public class Kmer {
         while (itr.hasNext()) {
             itr.next();
             myCount = graph.getCount(hVals);
-            if (myCount > 0) {
+            if (myCount >= minKmerCov) {
                 byte[] myBytes = shiftRight(this.bytes, k);
                 myBytes[0] = (byte) itr.currentChar();
                 result.add(new Kmer(myBytes, myCount, hVals[0]));
@@ -214,15 +218,19 @@ public class Kmer {
         }
     }
     
-    public ArrayDeque<Kmer> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {  
+    public ArrayDeque<Kmer> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        return getSuccessors(k, numHash, graph, 1);
+    }
+    
+    public ArrayDeque<Kmer> getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, float minKmerCov) {  
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
-        getSuccessors(k, numHash, graph, result);
+        getSuccessors(k, numHash, graph, result, minKmerCov);
         
         return result;
     }
     
-    public void getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result) {
+    public void getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result, float minKmerCov) {
         
         SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
         itr.start(fHashVal, (char) bytes[0]);
@@ -232,7 +240,7 @@ public class Kmer {
         while (itr.hasNext()) {
             itr.next();
             myCount = graph.getCount(hVals);
-            if (myCount > 0) {
+            if (myCount >= minKmerCov) {
                 byte[] myBytes = shiftLeft(this.bytes, k);
                 myBytes[k-1] = (byte) itr.currentChar();
                 result.add(new Kmer(myBytes, myCount, hVals[0]));
@@ -287,6 +295,10 @@ public class Kmer {
     }
     
     public ArrayDeque<Kmer> getLeftVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        return getLeftVariants(k, numHash, graph, 1);
+    }
+    
+    public ArrayDeque<Kmer> getLeftVariants(int k, int numHash, BloomFilterDeBruijnGraph graph, float minKmerCov) {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         LeftVariantsNTHashIterator itr = new LeftVariantsNTHashIterator(k, numHash);
@@ -299,7 +311,7 @@ public class Kmer {
         for (char charIn : getAltNucleotides(charOut)) {
             itr.next(charIn);
             myCount = graph.getCount(hVals);
-            if (myCount > 0) {
+            if (myCount >= minKmerCov) {
                 myBytes = Arrays.copyOf(bytes, k);
                 myBytes[0] = (byte) charIn;
                 result.add(new Kmer(myBytes, myCount, hVals[0]));
@@ -310,6 +322,10 @@ public class Kmer {
     }
     
     public ArrayDeque<Kmer> getRightVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
+        return getRightVariants(k, numHash, graph, 1);
+    }
+    
+    public ArrayDeque<Kmer> getRightVariants(int k, int numHash, BloomFilterDeBruijnGraph graph, float minKmerCov) {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         RightVariantsNTHashIterator itr = new RightVariantsNTHashIterator(k, numHash);
@@ -322,7 +338,7 @@ public class Kmer {
         for (char charIn : getAltNucleotides(charOut)) {
             itr.next(charIn);
             myCount = graph.getCount(hVals);
-            if (myCount > 0) {
+            if (myCount >= minKmerCov) {
                 myBytes = Arrays.copyOf(bytes, k);
                 myBytes[k-1] = (byte) charIn;
                 result.add(new Kmer(myBytes, myCount, hVals[0]));
