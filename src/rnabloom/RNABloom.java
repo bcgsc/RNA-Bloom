@@ -3295,10 +3295,11 @@ public class RNABloom {
             long sbfSize, int sbfNumHash, int numThreads, boolean noFragDBG,
             int sampleSize, int minTranscriptLength, boolean sensitiveMode, 
             boolean reqFragKmersConsistency, boolean restorePairedKmersBloomFilter,
-            float minKmerCov, String branchFreeExtensionThreshold) {
+            float minKmerCov, String branchFreeExtensionThreshold,
+            boolean reduceRedundancy) {
         
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
-        
+                
         if (forceOverwrite || !txptsDoneStamp.exists()) {
             MyTimer timer = new MyTimer();
             
@@ -3358,7 +3359,7 @@ public class RNABloom {
             }
 
             final String transcriptsFasta =       outdir + File.separator + name + ".transcripts.fa";
-//            final String transcriptsNrFasta =     outdir + File.separator + name + ".transcripts.nr.fa";
+            final String transcriptsNrFasta =     outdir + File.separator + name + ".transcripts.nr.fa";
             final String shortTranscriptsFasta =  outdir + File.separator + name + ".transcripts.short.fa";
             
             File transcriptsFile = new File(transcriptsFasta);
@@ -3366,10 +3367,10 @@ public class RNABloom {
                 transcriptsFile.delete();
             }
 
-//            File transcriptsNrFile = new File(transcriptsNrFasta);
-//            if (transcriptsNrFile.exists()) {
-//                transcriptsNrFile.delete();
-//            }
+            File transcriptsNrFile = new File(transcriptsNrFasta);
+            if (transcriptsNrFile.exists()) {
+                transcriptsNrFile.delete();
+            }
             
             File shortTranscriptsFile = new File(shortTranscriptsFasta);
             if (shortTranscriptsFile.exists()) {
@@ -3399,7 +3400,9 @@ public class RNABloom {
                                                         minKmerCov,
                                                         branchFreeExtensionThreshold);
 
-//            assembler.redundancyReduction(transcriptsFasta, transcriptsNrFasta);
+            if (reduceRedundancy) {
+                assembler.redundancyReduction(transcriptsFasta, transcriptsNrFasta);
+            }
             
             System.out.println("Transcripts assembled in " + MyTimer.hmsFormat(timer.elapsedMillis()));
 
@@ -3454,6 +3457,7 @@ public class RNABloom {
     private static final String STAMP_DBG_DONE = "DBG.DONE";
     private static final String STAMP_FRAGMENTS_DONE = "FRAGMENTS.DONE";
     private static final String STAMP_TRANSCRIPTS_DONE = "TRANSCRIPTS.DONE";
+    private static final String STAMP_TRANSCRIPTS_NR_DONE = "TRANSCRIPTS_NR.DONE";
     
     /**
      * @param args the command line arguments
@@ -3765,7 +3769,13 @@ public class RNABloom {
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
-        options.addOption(optPercentIdentity); 
+        options.addOption(optPercentIdentity);
+        
+        Option optReduce = Option.builder("nr")
+                                    .desc("output non-redundant transcripts in 'transcripts.nr.fa' [false]")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optReduce);
         
         final String optErrCorrItrDefault = "1";
         Option optErrCorrItr = Option.builder("e")
@@ -4060,6 +4070,7 @@ public class RNABloom {
             final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), optTipLengthDefault));
             final float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), optMaxCovGradDefault));
             final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), optPercentIdentityDefault));
+            final boolean outputNrTxpts = line.hasOption(optReduce.getOpt());
             final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), optIndelSizeDefault));
             final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), optErrCorrItrDefault));
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), optMinLengthDefault));
@@ -4251,7 +4262,8 @@ public class RNABloom {
                                     sampleOutdir, sampleName, txptNamePrefix, strandSpecific,
                                     sbfSize, sbfNumHash, numThreads, noFragDBG,
                                     sampleSize, minTranscriptLength, sensitiveMode,
-                                    reqFragKmersConsistency, true, minKmerCov, branchFreeExtensionThreshold);
+                                    reqFragKmersConsistency, true, minKmerCov,
+                                    branchFreeExtensionThreshold, outputNrTxpts);
                     
                     System.out.print("\n");
                 }
@@ -4289,7 +4301,8 @@ public class RNABloom {
                                 outdir, name, txptNamePrefix, strandSpecific,
                                 sbfSize, sbfNumHash, numThreads, noFragDBG,
                                 sampleSize, minTranscriptLength, sensitiveMode,
-                                reqFragKmersConsistency, false, minKmerCov, branchFreeExtensionThreshold);
+                                reqFragKmersConsistency, false, minKmerCov, 
+                                branchFreeExtensionThreshold, outputNrTxpts);
                 
                 System.out.println("* Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }      
