@@ -116,7 +116,53 @@ public class RNABloom {
     
     private float dbgFPR = -1;
     private float covFPR = -1;
-    private final static String[] COVERAGE_ORDER = {"e0", "e1", "e2", "e3", "e4", "e5"};
+    
+    private final static String STRATUM_01 = "01";
+    private final static String STRATUM_E0 = "e0";
+    private final static String STRATUM_E1 = "e1";
+    private final static String STRATUM_E2 = "e2";
+    private final static String STRATUM_E3 = "e3";
+    private final static String STRATUM_E4 = "e4";
+    private final static String STRATUM_E5 = "e5";
+    private final static String[] STRATA = new String[]{STRATUM_01, STRATUM_E0, STRATUM_E1, STRATUM_E2, STRATUM_E3, STRATUM_E4, STRATUM_E5};
+    private final static String[] COVERAGE_ORDER = {STRATUM_E0, STRATUM_E1, STRATUM_E2, STRATUM_E3, STRATUM_E4, STRATUM_E5};
+    
+    private static boolean isValidStratumName(String name) {
+        switch (name) {
+            case(STRATUM_01):
+            case(STRATUM_E0):
+            case(STRATUM_E1):
+            case(STRATUM_E2):
+            case(STRATUM_E3):
+            case(STRATUM_E4):
+            case(STRATUM_E5):
+                return true;
+            default:
+                return false;
+        }
+    }
+    
+    private static int getStratumIndex(String name) {
+        int index = -1;
+        int numStrata = STRATA.length;
+        
+        for (int i=0; i<numStrata; ++i) {
+            String s = STRATA[i];
+            if (s.equals(name)) {
+                return i;
+            }
+        }
+        
+        return index;
+    }
+    
+    private static boolean isLowerStratum(String name1, String name2) {
+        return getStratumIndex(name1) < getStratumIndex(name2);
+    }
+    
+    private static boolean isHigherStratum(String name1, String name2) {
+        return getStratumIndex(name1) > getStratumIndex(name2);
+    }
     
     public RNABloom(int k, int qDBG, int qFrag) {
         this.qDBG = qDBG;
@@ -1390,7 +1436,7 @@ public class RNABloom {
                                 
                 while (true) {
                     String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
-
+                    
                     if (fragment == null) {
                         if (!keepGoing) {
                             break;
@@ -2841,7 +2887,8 @@ public class RNABloom {
                                                 boolean sensitiveMode,
                                                 boolean reqFragKmersConsistency,
                                                 String txptNamePrefix,
-                                                float minKmerCov) {
+                                                float minKmerCov,
+                                                String branchFreeExtensionThreshold) {
         
         long numFragmentsParsed = 0;
 
@@ -2858,7 +2905,7 @@ public class RNABloom {
 
    
             boolean allowNaiveExtension = true;
-            boolean extendBranchFreeOnly = false;
+//            boolean extendBranchFreeOnly = false;
             boolean skipPotentialArtifacts = true;
             
             if (sensitiveMode) {
@@ -2872,6 +2919,7 @@ public class RNABloom {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".L.");
                 String fragmentsFasta = longFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
+                boolean extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                         allowNaiveExtension, extendBranchFreeOnly, 
                                                                         skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
@@ -2883,6 +2931,7 @@ public class RNABloom {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".S.");
                 String fragmentsFasta = shortFragmentsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
+                boolean extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                         allowNaiveExtension, extendBranchFreeOnly,
                                                                         skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
@@ -2894,11 +2943,14 @@ public class RNABloom {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".U.");
                 String fragmentsFasta = unconnectedReadsFastas[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
+                boolean extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                         allowNaiveExtension, extendBranchFreeOnly,
                                                                         skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
             }
-                        
+
+            boolean extendBranchFreeOnly = isLowerStratum(STRATUM_E0, branchFreeExtensionThreshold);
+            
             // extend LONG fragments
             
             writer.setOutputPrefix(txptNamePrefix + "E0.L.");
@@ -2929,7 +2981,9 @@ public class RNABloom {
 //            if (!sensitiveMode) {
 //                extendBranchFreeOnly = true;
 //            }
-            
+
+            extendBranchFreeOnly = isLowerStratum(STRATUM_01, branchFreeExtensionThreshold);
+
             // extend LONG singleton fragments
 
             writer.setOutputPrefix(txptNamePrefix + "01.L.");
@@ -3241,7 +3295,7 @@ public class RNABloom {
             long sbfSize, int sbfNumHash, int numThreads, boolean noFragDBG,
             int sampleSize, int minTranscriptLength, boolean sensitiveMode, 
             boolean reqFragKmersConsistency, boolean restorePairedKmersBloomFilter,
-            float minKmerCov) {
+            float minKmerCov, String branchFreeExtensionThreshold) {
         
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
         
@@ -3342,7 +3396,8 @@ public class RNABloom {
                                                         sensitiveMode,
                                                         reqFragKmersConsistency,
                                                         txptNamePrefix,
-                                                        minKmerCov);
+                                                        minKmerCov,
+                                                        branchFreeExtensionThreshold);
 
 //            assembler.redundancyReduction(transcriptsFasta, transcriptsNrFasta);
             
@@ -3745,6 +3800,15 @@ public class RNABloom {
                                     .build();
         options.addOption(optSensitive);
         
+        final String optBranchFreeExtensionDefault = STRATUM_E0;
+        final String optBranchFreeExtensionChoicesStr = String.join("|", STRATA);
+        Option optBranchFreeExtensionThreshold = Option.builder("stratum")
+                                    .desc("fragments lower than the specified stratum are extended only if they are branch-free [" + optBranchFreeExtensionDefault + "]")
+                                    .hasArg(true)
+                                    .argName(optBranchFreeExtensionChoicesStr)
+                                    .build();
+        options.addOption(optBranchFreeExtensionThreshold);        
+        
         final String optMinKmerPairsDefault = "10";
         Option optMinKmerPairs = Option.builder("pair")
                                     .desc("minimum number of consecutive kmer pairs for assembling transcripts [" + optMinKmerPairsDefault + "]")
@@ -3796,6 +3860,12 @@ public class RNABloom {
             
             System.out.println("RNA-Bloom v" + VERSION + "\n" +
                                "args: " + Arrays.toString(args) + "\n");
+            
+            String branchFreeExtensionThreshold = line.getOptionValue(optBranchFreeExtensionThreshold.getOpt(), optBranchFreeExtensionDefault);
+            if (!isValidStratumName(branchFreeExtensionThreshold)) {
+                System.out.println("ERROR: Unknown stratum name specified, \"" + branchFreeExtensionThreshold + "\"");
+                System.exit(1);
+            }
             
             final int endstage = Integer.parseInt(line.getOptionValue(optStage.getOpt(), optStageDefault));
             final int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), optThreadsDefault));
@@ -3995,6 +4065,9 @@ public class RNABloom {
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), optMinLengthDefault));
             final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), optPolyATailDefault));
             final boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
+            if (sensitiveMode) {
+                branchFreeExtensionThreshold = STRATUM_01;
+            }
             final boolean noFragDBG = line.hasOption(optNoFragDBG.getOpt());
             final boolean reqFragKmersConsistency = !line.hasOption(optNoFragmentsConsistency.getOpt());
             final boolean extendFragments = line.hasOption(optExtend.getOpt());
@@ -4177,7 +4250,8 @@ public class RNABloom {
                     assembleTranscripts(assembler, forceOverwrite,
                                     sampleOutdir, sampleName, txptNamePrefix, strandSpecific,
                                     sbfSize, sbfNumHash, numThreads, noFragDBG,
-                                    sampleSize, minTranscriptLength, sensitiveMode, reqFragKmersConsistency, true, minKmerCov);
+                                    sampleSize, minTranscriptLength, sensitiveMode,
+                                    reqFragKmersConsistency, true, minKmerCov, branchFreeExtensionThreshold);
                     
                     System.out.print("\n");
                 }
@@ -4214,7 +4288,8 @@ public class RNABloom {
                 assembleTranscripts(assembler, forceOverwrite,
                                 outdir, name, txptNamePrefix, strandSpecific,
                                 sbfSize, sbfNumHash, numThreads, noFragDBG,
-                                sampleSize, minTranscriptLength, sensitiveMode, reqFragKmersConsistency, false, minKmerCov);
+                                sampleSize, minTranscriptLength, sensitiveMode,
+                                reqFragKmersConsistency, false, minKmerCov, branchFreeExtensionThreshold);
                 
                 System.out.println("* Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }      
