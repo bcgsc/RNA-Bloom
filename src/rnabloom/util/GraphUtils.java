@@ -692,7 +692,7 @@ public final class GraphUtils {
         int maxIndex = numKmers - 1;
         
         int k = graph.getK();
-        int maxNumBubbleKmers = 3*k;
+        int maxNumBubbleKmers = graph.getReadPairedKmerDistance()+k;
         
         int lastRepresentedKmerFoundIndex = -1;
         
@@ -712,7 +712,7 @@ public final class GraphUtils {
                 
                 int assembledRange = endIndex - startIndex + 1;
                 
-                if (assembledRange >= 3) {                    
+                if (assembledRange >= 2) {                    
                     if (startIndex > 0) {
                                                 
                         if (lastRepresentedKmerFoundIndex < 0) {                            
