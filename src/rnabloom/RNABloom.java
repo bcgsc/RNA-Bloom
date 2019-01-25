@@ -3019,11 +3019,11 @@ public class RNABloom {
         }
     }
     
-    public void redundancyReduction(String inFasta, String outFasta) {
+    public void reduceSequenceRedundancy(String inFasta, String outFasta) {
         try {
-            int numRemoved = removeRedundancy(inFasta,
+            int numRemoved = reduceRedundancy(inFasta,
                                                 outFasta,
-                                                k,
+                                                graph,
                                                 screeningBf,
                                                 lookahead,
                                                 maxIndelSize,
@@ -3299,6 +3299,7 @@ public class RNABloom {
             boolean reduceRedundancy) {
         
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
+        final File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
         final String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
         final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short.fa";
                 
@@ -3409,7 +3410,6 @@ public class RNABloom {
         }
         
         if (reduceRedundancy) {
-            final File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
             final String transcriptsNrFasta = outdir + File.separator + name + ".transcripts.nr.fa";
 
             if (forceOverwrite || !txptsNrDoneStamp.exists()) {
@@ -3423,12 +3423,14 @@ public class RNABloom {
                 System.out.println("Reducing redundancy...");
                 timer.start();
                 
-                assembler.redundancyReduction(transcriptsFasta, transcriptsNrFasta);
+                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                
+                assembler.reduceSequenceRedundancy(transcriptsFasta, transcriptsNrFasta);
 
                 System.out.println("Redundancy reduction completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
                 try {
-                    touch(txptsDoneStamp);
+                    touch(txptsNrDoneStamp);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                     System.exit(1);
@@ -4144,9 +4146,9 @@ public class RNABloom {
                 
                 boolean fragmentsDone = fragsDoneStamp.exists();
                 
-                if (!fragmentsDone || !txptsDoneStamp.exists()) {
+                if (!fragmentsDone || (outputNrTxpts && !txptsNrDoneStamp.exists()) || !txptsDoneStamp.exists()) {
                     System.out.println("Loading graph from file `" + graphFile + "`...");
-                    assembler.restoreGraph(new File(graphFile), noFragDBG || !fragmentsDone);
+                    assembler.restoreGraph(new File(graphFile), noFragDBG || !fragmentsDone || (outputNrTxpts && !txptsNrDoneStamp.exists()));
                 }
             }
             else {                

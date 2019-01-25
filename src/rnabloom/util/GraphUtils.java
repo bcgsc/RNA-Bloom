@@ -604,9 +604,9 @@ public final class GraphUtils {
         }
     }
     
-    public static int removeRedundancy(final String inFasta,
+    public static int reduceRedundancy(final String inFasta,
                                         final String outFasta,
-                                        final int k,
+                                        final BloomFilterDeBruijnGraph graph,
                                         final BloomFilter bf,
                                         final int lookahead,
                                         final int maxIndelSize,
@@ -616,7 +616,6 @@ public final class GraphUtils {
         
         // read entire FASTA and store all sequences
         FastaReader fr = new FastaReader(inFasta);
-        
         try {
             while (true) {
                 seqs.add(new Sequence(fr.next()));
@@ -625,60 +624,43 @@ public final class GraphUtils {
         catch (NoSuchElementException e) {
             //end of file
         }
-        
         fr.close();
         
         // sort sequences by length
         Collections.sort(seqs);
-        
-        // remove redundancy
-        bf.empty();
-        
+
+        // remove redundant sequences
         int cid = 0;
-        
         FastaWriter fw = new FastaWriter(outFasta, false);
-        
         for (Sequence s : seqs) {
             int len = s.length;
             
             String seq = s.toString();
-            String[] kmers = kmerize(seq, k);
+            ArrayList<Kmer> kmers = graph.getKmers(seq);
             
-            if (!represented(kmers, k, bf, maxIndelSize, maxTipLength, percentIdentity)) {
-                // insert into Bloom filter
-                for (String kmer : kmers) {
-                    bf.add(kmer);
+            if (!represented(kmers, graph, bf, lookahead, maxIndelSize, maxTipLength, percentIdentity)) {
+                // insert kmers into Bloom filter
+                for (Kmer kmer : kmers) {
+                    bf.add(kmer.getHash());
                 }
                 
                 // write to file
                 fw.write(++cid+" l="+len, seq);
             }
         }
-        
         fw.close();
         
         return seqs.size() - cid;
     }
     
-    public static boolean represented(final String[] kmers,
-                                        final int k,
-                                        final BloomFilter bf,
-                                        final int maxIndelSize,
-                                        final int maxTipLength,
-                                        final float percentIdentity) {
-        int numKmers = kmers.length;
-        int numKmersFound = 0;
-        
+    public static boolean represented(final String[] kmers, final BloomFilter bf) {
         for (String kmer : kmers) {
-            if (bf.lookup(kmer)) {
-                ++numKmersFound;
-            }
-            else {
+            if (!bf.lookup(kmer)) {
                 return false;
             }
         }
         
-        return (float)(numKmersFound)/numKmers >= percentIdentity;
+        return true;
     }
     
     public static boolean represented(final ArrayList<Kmer> kmers,
