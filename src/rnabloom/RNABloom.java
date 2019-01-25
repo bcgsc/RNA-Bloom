@@ -3299,6 +3299,8 @@ public class RNABloom {
             boolean reduceRedundancy) {
         
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
+        final String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
+        final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short.fa";
                 
         if (forceOverwrite || !txptsDoneStamp.exists()) {
             MyTimer timer = new MyTimer();
@@ -3358,18 +3360,9 @@ public class RNABloom {
                 System.out.println("Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));  
             }
 
-            final String transcriptsFasta =       outdir + File.separator + name + ".transcripts.fa";
-            final String transcriptsNrFasta =     outdir + File.separator + name + ".transcripts.nr.fa";
-            final String shortTranscriptsFasta =  outdir + File.separator + name + ".transcripts.short.fa";
-            
             File transcriptsFile = new File(transcriptsFasta);
             if (transcriptsFile.exists()) {
                 transcriptsFile.delete();
-            }
-
-            File transcriptsNrFile = new File(transcriptsNrFasta);
-            if (transcriptsNrFile.exists()) {
-                transcriptsNrFile.delete();
             }
             
             File shortTranscriptsFile = new File(shortTranscriptsFasta);
@@ -3399,10 +3392,6 @@ public class RNABloom {
                                                         txptNamePrefix,
                                                         minKmerCov,
                                                         branchFreeExtensionThreshold);
-
-            if (reduceRedundancy) {
-                assembler.redundancyReduction(transcriptsFasta, transcriptsNrFasta);
-            }
             
             System.out.println("Transcripts assembled in " + MyTimer.hmsFormat(timer.elapsedMillis()));
 
@@ -3417,6 +3406,39 @@ public class RNABloom {
         }
         else {
             System.out.println("WARNING: Transcripts were already assembled for \"" + name + "\"!");
+        }
+        
+        if (reduceRedundancy) {
+            final File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
+            final String transcriptsNrFasta = outdir + File.separator + name + ".transcripts.nr.fa";
+
+            if (forceOverwrite || !txptsNrDoneStamp.exists()) {
+                File transcriptsNrFile = new File(transcriptsNrFasta);
+                if (transcriptsNrFile.exists()) {
+                    transcriptsNrFile.delete();
+                }
+                
+                MyTimer timer = new MyTimer();
+
+                System.out.println("Reducing redundancy...");
+                timer.start();
+                
+                assembler.redundancyReduction(transcriptsFasta, transcriptsNrFasta);
+
+                System.out.println("Redundancy reduction completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                
+                try {
+                    touch(txptsDoneStamp);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    System.exit(1);
+                }
+                
+                System.out.println("Non-redundant transcripts at `" + transcriptsNrFasta + "`");
+            }   
+            else {
+                System.out.println("WARNING: Redundancy reduction already completed for \"" + name + "\"!");
+            }
         }
     }
     
@@ -3900,6 +3922,7 @@ public class RNABloom {
             File dbgDoneStamp = new File(outdir + File.separator + STAMP_DBG_DONE);
             File fragsDoneStamp = new File(outdir + File.separator + STAMP_FRAGMENTS_DONE);
             File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
+            File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
             
             if (forceOverwrite) {
                 if (startedStamp.exists()) {
@@ -3916,6 +3939,10 @@ public class RNABloom {
                 
                 if (txptsDoneStamp.exists()) {
                     txptsDoneStamp.delete();
+                }
+                
+                if (txptsNrDoneStamp.exists()) {
+                    txptsNrDoneStamp.delete();
                 }
             }
                         
