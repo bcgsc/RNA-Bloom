@@ -250,8 +250,8 @@ public class RNABloom {
             }
             
             covFPR = graph.getCbfFPR();
-            System.out.println("Counting Bloom filter FPR:          " + covFPR * 100 + " %");
-            System.out.println("Read paired-kmers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
+            System.out.println("Counting Bloom filter FPR:           " + covFPR * 100 + " %");
+            System.out.println("Read paired k-mers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
         } catch (Exception ex) {
             handleException(ex);
         }
@@ -840,11 +840,11 @@ public class RNABloom {
         dbgFPR = graph.getDbgbf().getFPR();
         covFPR = graph.getCbf().getFPR();
         
-        System.out.println(    "DBG Bloom filter FPR:                " + dbgFPR * 100 + " %");
-        System.out.println(    "Counting Bloom filter FPR:           " + covFPR * 100 + " %");
+        System.out.println(    "DBG Bloom filter FPR:                 " + dbgFPR * 100 + " %");
+        System.out.println(    "Counting Bloom filter FPR:            " + covFPR * 100 + " %");
         
         if (graph.getReadPairedKmerDistance() > 0) {
-            System.out.println("Reads paired-kmers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
+            System.out.println("Reads paired k-mers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
         }
 //        System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
     }
@@ -3800,7 +3800,7 @@ public class RNABloom {
         final String optKmerSizeDefault = "25"; 
         Option optKmerSize = Option.builder("k")
                                     .longOpt("kmer")
-                                    .desc("kmer size [" + optKmerSizeDefault + "]")
+                                    .desc("k-mer size [" + optKmerSizeDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3867,7 +3867,7 @@ public class RNABloom {
 
         Option optCbfHash = Option.builder("ch")
                                     .longOpt("cbf-hash")
-                                    .desc("number of hash functions for kmer counting Bloom filter [" + optAllHashDefault + "]")
+                                    .desc("number of hash functions for k-mer counting Bloom filter [" + optAllHashDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3875,7 +3875,7 @@ public class RNABloom {
         
         Option optPkbfHash = Option.builder("ph")
                                     .longOpt("pkbf-hash")
-                                    .desc("number of hash functions for paired kmers Bloom filter [" + optAllHashDefault + "]")
+                                    .desc("number of hash functions for paired k-mers Bloom filter [" + optAllHashDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -3921,7 +3921,7 @@ public class RNABloom {
 
         Option optCbfMem = Option.builder("cm")
                                     .longOpt("cbf-mem")
-                                    .desc("amount of memory (GB) for kmer counting Bloom filter [auto]")
+                                    .desc("amount of memory (GB) for k-mer counting Bloom filter [auto]")
                                     .hasArg(true)
                                     .argName("DECIMAL")
                                     .build();
@@ -3954,7 +3954,7 @@ public class RNABloom {
         
         final String optLookaheadDefault = "3";
         Option optLookahead = Option.builder("lookahead")
-                                    .desc("number of kmers to look ahead during graph traversal [" + optLookaheadDefault + "]")
+                                    .desc("number of k-mers to look ahead during graph traversal [" + optLookaheadDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -4060,7 +4060,7 @@ public class RNABloom {
         
         final String optMinKmerPairsDefault = "10";
         Option optMinKmerPairs = Option.builder("pair")
-                                    .desc("minimum number of consecutive kmer pairs for assembling transcripts [" + optMinKmerPairsDefault + "]")
+                                    .desc("minimum number of consecutive k-mer pairs for assembling transcripts [" + optMinKmerPairsDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -4339,13 +4339,13 @@ public class RNABloom {
 
             System.out.println("\nBloom filters         Memory (GB)");
             System.out.println("====================================");
-            System.out.println("de Bruijn graph:      " + dbgGB);
-            System.out.println("kmer counting:        " + cbfGB);
-            System.out.println("paired kmers (reads): " + pkbfGB);
-            System.out.println("paired kmers (frags): " + pkbfGB);
-            System.out.println("screening:            " + sbfGB);
+            System.out.println("de Bruijn graph:       " + dbgGB);
+            System.out.println("k-mer counting:        " + cbfGB);
+            System.out.println("paired k-mers (reads): " + pkbfGB);
+            System.out.println("paired k-mers (frags): " + pkbfGB);
+            System.out.println("screening:             " + sbfGB);
             System.out.println("====================================");
-            System.out.println("Total:                " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
+            System.out.println("Total:                 " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
             
             RNABloom assembler = new RNABloom(k, qDBG, qFrag);
             assembler.setParams(strandSpecific, maxTipLen, lookahead, maxCovGradient, maxIndelSize, percentIdentity, minNumKmerPairs, minPolyATail);
@@ -4419,15 +4419,15 @@ public class RNABloom {
                     pkbfGB = pkbfSize / (float) NUM_BITS_1GB;
                     sbfGB = sbfSize / (float) NUM_BITS_1GB;
                     
-                    System.out.println("Bloom filters         Memory (GB)");
+                    System.out.println("Bloom filters          Memory (GB)");
                     System.out.println("====================================");
-                    System.out.println("de Bruijn graph:      " + dbgGB);
-                    System.out.println("kmer counting:        " + cbfGB);
-                    System.out.println("paired kmers (reads): " + pkbfGB);
-                    System.out.println("paired kmers (frags): " + pkbfGB);
-                    System.out.println("screening:            " + sbfGB);
+                    System.out.println("de Bruijn graph:       " + dbgGB);
+                    System.out.println("k-mer counting:        " + cbfGB);
+                    System.out.println("paired k-mers (reads): " + pkbfGB);
+                    System.out.println("paired k-mers (frags): " + pkbfGB);
+                    System.out.println("screening:             " + sbfGB);
                     System.out.println("====================================");
-                    System.out.println("Total:                " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
+                    System.out.println("Total:                 " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
                     
                     assembler.initializeGraph(strandSpecific, 
                             dbgbfSize, cbfSize, pkbfSize, 
