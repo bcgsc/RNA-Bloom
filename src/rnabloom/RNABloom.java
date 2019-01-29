@@ -3862,7 +3862,7 @@ public class RNABloom {
         final String optPolyATailDefault = "0";
         Option optPolyATail = Option.builder("a")
                                     .longOpt("polya")
-                                    .desc("only assemble transcripts with poly-A tails of the minimum length specified [" + optPolyATailDefault + "]")
+                                    .desc("prioritize assembly of transcripts with poly-A tails of the minimum length specified [" + optPolyATailDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -4101,13 +4101,20 @@ public class RNABloom {
             final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), optPercentIdentityDefault));
             final boolean outputNrTxpts = line.hasOption(optReduce.getOpt());
             final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), optIndelSizeDefault));
-            final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), optErrCorrItrDefault));
+            int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), optErrCorrItrDefault));
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), optMinLengthDefault));
+            
             final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), optPolyATailDefault));
+            if (minPolyATail > 0) {
+                maxErrCorrItr = 0;
+                branchFreeExtensionThreshold = STRATUM_01;
+            }
+            
             final boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
             if (sensitiveMode) {
                 branchFreeExtensionThreshold = STRATUM_01;
             }
+            
             final boolean noFragDBG = line.hasOption(optNoFragDBG.getOpt());
             final boolean reqFragKmersConsistency = !line.hasOption(optNoFragmentsConsistency.getOpt());
             final boolean extendFragments = line.hasOption(optExtend.getOpt());

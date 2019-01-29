@@ -820,31 +820,18 @@ public final class SeqUtils {
                                                    "CATAAA", "GATAAA", "AATATA", "AATACA",
                                                    "AATAGA", "AAAAAG", "ACTAAA", "AAGAAA",
                                                    "AATGAA", "TTTAAA", "AAAACA", "GGGGCT"};
-        
+
+    public static final String[] POLY_A_SIGNALS_REV_COMP = {"TTTATT", "TTTAAT", "TTTACT", "TTTATA",
+                                                   "TTTATG", "TTTATC", "TATATT", "TGTATT",
+                                                   "TCTATT", "CTTTTT", "TTTAGT", "TTTCTT",
+                                                   "TTCATT", "TTTAAA", "TGTTTT", "AGCCCC"};
+    
     public static Pattern getPolyASignalPattern() {
-        StringBuilder sb = new StringBuilder();
-        
-        sb.append(POLY_A_SIGNALS[0]);
-        
-        for (int i=1; i<POLY_A_SIGNALS.length; ++i) {
-            sb.append("|");
-            sb.append(POLY_A_SIGNALS[i]);
-        }
-        
-        return Pattern.compile(sb.toString(), Pattern.CASE_INSENSITIVE);
+        return Pattern.compile(String.join("|", POLY_A_SIGNALS), Pattern.CASE_INSENSITIVE);
     }
     
     public static Pattern getPolyASignalReverseComplementPattern() {
-        StringBuilder sb = new StringBuilder();
-        
-        sb.append(reverseComplement(POLY_A_SIGNALS[0]));
-        
-        for (int i=1; i<POLY_A_SIGNALS.length; ++i) {
-            sb.append("|");
-            sb.append(reverseComplement(POLY_A_SIGNALS[i]));
-        }
-        
-        return Pattern.compile(sb.toString(), Pattern.CASE_INSENSITIVE);
+        return Pattern.compile(String.join("|", POLY_A_SIGNALS_REV_COMP), Pattern.CASE_INSENSITIVE);
     }
     
     public static ArrayDeque<Integer> getPolyASignalPositions(String seq, Pattern pasPattern, Pattern tailPattern) {
@@ -854,7 +841,8 @@ public final class SeqUtils {
         if (tailMatcher.find()) {
             int tailStartPos = tailMatcher.start();
             
-            if (tailStartPos > 10) {                Matcher pasMatcher = pasPattern.matcher(seq);
+            if (tailStartPos > 10) {
+                Matcher pasMatcher = pasPattern.matcher(seq);
                 pasMatcher.region(Math.max(0, tailStartPos-50), tailStartPos-10);
 
                 while (pasMatcher.find()) {
