@@ -668,7 +668,7 @@ public final class GraphUtils {
                                     final BloomFilter bf,
                                     final int lookahead,
                                     final int maxIndelSize,
-                                    final int maxTipLength,
+                                    final int maxEdgeClipLength,
                                     final float percentIdentity) {
         int numKmers = kmers.size();
         int maxIndex = numKmers - 1;
@@ -698,7 +698,7 @@ public final class GraphUtils {
                     if (startIndex > 0) {
                                                 
                         if (lastRepresentedKmerFoundIndex < 0) {                            
-                            if (startIndex >= maxTipLength || hasDepthLeft(kmers.get(0), graph, maxTipLength-startIndex)) {
+                            if (startIndex >= maxEdgeClipLength || hasDepthLeft(kmers.get(0), graph, maxEdgeClipLength-startIndex)) {
                                 // check left edge kmers
                                 ArrayDeque<Kmer> testEdgeKmers = greedyExtendLeft(graph, kmers.get(startIndex), lookahead, startIndex, bf);
                                 if (testEdgeKmers.size() != startIndex ||
@@ -762,7 +762,7 @@ public final class GraphUtils {
             if (lastRepresentedKmerFoundIndex < maxIndex) {
                 // check right edge kmers
                 int expectedLen = numKmers-lastRepresentedKmerFoundIndex-1;
-                if (expectedLen >= maxTipLength || hasDepthRight(kmers.get(maxIndex), graph, maxTipLength-expectedLen)) {                    
+                if (expectedLen >= maxEdgeClipLength || hasDepthRight(kmers.get(maxIndex), graph, maxEdgeClipLength-expectedLen)) {                    
                     ArrayDeque<Kmer> testEdgeKmers = greedyExtendRight(graph, kmers.get(lastRepresentedKmerFoundIndex), lookahead, expectedLen, bf);
                     if (testEdgeKmers.size() != expectedLen ||
                             getPercentIdentity(graph.assemble(testEdgeKmers), graph.assemble(kmers, lastRepresentedKmerFoundIndex+1, numKmers)) < percentIdentity) {
