@@ -4320,10 +4320,10 @@ public class RNABloom {
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), optMinLengthDefault));
             
             final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), optPolyATailDefault));
-            if (minPolyATail > 0) {
-                maxErrCorrItr = 0;
-                branchFreeExtensionThreshold = STRATUM_01;
-            }
+//            if (minPolyATail > 0) {
+//                maxErrCorrItr = 0;
+//                branchFreeExtensionThreshold = STRATUM_01;
+//            }
             
             final boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
             if (sensitiveMode) {
