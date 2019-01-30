@@ -9279,13 +9279,16 @@ public final class GraphUtils {
         return false;
     }
     
-    public static boolean isBluntEndArtifact(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead) {
-        int k = graph.getK();   
+    public static boolean isBluntEndArtifact(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int maxDepth) {
+        if (maxDepth <= 0) {
+            return false;
+        }
+        
         int numKmers = seqKmers.size();
         int d = graph.getReadPairedKmerDistance();
         
-        float leftEdgeCov = getMinimumKmerCoverage(seqKmers, 0, Math.min(lookahead, numKmers));
-        float rightEdgeCov = getMinimumKmerCoverage(seqKmers, Math.max(0, numKmers-lookahead), numKmers);
+        float leftEdgeCov = getMinimumKmerCoverage(seqKmers, 0, Math.min(maxDepth, numKmers));
+        float rightEdgeCov = getMinimumKmerCoverage(seqKmers, Math.max(0, numKmers-maxDepth), numKmers);
         
         if (assembledKmers.lookup(seqKmers.get(0).getHash()) &&
                 (!assembledKmers.lookup(seqKmers.get(numKmers-1).getHash()) || leftEdgeCov > rightEdgeCov)) {
@@ -9300,7 +9303,7 @@ public final class GraphUtils {
                 return false;
             }
 
-            if (!hasDepthRight(seqKmers.get(numKmers-1), graph, lookahead) &&
+            if (!hasDepthRight(seqKmers.get(numKmers-1), graph, maxDepth) &&
                     getMedianKmerCoverage(seqKmers, 0, i) > getMedianKmerCoverage(seqKmers, i, numKmers) &&
                     hasDepthRight(seqKmers.get(i-1), graph, numKmers-i, assembledKmers)) {
                 return true;
@@ -9319,7 +9322,7 @@ public final class GraphUtils {
                 return false;
             }
             
-            if (!hasDepthLeft(seqKmers.get(0), graph, lookahead) &&
+            if (!hasDepthLeft(seqKmers.get(0), graph, maxDepth) &&
                     getMedianKmerCoverage(seqKmers, j+1, numKmers) > getMedianKmerCoverage(seqKmers, 0, j+1) &&
                     hasDepthLeft(seqKmers.get(j+1), graph, j+1, assembledKmers)) {
                 return true;

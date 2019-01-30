@@ -1350,7 +1350,8 @@ public class RNABloom {
         private final ArrayBlockingQueue<Transcript> transcripts;
         private boolean keepGoing = true;
         private boolean extendBranchFreeFragmentsOnly = false;
-        private boolean skipPotentialArtifacts = false;
+        private boolean keepArtifact = false;
+        private boolean keepChimera = false;
         private boolean reqFragKmersConsistency = false;
         private final float minKmerCov;
         
@@ -1358,13 +1359,15 @@ public class RNABloom {
                                         ArrayBlockingQueue<Transcript> transcripts,
                                         boolean includeNaiveExtensions,
                                         boolean extendBranchFreeFragmentsOnly,
-                                        boolean skipPotentialArtifacts,
+                                        boolean keepArtifact,
+                                        boolean keepChimera,
                                         boolean reqFragKmersConsistency,
                                         float minKmerCov) {
             this.fragments = fragments;
             this.transcripts = transcripts;
             this.extendBranchFreeFragmentsOnly = extendBranchFreeFragmentsOnly;
-            this.skipPotentialArtifacts = skipPotentialArtifacts;
+            this.keepArtifact = keepArtifact;
+            this.keepChimera = keepChimera;
             this.reqFragKmersConsistency = reqFragKmersConsistency;
             this.minKmerCov = minKmerCov;
         }
@@ -1379,7 +1382,7 @@ public class RNABloom {
             int numReadSegs = readSegments.size();
 
             if (numReadSegs == 1) {
-                if (skipPotentialArtifacts) {
+                if (!keepArtifact) {
                     if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
                         String seq = cutHairPinLoop(graph.assemble(txptKmers), k, minPercentIdentity);                        
                         if (seq == null) {
@@ -1399,7 +1402,7 @@ public class RNABloom {
                 for (ArrayList<Kmer> r : readSegments) {
                     String rAssembled = graph.assemble(r);
                     if (r.size() >= numFragKmers && rAssembled.contains(fragment)) {
-                        if (skipPotentialArtifacts) {
+                        if (!keepArtifact) {
                             if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
                                 String seq = cutHairPinLoop(rAssembled, k, minPercentIdentity);
                                 if (seq == null) {
@@ -1424,7 +1427,8 @@ public class RNABloom {
         public void run() {
             try {
                 int fragKmersDist = graph.getFragPairedKmerDistance();
-                int maxEdgeClipLength = minPolyATailLengthRequired > 0 ? 0 : maxTipLength;
+                int maxEdgeClipLength = minPolyATailLengthRequired > 0 ? 0 : Math.min(minPolyATailLengthRequired, maxTipLength);
+                boolean keepBluntEndArtifact = keepArtifact || maxEdgeClipLength <= 0;
                 
                 while (true) {
                     String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
@@ -1449,8 +1453,8 @@ public class RNABloom {
                                                 maxIndelSize,
                                                 maxEdgeClipLength,
                                                 percentIdentity) &&
-                                 (!skipPotentialArtifacts || (!isFusion(kmers, graph, screeningBf, lookahead) &&
-                                                              !isBluntEndArtifact(kmers, graph, screeningBf, lookahead))) ) {
+                                 (keepChimera || !isFusion(kmers, graph, screeningBf, lookahead)) &&
+                                 (keepBluntEndArtifact || !isBluntEndArtifact(kmers, graph, screeningBf, maxEdgeClipLength)) ) {
                                 
                                 extendPE(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient, minKmerCov);
 
@@ -2905,7 +2909,8 @@ public class RNABloom {
                                                     int numThreads, 
                                                     boolean includeNaiveExtensions,
                                                     boolean extendBranchFreeFragmentsOnly,
-                                                    boolean skipPotentialArtifacts,
+                                                    boolean keepArtifact,
+                                                    boolean keepChimera,
                                                     boolean reqFragKmersConsistency,
                                                     float minKmerCov) throws InterruptedException, IOException, Exception {
         
@@ -2918,7 +2923,7 @@ public class RNABloom {
         TranscriptAssemblyWorker[] workers = new TranscriptAssemblyWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
         for (int i=0; i<numThreads; ++i) {
-            workers[i] = new TranscriptAssemblyWorker(fragmentsQueue, transcriptsQueue, includeNaiveExtensions, extendBranchFreeFragmentsOnly, skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+            workers[i] = new TranscriptAssemblyWorker(fragmentsQueue, transcriptsQueue, includeNaiveExtensions, extendBranchFreeFragmentsOnly, keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
             threads[i] = new Thread(workers[i]);
             threads[i].start();
         }
@@ -2971,7 +2976,8 @@ public class RNABloom {
                                                 int numThreads,
                                                 int sampleSize,
                                                 int minTranscriptLength,
-                                                boolean sensitiveMode,
+                                                boolean keepArtifact,
+                                                boolean keepChimera,
                                                 boolean reqFragKmersConsistency,
                                                 String txptNamePrefix,
                                                 float minKmerCov,
@@ -2989,13 +2995,7 @@ public class RNABloom {
 
    
             boolean allowNaiveExtension = true;
-            boolean skipPotentialArtifacts = true;
             boolean extendBranchFreeOnly;
-            
-            if (sensitiveMode) {
-                System.out.println("Sensitive assembly mode is ON...");
-                skipPotentialArtifacts = false;
-            }
             
             if (assemblePolya) {
                 // extend LONG fragments
@@ -3006,7 +3006,7 @@ public class RNABloom {
                     extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                     numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                             allowNaiveExtension, extendBranchFreeOnly, 
-                                                                            skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                            keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
                 }
 
                 // extend SHORT fragments
@@ -3017,7 +3017,7 @@ public class RNABloom {
                     extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                     numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                             allowNaiveExtension, extendBranchFreeOnly,
-                                                                            skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                            keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
                 }
 
                 // extend UNCONNECTED reads
@@ -3028,7 +3028,7 @@ public class RNABloom {
                     extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                     numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                             allowNaiveExtension, extendBranchFreeOnly,
-                                                                            skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                            keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
                 }
 
                 extendBranchFreeOnly = isLowerStratum(STRATUM_01, branchFreeExtensionThreshold);
@@ -3038,21 +3038,21 @@ public class RNABloom {
                 System.out.println("Parsing `" + longPolyaSingletonsFasta + "`...");
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(longPolyaSingletonsFasta, writer, sampleSize, numThreads,
                                                                         allowNaiveExtension, extendBranchFreeOnly,
-                                                                        skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                        keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
 
                 // extend SHORT singleton fragments
                 writer.setOutputPrefix(txptNamePrefix + "01.S.");
                 System.out.println("Parsing `" + shortPolyaSingletonsFasta + "`...");
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(shortPolyaSingletonsFasta, writer, sampleSize, numThreads,
                                                                         allowNaiveExtension, extendBranchFreeOnly,
-                                                                        skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                        keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
 
                 // extend UNCONNECTED reads
                 writer.setOutputPrefix(txptNamePrefix + "01.U.");
                 System.out.println("Parsing `" + unconnectedPolyaSingletonsFasta + "`...");
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(unconnectedPolyaSingletonsFasta, writer, sampleSize, numThreads,
                                                                         allowNaiveExtension, extendBranchFreeOnly,
-                                                                        skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                        keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
             }
             
             
@@ -3064,7 +3064,7 @@ public class RNABloom {
                 extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                         allowNaiveExtension, extendBranchFreeOnly, 
-                                                                        skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                        keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
             }          
 
             // extend SHORT fragments
@@ -3075,7 +3075,7 @@ public class RNABloom {
                 extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                         allowNaiveExtension, extendBranchFreeOnly,
-                                                                        skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                        keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
             }
             
             // extend UNCONNECTED reads
@@ -3086,7 +3086,7 @@ public class RNABloom {
                 extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
                                                                         allowNaiveExtension, extendBranchFreeOnly,
-                                                                        skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                        keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
             }
 
             extendBranchFreeOnly = isLowerStratum(STRATUM_01, branchFreeExtensionThreshold);
@@ -3096,21 +3096,21 @@ public class RNABloom {
             System.out.println("Parsing `" + longSingletonsFasta + "`...");
             numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads,
                                                                     allowNaiveExtension, extendBranchFreeOnly,
-                                                                    skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                    keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
 
             // extend SHORT singleton fragments
             writer.setOutputPrefix(txptNamePrefix + "01.S.");
             System.out.println("Parsing `" + shortSingletonsFasta + "`...");
             numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads,
                                                                     allowNaiveExtension, extendBranchFreeOnly,
-                                                                    skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                    keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
 
             // extend UNCONNECTED reads
             writer.setOutputPrefix(txptNamePrefix + "01.U.");
             System.out.println("Parsing `" + unconnectedSingletonsFasta + "`...");
             numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads,
                                                                     allowNaiveExtension, extendBranchFreeOnly,
-                                                                    skipPotentialArtifacts, reqFragKmersConsistency, minKmerCov);
+                                                                    keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
             
             fout.close();
             foutShort.close();
@@ -3281,7 +3281,7 @@ public class RNABloom {
         return true;
     }
     
-    public static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
+    private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, FastxFilePair[] fqPairs,
             long sbfSize, long pkbfSize, int sbfNumHash, int pkbfNumHash, int numThreads,
             int bound, int minOverlap, int sampleSize, int maxErrCorrItr, boolean extendFragments, int minKmerCoverage) {
@@ -3465,7 +3465,7 @@ public class RNABloom {
     private static void assembleTranscripts(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, String txptNamePrefix, boolean strandSpecific,
             long sbfSize, int sbfNumHash, int numThreads, boolean noFragDBG,
-            int sampleSize, int minTranscriptLength, boolean sensitiveMode, 
+            int sampleSize, int minTranscriptLength, boolean keepArtifact, boolean keepChimera, 
             boolean reqFragKmersConsistency, boolean restorePairedKmersBloomFilter,
             float minKmerCov, String branchFreeExtensionThreshold,
             boolean reduceRedundancy, boolean assemblePolya) {
@@ -3603,7 +3603,8 @@ public class RNABloom {
                                                         numThreads,
                                                         sampleSize,
                                                         minTranscriptLength,
-                                                        sensitiveMode,
+                                                        keepArtifact,
+                                                        keepChimera,
                                                         reqFragKmersConsistency,
                                                         txptNamePrefix,
                                                         minKmerCov,
@@ -4049,6 +4050,18 @@ public class RNABloom {
                                     .build();
         options.addOption(optSensitive);
         
+        Option optKeepArtifact = Option.builder("artifact")
+                                    .desc("do not remove potential sequencing artifact [false]")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optKeepArtifact);
+
+        Option optKeepChimera = Option.builder("chimera")
+                                    .desc("do not remove potential chimera [false]")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optKeepChimera);
+        
         final String optBranchFreeExtensionDefault = STRATUM_E0;
         final String optBranchFreeExtensionChoicesStr = String.join("|", STRATA);
         Option optBranchFreeExtensionThreshold = Option.builder("stratum")
@@ -4325,9 +4338,13 @@ public class RNABloom {
 //                branchFreeExtensionThreshold = STRATUM_01;
 //            }
             
+            boolean keepArtifact = line.hasOption(optKeepArtifact.getOpt());
+            boolean keepChimera = line.hasOption(optKeepChimera.getOpt());
             final boolean sensitiveMode = line.hasOption(optSensitive.getOpt());
             if (sensitiveMode) {
                 branchFreeExtensionThreshold = STRATUM_01;
+                keepArtifact = true;
+                keepChimera = true;
             }
             
             final boolean noFragDBG = line.hasOption(optNoFragDBG.getOpt());
@@ -4512,7 +4529,7 @@ public class RNABloom {
                     assembleTranscripts(assembler, forceOverwrite,
                                     sampleOutdir, sampleName, txptNamePrefix, strandSpecific,
                                     sbfSize, sbfNumHash, numThreads, noFragDBG,
-                                    sampleSize, minTranscriptLength, sensitiveMode,
+                                    sampleSize, minTranscriptLength, keepArtifact, keepChimera,
                                     reqFragKmersConsistency, true, minKmerCov,
                                     branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0);
                     
@@ -4551,7 +4568,7 @@ public class RNABloom {
                 assembleTranscripts(assembler, forceOverwrite,
                                 outdir, name, txptNamePrefix, strandSpecific,
                                 sbfSize, sbfNumHash, numThreads, noFragDBG,
-                                sampleSize, minTranscriptLength, sensitiveMode,
+                                sampleSize, minTranscriptLength, keepArtifact, keepChimera,
                                 reqFragKmersConsistency, false, minKmerCov, 
                                 branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0);
                 
