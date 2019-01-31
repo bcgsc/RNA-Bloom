@@ -1308,6 +1308,21 @@ public class BloomFilterDeBruijnGraph {
         return sb.toString();
     }
     
+    public String assembleReverseOrder(ArrayList<Kmer> kmers) {
+        int numKmers = kmers.size();
+        StringBuilder sb = new StringBuilder(numKmers + kMinus1);
+        
+        for (byte b : kmers.get(numKmers-1).bytes) {
+            sb.append((char) b);
+        }        
+        
+        for (int i=numKmers-2; i>=0 ; --i) {
+            sb.append((char) kmers.get(i).bytes[kMinus1]);
+        }
+        
+        return sb.toString();
+    }
+    
     public String assemble(Collection<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
