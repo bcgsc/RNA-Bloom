@@ -1427,8 +1427,8 @@ public class RNABloom {
         public void run() {
             try {
                 int fragKmersDist = graph.getFragPairedKmerDistance();
-                int maxEdgeClipLength = minPolyATailLengthRequired > 0 ? 0 : Math.min(minPolyATailLengthRequired, maxTipLength);
-                boolean keepBluntEndArtifact = keepArtifact || maxEdgeClipLength <= 0;
+                int maxEdgeClipLength = minPolyATailLengthRequired > 0 ? 0 : maxTipLength;
+                boolean keepBluntEndArtifact = keepArtifact;
                 
                 while (true) {
                     String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
@@ -1438,8 +1438,7 @@ public class RNABloom {
                             break;
                         }
                     }
-                    else {
-                        
+                    else {                        
                         ArrayList<Kmer> kmers = graph.getKmers(fragment);
                         
                         if (!kmers.isEmpty()) {
@@ -1749,14 +1748,14 @@ public class RNABloom {
                         }
                     }
                 }
-                
+                                
                 boolean leftBad = leftKmers == null || leftKmers.isEmpty();
                 boolean rightBad = rightKmers == null || rightKmers.isEmpty();
                 
                 if (leftBad && rightBad) {
                     return;
                 }
-                                
+                                                
                 /*
                 if (leftBad) {
                     boolean hasComplexKmer = false;
