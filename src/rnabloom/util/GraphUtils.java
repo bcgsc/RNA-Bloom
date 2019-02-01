@@ -474,7 +474,7 @@ public final class GraphUtils {
     }
     
     public static Kmer greedyExtendRightOnce(final BloomFilterDeBruijnGraph graph, final Kmer source, final int lookahead, BloomFilter bf) {
-        return greedyExtendRightOnce(graph, source.getSuccessors(graph.getK(), graph.getMaxNumHash(), graph), lookahead, bf);
+        return greedyExtendRightOnce(graph, source.getSuccessors(graph.getK(), graph.getMaxNumHash(), graph, bf), lookahead, bf);
     }
     
     public static Kmer greedyExtendRightOnce(final BloomFilterDeBruijnGraph graph,
@@ -537,7 +537,7 @@ public final class GraphUtils {
     }
 
     public static Kmer greedyExtendLeftOnce(final BloomFilterDeBruijnGraph graph, final Kmer source, final int lookahead, BloomFilter bf) {
-        return greedyExtendLeftOnce(graph, source.getPredecessors(graph.getK(), graph.getMaxNumHash(), graph), lookahead, bf);
+        return greedyExtendLeftOnce(graph, source.getPredecessors(graph.getK(), graph.getMaxNumHash(), graph, bf), lookahead, bf);
     }
     
     public static Kmer greedyExtendLeftOnce(final BloomFilterDeBruijnGraph graph, 
@@ -877,7 +877,7 @@ public final class GraphUtils {
         ArrayList<Kmer> leftPath = new ArrayList<>(leftKmers);
         
         int maxSize = bound + leftPath.size();
-        while (leftPath.size() < maxSize) {
+        while (leftPath.size() < maxSize) {            
             ArrayDeque<Kmer> neighbors = leftPath.get(leftPath.size()-1).getSuccessors(k, numHash, graph, minKmerCov);
 
             // filter by coverage
@@ -905,7 +905,7 @@ public final class GraphUtils {
                     }
                 }
 
-                if (best != null) {
+                if (best != null) {                    
                     if (rightKmersSet.contains(best)) {
                         if (best.equals(right)) {
                             leftPath.addAll(rightKmers);
@@ -1113,7 +1113,7 @@ public final class GraphUtils {
                 }
             }
         }
-           
+        
         return null;
     }
     
@@ -6218,7 +6218,7 @@ public final class GraphUtils {
         
         if (candidates.size() == 1) {
             Kmer c = candidates.peek();
-            ArrayDeque<Kmer> e = naiveExtendRight(c, graph, maxTipLen, readPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(c, graph, maxTipLen, readPairedKmersDist, minKmerCov);
             e.addFirst(c);
             return e;
         }
@@ -6228,9 +6228,11 @@ public final class GraphUtils {
         float bestCov = 0;
         ArrayDeque<Kmer> bestExtension = null;
         int[] result = new int[2];
+        ArrayDeque<Kmer> maxCovExtension = null;
+        float maxCov = 0;
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = naiveExtendRight(candidate, graph, maxTipLen, readPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(candidate, graph, maxTipLen, readPairedKmersDist, minKmerCov);
             e.addFirst(candidate);
             
             countKmerPairsSE(kmers, e, 0, graph, result);
@@ -6253,6 +6255,19 @@ public final class GraphUtils {
                     }
                 }
             }
+            else {
+                if (maxCovExtension == null) {
+                    maxCovExtension = e;
+                    maxCov = getMinimumKmerCoverage(e);
+                }
+                else {
+                    float cov = getMinimumKmerCoverage(e);
+                    if (cov > maxCov) {
+                        maxCovExtension = e;
+                        maxCov = cov;
+                    }
+                }
+            }
 //            else {
 //                int gap = e.size();
 //                ArrayDeque<Kmer> nextCandidates = e.getLast().getSuccessors(k, numHash, graph);
@@ -6261,7 +6276,7 @@ public final class GraphUtils {
 //                float bestNextScore = 0;
 //                ArrayDeque<Kmer> bestNextExtension = null;
 //                for (Kmer nextCandidate : nextCandidates) {
-//                    ArrayDeque<Kmer> ne = naiveExtendRight(nextCandidate, graph, maxTipLen, readPairedKmersDist-gap);
+//                    ArrayDeque<Kmer> ne = naiveExtendRight(nextCandidate, graph, maxTipLen, readPairedKmersDist-gap, minKmerCov);
 //                    ne.addFirst(nextCandidate);
 //                    
 //                    countKmerPairsSE(kmers, ne, gap, graph, result);
@@ -6293,6 +6308,10 @@ public final class GraphUtils {
 //            }
         }
         
+        if (bestExtension == null) {
+            bestExtension = maxCovExtension;
+        }
+        
         return bestExtension;
     }
         
@@ -6311,7 +6330,7 @@ public final class GraphUtils {
         
         if (candidates.size() == 1) {
             Kmer c = candidates.peek();
-            ArrayDeque<Kmer> e = naiveExtendLeft(c, graph, maxTipLen, readPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(c, graph, maxTipLen, readPairedKmersDist, minKmerCov);
             e.addFirst(c);
             return e;
         }
@@ -6321,9 +6340,11 @@ public final class GraphUtils {
         float bestCov = 0;
         ArrayDeque<Kmer> bestExtension = null;
         int[] result = new int[2];
+        ArrayDeque<Kmer> maxCovExtension = null;
+        float maxCov = 0;
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = naiveExtendLeft(candidate, graph, maxTipLen, readPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(candidate, graph, maxTipLen, readPairedKmersDist, minKmerCov);
             e.addFirst(candidate);
             
             countKmerPairsReversedSE(e, kmers, 0, graph, result);
@@ -6345,6 +6366,19 @@ public final class GraphUtils {
                     }
                 }
             }
+            else {
+                if (maxCovExtension == null) {
+                    maxCovExtension = e;
+                    maxCov = getMinimumKmerCoverage(e);
+                }
+                else {
+                    float cov = getMinimumKmerCoverage(e);
+                    if (cov > maxCov) {
+                        maxCovExtension = e;
+                        maxCov = cov;
+                    }
+                }
+            }
 //            else {
 //                int gap = e.size();
 //                ArrayDeque<Kmer> nextCandidates = e.getLast().getPredecessors(k, numHash, graph);
@@ -6353,7 +6387,7 @@ public final class GraphUtils {
 //                float bestNextScore = 0;
 //                ArrayDeque<Kmer> bestNextExtension = null;
 //                for (Kmer nextCandidate : nextCandidates) {
-//                    ArrayDeque<Kmer> ne = naiveExtendLeft(nextCandidate, graph, maxTipLen, readPairedKmersDist-gap);
+//                    ArrayDeque<Kmer> ne = naiveExtendLeft(nextCandidate, graph, maxTipLen, readPairedKmersDist-gap, minKmerCov);
 //                    ne.addFirst(nextCandidate);
 //                    
 //                    countKmerPairsReversedSE(ne, kmers, gap, graph, result);
@@ -6385,6 +6419,10 @@ public final class GraphUtils {
 //            }
         }
         
+        if (bestExtension == null) {
+            bestExtension = maxCovExtension;
+        }
+        
         return bestExtension;
     }
     
@@ -6401,7 +6439,7 @@ public final class GraphUtils {
         
         if (candidates.size() == 1) {
             Kmer c = candidates.peek();
-            ArrayDeque<Kmer> e = naiveExtendRight(c, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(c, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
             e.addFirst(c);
             return e;
         }
@@ -6413,7 +6451,7 @@ public final class GraphUtils {
         int[] result = new int[3];
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = naiveExtendRight(candidate, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(candidate, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
             e.addFirst(candidate);
             
             countKmerPairsPE(kmers, e, 0, graph, result);
@@ -6494,7 +6532,7 @@ public final class GraphUtils {
         
         if (candidates.size() == 1) {
             Kmer c = candidates.peek();
-            ArrayDeque<Kmer> e = naiveExtendLeft(c, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(c, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
             e.addFirst(c);
             return e;
         }
@@ -6506,7 +6544,7 @@ public final class GraphUtils {
         int[] result = new int[3];
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = naiveExtendLeft(candidate, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(candidate, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
             e.addFirst(candidate);
             
             countKmerPairsReversedPE(e, kmers, 0, graph, result);
@@ -8446,7 +8484,6 @@ public final class GraphUtils {
         while (!neighbors.isEmpty()) {
             /** look for back branches*/
             for (Kmer s : best.getLeftVariants(k, numHash, graph)) {
-//                if (hasDepthLeft(s, graph, maxTipLength)) {
                 if (s.hasDepthLeft(k, numHash, graph, maxTipLength)) {
                     return result;
                 }
@@ -8459,7 +8496,6 @@ public final class GraphUtils {
                 best = null;
                 while (!neighbors.isEmpty()) {
                     Kmer n = neighbors.pop();
-//                    if (hasDepthRight(n, graph, maxTipLength)) {
                     if (n.hasDepthRight(k, numHash, graph, maxTipLength)) {
                         if (best == null) {
                             best = n;
@@ -8492,8 +8528,6 @@ public final class GraphUtils {
     public static ArrayDeque<Kmer> naiveExtendRight(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, int bound, float minKmerCov) {        
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
-        
-//        HashSet<Kmer> usedKmers = new HashSet<>();
         
         ArrayDeque<Kmer> result = new ArrayDeque<>();
         int extensionLength = 0;
@@ -8531,19 +8565,59 @@ public final class GraphUtils {
             if (best == null) {
                 break;
             }
-                        
-//            if (usedKmers.contains(best)) {
-//                break;
-//            }
             
             result.add(best);
             
             if (++extensionLength > bound) {
                 break;
             }
+                        
+            best.getSuccessors(k, numHash, graph, neighbors, minKmerCov);
+        }
+        
+        return result;
+    }
+    
+    public static ArrayDeque<Kmer> naiveExtendRightNoBackChecks(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, int bound, float minKmerCov) {        
+        int k = graph.getK();
+        int numHash = graph.getMaxNumHash();
+        
+        ArrayDeque<Kmer> result = new ArrayDeque<>();
+        int extensionLength = 0;
+        
+        ArrayDeque<Kmer> neighbors = new ArrayDeque<>(4);
+        kmer.getSuccessors(k, numHash, graph, neighbors, minKmerCov);
+        Kmer best;
+        while (!neighbors.isEmpty()) {
+            if (neighbors.size() == 1) {
+                best = neighbors.pop();
+            }
+            else {
+                best = null;
+                while (!neighbors.isEmpty()) {
+                    Kmer n = neighbors.pop();
+                    if (n.hasDepthRight(k, numHash, graph, maxTipLength)) {
+                        if (best == null) {
+                            best = n;
+                        }
+                        else {
+                            // too many good branches
+                            return result;
+                        }
+                    }
+                }
+            }
             
-//            usedKmers.add(best);
+            if (best == null) {
+                break;
+            }
             
+            result.add(best);
+            
+            if (++extensionLength > bound) {
+                break;
+            }
+                        
             best.getSuccessors(k, numHash, graph, neighbors, minKmerCov);
         }
         
@@ -8588,7 +8662,6 @@ public final class GraphUtils {
         while (!neighbors.isEmpty()) {
             /** look for back branches*/
             for (Kmer s : best.getRightVariants(k, numHash, graph)) {
-//                if (hasDepthRight(s, graph, maxTipLength)) {
                 if (s.hasDepthRight(k, numHash, graph, maxTipLength)) {
                     return result;
                 }
@@ -8601,7 +8674,6 @@ public final class GraphUtils {
                 best = null;
                 while (!neighbors.isEmpty()) {
                     Kmer n = neighbors.pop();
-//                    if (hasDepthLeft(n, graph, maxTipLength)) {
                     if (n.hasDepthLeft(k, numHash, graph, maxTipLength)) {
                         if (best == null) {
                             best = n;
@@ -8635,8 +8707,6 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
-//        HashSet<Kmer> usedKmers = new HashSet<>();
-        
         ArrayDeque<Kmer> result = new ArrayDeque<>();
         int extensionLength = 0;
         
@@ -8658,7 +8728,6 @@ public final class GraphUtils {
                 best = null;
                 while (!neighbors.isEmpty()) {
                     Kmer n = neighbors.pop();
-//                    if (hasDepthLeft(n, graph, maxTipLength)) {
                     if (n.hasDepthLeft(k, numHash, graph, maxTipLength)) {
                         if (best == null) {
                             best = n;
@@ -8675,16 +8744,57 @@ public final class GraphUtils {
                 break;
             }
             
-//            if (usedKmers.contains(best)) {
-//                break;
-//            }
+            result.addLast(best);
+            
+            if (++extensionLength > bound) {
+                break;
+            }
+            
+            best.getPredecessors(k, numHash, graph, neighbors, minKmerCov);
+        }
+        
+        return result;
+    }
+    
+    public static ArrayDeque<Kmer> naiveExtendLeftNoBackChecks(Kmer kmer, BloomFilterDeBruijnGraph graph, int maxTipLength, int bound, float minKmerCov) {        
+        int k = graph.getK();
+        int numHash = graph.getMaxNumHash();
+        
+        ArrayDeque<Kmer> result = new ArrayDeque<>();
+        int extensionLength = 0;
+        
+        ArrayDeque<Kmer> neighbors = new ArrayDeque<>(4);
+        kmer.getPredecessors(k, numHash, graph, neighbors, minKmerCov);
+        Kmer best;
+        while (!neighbors.isEmpty()) {
+            if (neighbors.size() == 1) {
+                best = neighbors.pop();
+            }
+            else {
+                best = null;
+                while (!neighbors.isEmpty()) {
+                    Kmer n = neighbors.pop();
+                    if (n.hasDepthLeft(k, numHash, graph, maxTipLength)) {
+                        if (best == null) {
+                            best = n;
+                        }
+                        else {
+                            // too many good branches
+                            return result;
+                        }
+                    }
+                }
+            }
+            
+            if (best == null) {
+                break;
+            }
             
             result.addLast(best);
             
             if (++extensionLength > bound) {
                 break;
             }
-//            usedKmers.add(best);
             
             best.getPredecessors(k, numHash, graph, neighbors, minKmerCov);
         }
@@ -8731,8 +8841,7 @@ public final class GraphUtils {
                 float maxCov = -1;
                 while (!neighbors.isEmpty()) {
                     Kmer n = neighbors.pop();
-                    
-//                    if (hasDepthRight(n, graph, maxTipLength)) {
+
                     if (n.hasDepthRight(k, numHash, graph, maxTipLength)) {
                         ArrayDeque<Kmer> b = naiveExtendRight(n, graph, maxTipLength, bound-result.size(), minKmerCov);
                         
