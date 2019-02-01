@@ -1733,9 +1733,9 @@ public class RNABloom {
                     }
                 } 
                                 
-                if (leftKmers == null || leftKmers.isEmpty()) {
-                    return;
-                }
+//                if (leftKmers == null || leftKmers.isEmpty()) {
+//                    return;
+//                }
                 
                 String right = getBestSegment(p.right, graph);
                                 
@@ -1750,13 +1750,13 @@ public class RNABloom {
                     }
                 }
                 
-//                boolean leftBad = leftKmers == null || leftKmers.isEmpty();
-//                boolean rightBad = rightKmers == null || rightKmers.isEmpty();
+                boolean leftBad = leftKmers == null || leftKmers.isEmpty();
+                boolean rightBad = rightKmers == null || rightKmers.isEmpty();
                 
-                if (rightKmers == null || rightKmers.isEmpty()) {
+                if (leftBad && rightBad) {
                     return;
                 }
-                
+                                
                 /*
                 if (leftBad) {
                     boolean hasComplexKmer = false;
@@ -1801,28 +1801,62 @@ public class RNABloom {
                 }
                 */
                 
-                if (this.errorCorrectionIterations > 0) {
-                    ReadPair correctedReadPair = correctErrorsPE(leftKmers,
-                                                        rightKmers,
-                                                        graph, 
-                                                        lookahead, 
-                                                        maxIndelSize, 
-                                                        maxCovGradient, 
-                                                        covFPR,
-                                                        this.errorCorrectionIterations,
-                                                        2,
-                                                        percentIdentity,
-                                                        minKmerCov);
+                ArrayList<Kmer> fragmentKmers = null;
+                
+                if (!leftBad && !rightBad) {
+                    if (errorCorrectionIterations > 0) {
+                        ReadPair correctedReadPair = correctErrorsPE(leftKmers,
+                                                                    rightKmers,
+                                                                    graph, 
+                                                                    lookahead, 
+                                                                    maxIndelSize, 
+                                                                    maxCovGradient, 
+                                                                    covFPR,
+                                                                    this.errorCorrectionIterations,
+                                                                    2,
+                                                                    percentIdentity,
+                                                                    minKmerCov);
 
-                    if (correctedReadPair.corrected) {
-                        leftKmers = correctedReadPair.leftKmers;
-                        rightKmers = correctedReadPair.rightKmers;
+                        if (correctedReadPair.corrected) {
+                            leftKmers = correctedReadPair.leftKmers;
+                            rightKmers = correctedReadPair.rightKmers;
+                        }
+                    }
+
+                    fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound,
+                            lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity, minKmerCov);
+                }
+                else if (!leftBad) {
+                    if (errorCorrectionIterations > 0) {
+                        ArrayList<Kmer> corrected = correctErrorsSE(leftKmers,
+                                                                    graph, 
+                                                                    lookahead, 
+                                                                    maxIndelSize, 
+                                                                    maxCovGradient, 
+                                                                    covFPR,
+                                                                    percentIdentity,
+                                                                    minKmerCov);
+                        if (corrected != null && !corrected.isEmpty()) {
+                            leftKmers = corrected;
+                        }
                     }
                 }
-
-                ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound,
-                        lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity, minKmerCov);
-
+                else if (!rightBad) {
+                    if (errorCorrectionIterations > 0) {
+                        ArrayList<Kmer> corrected = correctErrorsSE(rightKmers,
+                                                                    graph, 
+                                                                    lookahead, 
+                                                                    maxIndelSize, 
+                                                                    maxCovGradient, 
+                                                                    covFPR,
+                                                                    percentIdentity,
+                                                                    minKmerCov);
+                        if (corrected != null && !corrected.isEmpty()) {
+                            rightKmers = corrected;
+                        }
+                    }
+                }
+                
                 // check for read consistency if fragment is long enough
                 if (fragmentKmers != null) {
                     if (extendFragments) {
@@ -1872,7 +1906,7 @@ public class RNABloom {
 
                     boolean hasComplexLeftKmer = false;
 
-                    if (leftKmers.size() >= lookahead) {
+                    if (!leftBad && leftKmers.size() >= lookahead) {
                         for (Kmer kmer : leftKmers) {
                             if (kmer.count < minCov) {
                                 minCov = kmer.count;
@@ -1886,7 +1920,7 @@ public class RNABloom {
 
                     boolean hasComplexRightKmer = false;
 
-                    if (rightKmers.size() >= lookahead) {
+                    if (!rightBad && rightKmers.size() >= lookahead) {
                         for (Kmer kmer : rightKmers) {
                             if (kmer.count < minCov) {
                                 minCov = kmer.count;
@@ -1899,7 +1933,10 @@ public class RNABloom {
                     }
 
                     if (hasComplexLeftKmer || hasComplexRightKmer) {
-                        outList.put(new Fragment(graph.assemble(leftKmers), graph.assemble(rightKmers), null, 0, minCov, true));
+                        left = leftBad ? "" : graph.assemble(leftKmers);
+                        right = rightBad ? "" : graph.assemble(rightKmers);
+                        
+                        outList.put(new Fragment(left, right, null, 0, minCov, true));
                     }
                 }
             }
@@ -2658,21 +2695,23 @@ public class RNABloom {
                         
                         if (frag.isUnconnectedRead) {
                             ++readPairsNotConnected;
+                            ++unconnectedReadId;
                             
-                            String header = Long.toString(++unconnectedReadId) + "L";
                             String seq = frag.left;
+                            if (seq != null && seq.length() >= k) {
+                                FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
+                                                            unconnectedReadsOut, unconnectedSingletonsOut,
+                                                            unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
+                                writer.write(Long.toString(unconnectedReadId) + "L", seq);
+                            }
                             
-                            FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                        unconnectedReadsOut, unconnectedSingletonsOut,
-                                                        unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
-                            writer.write(header, seq);
-                            
-                            header = Long.toString(unconnectedReadId) + "R";
                             seq = frag.right;
-                            writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                        unconnectedReadsOut, unconnectedSingletonsOut,
-                                                        unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
-                            writer.write(header, seq);
+                            if (seq != null && seq.length() >= k) {
+                                FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
+                                                            unconnectedReadsOut, unconnectedSingletonsOut,
+                                                            unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
+                                writer.write(Long.toString(unconnectedReadId) + "R", seq);
+                            }
                         }
                         else {
                             ++readPairsConnected;
@@ -2734,21 +2773,23 @@ public class RNABloom {
 
                             if (frag.isUnconnectedRead) {
                                 ++readPairsNotConnected;
+                                ++unconnectedReadId;
 
-                                String header = Long.toString(++unconnectedReadId) + "L";
                                 String seq = frag.left;
+                                if (seq != null && seq.length() >= k) {
+                                    FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
+                                                                unconnectedReadsOut, unconnectedSingletonsOut,
+                                                                unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
+                                    writer.write(Long.toString(unconnectedReadId) + "L", seq);
+                                }
 
-                                FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                            unconnectedReadsOut, unconnectedSingletonsOut,
-                                                            unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
-                                writer.write(header, seq);
-
-                                header = Long.toString(unconnectedReadId) + "R";
                                 seq = frag.right;
-                                writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                            unconnectedReadsOut, unconnectedSingletonsOut,
-                                                            unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
-                                writer.write(header, seq);
+                                if (seq != null && seq.length() >= k) {
+                                    FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
+                                                                unconnectedReadsOut, unconnectedSingletonsOut,
+                                                                unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
+                                    writer.write(Long.toString(unconnectedReadId) + "R", seq);
+                                }
                             }
                             else {
                                 ++readPairsConnected;
@@ -2787,21 +2828,23 @@ public class RNABloom {
                     
                     if (frag.isUnconnectedRead) {
                         ++readPairsNotConnected;
-                        
-                        String header = Long.toString(++unconnectedReadId) + "L";
+                        ++unconnectedReadId;
+
                         String seq = frag.left;
+                        if (seq != null && seq.length() >= k) {
+                            FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
+                                                        unconnectedReadsOut, unconnectedSingletonsOut,
+                                                        unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
+                            writer.write(Long.toString(unconnectedReadId) + "L", seq);
+                        }
 
-                        FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                    unconnectedReadsOut, unconnectedSingletonsOut,
-                                                    unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
-                        writer.write(header, seq);
-
-                        header = Long.toString(unconnectedReadId) + "R";
                         seq = frag.right;
-                        writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                    unconnectedReadsOut, unconnectedSingletonsOut,
-                                                    unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
-                        writer.write(header, seq);
+                        if (seq != null && seq.length() >= k) {
+                            FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
+                                                        unconnectedReadsOut, unconnectedSingletonsOut,
+                                                        unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
+                            writer.write(Long.toString(unconnectedReadId) + "R", seq);
+                        }
                     }
                     else {
                         ++readPairsConnected;
