@@ -988,6 +988,10 @@ public final class GraphUtils {
                                 }
                             }
                         }
+                        else if (leftKmersSet.contains(current) &&
+                                !(pkd <= leftPath.size() && graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), current))) {
+                            return null;
+                        }
                         else {
                             leftPath.add(current);
                             leftKmersSet.add(current);
@@ -1099,6 +1103,10 @@ public final class GraphUtils {
                             }
 
                             return leftPath;
+                        }
+                        else if (rightKmersSet.contains(current) &&
+                                !(pkd <= rightPath.size() && graph.lookupReadKmerPair(current, rightPath.get(rightPath.size()-pkd)))) {
+                            return null;
                         }
                         else {
                             rightPath.add(current);
@@ -8608,7 +8616,7 @@ public final class GraphUtils {
                 }
             }
             
-            if (best == null) {
+            if (best == null || best.equals(kmer) || (!result.isEmpty() && best.equals(result.peekLast()))) {
                 break;
             }
             
@@ -8786,7 +8794,7 @@ public final class GraphUtils {
                 }
             }
             
-            if (best == null) {
+            if (best == null || best.equals(kmer) || (!result.isEmpty() && best.equals(result.peekLast()))) {
                 break;
             }
             

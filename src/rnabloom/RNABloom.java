@@ -1755,7 +1755,7 @@ public class RNABloom {
                 if (leftBad && rightBad) {
                     return;
                 }
-                                                
+                
                 /*
                 if (leftBad) {
                     boolean hasComplexKmer = false;
