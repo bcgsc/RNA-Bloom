@@ -52,6 +52,11 @@ public class CanonicalKmer extends Kmer {
     }
     
     @Override
+    public long getReverseComplementHash() {
+        return getHash();
+    }
+    
+    @Override
     public long getKmerPairHashValue(Kmer rightPartner) {
         if (rightPartner instanceof CanonicalKmer) {
             return getKmerPairHashValue((CanonicalKmer) rightPartner);

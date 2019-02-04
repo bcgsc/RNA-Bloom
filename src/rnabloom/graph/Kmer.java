@@ -21,6 +21,7 @@ import java.util.Arrays;
 import rnabloom.bloom.BloomFilter;
 import static rnabloom.bloom.hash.HashFunction.combineHashValues;
 import rnabloom.bloom.hash.LeftVariantsNTHashIterator;
+import static rnabloom.bloom.hash.NTHash.NTP64RC;
 import rnabloom.bloom.hash.PredecessorsNTHashIterator;
 import rnabloom.bloom.hash.SuccessorsNTHashIterator;
 import rnabloom.bloom.hash.RightVariantsNTHashIterator;
@@ -52,6 +53,10 @@ public class Kmer {
     
     public long getHash() {
         return fHashVal;
+    }
+    
+    public long getReverseComplementHash() {
+        return NTP64RC(bytes, bytes.length);
     }
     
     public long getKmerPairHashValue(Kmer rightPartner) {

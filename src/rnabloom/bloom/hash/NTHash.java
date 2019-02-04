@@ -16,6 +16,8 @@
  */
 package rnabloom.bloom.hash;
 
+import static rnabloom.util.SeqUtils.stringToBytes;
+
 
 /**
  *
@@ -348,6 +350,14 @@ public class NTHash {
         return rhVal;
     }
 
+    public static long NTP64RC(final byte[] kmerBytes, final int k) {
+        long rhVal=0;
+        for(int i=0; i<k; ++i) {
+            rhVal ^= msTab[kmerBytes[i]&cpOff][i%64];
+        }
+        return rhVal;
+    }
+    
     /**
      * ntBase (reverse complement)
      * @param kmerSeq   kmer to be hashed
@@ -718,29 +728,12 @@ public class NTHash {
         NTM64(NTPC64B(charOut, charIn, k, frhVals), hVal, k, m);
     }
         
-//    public static void main(String[] args) {
-//        long h = Long.MIN_VALUE;
-//        
-//        System.out.println(Long.toBinaryString(h));
-//                
-//        System.out.println(Long.toBinaryString(Long.rotateLeft(h, 1)));
-////        System.out.println(Long.toBinaryString(rol(h, 1)));
-//        
-//        System.out.println(Long.toBinaryString(Long.rotateRight(h, 1)));
-////        System.out.println(Long.toBinaryString(ror(h, 1)));
-//        
-//        int k = 25;
-//        int m = 2;
-//
-//        //            "123456789012345678901234567890"
-//        String seq =  "AAAAAAAAAAAAAAAAAAAAAAAAA";
-//        long hVal = NTP64(seq, k);
-//        System.out.println(hVal);
-//        
-//        String seq0 = "CAAAAAAAAAAAAAAAAAAAAAAAA";
-//        System.out.println(NTP64(seq0, k));
-//
-//
-//        System.out.println(NTP64B(hVal, 'A', 'C', k));
-//    }
+    public static void main(String[] args) {
+        String seq =  "ACGTACGTACGTACGT";
+        int k = seq.length();
+        
+        System.out.println(NTP64RC(seq, k));
+        
+        System.out.println(NTP64RC(stringToBytes(seq, k), k));
+    }
 }
