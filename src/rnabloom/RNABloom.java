@@ -1384,13 +1384,16 @@ public class RNABloom {
             if (numReadSegs == 1) {
                 if (!keepArtifact) {
                     if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
-                        String seq = cutHairPinLoop(graph.assemble(txptKmers), k, minPercentIdentity);                        
-                        if (seq == null) {
-                            transcripts.put(new Transcript(fragment, txptKmers));
-                        }
-                        else {
-                            transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
-                        }
+                        txptKmers = trimReverseComplementArtifact(txptKmers, k, minPercentIdentity);
+                        transcripts.put(new Transcript(fragment, txptKmers));
+                        
+//                        String seq = cutHairPinLoop(graph.assemble(txptKmers), k, minPercentIdentity);                        
+//                        if (seq == null) {
+//                            transcripts.put(new Transcript(fragment, txptKmers));
+//                        }
+//                        else {
+//                            transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
+//                        }
                     }
                 }
                 else {
@@ -1404,13 +1407,16 @@ public class RNABloom {
                     if (r.size() >= numFragKmers && rAssembled.contains(fragment)) {
                         if (!keepArtifact) {
                             if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
-                                String seq = cutHairPinLoop(rAssembled, k, minPercentIdentity);
-                                if (seq == null) {
-                                    transcripts.put(new Transcript(fragment, r));
-                                }
-                                else {
-                                    transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
-                                }
+                                txptKmers = trimReverseComplementArtifact(txptKmers, k, minPercentIdentity);
+                                transcripts.put(new Transcript(fragment, txptKmers));
+                                
+//                                String seq = cutHairPinLoop(rAssembled, k, minPercentIdentity);
+//                                if (seq == null) {
+//                                    transcripts.put(new Transcript(fragment, r));
+//                                }
+//                                else {
+//                                    transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
+//                                }
                             }
                         }
                         else {

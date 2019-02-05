@@ -9418,7 +9418,104 @@ public final class GraphUtils {
         
         return false;
     }
+    
+    public static ArrayList<Kmer> trimReverseComplementArtifact(ArrayList<Kmer> seqKmers, int k, float minPercentIdentity) {
+        int clippingIndex;
+        
+        while ((clippingIndex = getReverseComplementArtifactClippingIndex(seqKmers, k, minPercentIdentity)) >= 0) {
+            int numKmers = seqKmers.size();
+            int halfIndex = numKmers/2;
+            
+            if (clippingIndex > halfIndex) {
+                ArrayList<Kmer> newList = new ArrayList<>(clippingIndex+1);
+                for (int i=0; i<clippingIndex; ++i) {
+                    newList.add(seqKmers.get(i));
+                }
+                
+                seqKmers = newList;
+            }
+            else {
+                ArrayList<Kmer> newList = new ArrayList<>(clippingIndex+1);
+                for (int i=clippingIndex; i<numKmers; ++i) {
+                    newList.add(seqKmers.get(i));
+                }
+                
+                seqKmers = newList;
+            }
+        }
+        
+        return seqKmers;
+    }
+    
+    public static int getReverseComplementArtifactClippingIndex(ArrayList<Kmer> seqKmers, int k, float minPercentIdentity) {        
+        int numKmers= seqKmers.size();
+        
+        float min = Float.MAX_VALUE;
+        ArrayDeque<Integer> minValIndexes = new ArrayDeque<>();
+        
+        for (int i=0; i<numKmers; ++i) {
+            float c = seqKmers.get(i).count;
+            if (c < min) {
+                min = c;
+                minValIndexes = new ArrayDeque<>();
+                minValIndexes.add(i);
+            }
+            else if (c == min) {
+                if (minValIndexes.getLast() < i-k) {
+                    minValIndexes.add(i);
+                }
+            }
+        }
+        
+        int halfIndex = numKmers/2;
+        for (int bendIndex : minValIndexes) {
+            if (bendIndex < halfIndex) {                
+                int numNeeded = (int) Math.floor(minPercentIdentity*(bendIndex+1));
+                if (numNeeded >= 1) {
+                    HashSet<Long> hashVals = new HashSet<>(numKmers - bendIndex + 1);
+                    for (int i=bendIndex; i<numKmers; ++i) {
+                        hashVals.add(seqKmers.get(i).getHash());
+                    }
+                    
+                    for (int i=0; i<bendIndex; ++i) {
+                        if (hashVals.contains(seqKmers.get(i).getReverseComplementHash())) {
+                            if (--numNeeded <= 0) {
+                                break;
+                            }
+                        }
+                    }
 
+                    if (numNeeded <= 0) {
+                        return bendIndex;
+                    }
+                }
+            }
+            else {                
+                int numNeeded = (int) Math.floor(minPercentIdentity*(numKmers-bendIndex+1));
+                if (numNeeded >= 1) {
+                    HashSet<Long> hashVals = new HashSet<>(bendIndex + 1);
+                    for (int i=0; i<bendIndex; ++i) {
+                        hashVals.add(seqKmers.get(i).getHash());
+                    }
+                    
+                    for (int i=bendIndex; i<numKmers; ++i) {
+                        if (hashVals.contains(seqKmers.get(i).getReverseComplementHash())) {
+                            if (--numNeeded <= 0) {
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (numNeeded <= 0) {
+                        return bendIndex;
+                    }
+                }
+            }
+        }
+        
+        return -1;
+    }
+    
     public static boolean isTemplateSwitch2(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead, float minPercentIdentity) {
         int numKmers = seqKmers.size();
         int k = graph.getK();
