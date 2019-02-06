@@ -9419,6 +9419,20 @@ public final class GraphUtils {
         return false;
     }
     
+    public static boolean isHairpin(ArrayList<Kmer> seqKmers, int k, float minPercentIdentity) {
+        ArrayDeque<Integer> minValIndexes = getMinCovIndexes(seqKmers, k);
+        
+        if (!minValIndexes.isEmpty()) {
+            int clippingIndex = getReverseComplementArtifactClippingIndex(seqKmers, k, minPercentIdentity, minValIndexes);
+            
+            if (clippingIndex > 0) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
     public static ArrayList<Kmer> trimReverseComplementArtifact(ArrayList<Kmer> seqKmers, int k, float minPercentIdentity) {        
         ArrayDeque<Integer> minValIndexes = getMinCovIndexes(seqKmers, k);
         
@@ -9468,53 +9482,89 @@ public final class GraphUtils {
             }
         }
         
+        if (!minValIndexes.isEmpty()) {
+            if (minValIndexes.getFirst() == 0) {
+                minValIndexes.removeFirst();
+            }
+        }
+        
+        if (!minValIndexes.isEmpty()) {
+            if (minValIndexes.getLast() == numKmers-1) {
+                minValIndexes.removeLast();
+            }
+        }
+        
         return minValIndexes;
     }
     
     public static int getReverseComplementArtifactClippingIndex(ArrayList<Kmer> seqKmers, int k, float minPercentIdentity, ArrayDeque<Integer> minValIndexes) {        
         int numKmers = seqKmers.size();
         int halfIndex = numKmers/2;
-        
-        for (int bendIndex : minValIndexes) {
-            if (bendIndex < halfIndex) {                
-                int numNeeded = (int) Math.floor(minPercentIdentity*(bendIndex+1)/k);
-                if (numNeeded >= 1) {
-                    HashSet<Long> hashVals = new HashSet<>(numKmers - bendIndex + 1);
-                    for (int i=bendIndex; i<numKmers; ++i) {
-                        hashVals.add(seqKmers.get(i).getHash());
-                    }
-                    
-                    for (int i=0; i<bendIndex; i+=k) {
-                        if (hashVals.contains(seqKmers.get(i).getReverseComplementHash())) {
-                            if (--numNeeded <= 0) {
+
+        if (minValIndexes != null && !minValIndexes.isEmpty()) {
+            float min = seqKmers.get(minValIndexes.getFirst()).count;
+            
+            for (int bendIndex : minValIndexes) {
+                if (bendIndex < halfIndex) {
+                    int numNeeded = (int) Math.floor(minPercentIdentity*(bendIndex+1));
+                    if (numNeeded >= 1) {
+                        for (int i=bendIndex; i<numKmers; ++i) {
+                            Kmer kmer = seqKmers.get(i);
+                            if (kmer.count == min) {
+                                bendIndex = i;
+                            }
+                            else {
                                 break;
                             }
                         }
-                    }
+                        
+                        HashSet<Long> hashVals = new HashSet<>(numKmers - bendIndex + 1);
+                        for (int i=bendIndex+1; i<numKmers; ++i) {
+                            hashVals.add(seqKmers.get(i).getHash());
+                        }
+                        
+                        for (int i=0; i<=bendIndex; ++i) {
+                            if (hashVals.contains(seqKmers.get(i).getReverseComplementHash())) {
+                                if (--numNeeded <= 0) {
+                                    break;
+                                }
+                            }
+                        }
 
-                    if (numNeeded <= 0) {
-                        return bendIndex;
+                        if (numNeeded <= 0) {
+                            return bendIndex;
+                        }
                     }
                 }
-            }
-            else {
-                int numNeeded = (int) Math.floor(minPercentIdentity*(numKmers-bendIndex+1)/k);
-                if (numNeeded >= 1) {
-                    HashSet<Long> hashVals = new HashSet<>(bendIndex + 1);
-                    for (int i=0; i<bendIndex; ++i) {
-                        hashVals.add(seqKmers.get(i).getHash());
-                    }
-                    
-                    for (int i=bendIndex; i<numKmers; i+=k) {
-                        if (hashVals.contains(seqKmers.get(i).getReverseComplementHash())) {
-                            if (--numNeeded <= 0) {
+                else {
+                    int numNeeded = (int) Math.floor(minPercentIdentity*(numKmers-bendIndex+1));
+                    if (numNeeded >= 1) {
+                        for (int i=bendIndex-1; i>=0; --i) {
+                            Kmer kmer = seqKmers.get(i);
+                            if (kmer.count == min) {
+                                bendIndex = i;
+                            }
+                            else {
                                 break;
                             }
                         }
-                    }
-                    
-                    if (numNeeded <= 0) {
-                        return bendIndex;
+                        
+                        HashSet<Long> hashVals = new HashSet<>(bendIndex + 1);
+                        for (int i=0; i<bendIndex; ++i) {
+                            hashVals.add(seqKmers.get(i).getHash());
+                        }
+                        
+                        for (int i=bendIndex; i<numKmers; ++i) {
+                            if (hashVals.contains(seqKmers.get(i).getReverseComplementHash())) {
+                                if (--numNeeded <= 0) {
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (numNeeded <= 0) {
+                            return bendIndex;
+                        }
                     }
                 }
             }
