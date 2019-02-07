@@ -9581,6 +9581,7 @@ public final class GraphUtils {
 //        String test = "A";
 //        boolean found = false;
 //        if (graph.assemble(seqKmers).contains(test)) {
+//            System.out.println(graph.assemble(seqKmers));
 //            found = true;
 //        }
         
