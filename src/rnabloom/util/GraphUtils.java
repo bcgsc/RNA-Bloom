@@ -9418,24 +9418,112 @@ public final class GraphUtils {
         
         return false;
     }
-    
-    public static boolean isHairpin(ArrayList<Kmer> seqKmers, int k, float minPercentIdentity) {
-        ArrayDeque<Integer> minValIndexes = getMinCovIndexes(seqKmers, k);
         
-        if (!minValIndexes.isEmpty()) {
-            int clippingIndex = getReverseComplementArtifactClippingIndex(seqKmers, k, minPercentIdentity, minValIndexes);
+    public static ArrayList<Kmer> trimHairpinBySequenceMatching(ArrayList<Kmer> seqKmers, int k, float minPercentIdentity, BloomFilterDeBruijnGraph graph) {
+        int numKmers = seqKmers.size();
+        int halfNumKmers = numKmers/2;
+        
+        final int maxSeedSearchDepth = Math.min(halfNumKmers, 200);
+        final int maxLoopLength = Math.max(200, halfNumKmers);
+        final int maxLoopDiameter = maxLoopLength/2;
+        
+        int lastSeedIndex = maxSeedSearchDepth;
+        
+        for (int i=0; i<lastSeedIndex; i+=k) {
+            long rcHashVal = seqKmers.get(i).getReverseComplementHash();
+            int rcIndex = -1;
             
-            if (clippingIndex > 0) {
-                return true;
+            for (int j=i+1; j<numKmers; ++j) {
+                if (seqKmers.get(j).getHash() == rcHashVal) {
+                    rcIndex = j;
+                    break;
+                }
+            }
+            
+            if (rcIndex >= 0) {
+                int endIndex = rcIndex;
+                int halfIndex = (i + endIndex)/2;
+                
+                if (i >= rcIndex-maxLoopLength) {
+                    if (halfIndex < halfNumKmers) {
+                        return new ArrayList<>(seqKmers.subList(halfIndex, numKmers));
+                    }
+                    else {
+                        return new ArrayList<>(seqKmers.subList(0, halfIndex));
+                    }
+                }
+                else {
+                    int testLength = halfIndex-maxLoopDiameter+1-i;
+                    byte[] left = graph.assembleBytes(seqKmers, i, halfIndex-maxLoopDiameter+1);
+                    byte[] right = graph.assembleReverseComplementBytes(seqKmers, endIndex+1-testLength, endIndex+1);
+                    
+                    float pid = getPercentIdentity(left, right);
+                    
+                    if (pid >= minPercentIdentity) {
+                        if (halfIndex < halfNumKmers) {
+                            return new ArrayList<>(seqKmers.subList(halfIndex, numKmers));
+                        }
+                        else {
+                            return new ArrayList<>(seqKmers.subList(0, halfIndex));
+                        }
+                    }
+                }
+                
+                break;
             }
         }
         
-        return false;
+        lastSeedIndex = numKmers-maxSeedSearchDepth;
+        
+        for (int i=numKmers-1; i>=lastSeedIndex; i-=k) {
+            long rcHashVal = seqKmers.get(i).getReverseComplementHash();
+            int rcIndex = -1;
+            
+            for (int j=i-1; j>=0; --j) {
+                if (seqKmers.get(j).getHash() == rcHashVal) {
+                    rcIndex = j;
+                    break;
+                }
+            }
+
+            if (rcIndex >= 0 && rcIndex < i) {
+                int halfIndex = (rcIndex + i)/2;
+                
+                if (rcIndex >= i-maxLoopLength) {
+                    if (halfIndex < halfNumKmers) {
+                        return new ArrayList<>(seqKmers.subList(halfIndex, numKmers));
+                    }
+                    else {
+                        return new ArrayList<>(seqKmers.subList(0, halfIndex));
+                    }
+                }
+                else {
+                    int testLength = halfIndex-maxLoopDiameter-rcIndex;
+                    byte[] left = graph.assembleBytes(seqKmers, rcIndex, halfIndex-maxLoopDiameter);
+                    byte[] right = graph.assembleReverseComplementBytes(seqKmers, i+1-testLength, i+1);
+
+                    float pid = getPercentIdentity(left, right);
+                    
+                    if (pid >= minPercentIdentity) {
+                        if (halfIndex < halfNumKmers) {
+                            return new ArrayList<>(seqKmers.subList(halfIndex, numKmers));
+                        }
+                        else {
+                            return new ArrayList<>(seqKmers.subList(0, halfIndex));
+                        }
+                    }
+                }
+                
+                break;
+            }
+        }
+        
+        return seqKmers;
     }
     
-    public static ArrayList<Kmer> trimReverseComplementArtifact(ArrayList<Kmer> seqKmers, int k, float minPercentIdentity) {        
+    public static ArrayList<Kmer> trimHairpinByCoverage(ArrayList<Kmer> seqKmers, int k, float minPercentIdentity) {                
         ArrayDeque<Integer> minValIndexes = getMinCovIndexes(seqKmers, k);
-        
+                
         while (!minValIndexes.isEmpty()) {
             int numKmers = seqKmers.size();
             int halfIndex = numKmers/2;
@@ -9577,13 +9665,6 @@ public final class GraphUtils {
         int numKmers = seqKmers.size();
         int k = graph.getK();
         int maxNumKmersInLoop = 2*k;
-        
-//        String test = "A";
-//        boolean found = false;
-//        if (graph.assemble(seqKmers).contains(test)) {
-//            System.out.println(graph.assemble(seqKmers));
-//            found = true;
-//        }
         
         if (assembledKmers.lookup(seqKmers.get(numKmers-1).getHash())) {
             int start = Math.max(0, numKmers-2);
