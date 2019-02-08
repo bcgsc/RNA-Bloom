@@ -1390,16 +1390,8 @@ public class RNABloom {
             if (numReadSegs == 1) {
                 if (!keepArtifact) {
                     if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
-                        txptKmers = trimReverseComplementArtifact(txptKmers, k, 0.5f);
+                        txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
                         transcripts.put(new Transcript(fragment, txptKmers));
-                        
-//                        String seq = cutHairPinLoop(graph.assemble(txptKmers), k, minPercentIdentity);                        
-//                        if (seq == null) {
-//                            transcripts.put(new Transcript(fragment, txptKmers));
-//                        }
-//                        else {
-//                            transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
-//                        }
                     }
                 }
                 else {
@@ -1413,16 +1405,8 @@ public class RNABloom {
                     if (r.size() >= numFragKmers && rAssembled.contains(fragment)) {
                         if (!keepArtifact) {
                             if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
-                                txptKmers = trimReverseComplementArtifact(txptKmers, k, 0.5f);
+                                txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
                                 transcripts.put(new Transcript(fragment, txptKmers));
-                                
-//                                String seq = cutHairPinLoop(rAssembled, k, minPercentIdentity);
-//                                if (seq == null) {
-//                                    transcripts.put(new Transcript(fragment, r));
-//                                }
-//                                else {
-//                                    transcripts.put(new Transcript(fragment, graph.getKmers(seq)));
-//                                }
                             }
                         }
                         else {
@@ -1878,7 +1862,7 @@ public class RNABloom {
                     }
                     
                     if (trimArtifact) {
-                        fragmentKmers = trimReverseComplementArtifact(fragmentKmers, k, 0.5f);
+                        fragmentKmers = trimHairpinBySequenceMatching(fragmentKmers, k, percentIdentity, graph);
                     }
                     
                     if (graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
@@ -4568,7 +4552,7 @@ public class RNABloom {
                     assembleFragments(assembler, forceOverwrite,
                                     sampleOutdir, sampleName, fqPairs,
                                     sbfSize, pkbfSize, sbfNumHash, pkbfNumHash, numThreads,
-                                    bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments, minKmerCov, !keepArtifact);
+                                    bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments, minKmerCov, keepArtifact);
                     
                     System.out.println("** Fragments assembled in " + MyTimer.hmsFormat(sampleTimer.elapsedMillis()) + "\n");
                 }
