@@ -1290,6 +1290,40 @@ public class BloomFilterDeBruijnGraph {
         return sb.toString();
     }
     
+    public byte[] assembleBytes(ArrayList<Kmer> kmers, int start, int end) {
+        byte[] bytes = new byte[end - start + kMinus1];
+        
+        byte[] kmerBytes = kmers.get(start).bytes;
+        for (int i=0; i<k; ++i) {
+            bytes[i] = kmerBytes[i];
+        }
+        
+        int pos = k;
+        for (int i=start+1; i<end; ++i) {
+            bytes[pos++] = kmers.get(i).bytes[kMinus1];
+        }
+        
+        return bytes;
+    }
+    
+    public byte[] assembleReverseComplementBytes(ArrayList<Kmer> kmers, int start, int end) {
+        int length = end - start + kMinus1;
+        byte[] bytes = new byte[length];
+        
+        int pos = length-1;
+        
+        byte[] kmerBytes = kmers.get(start).bytes;
+        for (int i=0; i<k; ++i) {
+            bytes[pos--] = complement(kmerBytes[i]);
+        }
+        
+        for (int i=start+1; i<end; ++i) {
+            bytes[pos--] = complement(kmers.get(i).bytes[kMinus1]);
+        }
+        
+        return bytes;
+    }
+    
     public String assembleReverseOrder(ArrayDeque<Kmer> kmers) {
         StringBuilder sb = new StringBuilder(kmers.size() + kMinus1);
         
