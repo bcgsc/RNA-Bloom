@@ -1453,22 +1453,21 @@ public class RNABloom {
                                 
                                 extendPE(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient, minKmerCov);
 
-                                if (kmers.size() > fragKmersDist) {
-                                    if (reqFragKmersConsistency) {
-                                        ArrayDeque<ArrayList<Kmer>> fragSegments = breakWithFragPairedKmers(kmers, graph);
-                                        int numFragSegs = fragSegments.size();
+                                if (reqFragKmersConsistency && kmers.size() >= fragKmersDist) {
+                                    ArrayDeque<ArrayList<Kmer>> fragSegments = breakWithFragPairedKmers(kmers, graph);
+                                    int numFragSegs = fragSegments.size();
 
-                                        if (numFragSegs >= 1) {
-                                            for (ArrayList<Kmer> seg : fragSegments) {
-                                                if (numFragSegs == 1 || (seg.size() >= originalFragKmers.size() && new HashSet<>(seg).containsAll(originalFragKmers))) {
-                                                    storeConsistentReadSegments(fragment, seg);
-                                                    break;
-                                                }
+                                    if (numFragSegs == 1) {
+                                        storeConsistentReadSegments(fragment, fragSegments.getFirst());
+                                    }
+                                    else if (numFragSegs > 1) {
+                                        int originalFragKmersSize = originalFragKmers.size();
+                                        for (ArrayList<Kmer> seg : fragSegments) {
+                                            if (seg.size() >= originalFragKmersSize && new HashSet<>(seg).containsAll(originalFragKmers)) {
+                                                storeConsistentReadSegments(fragment, seg);
+                                                break;
                                             }
                                         }
-                                    }
-                                    else {
-                                        storeConsistentReadSegments(fragment, kmers);
                                     }
                                 }
                                 else {
