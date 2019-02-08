@@ -133,6 +133,19 @@ public final class SeqUtils {
         return ((float) (aLen - d))/(float)aLen;
     }
     
+    public static float getPercentIdentity(byte[] a, byte[] b) {
+        int aLen = a.length;
+        int bLen = b.length;
+
+        int d = getDistance(a, b, aLen, bLen);
+        
+        if (aLen <= bLen) {
+            return ((float) (bLen - d))/(float)bLen;
+        }
+        
+        return ((float) (aLen - d))/(float)aLen;
+    }
+    
     private static int getDistance(String s, String t, int sLen, int tLen) {
         // compute the Levenshtein Distance
         // https://en.wikipedia.org/wiki/Levenshtein_distance
@@ -169,9 +182,44 @@ public final class SeqUtils {
             
             // copy v1 (current row) to v0 (previous row) for next iteration
             System.arraycopy(v1, 0, v0, 0, tLen);
-//            for (int j=0; j<=tLen; ++j) {
-//                v0[j] = v1[j];
-//            }
+        }
+
+        return v1[tLen];
+    }
+    
+    private static int getDistance(byte[] s, byte[] t, int sLen, int tLen) {
+        // degenerate cases
+        if (Arrays.equals(s, t)) return 0;
+        if (sLen == 0) return tLen;
+        if (tLen == 0) return sLen;
+        
+        // create two work vectors of integer distances
+        int[] v0 = new int[tLen+1];
+        int[] v1 = new int[tLen+1];
+        
+        // initialize v0 (the previous row of distances)
+        // this row is A[0][i]: edit distance for an empty s
+        // the distance is just the number of characters to delete from t
+        for (int i=0; i<=tLen; ++i) {
+            v0[i] = i;
+        }
+
+        for (int i=0; i<sLen; ++i) {
+            // calculate v1 (current row distances) from the previous row v0
+
+            // first element of v1 is A[i+1][0]
+            //   edit distance is delete (i+1) chars from s to match empty t
+            
+            v1[0] = i+1;
+            
+            for (int j=0; j<tLen; ++j) {
+                v1[j+1] = min3(v1[j  ]+1,
+                               v0[j+1]+1,
+                               v0[j  ]+(s[i] == t[j] ? 0 : 1));
+            }
+            
+            // copy v1 (current row) to v0 (previous row) for next iteration
+            System.arraycopy(v1, 0, v0, 0, tLen);
         }
 
         return v1[tLen];
@@ -652,26 +700,28 @@ public final class SeqUtils {
         return null;
     }
     
+    public static final byte complement(byte b) {
+        switch(b) {
+            case CHAR_A_BYTE:
+                return CHAR_T_BYTE;
+            case CHAR_C_BYTE:
+                return CHAR_G_BYTE;
+            case CHAR_G_BYTE:
+                return CHAR_C_BYTE;
+            case CHAR_T_BYTE:
+                return CHAR_A_BYTE;
+        }
+        
+        return b;
+    }
+    
     public static final byte[] reverseComplement(byte[] seq) {
         int seqLen = seq.length;
         byte[] rc = new byte[seqLen];
         
         int start = seqLen;
         for (byte b : seq) {
-            switch(b) {
-                case CHAR_A_BYTE:
-                    rc[--start] = CHAR_T_BYTE;
-                    break;
-                case CHAR_C_BYTE:
-                    rc[--start] = CHAR_G_BYTE;
-                    break;
-                case CHAR_G_BYTE:
-                    rc[--start] = CHAR_C_BYTE;
-                    break;
-                case CHAR_T_BYTE:
-                    rc[--start] = CHAR_A_BYTE;
-                    break;
-            }
+            rc[--start] = complement(b);
         }
         
         return rc;
@@ -965,11 +1015,9 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        String seq1 = "GCAGTCATCATCATCAAGCAGCAGCTCAGACGTATCGCAGCATCAGCAGCAGCAGTTACGTAGCTCAAGACTGATCGTGATGCTAGC";
-        String seq2 = "AGACGTATCGCAGCATCAGCAGCAGCAGTTACGTAGCTCAA";
-        
-        float pid = getPercentIdentity(seq1, seq2);
-        System.out.println(pid);
+        String seq1 = "CTTAGAGCACACCACAGTGGAAGAAGTTATCTCGGGCCAGCTGAGCAAGGAAGAAGTACCTGTAGATGTAGACCGAGGCAAACACAAGGCCCATGAGCAATACAACCATGCCCATGGACAGGTAGCACACGCCCCCCTCGCCACCGCTCCCGGAAAGGAGGCTCCGTGGGCGGCGTGTGCTACCTGTCCATGGGCATGGTTGTATTGCTCATGGGCCTTGTGTTTGCCTCGGTCTACATCTACAGGTACTTCTTCCTTGCTCAGCTGGCCCGAGATAACTTCTTCCACTGTGGTGTGCTCTAAGAAGACTCCCTGTCCTCCCAGATCCGGACTCGCCTGGAGCTGGAAGAGGATGTGAAGATCTATCTTGAGGAGAACTATGAACGTATTAATGTCCCTGTGCCCCAGTTTGGTGGTGGGGACCCTGCAGACATCATCCATGACTTCCAGCGGGGTCTCACTGCCTACCACGACATCTCCCTAGACAAGTGCTACGTCATCGAGCTCAACACCACCATCGTGCTACCCCCACGAAACTTCTGGGAGCTCCTCATGAACGTGAAGAGAGGGACCTACCTCCCACAGACGTACATCATCCAGGAGGAGATGGTGGTGACAGAGCATGTCCGCGACAAGGAGGCTCTGGGTTCCTTCATCTACCACCTGTGCAACGGGAAGGACACCTACCGGCTGCGGCGCCGGTCTACCCGGAGGCGGATCAACAAACGTGGGGGCAAGAACTGCAACGCCATCCGCCACTTCGAGAATACATTTGTGGTGGAGACGCTCATCTGTGGGGTGGTGTGAGGCCTTCCCTCCAGGCTCACCCCTGCCCTGTTCTTTCTCCTTCTGGCCTCTCTCTGGCCCTCCTCCTCCCTTTGCTTAGCTTGTACCTTGGGCACTTTTCCATAGATGTGACATGTCTCACCTATCCTTCCCAGACCGCCCTCCTCCCTGTACCAGGGCTGTGATCTCTCGGGGCCTCTGCCTCTGCTGATCTTTCAGGTGGGAGGTGGGAGGGGACAGTCGCCCAAGATGGTTTCTCTAACTCATTATTTTAAGTCATCTCCCCAGTGGCTGGGCCAAGGGGAAGGACTAAAGGGAGGGGCTGGACATATGGAAGCCTGGGGCAGGGGCAGGGGCGTGGTGGGATTTGGCATGAGGCTCACAAACAGCCCCCACACTTGGGGAAGCCCTGAAAGACTTTTTTCCTTGCATAGCACACTTCCCCTGTCCTCCTGGTTCTTAGGCCTGGGTGTGGACTAAGGATAGGGAAATGTGTCCTGGGTTGGACCCATCAGAGCACAAGAGAAGGTGGCTATCCTGGGGTCTTCCCAGGACTCCTGTCAGTGCCTTCAGCCCACCAGCAGGAGCCTGGAGTTAGAGGGTGGGATGAGTCTGCCAAGCACAATTGTCCTCTGAGTGGAACCAAAGAAATGAAGAGCCGGGCCGCCCTGGCCTGGCGCCTGGGAACACAGGGGCAGGTGGGTATAGAAGTCACCGGCTGTGAGCTGCAGGCCCTGGGCAGTGGATAGAACCCATGCCTTCCTACACATCTGGGCTACTGTGAATGATGGAAGCGGGAGGGAGAGCCACCTGGTACTTTCGTCCCTGCCTCCTCTTCCGTTCTGGATCTTTCCCCTCTGTCCAGGGGCGTGTGATGTTTTTTCCTGCATGTTTTTACTGATGTTCGTGCTGGCTGCCCTCAGCCCTGAGTCTGGGAGAGGCTTTGGTGCCTCGGGTCAGACTTGGGTGCTCCATGGTAGTGGAGCCCTTAAATGCTTTGTATATTTTCTCTATTAGAT";
+        String seq2 = cutHairPinLoop(seq1, 25, 0.9f);
+        System.out.println(seq2);
         
         System.out.flush();
     }
