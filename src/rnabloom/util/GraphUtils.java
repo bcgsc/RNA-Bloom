@@ -6466,7 +6466,7 @@ public final class GraphUtils {
             
             int lastPartneredKmerIndex = result[2];
             
-            if (lastPartneredKmerIndex >= 0) {
+            if (lastPartneredKmerIndex >= 0 && result[0] > 0 && result[1] > 0) {
                 float cov = getMedianKmerCoverage(e);
                 float score = Math.min(pathMinCov, cov) * (result[0] + result[1]) / (lastPartneredKmerIndex+1);
 //                System.out.println(score + ": " + graph.assemble(e));
@@ -6559,7 +6559,7 @@ public final class GraphUtils {
             
             int lastPartneredKmerIndex = result[2];
             
-            if (lastPartneredKmerIndex >= 0) {
+            if (lastPartneredKmerIndex >= 0 && result[0] > 0 && result[1] > 0) {
                 float cov = getMedianKmerCoverage(e);
                 float score = Math.min(pathMinCov, cov) * (result[0] + result[1]) / (lastPartneredKmerIndex+1);
                 if (score > bestScore || (score == bestScore && cov > bestCov)) {
