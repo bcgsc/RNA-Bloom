@@ -1972,9 +1972,12 @@ public class RNABloom {
         }
     }
     
-    public void setupFragmentPairedKmersBloomFilter(long numBits, int numHash, String graphFile) throws IOException {
-        graph.updateFragmentKmerDistance(new File(graphFile));
+    public void setupFragmentPairedKmersBloomFilter(long numBits, int numHash) {
         graph.initializePairKmersBloomFilter(numBits, numHash);
+    }
+    
+    public void updateFragmentKmerDistance(String graphFile) throws IOException {
+        graph.updateFragmentKmerDistance(new File(graphFile));
     }
     
     public void rescueUnconnectedMultiThreaded(String[] fastas, 
@@ -3359,7 +3362,7 @@ public class RNABloom {
             }
 
             assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-            assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash, graphFile);
+            assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
 
             int[] fragStats = assembler.assembleFragmentsMultiThreaded(fqPairs, 
                                             longFragmentsFastaPaths, 
@@ -3499,7 +3502,8 @@ public class RNABloom {
                 System.out.println("Rebuilding graph from assembled fragments...");
                 timer.start();
                 if (restorePairedKmers) {
-                    assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash, graphFile);
+                    assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
+                    assembler.updateFragmentKmerDistance(graphFile);
                 }
                 assembler.populateGraphFromFragments(fragmentPaths, strandSpecific, restorePairedKmers);
                 System.out.println("Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));  
