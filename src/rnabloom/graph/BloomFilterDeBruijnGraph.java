@@ -108,7 +108,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void updateFragmentKmerDistance(File graphFile) throws FileNotFoundException, IOException {
-       BufferedReader br = new BufferedReader(new FileReader(graphFile));
+        BufferedReader br = new BufferedReader(new FileReader(graphFile));
         String line;
         while ((line = br.readLine()) != null) {
             String[] entry = line.split(LABEL_SEPARATOR);
@@ -302,7 +302,7 @@ public class BloomFilterDeBruijnGraph {
         return stranded;
     }    
     
-    private void saveDesc(File graphFile) throws IOException {
+    public void saveDesc(File graphFile) throws IOException {
         FileWriter writer = new FileWriter(graphFile);
         writer.write(LABEL_DBGBF_CBF_NUM_HASH + LABEL_SEPARATOR + dbgbfCbfMaxNumHash + "\n" +
                     LABEL_STRANDED + LABEL_SEPARATOR + stranded + "\n" +
@@ -325,9 +325,9 @@ public class BloomFilterDeBruijnGraph {
         String cbfDescPath = cbfBitsPath + FILE_DESC_EXTENSION;
         cbf.save(new File(cbfDescPath), new File(cbfBitsPath));
         
-        if (pkbf != null) {
-            savePkbf(graphFile);
-        }
+//        if (pkbf != null) {
+//            savePkbf(graphFile);
+//        }
         
         if (rpkbf != null) {
             String rpkbfBitsPath = graphFile.getPath() + FILE_RPKBF_PAIR_EXTENSION;
@@ -369,7 +369,7 @@ public class BloomFilterDeBruijnGraph {
             this.pkbf.empty();
         }
     }
-    
+        
     public void setFragPairedKmerDistance(int d) {
         this.fragmentPairedKmersDistance = d;
     }

@@ -849,7 +849,7 @@ public class RNABloom {
 //        covFPR = graph.getCbfFPR();
 //    }
     
-    public void populateGraphFromFragments(Collection<String> fastas, boolean strandSpecific, boolean newKmerSize) throws IOException {
+    public void populateGraphFromFragments(Collection<String> fastas, boolean strandSpecific, boolean loadPairedKmers) throws IOException {
         /** insert into graph if absent */
         
         /** parse the fragments */
@@ -869,15 +869,14 @@ public class RNABloom {
 
             String seq;
             try {
-                if (newKmerSize) {
+                if (loadPairedKmers) {
                     while (true) {
                         seq = fin.next();
 
                         if (itr.start(seq)) {
                             while (itr.hasNext()) {
                                 itr.next();
-                                graph.addIfAbsent(hashVals);
-//                                    screeningBf.add(hashVals);
+                                graph.addDbgOnly(hashVals);
                             }
                         }
 
@@ -890,8 +889,6 @@ public class RNABloom {
                     }
                 }
                 else {
-                    // reuse existing k-mer counts and paired kmers
-
                     while (true) {
                         seq = fin.next();
 
@@ -899,7 +896,6 @@ public class RNABloom {
                             while (itr.hasNext()) {
                                 itr.next();
                                 graph.addDbgOnly(hashVals);
-//                                    screeningBf.add(hashVals);
                             }
                         }
                     }
@@ -1976,7 +1972,8 @@ public class RNABloom {
         }
     }
     
-    public void setupFragmentPairedKmersBloomFilter(long numBits, int numHash) {
+    public void setupFragmentPairedKmersBloomFilter(long numBits, int numHash, String graphFile) throws IOException {
+        graph.updateFragmentKmerDistance(new File(graphFile));
         graph.initializePairKmersBloomFilter(numBits, numHash);
     }
     
@@ -2836,6 +2833,10 @@ public class RNABloom {
         return fragLengthsStats;
     }
 
+    public void updateGraphDesc(File graphFile) throws IOException {
+        graph.saveDesc(graphFile);
+    }
+    
     public void savePairedKmersBloomFilter(File graphFile) throws IOException {
         graph.savePkbf(graphFile);
     }
@@ -3358,7 +3359,7 @@ public class RNABloom {
             }
 
             assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-            assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
+            assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash, graphFile);
 
             int[] fragStats = assembler.assembleFragmentsMultiThreaded(fqPairs, 
                                             longFragmentsFastaPaths, 
@@ -3382,15 +3383,11 @@ public class RNABloom {
                                             minKmerCoverage,
                                             keepArtifact);
 
-            assembler.savePairedKmersBloomFilter(new File(graphFile));
+            //assembler.savePairedKmersBloomFilter(new File(graphFile));
+            assembler.updateGraphDesc(new File(graphFile));
             assembler.writeFragStatsToFile(fragStats, fragStatsFile);
 
-            try {
-                touch(fragsDoneStamp);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                System.exit(1);
-            }
+            touch(fragsDoneStamp);
         }
         else {
             System.out.println("WARNING: Fragments were already assembled for \"" + name + "!");
@@ -3399,9 +3396,9 @@ public class RNABloom {
     
     private static void assembleTranscripts(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, String txptNamePrefix, boolean strandSpecific,
-            long sbfSize, int sbfNumHash, int numThreads, boolean noFragDBG,
+            long sbfSize, int sbfNumHash, long pkbfSize, int pkbfNumHash, int numThreads, boolean noFragDBG,
             int sampleSize, int minTranscriptLength, boolean keepArtifact, boolean keepChimera, 
-            boolean reqFragKmersConsistency, boolean restorePairedKmersBloomFilter,
+            boolean reqFragKmersConsistency, boolean restorePairedKmers,
             float minKmerCov, String branchFreeExtensionThreshold,
             boolean reduceRedundancy, boolean assemblePolya) throws IOException, InterruptedException {
         
@@ -3413,9 +3410,9 @@ public class RNABloom {
         if (forceOverwrite || !txptsDoneStamp.exists()) {
             MyTimer timer = new MyTimer();
             
-            if (restorePairedKmersBloomFilter) {
-                assembler.restorePairedKmersBloomFilter(new File(outdir + File.separator + name + ".graph"));
-            }
+//            if (restorePairedKmersBloomFilter) {
+//                assembler.restorePairedKmersBloomFilter(new File(outdir + File.separator + name + ".graph"));
+//            }
             
             final String longFragmentsFastaPrefix =         outdir + File.separator + name + ".fragments.long.";
             final String shortFragmentsFastaPrefix =        outdir + File.separator + name + ".fragments.short.";
@@ -3501,7 +3498,10 @@ public class RNABloom {
                 
                 System.out.println("Rebuilding graph from assembled fragments...");
                 timer.start();
-                assembler.populateGraphFromFragments(fragmentPaths, strandSpecific, false);
+                if (restorePairedKmers) {
+                    assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash, graphFile);
+                }
+                assembler.populateGraphFromFragments(fragmentPaths, strandSpecific, restorePairedKmers);
                 System.out.println("Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));  
             }
 
@@ -3970,11 +3970,11 @@ public class RNABloom {
                                     .build();
         options.addOption(optExtend);
 
-        Option optNoFragDBG = Option.builder("nofdbg")
-                                    .desc("do not rebuild DBG from fragment k-mers [false]")
-                                    .hasArg(false)
-                                    .build();
-        options.addOption(optNoFragDBG);
+//        Option optNoFragDBG = Option.builder("nofdbg")
+//                                    .desc("do not rebuild DBG from fragment k-mers [false]")
+//                                    .hasArg(false)
+//                                    .build();
+//        options.addOption(optNoFragDBG);
 
         Option optNoFragmentsConsistency = Option.builder("nofc")
                                     .desc("turn off assembly consistency with fragment paired k-mers [false]")
@@ -4286,7 +4286,7 @@ public class RNABloom {
                 keepChimera = true;
             }
             
-            final boolean noFragDBG = line.hasOption(optNoFragDBG.getOpt());
+            final boolean noFragDBG = false; //line.hasOption(optNoFragDBG.getOpt());
             final boolean reqFragKmersConsistency = !line.hasOption(optNoFragmentsConsistency.getOpt());
             final boolean extendFragments = line.hasOption(optExtend.getOpt());
             final int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), optMinKmerPairsDefault));
@@ -4458,7 +4458,7 @@ public class RNABloom {
                 sampleId = 0;
                 System.out.println("\n> Stage 3: Assemble transcripts for " + numSamples + " samples");
                 stageTimer.start();
-                
+                                
                 for (String sampleName : sampleNames) {
                     System.out.println(">> Working on \"" + sampleName + "\" (sample " + ++sampleId + " of " + numSamples + ")...");
                     
@@ -4466,7 +4466,7 @@ public class RNABloom {
                     
                     assembleTranscripts(assembler, forceOverwrite,
                                     sampleOutdir, sampleName, txptNamePrefix, strandSpecific,
-                                    sbfSize, sbfNumHash, numThreads, noFragDBG,
+                                    sbfSize, sbfNumHash, pkbfSize, pkbfNumHash, numThreads, noFragDBG,
                                     sampleSize, minTranscriptLength, keepArtifact, keepChimera,
                                     reqFragKmersConsistency, true, minKmerCov,
                                     branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0);
@@ -4502,12 +4502,12 @@ public class RNABloom {
 
                 System.out.println("\n> Stage 3: Assemble transcripts for \"" + name + "\"");
                 stageTimer.start();
-                
+                                
                 assembleTranscripts(assembler, forceOverwrite,
                                 outdir, name, txptNamePrefix, strandSpecific,
-                                sbfSize, sbfNumHash, numThreads, noFragDBG,
+                                sbfSize, sbfNumHash, pkbfSize, pkbfNumHash, numThreads, noFragDBG,
                                 sampleSize, minTranscriptLength, keepArtifact, keepChimera,
-                                reqFragKmersConsistency, false, minKmerCov, 
+                                reqFragKmersConsistency, true, minKmerCov, 
                                 branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0);
                 
                 System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
