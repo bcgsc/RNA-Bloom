@@ -3205,7 +3205,7 @@ public class RNABloom {
                 paths.add(entry[2]);
             }
             else {
-                System.out.println("ERROR: Pool reads path file has unexpected number of columns on line " + lineNumber + ":\n\t" + line);
+                exitOnError("Pool reads path file has unexpected number of columns on line " + lineNumber + ":\n\t" + line);
                 return false;
             }
         }
@@ -3582,6 +3582,19 @@ public class RNABloom {
             else {
                 System.out.println("WARNING: Redundancy reduction already completed for \"" + name + "\"!");
             }
+        }
+    }
+    
+    private static boolean hasNtcard() {
+        try {
+            String cmd = "ntcard --version";
+            Runtime rt = Runtime.getRuntime();
+            Process pr = rt.exec(cmd);
+            int exitVal = pr.waitFor();
+            return exitVal == 0;
+        }
+        catch (IOException | InterruptedException e) {
+            return false;
         }
     }
     
@@ -4050,8 +4063,7 @@ public class RNABloom {
             
             String branchFreeExtensionThreshold = line.getOptionValue(optBranchFreeExtensionThreshold.getOpt(), optBranchFreeExtensionDefault);
             if (!isValidStratumName(branchFreeExtensionThreshold)) {
-                System.out.println("ERROR: Unknown stratum name specified, \"" + branchFreeExtensionThreshold + "\"");
-                System.exit(1);
+                exitOnError("Unknown stratum name specified, \"" + branchFreeExtensionThreshold + "\"");
             }
             
             final int endstage = Integer.parseInt(line.getOptionValue(optStage.getOpt(), optStageDefault));
@@ -4113,29 +4125,25 @@ public class RNABloom {
                 System.out.println("Pooled assembly mode is ON!");
                 
                 if (!new File(pooledReadsListFile).isFile()) {
-                    System.out.println("ERROR: Cannot find pooled read paths list `" + pooledReadsListFile + "`");
-                    System.exit(1);
+                    exitOnError("Cannot find pooled read paths list `" + pooledReadsListFile + "`");
                 }
                 
                 System.out.println("Parsing pool reads list file `" + pooledReadsListFile + "`...");
                 boolean parseOK = getPooledReadPaths(pooledReadsListFile, pooledLeftReadPaths, pooledRightReadPaths);
                 
                 if (!parseOK) {
-                    System.out.println("ERROR: Incorrect format of pooled read paths list file!");
-                    System.exit(1);
+                    exitOnError("Incorrect format of pooled read paths list file!");
                 }
                 
                 int numLeftIds = pooledLeftReadPaths.size();
                 int numRightIds = pooledRightReadPaths.size();
                 
                 if (numLeftIds != numRightIds) {
-                    System.out.println("ERROR: Pooled read paths list file has disagreeing number of sample IDs for left (" + numLeftIds + ") and right (" + numRightIds + ") reads!");
-                    System.exit(1);
+                    exitOnError("Pooled read paths list file has disagreeing number of sample IDs for left (" + numLeftIds + ") and right (" + numRightIds + ") reads!");
                 }
                 
                 if (numLeftIds == 0) {
-                    System.out.println("ERROR: Pooled read paths list file is empty!");
-                    System.exit(1);                    
+                    exitOnError("Pooled read paths list file is empty!");
                 }
                 
                 ArrayList<String> leftPathsQueue = new ArrayList<>();
@@ -4157,18 +4165,15 @@ public class RNABloom {
             }
             else {
                 if (leftReadPaths == null || leftReadPaths.length == 0) {
-                    System.out.println("ERROR: Please specify left read files!");
-                    System.exit(1);
+                    exitOnError("Please specify left read files!");
                 }
 
                 if (rightReadPaths == null || rightReadPaths.length == 0) {
-                    System.out.println("ERROR: Please specify right read files!");
-                    System.exit(1);
+                    exitOnError("Please specify right read files!");
                 }
 
                 if (leftReadPaths.length != rightReadPaths.length) {
-                    System.out.println("ERROR: Read files are not paired properly!");
-                    System.exit(1);
+                    exitOnError("Read files are not paired properly!");
                 }
                 
                 checkInputFileFormat(leftReadPaths);
@@ -4217,15 +4222,18 @@ public class RNABloom {
             
             long expNumKmers = -1L;
             if (line.hasOption(optNtcard.getOpt())) {
+                if (!hasNtcard()) {
+                    exitOnError("`ntcard` not found in your PATH!");
+                }
+                
                 System.out.println("\nK-mer counting with ntcard...");
                 String histogramPathPrefix = outdir + File.separator + name;
                 
                 timer.start();
                 expNumKmers = getNumUniqueKmers(numThreads, k, histogramPathPrefix, leftReadPaths, rightReadPaths, forceOverwrite);
                     
-                if (expNumKmers < 0) {
-                    System.out.println("ERROR: Cannot get number of unique k-mers from ntcard!");
-                    System.exit(1);
+                if (expNumKmers <= 0) {
+                    exitOnError("Cannot get number of unique k-mers from ntcard! (" + expNumKmers + ")");
                 }
                 
                 System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
