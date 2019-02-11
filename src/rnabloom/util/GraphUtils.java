@@ -9499,9 +9499,9 @@ public final class GraphUtils {
                 }
                 else {
                     int testLength = halfIndex-maxLoopDiameter-rcIndex;
-                    byte[] left = graph.assembleBytes(seqKmers, rcIndex, halfIndex-maxLoopDiameter);
-                    byte[] right = graph.assembleReverseComplementBytes(seqKmers, i+1-testLength, i+1);
 
+                    byte[] left = graph.assembleBytes(seqKmers, rcIndex, halfIndex-maxLoopDiameter+1);
+                    byte[] right = graph.assembleReverseComplementBytes(seqKmers, i-testLength, i+1);
                     float pid = getPercentIdentity(left, right);
                     
                     if (pid >= minPercentIdentity) {
