@@ -3874,7 +3874,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optPkbfMem);
 
-        final String optFprDefault = "0.10";
+        final String optFprDefault = "0.05";
         Option optFpr = Option.builder("fpr")
                                     .longOpt("fpr")
                                     .desc("maximum allowable false-positive rate of Bloom filters [" + optFprDefault + "]")
