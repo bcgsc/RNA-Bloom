@@ -50,7 +50,6 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysBloomFilter;
@@ -301,110 +300,6 @@ public class RNABloom {
             if (!FastaReader.isFasta(p) && !FastqReader.isFastq(p)) {
                 throw new FileFormatException("Unsupported file format detected in input file `" + p + "`. Only FASTA and FASTQ formats are supported.");
             }
-        }
-    }
-    
-    public class FastqToGraphWorker implements Runnable {
-        
-        private final int id;
-        private long numReads = 0;
-        private final FastqReader reader;
-        private final NTHashIterator itr;
-        private boolean successful = false;
-        private boolean incrementIfPresent = false;
-        
-        public FastqToGraphWorker(int id, FastqReader reader, boolean stranded, boolean reverseComplement, int numHash, boolean incrementIfPresent) {            
-            this.id = id;
-            this.reader = reader;
-            this.incrementIfPresent = incrementIfPresent;
-            
-            if (stranded) {
-                if (reverseComplement) {
-                    itr = new ReverseComplementNTHashIterator(k, numHash);
-                }
-                else {
-                    itr = new NTHashIterator(k, numHash);
-                }
-            }
-            else {
-                itr = new CanonicalNTHashIterator(k, numHash);
-            }
-        }
-        
-        @Override
-        public void run() {
-            
-            try {
-                Matcher mQual = qualPatternDBG.matcher("");
-                Matcher mSeq = seqPattern.matcher("");
-                
-                if (incrementIfPresent) {
-                    try {
-                        long[] hashVals = itr.hVals;
-                        FastqRecord record = new FastqRecord();
-                        
-                        while (true) {
-                            reader.nextWithoutName(record);
-                            mQual.reset(record.qual);
-
-                            while (mQual.find()) {
-                                mSeq.reset(record.seq.substring(mQual.start(), mQual.end()));
-                                while (mSeq.find()) {
-                                    itr.start(mSeq.group());
-                                    while (itr.hasNext()) {
-                                        itr.next();
-                                        graph.addCountIfPresent(hashVals); // Only insert if kmer is absent in the graph
-                                    }
-                                }
-                            }
-                            
-                            ++numReads;
-                        }
-                    }
-                    catch (NoSuchElementException e) {
-                        //end of file
-                        successful = true;
-                    }
-                }
-                else {
-                    try {
-                        long[] hashVals = itr.hVals;
-                        FastqRecord record = new FastqRecord();
-                        
-                        while (true) {
-                            reader.nextWithoutName(record);
-                            mQual.reset(record.qual);
-
-                            while (mQual.find()) {
-                                mSeq.reset(record.seq.substring(mQual.start(), mQual.end()));
-                                while (mSeq.find()) {
-                                    itr.start(mSeq.group());
-                                    while (itr.hasNext()) {
-                                        itr.next();
-                                        graph.add(hashVals);
-                                    }
-                                }
-                            }
-                            
-                            ++numReads;
-                        }
-                    }
-                    catch (NoSuchElementException e) {
-                        //end of file
-                        successful = true;
-                    }
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-        
-        public boolean isSuccessful() {
-            return successful;
-        }
-        
-        public long getReadCount() {
-            return numReads;
         }
     }
 
@@ -800,55 +695,6 @@ public class RNABloom {
         return new long[]{sbfSize, dbgbfSize, cbfSize, pkbfSize};
     }
     
-//    public void addCountsOnly(Collection<String> forwardFastqs,
-//                            Collection<String> reverseFastqs,
-//                            boolean strandSpecific,
-//                            int numThreads) {        
-//                
-//        /** parse the reads */
-//        
-//        int numReads = 0;
-//        int numHash = graph.getMaxNumHash();
-//        
-//        ExecutorService service = Executors.newFixedThreadPool(numThreads);
-//        
-//        ArrayList<SeqToGraphWorker> threadPool = new ArrayList<>();
-//        int threadId = 0;
-//           
-//        for (String fastq : forwardFastqs) {
-//            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, false, numHash, true);
-//            service.submit(t);
-//            threadPool.add(t);
-//        }
-//
-//        for (String fastq : reverseFastqs) {
-//            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, fastq, strandSpecific, true, numHash, true);
-//            service.submit(t);
-//            threadPool.add(t);
-//        }
-//
-//        service.shutdown();
-//        
-//        try {
-//            service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-//            
-//            for (SeqToGraphWorker t : threadPool) {
-//                numReads += t.getReadCount();
-//            }
-//
-//            System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads in total.");
-////            System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
-//            
-////            screeningBf.destroy();
-//            
-//        } catch (Exception ex) {
-//            handleException(ex);
-//        }
-//        
-//        dbgFPR = graph.getDbgbfFPR();
-//        covFPR = graph.getCbfFPR();
-//    }
-    
     public void populateGraphFromFragments(Collection<String> fastas, boolean strandSpecific, boolean loadPairedKmers) throws IOException {
         /** insert into graph if absent */
         
@@ -911,168 +757,6 @@ public class RNABloom {
         dbgFPR = graph.getDbgbfFPR();
         System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
 //        covFPR = graph.getCbfFPR();
-    }
-    
-    public void insertIntoDeBruijnGraph(String fasta) throws IOException, Exception { 
-        
-        NTHashIterator itr = graph.getHashIterator(graph.getDbgbfNumHash());
-        long[] hashVals = itr.hVals;
-        
-        FastaReader fin = new FastaReader(fasta);
-
-        try {
-            while (true) {
-                if (itr.start(fin.next())) {
-                    while (itr.hasNext()) {
-                        itr.next();
-                        graph.addDbgOnly(hashVals);
-                    }
-                }
-            }
-        }
-        catch (NoSuchElementException e) {
-            //end of file
-        }
-
-        fin.close();
-    }
-
-    public void insertIntoDeBruijnGraphAndPairedKmers(String fasta) throws IOException, Exception {
-                
-        NTHashIterator itr = graph.getHashIterator(graph.getDbgbfNumHash());
-        long[] hashVals = itr.hVals;
-
-        PairedNTHashIterator pItr = graph.getPairedHashIterator();
-        long[] hashVals1 = pItr.hVals1;
-        long[] hashVals2 = pItr.hVals2;
-        long[] hashVals3 = pItr.hVals3;
-        
-        FastaReader fin = new FastaReader(fasta);
-        
-        String seq;
-        try {
-            while (true) {
-                seq = fin.next();
-
-                if (itr.start(seq)) {
-                    while (itr.hasNext()) {
-                        itr.next();
-                        graph.addDbgOnly(hashVals);
-                    }
-                }
-
-                if (pItr.start(seq)) {
-                    while (pItr.hasNext()) {
-                        pItr.next();
-                        graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
-                    }
-                }
-            }
-        }
-        catch(NoSuchElementException e) {
-            // end of file
-        }
-
-        fin.close();
-    }
-    
-    public void insertIntoDeBruijnGraph(String[] fastas) throws IOException, Exception { 
-        
-        NTHashIterator itr = graph.getHashIterator(graph.getDbgbfNumHash());
-        long[] hashVals = itr.hVals;
-        
-        for (String fasta : fastas) {
-            FastaReader fin = new FastaReader(fasta);
-            
-            try {
-                while (true) {
-                    if (itr.start(fin.next())) {
-                        while (itr.hasNext()) {
-                            itr.next();
-                            graph.addDbgOnly(hashVals);
-                        }
-                    }
-                }
-            }
-            catch(NoSuchElementException e) {
-                // end of file
-            }
-            
-            fin.close();
-        }
-    }
-    
-//    private void insertIntoDeBruijnGraphMultiThreaded(ArrayDeque<String> fragmentsFasta, int sampleSize, int numThreads) throws InterruptedException, IOException, Exception {
-//        ArrayBlockingQueue<String> fragmentsQueue = new ArrayBlockingQueue<>(sampleSize, true);
-//
-//        FragmentDbgWorker[] workers = new FragmentDbgWorker[numThreads];
-//        Thread[] threads = new Thread[numThreads];
-//        for (int i=0; i<numThreads; ++i) {
-//            workers[i] = new FragmentDbgWorker(fragmentsQueue);
-//            threads[i] = new Thread(workers[i]);
-//            threads[i].start();
-//        }
-//
-//        for (String fa : fragmentsFasta) {
-//            FastaReader fin = new FastaReader(fa);
-//
-//            while (fin.hasNext()) {
-//                fragmentsQueue.put(fin.next());
-//            }
-//
-//            fin.close();
-//        }
-//
-//        for (FragmentDbgWorker w : workers) {
-//            w.stopWhenEmpty();
-//        }
-//
-//        for (Thread t : threads) {
-//            t.join();
-//        }
-//    }
-    
-    private class FragmentDbgWorker implements Runnable {
-        private final ArrayBlockingQueue<String> fragments;
-        private boolean keepGoing = true;
-        
-        public FragmentDbgWorker(ArrayBlockingQueue<String> fragments) {
-            this.fragments = fragments;
-        }
-
-        public void stopWhenEmpty () {
-            keepGoing = false;
-        }
-        
-        @Override
-        public void run() {
-            NTHashIterator itr = graph.getHashIterator(graph.getDbgbfNumHash());
-            long[] hashVals = itr.hVals;
-            String fragment = null;
-            
-            try {
-                while (true) {
-                    fragment = fragments.poll(50, TimeUnit.MILLISECONDS);
-                                        
-                    if (fragment == null) {
-                        if (!keepGoing) {
-                            break;
-                        }
-                    }
-                    else {
-                        if (itr.start(fragment)) {
-                            while (itr.hasNext()) {
-                                itr.next();
-                                graph.addDbgOnly(hashVals);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex) {
-                throw new RuntimeException(ex);
-            }
-        }
     }
         
     public static class ReadPair {
@@ -1648,11 +1332,7 @@ public class RNABloom {
                             leftKmers = graph.getKmers(left);
                         }
                     }
-                } 
-                                
-//                if (leftKmers == null || leftKmers.isEmpty()) {
-//                    return;
-//                }
+                }
                 
                 String right = getBestSegment(p.right, graph);
                                 
@@ -1673,50 +1353,6 @@ public class RNABloom {
                 if (leftBad && rightBad) {
                     return;
                 }
-                
-                /*
-                if (leftBad) {
-                    boolean hasComplexKmer = false;
-                    float minCov = Float.MAX_VALUE;
-                    if (rightKmers.size() >= lookahead) {
-                        for (Kmer kmer : rightKmers) {
-                            if (kmer.count < minCov) {
-                                minCov = kmer.count;
-                            }
-
-                            if (!hasComplexKmer && !graph.isLowComplexity(kmer)) {
-                                hasComplexKmer = true;
-                            }
-                        }
-                    }
-
-                    if (hasComplexKmer) {
-                        outList.put(new Fragment("N", graph.assemble(rightKmers), null, 0, minCov, true));
-                        return;
-                    }
-                }
-                
-                if (rightBad) {
-                    boolean hasComplexKmer = false;
-                    float minCov = Float.MAX_VALUE;
-                    if (leftKmers.size() >= lookahead) {
-                        for (Kmer kmer : leftKmers) {
-                            if (kmer.count < minCov) {
-                                minCov = kmer.count;
-                            }
-
-                            if (!hasComplexKmer && !graph.isLowComplexity(kmer)) {
-                                hasComplexKmer = true;
-                            }
-                        }
-                    }
-
-                    if (hasComplexKmer) {
-                        outList.put(new Fragment(graph.assemble(leftKmers), "N", null, 0, minCov, true));
-                        return;
-                    }
-                }
-                */
                 
                 ArrayList<Kmer> fragmentKmers = null;
                 
@@ -1898,7 +1534,7 @@ public class RNABloom {
         }
     }
         
-    public int[] getMinQ1MedianQ3Max(ArrayList<Integer> a) {
+    private int[] getMinQ1MedianQ3Max(ArrayList<Integer> a) {
         if (a.isEmpty()) {
             int[] result = new int[5];
             Arrays.fill(result, 0);
@@ -1939,7 +1575,7 @@ public class RNABloom {
         return new int[]{a.get(0), q1, median, q3, a.get(arrLen-1)};
     }
     
-    public static int getMinCoverageOrderOfMagnitude(float c) {
+    private static int getMinCoverageOrderOfMagnitude(float c) {
         if (c >= 1e5) {
             return 5;
         }
@@ -2309,11 +1945,11 @@ public class RNABloom {
         return fragStats;
     }
     
-    public void setPairedKmerDistance(int fragStatQ1) {
+    private void setPairedKmerDistance(int fragStatQ1) {
         graph.setFragPairedKmerDistance(fragStatQ1 - k - minNumKmerPairs);
     }
     
-    public int getPairedReadsMaxDistance(int[] fragStats) {
+    private int getPairedReadsMaxDistance(int[] fragStats) {
         return fragStats[3] + ((fragStats[3] - fragStats[1]) * 3 / 2); // 1.5*IQR
     }
     
@@ -3170,9 +2806,9 @@ public class RNABloom {
         }
     }
 
-    public final static String FIELD_SEPARATOR = "\\s+"; // any white space character
+    private final static String FIELD_SEPARATOR = "\\s+"; // any white space character
     
-    public static boolean getPooledReadPaths(String pooledReadPathsListFile,
+    private static boolean getPooledReadPaths(String pooledReadPathsListFile,
             HashMap<String, ArrayList<String>> pooledLeftReadPaths,
             HashMap<String, ArrayList<String>> pooledRightReadPaths) throws FileNotFoundException, IOException {
         
