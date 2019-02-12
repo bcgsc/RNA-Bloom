@@ -789,21 +789,18 @@ public final class GraphUtils {
         int numHash = graph.getMaxNumHash();
         
         ArrayDeque<Kmer> frontier = new ArrayDeque<>();
-        frontier.addAll(left.getSuccessors(k, numHash, graph));
+        frontier.addAll(left.getSuccessors(k, numHash, graph, bf));
         
-        HashSet<String> kmersInFrontier = new HashSet<>();
+        HashSet<Kmer> kmersInFrontier = new HashSet<>();
         ArrayDeque<Kmer> newFrontier;
         for (int i=1; i<lowerBound; ++i) {
             kmersInFrontier.clear();
             newFrontier = new ArrayDeque<>();
             for (Kmer kmer : frontier) {
-                if (bf.lookup(kmer.getHash())) {
-                    for (Kmer s : kmer.getSuccessors(k, numHash, graph)) {
-                        String seq = s.toString();
-                        if (!kmersInFrontier.contains(seq)) { 
-                            newFrontier.add(s);
-                            kmersInFrontier.add(seq);
-                        }
+                for (Kmer s : kmer.getSuccessors(k, numHash, graph, bf)) {
+                    if (!kmersInFrontier.contains(s)) { 
+                        newFrontier.add(s);
+                        kmersInFrontier.add(s);
                     }
                 }
             }
@@ -819,17 +816,14 @@ public final class GraphUtils {
             kmersInFrontier.clear();
             newFrontier = new ArrayDeque<>();
             for (Kmer kmer : frontier) {
-                if (bf.lookup(kmer.getHash())) {
-                    if (kmer.equals(right)) {
-                        return true;
-                    }
-                    newFrontier.add(kmer);
-                    for (Kmer s : kmer.getSuccessors(k, numHash, graph)) {
-                        String seq = s.toString();
-                        if (!kmersInFrontier.contains(seq)) { 
-                            newFrontier.add(s);
-                            kmersInFrontier.add(seq);
-                        }
+                if (kmer.equals(right)) {
+                    return true;
+                }
+                newFrontier.add(kmer);
+                for (Kmer s : kmer.getSuccessors(k, numHash, graph, bf)) {
+                    if (!kmersInFrontier.contains(s)) { 
+                        newFrontier.add(s);
+                        kmersInFrontier.add(s);
                     }
                 }
             }
@@ -842,10 +836,8 @@ public final class GraphUtils {
         }
         
         for (Kmer kmer : frontier) {
-            if (bf.lookup(kmer.getHash())) {
-                if (kmer.equals(right)) {
-                    return true;
-                }
+            if (kmer.equals(right)) {
+                return true;
             }
         }
         
@@ -6618,14 +6610,8 @@ public final class GraphUtils {
     }
     
     public static void extendPE(ArrayList<Kmer> kmers, 
-                                            BloomFilterDeBruijnGraph graph, 
-                                            int lookahead, 
+                                            BloomFilterDeBruijnGraph graph,
                                             int maxTipLength,
-                                            BloomFilter assembledKmersBloomFilter,
-                                            int maxIndelSize,
-                                            float percentIdentity,
-                                            int minNumPairs,
-                                            float maxCovGradient,
                                             float minKmerCov) {
         final int d = graph.getFragPairedKmerDistance();
         
@@ -9370,9 +9356,10 @@ public final class GraphUtils {
         return true;
     }
     
-    public static boolean isFusion(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead) {
+    public static boolean isChimera(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, BloomFilter assembledKmers, int lookahead) {
         int k = graph.getK();   
         int numKmers = seqKmers.size();
+        int maxGap = 2*k;
         
         if (assembledKmers.lookup(seqKmers.get(0).getHash()) &&
                 assembledKmers.lookup(seqKmers.get(numKmers-1).getHash())) {
@@ -9380,6 +9367,25 @@ public final class GraphUtils {
             int i = 1;
             for (; i < numKmers-1; ++i) {
                 if (!assembledKmers.lookup(seqKmers.get(i).getHash())) {
+                    Kmer left = seqKmers.get(i-1);
+                    
+                    // check to see if this is a small gap
+                    int t=i+1;
+                    for (; t <numKmers-1; ++t) {
+                        if (assembledKmers.lookup(seqKmers.get(t).getHash())) {
+                            break;
+                        }
+                    }
+                    
+                    if (t < numKmers-1) {
+                        Kmer right = seqKmers.get(t);
+                        int d = t-i;
+                        if (d <= maxGap && hasValidPath(graph, left, right, assembledKmers, d, d)) {
+                            i = t;
+                            continue;
+                        }
+                    }
+                    
                     break;
                 }
             }
@@ -9393,13 +9399,32 @@ public final class GraphUtils {
             int j = numKmers-2;
             for (; j > i; --j) {
                 if (!assembledKmers.lookup(seqKmers.get(j).getHash())) {
+                    Kmer right = seqKmers.get(j+1);
+                    
+                    // check to see if this is a small gap
+                    int t=j-1;
+                    for (; t > i; --t) {
+                        if (assembledKmers.lookup(seqKmers.get(t).getHash())) {
+                            break;
+                        }
+                    }
+                    
+                    if (t > i) { 
+                        Kmer left = seqKmers.get(t);
+                        int d = j-t;
+                        if (d <= maxGap && hasValidPath(graph, left, right, assembledKmers, d, d)) {
+                            j = t;
+                            continue;
+                        }
+                    }
+                    
                     break;
                 }
             }
             
             ++j;
             
-            if (j - i <= 2*k) { // use 2*k instead of k to account for mismatches near breakpoint
+            if (j - i <= maxGap) { // use 2*k instead of k to account for mismatches near breakpoint
                 Kmer source1 = seqKmers.get(i);
                 Kmer source2 = seqKmers.get(j);
                 

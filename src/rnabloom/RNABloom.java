@@ -1038,7 +1038,7 @@ public class RNABloom {
                             break;
                         }
                     }
-                    else {                        
+                    else {
                         ArrayList<Kmer> kmers = graph.getKmers(fragment);
                         
                         if (!kmers.isEmpty()) {
@@ -1052,10 +1052,10 @@ public class RNABloom {
                                                 maxIndelSize,
                                                 maxEdgeClipLength,
                                                 percentIdentity) &&
-                                 (keepChimera || !isFusion(kmers, graph, screeningBf, lookahead)) &&
+                                 (keepChimera || !isChimera(kmers, graph, screeningBf, lookahead)) &&
                                  (keepBluntEndArtifact || !isBluntEndArtifact(kmers, graph, screeningBf, maxEdgeClipLength)) ) {
                                 
-                                extendPE(kmers, graph, lookahead, maxTipLength, screeningBf, maxIndelSize, percentIdentity, minNumKmerPairs, maxCovGradient, minKmerCov);
+                                extendPE(kmers, graph, maxTipLength, minKmerCov);
 
                                 if (reqFragKmersConsistency && kmers.size() >= fragKmersDist) {
                                     ArrayDeque<ArrayList<Kmer>> fragSegments = breakWithFragPairedKmers(kmers, graph);
