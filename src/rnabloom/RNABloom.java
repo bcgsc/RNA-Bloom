@@ -372,8 +372,6 @@ public class RNABloom {
                         
                         if (storeReadPairedKmers) {
                             while (true) {
-                                ++numReads;
-
                                 fr.nextWithoutName(record);
                                 mQual.reset(record.qual);
                                 mSeq.reset(record.seq);
@@ -401,12 +399,12 @@ public class RNABloom {
                                         }
                                     }
                                 }
+                                
+                                ++numReads;
                             }
                         }
                         else {
                             while (true) {
-                                ++numReads;
-
                                 fr.nextWithoutName(record);
                                 mQual.reset(record.qual);
                                 mSeq.reset(record.seq);
@@ -423,6 +421,8 @@ public class RNABloom {
                                         }
                                     }
                                 }
+                                
+                                ++numReads;
                             }
                         }
                     }
@@ -440,8 +440,6 @@ public class RNABloom {
                         
                         if (storeReadPairedKmers) {
                             while (true) {
-                                ++numReads;
-
                                 seq = fr.next();
                                 mSeq.reset(seq);
                                                                 
@@ -465,12 +463,12 @@ public class RNABloom {
                                         }
                                     }
                                 }
+                                
+                                ++numReads;
                             }
                         }
                         else {
                             while (true) {
-                                ++numReads;
-
                                 seq = fr.next();
                                 mSeq.reset(seq);
 
@@ -483,6 +481,8 @@ public class RNABloom {
 //                                        }
                                     }
                                 }
+                                
+                                ++numReads;
                             }
                         }
                     }
@@ -2517,8 +2517,8 @@ public class RNABloom {
 
         try {
             while (true) {
-                ++numFragmentsParsed;
                 fragmentsQueue.put(fin.next());
+                ++numFragmentsParsed;
             }
         }
         catch (NoSuchElementException e) {
