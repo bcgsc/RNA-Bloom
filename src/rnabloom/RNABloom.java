@@ -3629,13 +3629,13 @@ public class RNABloom {
         options.addOption(optSensitive);
         
         Option optKeepArtifact = Option.builder("artifact")
-                                    .desc("do not remove potential sequencing artifact [false]")
+                                    .desc("keep potential sequencing artifacts [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optKeepArtifact);
 
         Option optKeepChimera = Option.builder("chimera")
-                                    .desc("do not remove potential chimera [false]")
+                                    .desc("keep potential chimeras [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optKeepChimera);
@@ -3643,7 +3643,7 @@ public class RNABloom {
         final String optBranchFreeExtensionDefault = STRATUM_E0;
         final String optBranchFreeExtensionChoicesStr = String.join("|", STRATA);
         Option optBranchFreeExtensionThreshold = Option.builder("stratum")
-                                    .desc("fragments lower than the specified stratum are extended only if they are branch-free [" + optBranchFreeExtensionDefault + "]")
+                                    .desc("fragments lower than the specified stratum are extended only if they are branch-free in the graph [" + optBranchFreeExtensionDefault + "]")
                                     .hasArg(true)
                                     .argName(optBranchFreeExtensionChoicesStr)
                                     .build();
