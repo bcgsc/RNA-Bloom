@@ -3612,34 +3612,44 @@ public final class GraphUtils {
             if (overlappedSeqLength <= leftLen + rightLen - k) {
                 // The overlap is larger than or equal to k
                 
-                boolean hasComplexKmer = false;
-//                int end = leftLen - k + 1;
-//                int start = overlappedKmers.size() - (rightLen - k + 1);
-
-                int end = rightLen - (overlappedSeqLength - leftLen) - k + 1;
-
-                for (int i=0; i<end; ++i) {
-                    if (!graph.isLowComplexity(rightKmers.get(i))) {
-                        // Require at least one complex kmers in the overlap
-                        hasComplexKmer = true;
-                        break;
+                if (overlappedSeqLength == Math.max(leftLen, rightLen)) {
+                    if (leftLen >= rightLen) {
+                        // left read contains right read
+                        return leftKmers;
+                    }
+                    else {
+                        // right read contains left read
+                        return rightKmers;
                     }
                 }
-                
-                if (!hasComplexKmer) {
-                    return null;
+                else {
+                    boolean hasComplexKmer = false;
+
+                    int end = rightLen - (overlappedSeqLength - leftLen) - k + 1;
+
+                    for (int i=0; i<end; ++i) {
+                        if (!graph.isLowComplexity(rightKmers.get(i))) {
+                            // Require at least one complex kmers in the overlap
+                            hasComplexKmer = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasComplexKmer) {
+                        return null;
+                    }
+
+                    ArrayList<Kmer> overlappedKmers = new ArrayList<>(overlappedSeqLength - k + 1); //graph.getKmers(overlapped);
+                    overlappedKmers.addAll(leftKmers);
+
+                    // add remaining right kmers
+                    int numRightKmers = rightKmers.size();
+                    for (int i=end; i<numRightKmers; ++i) {
+                        overlappedKmers.add(rightKmers.get(i));
+                    }
+                    
+                    return overlappedKmers;
                 }
-                
-                ArrayList<Kmer> overlappedKmers = new ArrayList<>(overlappedSeqLength - k + 1); //graph.getKmers(overlapped);
-                overlappedKmers.addAll(leftKmers);
-                
-                // add remaining right kmers
-                int numRightKmers = rightKmers.size();
-                for (int i=end; i<numRightKmers; ++i) {
-                    overlappedKmers.add(rightKmers.get(i));
-                }
-                
-                return overlappedKmers;
             }
             else {
                 // The overlap is smaller than k
