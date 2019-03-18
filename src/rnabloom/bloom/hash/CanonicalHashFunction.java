@@ -123,6 +123,30 @@ public class CanonicalHashFunction extends HashFunction {
     }
     
     @Override
+    public ArrayList<Kmer> getKmers(final String seq, final int start, final int end, final int numHash, BloomFilterDeBruijnGraph graph) {
+        ArrayList<Kmer> result = new ArrayList<>();
+        
+        int seqLength = seq.length();
+        
+        if (seqLength >= k) {
+            byte[] bytes = stringToBytes(seq, seqLength);
+
+            CanonicalNTHashIterator itr = new CanonicalNTHashIterator(k, numHash);
+            itr.start(seq, start, end);
+            long[] hVals = itr.hVals;
+            long[] frhval = itr.frhval;
+            int i;
+            while (itr.hasNext()) {
+                itr.next();
+                i = itr.getPos();
+                result.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), frhval[0], frhval[1]));
+            }
+        }
+        
+        return result;
+    }
+    
+    @Override
     public void getHashValues(final String kmer,
                               final int numHash,
                               final long[] out) {
