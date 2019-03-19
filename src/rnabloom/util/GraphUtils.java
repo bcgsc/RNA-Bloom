@@ -21,6 +21,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -94,6 +95,18 @@ public final class GraphUtils {
         return min;
     }
     
+    public static boolean areKmerCoverageAboveThreshold(final ArrayList<Kmer> kmers, int start, int end, float threshold) {
+        float c;
+        for (int i=start; i<end; ++i) {
+            c = kmers.get(i).count;
+            if (c < threshold) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
     private static int getMinimumKmerCoverageIndexL2R(final ArrayList<Kmer> kmers, int start, int end) {
         // search from left to right
         
@@ -151,7 +164,7 @@ public final class GraphUtils {
         return getMinMedMax(covs);
     }    
     
-    public static float getMedianKmerCoverage(final ArrayDeque<Kmer> kmers) {
+    public static float getMedianKmerCoverage(final Collection<Kmer> kmers) {
         int numKmers = kmers.size();
         
         Iterator<Kmer> itr = kmers.iterator();
@@ -233,7 +246,7 @@ public final class GraphUtils {
 
                 if (path.size() == lookahead) {
                     // we only calculate coverage if path is long enough
-                    float pathCov = getMedianKmerCoverage(path);
+                    float pathCov = getMinimumKmerCoverage(path);
                     if (bestCov < pathCov) {
                         bestCov = pathCov;
                     }
@@ -296,7 +309,7 @@ public final class GraphUtils {
 
                 if (path.size() == lookahead) {
                     // we only calculate coverage if path is long enough
-                    float pathCov = getMedianKmerCoverage(path);
+                    float pathCov = getMinimumKmerCoverage(path);
                     if (bestCov < pathCov) {
                         bestCov = pathCov;
                     }
@@ -356,7 +369,7 @@ public final class GraphUtils {
 
                 if (path.size() == lookahead) {
                     // we only calculate coverage if path is long enough
-                    float pathCov = getMedianKmerCoverage(path);
+                    float pathCov = getMinimumKmerCoverage(path);
                     if (bestCov < pathCov) {
                         bestCov = pathCov;
                     }
@@ -419,7 +432,7 @@ public final class GraphUtils {
 
                 if (path.size() == lookahead) {
                     // we only calculate coverage if path is long enough
-                    float pathCov = getMedianKmerCoverage(path);
+                    float pathCov = getMinimumKmerCoverage(path);
                     if (bestCov < pathCov) {
                         bestCov = pathCov;
                     }
@@ -1560,7 +1573,7 @@ public final class GraphUtils {
      * @return 
      */
     public static ArrayDeque<Kmer> getMaxCoveragePath(BloomFilterDeBruijnGraph graph, Kmer left, Kmer right, int bound, int lookahead, float minKmerCov) {
-        
+               
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
@@ -1820,42 +1833,59 @@ public final class GraphUtils {
         return a.get(halfLen);
     }
         
-    private static class Stats {
+    public static class Stats {
         public float min;
         public float q1;
         public float median;
         public float q3;
         public float max;
+        public float dropoff;
     }
     
-    private static Stats getStats(final List<Float> arr) {
-        ArrayList<Float> a = new ArrayList<>(arr);
-        Collections.sort(a);
+    public static Stats getCoverageStats(final Collection<Kmer> kmers, float maxCovGradient, int lookahead) {
+        int len = kmers.size();
+        float[] covs = new float[len];
+        int i=0;
+        for (Kmer kmer : kmers) {
+            covs[i] = kmer.count;
+            ++i;
+        }
         
+        Arrays.sort(covs);
+                
         Stats stats = new Stats();
-        
-        int arrLen = a.size();
-        int halfLen = arrLen/2;
-        int q1Index = arrLen/4;
+        int halfLen = len/2;
+        int q1Index = len/4;
         int q3Index = halfLen+q1Index;
+                
+        stats.min = covs[0];
+        stats.max = covs[len-1];
         
-        stats.min = a.get(0);
-        stats.max = a.get(arrLen-1);
-        
-        if (arrLen % 2 == 0) {
-            stats.median = (a.get(halfLen-1) + a.get(halfLen))/2.0f;
+        if (len % 2 == 0) {
+            stats.median = (covs[halfLen-1] + covs[halfLen])/2.0f;
         }
         else {
-            stats.median = a.get(halfLen);
+            stats.median = covs[halfLen];
         }
         
-        if (arrLen % 4 == 0) {
-            stats.q1 = (a.get(q1Index-1) + a.get(q1Index))/2.0f;
-            stats.q3 = (a.get(q3Index-1) + a.get(q3Index))/2.0f;
+        if (len % 4 == 0) {
+            stats.q1 = (covs[q1Index-1] + covs[q1Index])/2.0f;
+            stats.q3 = (covs[q3Index-1] + covs[q3Index])/2.0f;
         }
         else {
-            stats.q1 = a.get(q1Index);
-            stats.q3 = a.get(q3Index);
+            stats.q1 = covs[q1Index];
+            stats.q3 = covs[q3Index];
+        }
+        
+        stats.dropoff = 0;
+        float last = covs[len-lookahead];
+        for (i=len-lookahead-1; i>=0; --i) {
+            float c = covs[i];
+            if (c < last * maxCovGradient) {
+                stats.dropoff = last;
+                break;
+            }
+            last = c;
         }
         
         return stats;
@@ -2435,7 +2465,285 @@ public final class GraphUtils {
         return null;
     }
     
-    private static ArrayList<Kmer> correctErrorHelper(ArrayList<Kmer> kmers,
+    public static ArrayList<Kmer> correctLongSequence(ArrayList<Kmer> kmers, 
+                                                BloomFilterDeBruijnGraph graph, 
+                                                int maxErrCorrItr, 
+                                                float maxCovGradient, 
+                                                int lookahead, 
+                                                int maxIndelSize, 
+                                                float percentIdentity, 
+                                                int minKmerCov) {
+        
+        Stats covStat = getCoverageStats(kmers, maxCovGradient, lookahead);
+
+        if (covStat.median > minKmerCov) {
+
+            // use each window's median kmer coverage as threshold
+            int windowSize = 200;
+            int shift = windowSize/maxErrCorrItr;
+
+            ArrayList<Kmer> testKmers = kmers;
+            for (int itr=0; itr<maxErrCorrItr; ++itr) {
+                boolean corrected = false;
+                
+                int numKmers = testKmers.size();
+                ArrayList<Kmer> correctedKmers = new ArrayList<>();
+
+                int start = itr*shift;
+                if (start >= numKmers) {
+                    break;
+                }
+                
+                for (int i=0; i<start; ++i) {
+                    correctedKmers.add(testKmers.get(i));
+                }
+
+                int end = 0;
+                for (int i=start; i<numKmers; i=end) {
+                    end = Math.min(i + windowSize, numKmers);
+                    if (end + shift >= numKmers) {
+                        end = numKmers;
+                    }
+
+                    ArrayList<Kmer> window = new ArrayList<>(testKmers.subList(i, end));
+                    ArrayList<Kmer> windowCorrected = null;
+
+                    covStat = getCoverageStats(window, maxCovGradient, lookahead);
+                    float threshold = covStat.median;
+                    if (covStat.dropoff > 0) {
+                        threshold = covStat.dropoff;
+                    }
+
+                    windowCorrected = correctInternalErrors(window,
+                                                                graph, 
+                                                                lookahead,
+                                                                maxIndelSize,
+                                                                threshold,
+                                                                percentIdentity,
+                                                                minKmerCov);
+
+                    if (windowCorrected == null) {
+                        correctedKmers.addAll(window);
+                    }
+                    else {
+                        corrected = true;
+                        correctedKmers.addAll(windowCorrected);
+                    }
+                }
+                
+                if (!corrected) {
+                    break;
+                }
+
+                testKmers = correctedKmers;
+            }
+            
+            // trim head and tail
+            ArrayList<Kmer> trimmed = trimLowCoverageEdgeKmers(testKmers,
+                                                                graph, 
+                                                                lookahead,
+                                                                windowSize,
+                                                                minKmerCov);
+            
+            if (trimmed != null) {
+                return trimmed;
+            }
+            
+            return testKmers;
+        }
+        
+        return null;
+    }
+    
+    public static ArrayList<Kmer> trimLowCoverageEdgeKmers(ArrayList<Kmer> kmers,
+                                                        BloomFilterDeBruijnGraph graph, 
+                                                        int lookahead,
+                                                        int windowSize,
+                                                        float threshold) {
+        int numKmers = kmers.size();
+        int headIndex = 0;
+        int tailIndex = numKmers;
+        
+        if (windowSize <= numKmers) {
+//            Stats covStat = getCoverageStats(kmers, maxCovGradient, lookahead);
+//            float threshold = covStat.dropoff;
+//            
+//            if (threshold > 0) {
+                for (int i=0; i<numKmers; ++i) {
+                    Kmer kmer = kmers.get(i);
+                    if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i+1, i+lookahead, threshold)) {
+                        headIndex = i;
+                        break;
+                    }
+                }
+                
+                for (int i=numKmers-1; i>=0; --i) {
+                    Kmer kmer = kmers.get(i);
+                    if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i-lookahead, i, threshold)) {
+                        tailIndex = i+1;
+                        break;
+                    }
+                }
+//            }
+        }
+        else {            
+//            Stats covStat = getCoverageStats(kmers.subList(0, windowSize), maxCovGradient, lookahead);
+//            float threshold = covStat.dropoff;
+//            if (threshold > 0) {
+                for (int i=0; i<windowSize; ++i) {
+                    Kmer kmer = kmers.get(i);
+                    if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i+1, i+lookahead, threshold)) {
+                        headIndex = i;
+                        break;
+                    }
+                }
+//            }
+//            
+//            covStat = getCoverageStats(kmers.subList(numKmers-windowSize, numKmers), maxCovGradient, lookahead);
+//            threshold = covStat.dropoff;
+//            if (threshold > 0) {
+                for (int i=numKmers-1; i>=numKmers-windowSize; --i) {
+                    Kmer kmer = kmers.get(i);
+                    if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i-lookahead, i, threshold)) {
+                        tailIndex = i+1;
+                        break;
+                    }
+                }
+//            }
+        }
+        
+        if (headIndex > 0 || tailIndex < numKmers) {
+            return new ArrayList<>(kmers.subList(headIndex, tailIndex));
+        }
+        
+        return null;
+    }
+    
+    public static ArrayList<Kmer> correctInternalErrors(ArrayList<Kmer> kmers,
+                                                    BloomFilterDeBruijnGraph graph, 
+                                                    int lookahead,
+                                                    int maxIndelSize,
+                                                    float covThreshold,
+                                                    float percentIdentity,
+                                                    float minKmerCov) {
+        
+        boolean corrected = false;
+        int numKmers = kmers.size();
+        
+        int k = graph.getK();
+        int expectedGapSize = k;
+        
+        ArrayList<Kmer> kmers2 = new ArrayList<>(numKmers + maxIndelSize);
+        int numBadKmersSince = 0;
+        Kmer kmer;
+        for (int i=0; i<numKmers; ++i) {
+            kmer = kmers.get(i);
+            
+            if (kmer.count >= covThreshold) {
+                
+                if (numBadKmersSince > 0) {
+                    if (kmers2.isEmpty()) {
+                        // use original sequence
+                        for (int j=0; j<i; ++j) {
+                            kmers2.add(kmers.get(j));
+                        }
+                    }
+                    else if (numBadKmersSince == expectedGapSize) {
+                        // a SNV bubble
+                        Kmer leftEdgeKmer = kmers.get(i-numBadKmersSince);
+                        Kmer rightEdgeKmer = kmers.get(i-1);
+                        String left = leftEdgeKmer.toString();
+                        String right = rightEdgeKmer.toString();
+                        
+                        ArrayList<Kmer> bestKmers = null;
+                        float bestCov = Float.MIN_VALUE;
+                        
+                        ArrayList<Kmer> testKmers;
+                        float[] m3;
+                        for (char n : NUCLEOTIDES) {
+                            testKmers = graph.getKmers(left + n + right);
+                            if (!testKmers.isEmpty()) {
+                                m3 = getMinMedMaxKmerCoverage(testKmers);
+
+                                float medCov = m3[1];
+                                if (m3[0] >= minKmerCov && medCov > bestCov) {
+                                    bestCov = medCov;
+                                    bestKmers = testKmers;
+                                }
+                            }
+                        }
+                        
+                        if (bestKmers != null & bestCov >= minKmerCov) {
+                            // fill with best kmers
+                            kmers2.addAll(bestKmers);
+                            corrected = true;
+                        }
+                        else {
+                            // fill with original kmers
+                            for (int j=i-numBadKmersSince; j<i; ++j) {
+                                kmers2.add(kmers.get(j));
+                            }                            
+                        }
+                    }
+                    else if (numBadKmersSince < k) {
+                        ++numBadKmersSince;
+                        continue;
+                    }
+                    else {
+                        ArrayDeque<Kmer> path = getMaxCoveragePath(graph, kmers2.get(kmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead, minKmerCov);
+                        if (path == null) {
+                            // fill with original sequence
+                            for (int j=i-numBadKmersSince; j<i; ++j) {
+                                kmers2.add(kmers.get(j));
+                            }
+                        }
+                        else {
+                            int altPathLen = path.size();
+
+                            if (numBadKmersSince-maxIndelSize <= altPathLen && 
+                                    altPathLen <= numBadKmersSince+maxIndelSize && 
+                                    (altPathLen <= k+maxIndelSize ||
+                                        getPercentIdentity(graph.assemble(path), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity)) {
+                                
+                                    kmers2.addAll(path);
+                                    corrected = true;
+                            }
+                            else {
+                                // fill with original sequence
+                                for (int j=i-numBadKmersSince; j<i; ++j) {
+                                    kmers2.add(kmers.get(j));
+                                }
+                            }
+                        }
+                    }
+
+                    numBadKmersSince = 0;
+                }
+                
+                kmers2.add(kmer);
+            }
+            else {
+                ++numBadKmersSince;
+            }
+        }
+        
+        if (numBadKmersSince > 0 && numBadKmersSince < numKmers) {
+            int i = numKmers-numBadKmersSince; // index of first bad kmer
+            
+            // use original sequence
+            for (int j=i; j<numKmers; ++j) {
+                kmers2.add(kmers.get(j));
+            }
+        }
+        
+        if (corrected) {
+            return kmers2;
+        }
+        
+        return null;
+    }
+    
+    public static ArrayList<Kmer> correctErrorHelper(ArrayList<Kmer> kmers,
                                                     BloomFilterDeBruijnGraph graph, 
                                                     int lookahead,
                                                     int maxIndelSize,
