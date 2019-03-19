@@ -33,7 +33,7 @@ import java.util.zip.GZIPInputStream;
  *
  * @author Ka Ming Nip
  */
-public final class FastqReader {
+public final class FastqReader implements FastxReaderInterface {
     private final static String GZIP_EXTENSION = ".gz";
     private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("^@([^\\s/]+)(?:/[12])?.*$");
     private final BufferedReader br;
@@ -49,7 +49,7 @@ public final class FastqReader {
         itr = br.lines().iterator();
     }
 
-    public static boolean isFastq(String path) {
+    public static boolean isCorrectFormat(String path) {
         try {
             // try to get the first FASTQ record
             FastqReader reader = new FastqReader(path);
@@ -63,8 +63,31 @@ public final class FastqReader {
         return true;
     }
     
+    @Override
     public boolean hasNext() {
         return itr.hasNext();
+    }
+    
+    @Override
+    public synchronized String next() throws FileFormatException {
+        String line1, line3, seq;
+        
+        synchronized(this) {
+            line1 = itr.next();
+            seq = itr.next();
+            line3 = itr.next();
+            itr.next();
+        }
+        
+        if (line1.charAt(0) != '@') {
+            throw new FileFormatException("Line 1 of FASTQ record is expected to start with '@'");
+        }
+
+        if (line3.charAt(0) != '+') {
+            throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
+        }
+        
+        return seq;
     }
     
     public void nextWithoutName(FastqRecord fr) throws FileFormatException {
@@ -109,6 +132,7 @@ public final class FastqReader {
         }
     }
         
+    @Override
     public void close() throws IOException {
         br.close();
     }

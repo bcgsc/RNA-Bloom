@@ -33,7 +33,7 @@ import java.util.zip.GZIPInputStream;
  *
  * @author Ka Ming Nip
  */
-public class FastaReader {
+public class FastaReader implements FastxReaderInterface {
     private final static String GZIP_EXTENSION = ".gz";
     private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("^>([^\\s/]+)(?:/[12])?.*$");
     private final Iterator<String> itr;
@@ -59,7 +59,7 @@ public class FastaReader {
         itr = br.lines().iterator();
     }
     
-    public static boolean isFasta(String path) {
+    public static boolean isCorrectFormat(String path) {
         try {
             // try to get the first FASTA record
             FastaReader reader = new FastaReader(path);
@@ -73,12 +73,12 @@ public class FastaReader {
         return true;
     }
 
-//    @Override
+    @Override
     public boolean hasNext() {
         return itr.hasNext();
     }
 
-//    @Override
+    @Override
     public synchronized String next() throws FileFormatException {
         if (itr.next().charAt(0) != '>') {
             throw new FileFormatException("Line 1 of a FASTA record is expected to start with '>'");
@@ -103,6 +103,7 @@ public class FastaReader {
         }
     }
     
+    @Override
     public void close() throws IOException {
         br.close();
     }
