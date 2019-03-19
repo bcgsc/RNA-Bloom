@@ -70,6 +70,7 @@ import rnabloom.io.PairedReadSegments;
 import rnabloom.io.FastqReader;
 import rnabloom.io.FastqRecord;
 import rnabloom.io.FastxPairReader;
+import rnabloom.io.FastxReaderInterface;
 import rnabloom.io.FileFormatException;
 import rnabloom.util.GraphUtils;
 import static rnabloom.util.GraphUtils.*;
@@ -297,7 +298,7 @@ public class RNABloom {
     
     public static void checkInputFileFormat(String[] paths) throws FileFormatException {
         for (String p : paths) {
-            if (!FastaReader.isFasta(p) && !FastqReader.isFastq(p)) {
+            if (!FastaReader.isCorrectFormat(p) && !FastqReader.isCorrectFormat(p)) {
                 throw new FileFormatException("Unsupported file format detected in input file `" + p + "`. Only FASTA and FASTQ formats are supported.");
             }
         }
@@ -361,9 +362,8 @@ public class RNABloom {
             try {
                 Matcher mSeq = seqPattern.matcher("");
                 long[] hashVals = itr.hVals;
-                long[] phashVals = pitr.hVals3;
                 
-                if (FastqReader.isFastq(path)) {
+                if (FastqReader.isCorrectFormat(path)) {
                     FastqReader fr = new FastqReader(path);
                     Matcher mQual = qualPatternDBG.matcher("");
                     
@@ -371,6 +371,8 @@ public class RNABloom {
                         FastqRecord record = new FastqRecord();
                         
                         if (storeReadPairedKmers) {
+                            long[] phashVals = pitr.hVals3;
+                            
                             while (true) {
                                 fr.nextWithoutName(record);
                                 mQual.reset(record.qual);
@@ -432,13 +434,15 @@ public class RNABloom {
                     
                     fr.close();
                 }
-                else if (FastaReader.isFasta(path)) {
+                else if (FastaReader.isCorrectFormat(path)) {
                     FastaReader fr = new FastaReader(path);
                     
                     try {
                         String seq;
                         
                         if (storeReadPairedKmers) {
+                            long[] phashVals = pitr.hVals3;
+                            
                             while (true) {
                                 seq = fr.next();
                                 mSeq.reset(seq);
@@ -515,7 +519,7 @@ public class RNABloom {
     public int getMaxReadLength(String path) throws FileFormatException, IOException{
         int max = -1;
 
-        if (FastqReader.isFastq(path)) {
+        if (FastqReader.isCorrectFormat(path)) {
             FastqRecord r = new FastqRecord();
             FastqReader fr = new FastqReader(path);
             for (int i=0; i< 100 && fr.hasNext(); ++i) {
@@ -524,7 +528,7 @@ public class RNABloom {
             }
             fr.close();
         }
-        else if (FastaReader.isFasta(path)) {
+        else if (FastaReader.isCorrectFormat(path)) {
             FastaReader fr = new FastaReader(path);
             for (int i=0; i< 100 && fr.hasNext(); ++i) {
                 max = Math.max(max, fr.next().length());
@@ -623,6 +627,7 @@ public class RNABloom {
     
     public void populateGraph(Collection<String> forwardReadPaths,
                             Collection<String> reverseReadPaths,
+                            Collection<String> longReadPaths,
                             boolean strandSpecific,
                             int numThreads,
                             boolean addCountsOnly,
@@ -652,6 +657,12 @@ public class RNABloom {
 
         for (String path : reverseReadPaths) {
             SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, true, numHash, addCountsOnly, storeReadKmerPairs);
+            service.submit(t);
+            threadPool.add(t);
+        }
+        
+        for (String path : longReadPaths) {
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, false, numHash, addCountsOnly, storeReadKmerPairs);
             service.submit(t);
             threadPool.add(t);
         }
@@ -2037,6 +2048,59 @@ public class RNABloom {
             }
         }
     }
+        
+    public void correctLongReads(String[] inputFastxPaths, String outFasta, int minKmerCov, int maxErrCorrItr) throws IOException {
+        FastaWriter writer = new FastaWriter(outFasta, true);
+                
+        long numReads = 0;
+        
+        for (String path : inputFastxPaths) {
+            FastxReaderInterface fr;
+            
+            if (FastqReader.isCorrectFormat(path)) {
+                fr = new FastqReader(path);
+            }
+            else if (FastaReader.isCorrectFormat(path)) {
+                fr = new FastaReader(path);
+            }
+            else {
+                throw new FileFormatException("Incompatible file format for `" + path + "`");
+            } 
+                    
+            try {
+                String seq;
+
+                while (true) {
+                    seq = fr.next();
+
+                    ArrayList<Kmer> kmers = graph.getKmers(seq);
+
+                    ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
+                                                                        graph, 
+                                                                        maxErrCorrItr, 
+                                                                        maxCovGradient, 
+                                                                        lookahead, 
+                                                                        maxIndelSize, 
+                                                                        percentIdentity, 
+                                                                        minKmerCov);
+
+                    if (correctedKmers != null) {
+//                        System.out.println(">" + numReads + "\n" + graph.assemble(kmers));
+//                        System.out.println(">" + numReads + "c\n" + graph.assemble(correctedKmers));
+//                        System.out.flush();
+                        writer.write(Long.toString(numReads) + " l=" + Integer.toString(getSeqLength(correctedKmers.size(), k)) + " c=" + Float.toString(getMedianKmerCoverage(correctedKmers)), graph.assemble(correctedKmers));
+                    }
+
+                    ++numReads;
+                }
+            }
+            catch (NoSuchElementException e) {
+                //end of file
+            }
+
+            fr.close();
+        }
+    }
     
     public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastqPairs, 
                                                 String[] longFragmentsFastaPaths,
@@ -2150,10 +2214,10 @@ public class RNABloom {
 
             FastxPairReader fxpr = null;
 
-            if (FastqReader.isFastq(fxPair.leftPath) && FastqReader.isFastq(fxPair.rightPath)) {
+            if (FastqReader.isCorrectFormat(fxPair.leftPath) && FastqReader.isCorrectFormat(fxPair.rightPath)) {
                 fxpr = new FastqPairReader(fxPair.leftPath, fxPair.rightPath, qualPatternFrag, seqPattern, fxPair.leftRevComp, fxPair.rightRevComp);
             }
-            else if (FastaReader.isFasta(fxPair.leftPath) && FastaReader.isFasta(fxPair.rightPath)) {
+            else if (FastaReader.isCorrectFormat(fxPair.leftPath) && FastaReader.isCorrectFormat(fxPair.rightPath)) {
                 fxpr = new FastaPairReader(fxPair.leftPath, fxPair.rightPath, seqPattern, fxPair.leftRevComp, fxPair.rightRevComp);
             }
             else {
@@ -2854,6 +2918,18 @@ public class RNABloom {
         return true;
     }
     
+    private static void correctLongReads(RNABloom assembler, boolean forceOverwrite, String outdir, String name, String[] readpaths, int maxErrCorrItr, int minKmerCov) throws IOException {
+        final String correctedLongReadsFasta = outdir + File.separator + name + ".longreads.corrected.fa";
+        
+        File correctedLongReadsFastaPath = new File(correctedLongReadsFasta);
+        
+        if (forceOverwrite || correctedLongReadsFastaPath.exists()) {
+            correctedLongReadsFastaPath.delete();
+        }
+        
+        assembler.correctLongReads(readpaths, correctedLongReadsFasta, minKmerCov, maxErrCorrItr);
+    }
+    
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, FastxFilePair[] fqPairs,
             long sbfSize, long pkbfSize, int sbfNumHash, int pkbfNumHash, int numThreads,
@@ -3313,6 +3389,13 @@ public class RNABloom {
                                     .build();
         options.addOption(optPooledAssembly);
         
+        Option optLongReads = Option.builder("long")
+                                    .desc("long reads file(s)")
+                                    .hasArgs()
+                                    .argName("FILE")
+                                    .build();
+        options.addOption(optLongReads);
+        
         Option optRevCompLeft = Option.builder("rcl")
                                     .longOpt("revcomp-left")
                                     .desc("reverse-complement left reads [false]")
@@ -3756,10 +3839,13 @@ public class RNABloom {
             final String pooledReadsListFile = line.getOptionValue(optPooledAssembly.getOpt());
             String[] leftReadPaths = line.getOptionValues(optLeftReads.getOpt());
             String[] rightReadPaths = line.getOptionValues(optRightReads.getOpt());
+            String[] longReadPaths = line.getOptionValues(optLongReads.getOpt());
             final boolean pooledGraphMode = pooledReadsListFile != null;
             
             HashMap<String, ArrayList<String>> pooledLeftReadPaths = new HashMap<>();
             HashMap<String, ArrayList<String>> pooledRightReadPaths = new HashMap<>();
+            
+            float maxBfMem = 0;
             
             if (pooledGraphMode) {
                 System.out.println("Pooled assembly mode is ON!");
@@ -3802,6 +3888,29 @@ public class RNABloom {
                 
                 checkInputFileFormat(leftReadPaths);
                 checkInputFileFormat(rightReadPaths);
+                
+                double leftReadFilesTotalBytes = 0;
+                double rightReadFilesTotalBytes = 0;
+
+                for (String fq : leftReadPaths) {
+                    leftReadFilesTotalBytes += new File(fq).length();
+                }
+                for (String fq : rightReadPaths) {
+                    rightReadFilesTotalBytes += new File(fq).length();
+                }
+                
+                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, 0.80f * Math.min(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
+            }
+            else if (longReadPaths != null && longReadPaths.length > 0) {
+                checkInputFileFormat(longReadPaths);
+                
+                double readFilesTotalBytes = 0;
+
+                for (String fq : longReadPaths) {
+                    readFilesTotalBytes += new File(fq).length();
+                }
+                
+                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, 0.80f * readFilesTotalBytes) / NUM_BYTES_1GB))));
             }
             else {
                 if (leftReadPaths == null || leftReadPaths.length == 0) {
@@ -3818,6 +3927,18 @@ public class RNABloom {
                 
                 checkInputFileFormat(leftReadPaths);
                 checkInputFileFormat(rightReadPaths);
+                
+                double leftReadFilesTotalBytes = 0;
+                double rightReadFilesTotalBytes = 0;
+
+                for (String fq : leftReadPaths) {
+                    leftReadFilesTotalBytes += new File(fq).length();
+                }
+                for (String fq : rightReadPaths) {
+                    rightReadFilesTotalBytes += new File(fq).length();
+                }
+                
+                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, 0.80f * Math.min(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
             }
             
             final boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
@@ -3829,18 +3950,7 @@ public class RNABloom {
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), optBaseQualFragDefault));
             final int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), optMinKmerCovDefault));
-            
-            double leftReadFilesTotalBytes = 0;
-            double rightReadFilesTotalBytes = 0;
-            
-            for (String fq : leftReadPaths) {
-                leftReadFilesTotalBytes += new File(fq).length();
-            }
-            for (String fq : rightReadPaths) {
-                rightReadFilesTotalBytes += new File(fq).length();
-            }
-            
-            final float maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, 0.80f * Math.min(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
+                        
             float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
             float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8.5f)));
             float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 6f / 8.5f)));
@@ -3967,19 +4077,28 @@ public class RNABloom {
             else {                
                 ArrayList<String> forwardFilesList = new ArrayList<>();
                 ArrayList<String> backwardFilesList = new ArrayList<>();
+                ArrayList<String> longFilesList = new ArrayList<>();
                 
-                if (revCompLeft) {
-                    backwardFilesList.addAll(Arrays.asList(leftReadPaths));
-                }
-                else {
-                    forwardFilesList.addAll(Arrays.asList(leftReadPaths));
+                if (leftReadPaths != null && leftReadPaths.length > 0) {
+                    if (revCompLeft) {
+                        backwardFilesList.addAll(Arrays.asList(leftReadPaths));
+                    }
+                    else {
+                        forwardFilesList.addAll(Arrays.asList(leftReadPaths));
+                    }
                 }
                 
-                if (revCompRight) {
-                    backwardFilesList.addAll(Arrays.asList(rightReadPaths));
+                if (rightReadPaths != null && rightReadPaths.length > 0) {
+                    if (revCompRight) {
+                        backwardFilesList.addAll(Arrays.asList(rightReadPaths));
+                    }
+                    else {
+                        forwardFilesList.addAll(Arrays.asList(rightReadPaths));
+                    }
                 }
-                else {
-                    forwardFilesList.addAll(Arrays.asList(rightReadPaths));
+                
+                if (longReadPaths != null && longReadPaths.length > 0) {
+                    longFilesList.addAll(Arrays.asList(longReadPaths));
                 }
                        
                 System.out.println("\n> Stage 1: Construct graph from reads (k=" + k + ")");
@@ -3989,7 +4108,9 @@ public class RNABloom {
                         dbgbfSize, cbfSize, pkbfSize, 
                         dbgbfNumHash, cbfNumHash, pkbfNumHash, false, true);
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-                assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false, true);
+                
+                boolean storeReadPairedKmers = forwardFilesList.size() > 0 || backwardFilesList.size() > 0;
+                assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, strandSpecific, numThreads, false, storeReadPairedKmers);
                 
                 if (!assembler.withinMaxFPR(maxFPR)) {
                     System.out.println("WARNING: Bloom filter FPR is higher than the maximum allowed FPR (" + maxFPR*100 +"%)!");
@@ -4028,7 +4149,7 @@ public class RNABloom {
                     
                     System.out.println("Repopulate graph ...");
                     
-                    assembler.populateGraph(forwardFilesList, backwardFilesList, strandSpecific, numThreads, false, true);
+                    assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, strandSpecific, numThreads, false, storeReadPairedKmers);
                 }    
                 
                 
@@ -4117,6 +4238,9 @@ public class RNABloom {
                 System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));                
                 
                 touch(txptsDoneStamp);
+            }
+            else if (longReadPaths != null && longReadPaths.length > 0) {
+                correctLongReads(assembler, forceOverwrite, outdir, name, longReadPaths, maxErrCorrItr, minKmerCov);
             }
             else {
                 FastxFilePair[] fqPairs = new FastxFilePair[leftReadPaths.length];
