@@ -2048,13 +2048,218 @@ public class RNABloom {
             }
         }
     }
+    
+    public class FastaWriterhWorker implements Runnable {
+        private final ArrayBlockingQueue<ArrayList<Kmer>> inputQueue;
+        private final FastaWriter writer;
+        private boolean terminateWhenInputExhausts = false;
+        private long numCorrected = 0;
+        private boolean successful = false;
+        private Exception exception = null;
         
-    public void correctLongReads(String[] inputFastxPaths, String outFasta, int minKmerCov, int maxErrCorrItr) throws IOException {
+        public FastaWriterhWorker(ArrayBlockingQueue<ArrayList<Kmer>> inputQueue, FastaWriter writer) {
+            this.inputQueue = inputQueue;
+            this.writer = writer;
+        }
+                
+        @Override
+        public void run() {
+            while(true) {
+                try {
+                    if (terminateWhenInputExhausts && inputQueue.isEmpty()) {
+                        break;
+                    }
+                    
+                    ArrayList<Kmer> kmers = inputQueue.poll(1, TimeUnit.SECONDS);
+                    if (kmers == null) {
+                        continue;
+                    }
+                    
+                    writer.write(Long.toString(++numCorrected) + " l=" + Integer.toString(getSeqLength(kmers.size(), k)) + " c=" + Float.toString(getMedianKmerCoverage(kmers)), graph.assemble(kmers));
+                } catch (InterruptedException | IOException ex) {
+                    System.out.println(ex.getMessage());
+                    exception = ex;
+                    successful = false;
+                    return;
+                }
+            }
+            
+            successful = true;
+        }
+        
+        public void terminateWhenInputExhausts() {
+            terminateWhenInputExhausts = true;
+        }
+        
+        public boolean isSucessful() {
+            return successful;
+        }
+        
+        public Exception getExceptionCaught() {
+            return exception;
+        }
+        
+        public long getNumCorrected() {
+            return numCorrected;
+        }
+    }
+    
+    public class LongReadCorrectionWorker implements Runnable {
+        private final ArrayBlockingQueue<String> inputQueue;
+        private final ArrayBlockingQueue<ArrayList<Kmer>> outputQueue;
+        private boolean terminateWhenInputExhausts = false;
+        private boolean successful = false;
+        private Exception exception = null;
+        private final int maxErrCorrItr;
+        private final int minKmerCov;
+
+        public LongReadCorrectionWorker(ArrayBlockingQueue<String> inputQueue, ArrayBlockingQueue<ArrayList<Kmer>> outputQueue, int maxErrCorrItr, int minKmerCov) {
+            this.inputQueue = inputQueue;
+            this.outputQueue = outputQueue;
+            this.maxErrCorrItr = maxErrCorrItr;
+            this.minKmerCov = minKmerCov;
+        }
+        
+        @Override
+        public void run() {
+            while(true) {
+                try {
+                    if (terminateWhenInputExhausts && inputQueue.isEmpty()) {
+                        break;
+                    }
+                    
+                    String seq = inputQueue.poll(1, TimeUnit.SECONDS);
+                    if (seq == null) {
+                        continue;
+                    }
+                    
+                    ArrayList<Kmer> kmers = graph.getKmers(seq);
+                    
+                    ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
+                                                                        graph, 
+                                                                        maxErrCorrItr, 
+                                                                        maxCovGradient, 
+                                                                        lookahead, 
+                                                                        maxIndelSize, 
+                                                                        percentIdentity, 
+                                                                        minKmerCov);
+                    
+                    if (correctedKmers != null) {
+                        outputQueue.put(correctedKmers);
+                    }
+                } catch (InterruptedException ex) {
+                    System.out.println(ex.getMessage());
+                    exception = ex;
+                    successful = false;
+                    return;
+                }
+            }
+            
+            successful = true;
+        }
+        
+        public void terminateWhenInputExhausts() {
+            terminateWhenInputExhausts = true;
+        }
+        
+        public boolean isSucessful() {
+            return successful;
+        }
+        
+        public Exception getExceptionCaught() {
+            return exception;
+        }
+    }
+    
+    public void correctLongReadsMultithreaded(String[] inputFastxPaths, String outFasta, int minKmerCov, int maxErrCorrItr, int numThreads) throws InterruptedException, IOException, Exception {
+        long numReads = 0;
+        
+        MyExecutorService service = new MyExecutorService(numThreads, numThreads);
+        
+        int maxQueueSize = 100;
+        ArrayBlockingQueue<String> inputQueue = new ArrayBlockingQueue<>(maxQueueSize);
+        ArrayBlockingQueue<ArrayList<Kmer>> outputQueue = new ArrayBlockingQueue<>(maxQueueSize);
+                
+        int numCorrectionWorkers = numThreads - 1;
+        ArrayDeque<LongReadCorrectionWorker> correctionWorkers = new ArrayDeque<>(numCorrectionWorkers);
+        
+        for (int i=0; i<numCorrectionWorkers; ++i) {
+            LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov);
+            correctionWorkers.add(worker);
+            service.submit(worker);
+        }
+        
+        FastaWriter writer = new FastaWriter(outFasta, true);
+        FastaWriterhWorker writerWorker = new FastaWriterhWorker(outputQueue, writer);
+        service.submit(writerWorker);
+                
+        for (String path : inputFastxPaths) {
+            System.out.println("Parsing `" + path + "`...");
+            
+            FastxReaderInterface fr;
+            
+            if (FastqReader.isCorrectFormat(path)) {
+                fr = new FastqReader(path);
+            }
+            else if (FastaReader.isCorrectFormat(path)) {
+                fr = new FastaReader(path);
+            }
+            else {
+                throw new FileFormatException("Incompatible file format for `" + path + "`");
+            } 
+                    
+            try {
+                while (true) {
+                    String seq = fr.next();
+                    inputQueue.put(seq);
+                    ++numReads;
+                }
+            }
+            catch (NoSuchElementException e) {
+                //end of file
+            }
+
+            fr.close();
+        }
+        
+        for (LongReadCorrectionWorker worker : correctionWorkers) {
+            worker.terminateWhenInputExhausts();
+        }
+        
+        writerWorker.terminateWhenInputExhausts();
+        
+        service.terminate();
+        writer.close();
+        
+        // check for errors
+        if (!writerWorker.isSucessful()) {
+            throw writerWorker.getExceptionCaught();
+        }
+        
+        for (LongReadCorrectionWorker worker : correctionWorkers) {
+            if (!worker.isSucessful()) {
+                throw worker.getExceptionCaught();
+            }
+        }
+        
+        assert inputQueue.isEmpty() && outputQueue.isEmpty();
+        
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
+        long numCorrected = writerWorker.getNumCorrected();
+        long numDiscarded = numReads - numCorrected;
+        System.out.println("\tCorrected: " + NumberFormat.getInstance().format(numCorrected) + "(" + numCorrected * 100f/numReads + "%)");
+        System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "(" + numDiscarded * 100f/numReads + "%)");
+    }
+    
+    public void correctLongReadsSingleThreaded(String[] inputFastxPaths, String outFasta, int minKmerCov, int maxErrCorrItr) throws IOException {
         FastaWriter writer = new FastaWriter(outFasta, true);
                 
         long numReads = 0;
+        long numCorrected = 0;
         
         for (String path : inputFastxPaths) {
+            System.out.println("Parsing `" + path + "`...");
+            
             FastxReaderInterface fr;
             
             if (FastqReader.isCorrectFormat(path)) {
@@ -2088,7 +2293,7 @@ public class RNABloom {
 //                        System.out.println(">" + numReads + "\n" + graph.assemble(kmers));
 //                        System.out.println(">" + numReads + "c\n" + graph.assemble(correctedKmers));
 //                        System.out.flush();
-                        writer.write(Long.toString(numReads) + " l=" + Integer.toString(getSeqLength(correctedKmers.size(), k)) + " c=" + Float.toString(getMedianKmerCoverage(correctedKmers)), graph.assemble(correctedKmers));
+                        writer.write(Long.toString(++numCorrected) + " l=" + Integer.toString(getSeqLength(correctedKmers.size(), k)) + " c=" + Float.toString(getMedianKmerCoverage(correctedKmers)), graph.assemble(correctedKmers));
                     }
 
                     ++numReads;
@@ -2100,8 +2305,13 @@ public class RNABloom {
 
             fr.close();
         }
+        
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
+        long numDiscarded = numReads - numCorrected;
+        System.out.println("\tCorrected: " + NumberFormat.getInstance().format(numCorrected) + "(" + numCorrected * 100f/numReads + "%)");
+        System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "(" + numDiscarded * 100f/numReads + "%)");
     }
-    
+        
     public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastqPairs, 
                                                 String[] longFragmentsFastaPaths,
                                                 String[] shortFragmentsFastaPaths,
@@ -2918,7 +3128,7 @@ public class RNABloom {
         return true;
     }
     
-    private static void correctLongReads(RNABloom assembler, boolean forceOverwrite, String outdir, String name, String[] readpaths, int maxErrCorrItr, int minKmerCov) throws IOException {
+    private static void correctLongReads(RNABloom assembler, boolean forceOverwrite, String outdir, String name, String[] readFastxPaths, int maxErrCorrItr, int minKmerCov, int numThreads) throws InterruptedException, IOException, Exception {
         final String correctedLongReadsFasta = outdir + File.separator + name + ".longreads.corrected.fa";
         
         File correctedLongReadsFastaPath = new File(correctedLongReadsFasta);
@@ -2927,7 +3137,12 @@ public class RNABloom {
             correctedLongReadsFastaPath.delete();
         }
         
-        assembler.correctLongReads(readpaths, correctedLongReadsFasta, minKmerCov, maxErrCorrItr);
+        if (numThreads == 1) {
+            assembler.correctLongReadsSingleThreaded(readFastxPaths, correctedLongReadsFasta, minKmerCov, maxErrCorrItr);
+        }
+        else if (numThreads > 1) {
+            assembler.correctLongReadsMultithreaded(readFastxPaths, correctedLongReadsFasta, minKmerCov, maxErrCorrItr, numThreads);
+        }
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -4240,7 +4455,7 @@ public class RNABloom {
                 touch(txptsDoneStamp);
             }
             else if (longReadPaths != null && longReadPaths.length > 0) {
-                correctLongReads(assembler, forceOverwrite, outdir, name, longReadPaths, maxErrCorrItr, minKmerCov);
+                correctLongReads(assembler, forceOverwrite, outdir, name, longReadPaths, maxErrCorrItr, minKmerCov, numThreads);
             }
             else {
                 FastxFilePair[] fqPairs = new FastxFilePair[leftReadPaths.length];
