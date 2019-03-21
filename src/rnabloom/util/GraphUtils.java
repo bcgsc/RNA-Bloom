@@ -2465,6 +2465,129 @@ public final class GraphUtils {
         return null;
     }
     
+    private static void updateMinHashSketch(long[] sketch, int sketchSize, long newVal) {
+        int i = sketchSize - 1;
+        if (newVal >= sketch[i]) {
+            return;
+        }
+        
+        // find index to insert new hash value
+        for (--i; i>=0; --i) {
+            long val = sketch[i];
+            
+            if (newVal == val) {
+                return;
+            }
+            else if (newVal > val) {
+                break;
+            }
+        }
+        
+        ++i;
+        
+        // shift larger hash values
+        System.arraycopy(sketch, i, sketch, i+1, sketchSize-i-1);
+        
+        // insert the new hash value
+        sketch[i] = newVal;
+    }
+
+    /**
+     * Method to return the minhash sketch for the list of kmers.
+     * @param kmers      list of kmers
+     * @param sketchSize sketch size
+     * @return           minhash sketch
+     */
+    public static long[] getMinHashSketch(ArrayList<Kmer> kmers,
+                                        int sketchSize) {
+        long[] sketch = new long[sketchSize];
+        
+        for (int i=0; i<sketchSize; ++i) {
+            sketch[i] = kmers.get(i).getHash();
+        }
+        
+        Arrays.sort(sketch);
+        
+        int numKmers = kmers.size();
+        for (int i=sketchSize; i<numKmers; ++i) {
+            updateMinHashSketch(sketch, sketchSize, kmers.get(i).getHash());
+        }
+        
+        return sketch;
+    }
+    
+    /**
+     * Method to return the minhash sketch for kmers above the minimum coverage threshold.
+     * @param kmers      list of kmers
+     * @param sketchSize sketch size
+     * @param minKmerCov minimum coverage threshold
+     * @return           minhash sketch
+     */
+    public static long[] getMinHashSketch(ArrayList<Kmer> kmers,
+                                        int sketchSize,
+                                        int minKmerCov) {
+        long[] sketch = new long[sketchSize];
+        
+        int i = 0;
+        for (Kmer kmer : kmers) {
+            if (kmer.count >= minKmerCov) {
+                sketch[i] = kmer.getHash();
+                
+                if (++i >= sketchSize) {
+                    break;
+                }
+            }
+        }
+        
+        Arrays.sort(sketch);
+        
+        int numKmers = kmers.size();
+        for (; i<numKmers; ++i) {
+            updateMinHashSketch(sketch, sketchSize, kmers.get(i).getHash());
+        }
+        
+        return sketch;
+    }
+    
+    /**
+     * Method to return the jaccard similarity coefficient of 2 minhashs sketches.
+     * The 2 sketches must have the same size.
+     * @param sketch1 sorted minhash sketch from set 1
+     * @param sketch2 sorted minhash sketch from set 2
+     * @return jaccard similarity coefficient
+     */
+    public static float getJaccardSimilarity(long[] sketch1, long[] sketch2) {
+        int intersectionSize = 0;
+        int sketchSize = sketch1.length;
+        int j = 0;
+        
+        long hash1, hash2;
+        for (int i=0; i<sketchSize && j<sketchSize; ++i) {
+            hash1 = sketch1[i];
+            hash2 = sketch2[j];
+            
+            if (hash1 == hash2) {
+                ++intersectionSize;
+                ++j;
+            }
+            else if (hash1 > hash2) {
+                for (++j; j<sketchSize; ++j) {
+                    hash2 = sketch2[j];
+                    if (hash1 == hash2) {
+                        ++intersectionSize;
+                        ++j;
+                        break;
+                    }
+                    else if (hash1 < hash2) {
+                        break;
+                    }
+                }
+            }
+        }
+        
+        return intersectionSize / (2f * sketchSize - intersectionSize);
+    }
+    
     public static ArrayList<Kmer> correctLongSequence(ArrayList<Kmer> kmers, 
                                                 BloomFilterDeBruijnGraph graph, 
                                                 int maxErrCorrItr, 
