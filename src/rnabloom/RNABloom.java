@@ -71,6 +71,7 @@ import rnabloom.io.FastqReader;
 import rnabloom.io.FastqRecord;
 import rnabloom.io.FastxPairReader;
 import rnabloom.io.FastxReaderInterface;
+import rnabloom.io.FastxSequenceIterator;
 import rnabloom.io.FileFormatException;
 import rnabloom.util.GraphUtils;
 import static rnabloom.util.GraphUtils.*;
@@ -1586,7 +1587,7 @@ public class RNABloom {
         return new int[]{a.get(0), q1, median, q3, a.get(arrLen-1)};
     }
     
-    private static int getMinCoverageOrderOfMagnitude(float c) {
+    private static int getCoverageOrderOfMagnitude(float c) {
         if (c >= 1e5) {
             return 5;
         }
@@ -1754,7 +1755,7 @@ public class RNABloom {
                                     unconnectedSingletonsOut.write("r" + Long.toString(unconnectedReadId) + "R", frag.right);
                                 }
                                 else if (frag.minCov > 1) {
-                                    m = getMinCoverageOrderOfMagnitude(frag.minCov);
+                                    m = getCoverageOrderOfMagnitude(frag.minCov);
 
                                     if (m >= 0) {
                                         unconnectedReadsOut[m].write("r" + Long.toString(++unconnectedReadId) + "L ", frag.left);
@@ -1784,7 +1785,7 @@ public class RNABloom {
                                             }
                                         }
                                         else if (frag.minCov > 1) {
-                                            m = getMinCoverageOrderOfMagnitude(frag.minCov);
+                                            m = getCoverageOrderOfMagnitude(frag.minCov);
 
                                             if (m >= 0) {
                                                 graph.addPairedKmers(fragKmers);
@@ -1829,7 +1830,7 @@ public class RNABloom {
                     unconnectedSingletonsOut.write("r" + Long.toString(unconnectedReadId) + "R", frag.right);
                 }
                 else if (frag.minCov > 1) {
-                    m = getMinCoverageOrderOfMagnitude(frag.minCov);
+                    m = getCoverageOrderOfMagnitude(frag.minCov);
 
                     if (m >= 0) {
                         unconnectedReadsOut[m].write("r" + Long.toString(++unconnectedReadId) + "L ", frag.left);
@@ -1859,7 +1860,7 @@ public class RNABloom {
                             }
                         }
                         else if (frag.minCov > 1)  {
-                            m = getMinCoverageOrderOfMagnitude(frag.minCov);
+                            m = getCoverageOrderOfMagnitude(frag.minCov);
 
                             if (m >= 0) {
                                 graph.addPairedKmers(fragKmers);
@@ -1983,7 +1984,7 @@ public class RNABloom {
             }
         }
         else {
-            int m = getMinCoverageOrderOfMagnitude(frag.minCov);
+            int m = getCoverageOrderOfMagnitude(frag.minCov);
             
             if (isPolya) {
                 return unconnectedPolyaReadsOut[m];
@@ -2028,7 +2029,7 @@ public class RNABloom {
             }
         }
         else {
-            int m = getMinCoverageOrderOfMagnitude(frag.minCov);
+            int m = getCoverageOrderOfMagnitude(frag.minCov);
             
             if (isLong) {
                 if (isPolya) {
@@ -2049,42 +2050,128 @@ public class RNABloom {
         }
     }
     
-    public class FastaWriterhWorker implements Runnable {
+    public static final int LENGTH_STRATUM_MIN_S_INDEX = 0;
+    public static final int LENGTH_STRATUM_S_Q1_INDEX = 1;
+    public static final int LENGTH_STRATUM_Q1_MED_INDEX = 2;
+    public static final int LENGTH_STRATUM_MED_Q3_INDEX = 3;
+    public static final int LENGTH_STRATUM_Q3_MAX_INDEX = 4;
+    
+    public static int getLongReadLengthStratumIndex(LengthStats stats, int minSeqLen, int testLen) {
+        if (testLen < minSeqLen) {
+            return LENGTH_STRATUM_MIN_S_INDEX;
+        }
+        else if (testLen < stats.q1) {
+            return LENGTH_STRATUM_S_Q1_INDEX;
+        }
+        else if (testLen < stats.median) {
+            return LENGTH_STRATUM_Q1_MED_INDEX;
+        }
+        else if (testLen < stats.q3) {
+            return LENGTH_STRATUM_MED_Q3_INDEX;
+        }
+        else {
+            return LENGTH_STRATUM_Q3_MAX_INDEX;
+        }
+    }
+    
+    private static final String[] LENGTH_STRATUM_NAMES = new String[]{"min_s", "s_q1", "q1_med", "med_q3", "q3_max"};
+    
+    public class CorrectedLongReadsWriterWorker implements Runnable {
         private final ArrayBlockingQueue<ArrayList<Kmer>> inputQueue;
-        private final FastaWriter writer;
+        private final int maxSampleSize;
+        private final int minSeqLen;
+        private final FastaWriter[][] writers;
+        private LengthStats sampleLengthStats = null;
         private boolean terminateWhenInputExhausts = false;
         private long numCorrected = 0;
         private boolean successful = false;
         private Exception exception = null;
         
-        public FastaWriterhWorker(ArrayBlockingQueue<ArrayList<Kmer>> inputQueue, FastaWriter writer) {
+        public CorrectedLongReadsWriterWorker(ArrayBlockingQueue<ArrayList<Kmer>> inputQueue, FastaWriter[][] writers, int maxSampleSize, int minSeqLen) {
             this.inputQueue = inputQueue;
-            this.writer = writer;
+            this.writers = writers;
+            this.maxSampleSize = maxSampleSize;
+            this.minSeqLen = minSeqLen;
         }
                 
         @Override
         public void run() {
-            while(true) {
-                try {
-                    if (terminateWhenInputExhausts && inputQueue.isEmpty()) {
-                        break;
-                    }
-                    
+            try {
+                ArrayDeque<ArrayList<Kmer>> sample = new ArrayDeque<>(maxSampleSize);
+
+                while(!(terminateWhenInputExhausts && inputQueue.isEmpty())) {
                     ArrayList<Kmer> kmers = inputQueue.poll(1, TimeUnit.SECONDS);
                     if (kmers == null) {
                         continue;
                     }
-                    
-                    writer.write(Long.toString(++numCorrected) + " l=" + Integer.toString(getSeqLength(kmers.size(), k)) + " c=" + Float.toString(getMedianKmerCoverage(kmers)), graph.assemble(kmers));
-                } catch (InterruptedException | IOException ex) {
-                    System.out.println(ex.getMessage());
-                    exception = ex;
-                    successful = false;
-                    return;
+
+                    sample.add(kmers);
+
+                    if (sample.size() == maxSampleSize) {
+                        break;
+                    }
                 }
-            }
+
+                int sampleSize = sample.size();
+                int[] lengths = new int[sampleSize];
+                int i = 0;
+                for (ArrayList<Kmer> kmers : sample) {
+                    lengths[i++] = getSeqLength(kmers.size(), k);
+                }
+                                
+                sampleLengthStats = getLengthStats(lengths);
+                
+                System.out.println("Corrected Read Lengths Distribution (n=" + sampleSize + ")");
+                System.out.println("\tmin\tq1\tmed\tq3\tmax");
+                System.out.println("\t" + sampleLengthStats.min + "\t" + 
+                                            sampleLengthStats.q1 + "\t" +
+                                            sampleLengthStats.median + "\t" +
+                                            sampleLengthStats.q3 + "\t" +
+                                            sampleLengthStats.max);
+
+                /** write the sample sequences to file */
+                for (ArrayList<Kmer> kmers : sample) {
+                    int length = getSeqLength(kmers.size(), k);
+                    float cov = getMedianKmerCoverage(kmers);
+                    
+                    int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, minSeqLen, length);
+                    int covStatumIndex = getCoverageOrderOfMagnitude(cov);
+                    
+                    String header = Long.toString(++numCorrected) + " l=" + Integer.toString(length) + " c=" + Float.toString(cov);
+                    String seq = graph.assemble(kmers);
+                    
+                    writers[covStatumIndex][lengthStratumIndex].write(header, seq);
+                }
+                
+                sample = null;
+
+                /** write the remaining sequences to file */
+                while(!(terminateWhenInputExhausts && inputQueue.isEmpty())) {
+                    ArrayList<Kmer> kmers = inputQueue.poll(1, TimeUnit.SECONDS);
+                    if (kmers == null) {
+                        continue;
+                    }
+
+                    int length = getSeqLength(kmers.size(), k);
+                    float cov = getMedianKmerCoverage(kmers);
+                    
+                    int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, minSeqLen, length);
+                    int covStatumIndex = getCoverageOrderOfMagnitude(cov);
+                    
+                    String header = Long.toString(++numCorrected) + " l=" + Integer.toString(length) + " c=" + Float.toString(cov);
+                    String seq = graph.assemble(kmers);
+                    
+                    writers[covStatumIndex][lengthStratumIndex].write(header, seq);
+                }
+                
+                successful = true;
             
-            successful = true;
+            } catch (InterruptedException|IOException ex) {
+                System.out.println(ex.getMessage());
+                exception = ex;
+                successful = false;
+                return;
+            }
         }
         
         public void terminateWhenInputExhausts() {
@@ -2101,6 +2188,10 @@ public class RNABloom {
         
         public long getNumCorrected() {
             return numCorrected;
+        }
+        
+        public LengthStats getSampleLengthStats() {
+            return sampleLengthStats;
         }
     }
     
@@ -2171,7 +2262,7 @@ public class RNABloom {
         }
     }
     
-    public void correctLongReadsMultithreaded(String[] inputFastxPaths, String outFasta, int minKmerCov, int maxErrCorrItr, int numThreads) throws InterruptedException, IOException, Exception {
+    public void correctLongReadsMultithreaded(String[] inputFastxPaths, FastaWriter[][] outFastaWriters, int minKmerCov, int maxErrCorrItr, int numThreads, int maxSampleSize, int minSeqLen) throws InterruptedException, IOException, Exception {
         long numReads = 0;
         
         MyExecutorService service = new MyExecutorService(numThreads, numThreads);
@@ -2189,37 +2280,21 @@ public class RNABloom {
             service.submit(worker);
         }
         
-        FastaWriter writer = new FastaWriter(outFasta, true);
-        FastaWriterhWorker writerWorker = new FastaWriterhWorker(outputQueue, writer);
+        //FastaWriter writer = new FastaWriter(outFasta, true);
+        CorrectedLongReadsWriterWorker writerWorker = new CorrectedLongReadsWriterWorker(outputQueue, outFastaWriters, maxSampleSize, minSeqLen);
         service.submit(writerWorker);
-                
-        for (String path : inputFastxPaths) {
-            System.out.println("Parsing `" + path + "`...");
+        
+        for (FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths); ; ++numReads) {
+            String seq;
             
-            FastxReaderInterface fr;
-            
-            if (FastqReader.isCorrectFormat(path)) {
-                fr = new FastqReader(path);
-            }
-            else if (FastaReader.isCorrectFormat(path)) {
-                fr = new FastaReader(path);
-            }
-            else {
-                throw new FileFormatException("Incompatible file format for `" + path + "`");
-            } 
-                    
             try {
-                while (true) {
-                    String seq = fr.next();
-                    inputQueue.put(seq);
-                    ++numReads;
-                }
+                seq = itr.next();
             }
             catch (NoSuchElementException e) {
-                //end of file
+                break;
             }
-
-            fr.close();
+            
+            inputQueue.put(seq);
         }
         
         for (LongReadCorrectionWorker worker : correctionWorkers) {
@@ -2229,7 +2304,6 @@ public class RNABloom {
         writerWorker.terminateWhenInputExhausts();
         
         service.terminate();
-        writer.close();
         
         // check for errors
         if (!writerWorker.isSucessful()) {
@@ -2250,60 +2324,107 @@ public class RNABloom {
         System.out.println("\tCorrected: " + NumberFormat.getInstance().format(numCorrected) + "(" + numCorrected * 100f/numReads + "%)");
         System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "(" + numDiscarded * 100f/numReads + "%)");
     }
-    
-    public void correctLongReadsSingleThreaded(String[] inputFastxPaths, String outFasta, int minKmerCov, int maxErrCorrItr) throws IOException {
-        FastaWriter writer = new FastaWriter(outFasta, true);
-                
+        
+    public void correctLongReadsSingleThreaded(String[] inputFastxPaths, FastaWriter[][] writers, int minKmerCov, int maxErrCorrItr, int maxSampleSize, int minSeqLen) throws IOException {
+        
         long numReads = 0;
         long numCorrected = 0;
         
-        for (String path : inputFastxPaths) {
-            System.out.println("Parsing `" + path + "`...");
-            
-            FastxReaderInterface fr;
-            
-            if (FastqReader.isCorrectFormat(path)) {
-                fr = new FastqReader(path);
-            }
-            else if (FastaReader.isCorrectFormat(path)) {
-                fr = new FastaReader(path);
-            }
-            else {
-                throw new FileFormatException("Incompatible file format for `" + path + "`");
-            } 
-                    
+        ArrayDeque<ArrayList<Kmer>> sample = new ArrayDeque<>(maxSampleSize);
+        FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths);
+        
+        for (; sample.size() < maxSampleSize; ++numReads) {
+            String seq;
+
             try {
-                String seq;
-
-                while (true) {
-                    seq = fr.next();
-
-                    ArrayList<Kmer> kmers = graph.getKmers(seq);
-
-                    ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
-                                                                        graph, 
-                                                                        maxErrCorrItr, 
-                                                                        maxCovGradient, 
-                                                                        lookahead, 
-                                                                        maxIndelSize, 
-                                                                        percentIdentity, 
-                                                                        minKmerCov);
-
-                    if (correctedKmers != null) {
-//                        System.out.println(">" + numReads + "\n" + graph.assemble(kmers));
-//                        System.out.println(">" + numReads + "c\n" + graph.assemble(correctedKmers));
-//                        System.out.flush();
-                        writer.write(Long.toString(++numCorrected) + " l=" + Integer.toString(getSeqLength(correctedKmers.size(), k)) + " c=" + Float.toString(getMedianKmerCoverage(correctedKmers)), graph.assemble(correctedKmers));
-                    }
-
-                    ++numReads;
-                }
+                seq = itr.next();
             }
             catch (NoSuchElementException e) {
-                //end of file
+                break;
             }
 
-            fr.close();
+            ArrayList<Kmer> kmers = graph.getKmers(seq);
+
+            ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
+                                                                graph, 
+                                                                maxErrCorrItr, 
+                                                                maxCovGradient, 
+                                                                lookahead, 
+                                                                maxIndelSize, 
+                                                                percentIdentity, 
+                                                                minKmerCov);
+
+            if (correctedKmers != null) {
+                sample.add(correctedKmers);
+            }
+        }
+        
+        int sampleSize = sample.size();
+        int[] lengths = new int[sampleSize];
+        int i = 0;
+        for (ArrayList<Kmer> kmers : sample) {
+            lengths[i++] = getSeqLength(kmers.size(), k);
+        }
+
+        LengthStats sampleLengthStats = getLengthStats(lengths);
+
+        System.out.println("Corrected Read Lengths Distribution (n=" + sampleSize + ")");
+        System.out.println("\tmin\tq1\tmed\tq3\tmax");
+        System.out.println("\t" + sampleLengthStats.min + "\t" + 
+                                    sampleLengthStats.q1 + "\t" +
+                                    sampleLengthStats.median + "\t" +
+                                    sampleLengthStats.q3 + "\t" +
+                                    sampleLengthStats.max);
+        
+        /** write the sample sequences to file */
+        for (ArrayList<Kmer> kmers : sample) {
+            int length = getSeqLength(kmers.size(), k);
+            float cov = getMedianKmerCoverage(kmers);
+
+            int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, minSeqLen, length);
+            int covStatumIndex = getCoverageOrderOfMagnitude(cov);
+
+            String header = Long.toString(++numCorrected) + " l=" + Integer.toString(length) + " c=" + Float.toString(cov);
+            String seq = graph.assemble(kmers);
+
+            writers[covStatumIndex][lengthStratumIndex].write(header, seq);
+        }
+
+        sample = null;
+
+        /** write the remaining sequences to file */
+        for (;; ++numReads) {
+            String seq;
+            
+            try {
+                seq = itr.next();
+            }
+            catch (NoSuchElementException e) {
+                break;
+            }
+            
+            ArrayList<Kmer> kmers = graph.getKmers(seq);
+
+            ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
+                                                                graph, 
+                                                                maxErrCorrItr, 
+                                                                maxCovGradient, 
+                                                                lookahead, 
+                                                                maxIndelSize, 
+                                                                percentIdentity, 
+                                                                minKmerCov);
+
+            if (correctedKmers != null) {
+                int length = getSeqLength(correctedKmers.size(), k);
+                float cov = getMedianKmerCoverage(correctedKmers);
+
+                int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, minSeqLen, length);
+                int covStatumIndex = getCoverageOrderOfMagnitude(cov);
+
+                String header = Long.toString(++numCorrected) + " l=" + Integer.toString(length) + " c=" + Float.toString(cov);
+                seq = graph.assemble(correctedKmers);
+                writers[covStatumIndex][lengthStratumIndex].write(header, seq);
+            }
         }
         
         System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
@@ -3128,20 +3249,31 @@ public class RNABloom {
         return true;
     }
     
-    private static void correctLongReads(RNABloom assembler, boolean forceOverwrite, String outdir, String name, String[] readFastxPaths, int maxErrCorrItr, int minKmerCov, int numThreads) throws InterruptedException, IOException, Exception {
-        final String correctedLongReadsFasta = outdir + File.separator + name + ".longreads.corrected.fa";
+    private static void correctLongReads(RNABloom assembler, 
+            String[] readFastxPaths, String[][] correctedLongReadFileNames, 
+            int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen) throws InterruptedException, IOException, Exception {
         
-        File correctedLongReadsFastaPath = new File(correctedLongReadsFasta);
-        
-        if (forceOverwrite || correctedLongReadsFastaPath.exists()) {
-            correctedLongReadsFastaPath.delete();
+        /* set up the file writers */
+        final int numCovStrata = COVERAGE_ORDER.length;
+        final int numLenStrata = LENGTH_STRATUM_NAMES.length;
+        FastaWriter[][] writers = new FastaWriter[numCovStrata][numLenStrata];
+        for (int c=0; c<numCovStrata; ++c) {
+            for (int l=0; l<numLenStrata; ++l) {
+                writers[c][l] = new FastaWriter(correctedLongReadFileNames[c][l], true);
+            }
         }
         
         if (numThreads == 1) {
-            assembler.correctLongReadsSingleThreaded(readFastxPaths, correctedLongReadsFasta, minKmerCov, maxErrCorrItr);
+            assembler.correctLongReadsSingleThreaded(readFastxPaths, writers, minKmerCov, maxErrCorrItr, sampleSize, minSeqLen);
         }
         else if (numThreads > 1) {
-            assembler.correctLongReadsMultithreaded(readFastxPaths, correctedLongReadsFasta, minKmerCov, maxErrCorrItr, numThreads);
+            assembler.correctLongReadsMultithreaded(readFastxPaths, writers, minKmerCov, maxErrCorrItr, numThreads, sampleSize, minSeqLen);
+        }
+        
+        for (int i=0; i<writers.length; ++i) {
+            for (int j=0; j<writers[i].length; ++j) {
+                writers[i][j].close();
+            }
         }
     }
     
@@ -4455,7 +4587,32 @@ public class RNABloom {
                 touch(txptsDoneStamp);
             }
             else if (longReadPaths != null && longReadPaths.length > 0) {
-                correctLongReads(assembler, forceOverwrite, outdir, name, longReadPaths, maxErrCorrItr, minKmerCov, numThreads);
+                int minHashSketchSize = 200;
+                int minSeqLen = getSeqLength(minHashSketchSize, k);
+                
+                final String correctedLongReadFilePrefix = outdir + File.separator + name + ".longreads.corrected";
+
+                /* set up the file writers */
+                final int numCovStrata = COVERAGE_ORDER.length;
+                final int numLenStrata = LENGTH_STRATUM_NAMES.length;
+                String[][] correctedLongReadFileNames = new String[numCovStrata][numLenStrata];
+                for (int c=0; c<numCovStrata; ++c) {
+                    String covStratumName = COVERAGE_ORDER[c];
+                    for (int l=0; l<numLenStrata; ++l) {
+                        String lengthStratumName = LENGTH_STRATUM_NAMES[l];
+                        
+                        String correctedLongReadsFasta = correctedLongReadFilePrefix + "." + covStratumName + "." + lengthStratumName + ".fa";
+                        correctedLongReadFileNames[c][l] = correctedLongReadsFasta;
+                        
+                        File correctedLongReadsFastaPath = new File(correctedLongReadsFasta);
+
+                        if (forceOverwrite || correctedLongReadsFastaPath.exists()) {
+                            correctedLongReadsFastaPath.delete();
+                        }
+                    }
+                }
+                
+                correctLongReads(assembler, longReadPaths, correctedLongReadFileNames, maxErrCorrItr, minKmerCov, numThreads, sampleSize, minSeqLen);
             }
             else {
                 FastxFilePair[] fqPairs = new FastxFilePair[leftReadPaths.length];

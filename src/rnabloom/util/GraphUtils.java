@@ -1832,8 +1832,48 @@ public final class GraphUtils {
         
         return a.get(halfLen);
     }
+
+    public static class LengthStats {
+        public int min;
+        public int q1;
+        public int median;
+        public int q3;
+        public int max;
+    }
+    
+    public static LengthStats getLengthStats(final int[] lengths) {
+        int len = lengths.length;
         
-    public static class Stats {
+        Arrays.sort(lengths);
+        
+        LengthStats stats = new LengthStats();
+        int halfLen = len/2;
+        int q1Index = len/4;
+        int q3Index = halfLen+q1Index;
+                
+        stats.min = lengths[0];
+        stats.max = lengths[len-1];
+        
+        if (len % 2 == 0) {
+            stats.median = (lengths[halfLen-1] + lengths[halfLen])/2;
+        }
+        else {
+            stats.median = lengths[halfLen];
+        }
+        
+        if (len % 4 == 0) {
+            stats.q1 = (lengths[q1Index-1] + lengths[q1Index])/2;
+            stats.q3 = (lengths[q3Index-1] + lengths[q3Index])/2;
+        }
+        else {
+            stats.q1 = lengths[q1Index];
+            stats.q3 = lengths[q3Index];
+        }
+        
+        return stats;
+    }
+    
+    public static class CoverageStats {
         public float min;
         public float q1;
         public float median;
@@ -1842,7 +1882,7 @@ public final class GraphUtils {
         public float dropoff;
     }
     
-    public static Stats getCoverageStats(final Collection<Kmer> kmers, float maxCovGradient, int lookahead) {
+    public static CoverageStats getCoverageStats(final Collection<Kmer> kmers, float maxCovGradient, int lookahead) {
         int len = kmers.size();
         float[] covs = new float[len];
         int i=0;
@@ -1853,7 +1893,7 @@ public final class GraphUtils {
         
         Arrays.sort(covs);
                 
-        Stats stats = new Stats();
+        CoverageStats stats = new CoverageStats();
         int halfLen = len/2;
         int q1Index = len/4;
         int q3Index = halfLen+q1Index;
@@ -2597,7 +2637,7 @@ public final class GraphUtils {
                                                 float percentIdentity, 
                                                 int minKmerCov) {
         
-        Stats covStat = getCoverageStats(kmers, maxCovGradient, lookahead);
+        CoverageStats covStat = getCoverageStats(kmers, maxCovGradient, lookahead);
 
         if (covStat.median > minKmerCov) {
 
