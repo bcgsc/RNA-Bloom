@@ -3708,6 +3708,8 @@ public class RNABloom {
     private static final String STAMP_FRAGMENTS_DONE = "FRAGMENTS.DONE";
     private static final String STAMP_TRANSCRIPTS_DONE = "TRANSCRIPTS.DONE";
     private static final String STAMP_TRANSCRIPTS_NR_DONE = "TRANSCRIPTS_NR.DONE";
+    private static final String STAMP_LONG_READS_CORRECTED = "LONGREADS.CORRECTED";
+    private static final String STAMP_LONG_READS_CLUSTERED = "LONGREADS.CLUSTERED";
     
     /**
      * @param args the command line arguments
@@ -4169,6 +4171,7 @@ public class RNABloom {
             File fragsDoneStamp = new File(outdir + File.separator + STAMP_FRAGMENTS_DONE);
             File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
             File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
+            File longReadsCorrectedStamp = new File(outdir + File.separator + STAMP_LONG_READS_CORRECTED);
             
             if (forceOverwrite) {
                 if (startedStamp.exists()) {
@@ -4189,6 +4192,10 @@ public class RNABloom {
                 
                 if (txptsNrDoneStamp.exists()) {
                     txptsNrDoneStamp.delete();
+                }
+                
+                if (longReadsCorrectedStamp.exists()) {
+                    longReadsCorrectedStamp.delete();
                 }
             }
                         
@@ -4601,27 +4608,32 @@ public class RNABloom {
                 
                 final String correctedLongReadFilePrefix = outdir + File.separator + name + ".longreads.corrected";
 
-                /* set up the file writers */
-                final int numCovStrata = COVERAGE_ORDER.length;
-                final int numLenStrata = LENGTH_STRATUM_NAMES.length;
-                String[][] correctedLongReadFileNames = new String[numCovStrata][numLenStrata];
-                for (int c=0; c<numCovStrata; ++c) {
-                    String covStratumName = COVERAGE_ORDER[c];
-                    for (int l=0; l<numLenStrata; ++l) {
-                        String lengthStratumName = LENGTH_STRATUM_NAMES[l];
-                        
-                        String correctedLongReadsFasta = correctedLongReadFilePrefix + "." + covStratumName + "." + lengthStratumName + ".fa";
-                        correctedLongReadFileNames[c][l] = correctedLongReadsFasta;
-                        
-                        File correctedLongReadsFastaPath = new File(correctedLongReadsFasta);
+                if (forceOverwrite || !longReadsCorrectedStamp.exists()) {
+                    /* set up the file writers */
+                    final int numCovStrata = COVERAGE_ORDER.length;
+                    final int numLenStrata = LENGTH_STRATUM_NAMES.length;
+                    String[][] correctedLongReadFileNames = new String[numCovStrata][numLenStrata];
+                    for (int c=0; c<numCovStrata; ++c) {
+                        String covStratumName = COVERAGE_ORDER[c];
+                        for (int l=0; l<numLenStrata; ++l) {
+                            String lengthStratumName = LENGTH_STRATUM_NAMES[l];
 
-                        if (forceOverwrite || correctedLongReadsFastaPath.exists()) {
-                            correctedLongReadsFastaPath.delete();
+                            String correctedLongReadsFasta = correctedLongReadFilePrefix + "." + covStratumName + "." + lengthStratumName + ".fa";
+                            correctedLongReadFileNames[c][l] = correctedLongReadsFasta;
+
+                            File correctedLongReadsFastaPath = new File(correctedLongReadsFasta);
+                            if (correctedLongReadsFastaPath.exists()) {
+                                correctedLongReadsFastaPath.delete();
+                            }
                         }
                     }
+
+                    correctLongReads(assembler, longReadPaths, correctedLongReadFileNames, maxErrCorrItr, minKmerCov, numThreads, sampleSize, minSeqLen);
+                    
+                    touch(longReadsCorrectedStamp);
                 }
                 
-                correctLongReads(assembler, longReadPaths, correctedLongReadFileNames, maxErrCorrItr, minKmerCov, numThreads, sampleSize, minSeqLen);
+                /**@TODO*/
             }
             else {
                 FastxFilePair[] fqPairs = new FastxFilePair[leftReadPaths.length];
