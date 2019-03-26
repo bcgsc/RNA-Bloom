@@ -2532,6 +2532,26 @@ public final class GraphUtils {
         sketch[i] = newVal;
     }
 
+    public static long[] getMinHashSketch(String seq, NTHashIterator itr, int sketchSize, int numKmers) {
+        long[] sketch = new long[sketchSize];
+        
+        itr.start(seq);
+        long[] hVals = itr.hVals;
+        for (int i=0; i<sketchSize; ++i) {
+            itr.next();
+            sketch[i] = hVals[0];
+        }
+                
+        Arrays.sort(sketch);
+        
+        for (int i=sketchSize; i<numKmers; ++i) {
+            itr.next();
+            updateMinHashSketch(sketch, sketchSize, hVals[0]);
+        }
+        
+        return sketch;
+    }
+    
     /**
      * Method to return the minhash sketch for the list of kmers.
      * @param kmers      list of kmers

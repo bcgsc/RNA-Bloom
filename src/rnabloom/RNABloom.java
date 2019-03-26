@@ -23,12 +23,16 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import static java.lang.Math.pow;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.NumberFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -2050,6 +2054,173 @@ public class RNABloom {
         }
     }
     
+    public static class TargetSimilarityScore {
+        int sketchID;
+        float jaccardSimilarity;
+        
+        public TargetSimilarityScore(int sketchID, float jaccard) {
+            this.sketchID = sketchID;
+            this.jaccardSimilarity = jaccard;
+        }
+    }
+        
+    public class JaccardSimiliarityCalculator implements Runnable {
+        private final long[] querySketch;
+        private final ArrayBlockingQueue<Integer> sketchIDsQueue;
+        private final ArrayBlockingQueue<TargetSimilarityScore> scoreQueue;
+        private final ArrayList<long[]> targetSketches;
+        private boolean terminateWhenInputExhausts = false;
+        private boolean successful = false;
+        private Exception exception = null;
+        
+        public JaccardSimiliarityCalculator(long[] querySketch, ArrayList<long[]> targetSketches, 
+                                    ArrayBlockingQueue<Integer> sketchIDsQueue,
+                                    ArrayBlockingQueue<TargetSimilarityScore> scoreQueue) {
+            this.querySketch = querySketch;
+            this.targetSketches = targetSketches;
+            this.sketchIDsQueue = sketchIDsQueue;
+            this.scoreQueue = scoreQueue;
+        }
+        
+        @Override
+        public void run() {
+            try {
+                while(!(terminateWhenInputExhausts && sketchIDsQueue.isEmpty())) {
+                    Integer sketchID = sketchIDsQueue.poll(1, TimeUnit.MILLISECONDS);
+
+                    if (sketchID == null) {
+                        continue;
+                    }
+                    
+                    float jaccard = getJaccardSimilarity(querySketch, targetSketches.get(sketchID));
+                    scoreQueue.put(new TargetSimilarityScore(sketchID, jaccard));
+                }
+                
+                successful = true;
+                
+            } catch (InterruptedException ex) {
+                exception = ex;
+                successful = false;
+            }
+        }
+        
+        public void terminateWhenInputExhausts() {
+            terminateWhenInputExhausts = true;
+        }
+        
+        public boolean isSucessful() {
+            return successful;
+        }
+        
+        public Exception getExceptionCaught() {
+            return exception;
+        }
+    }
+    
+    public void clusterLongReads(String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads) throws IOException, InterruptedException {
+        final float jaccardSimilarityThreshold = 0.33f;
+                
+        int maxQueueSize = 100;
+        ArrayBlockingQueue<Integer> sketchIDsAwaitingComparison = new ArrayBlockingQueue<>(maxQueueSize);
+        ArrayBlockingQueue<TargetSimilarityScore> scoreQueue = new ArrayBlockingQueue<>(maxQueueSize);
+        
+        ArrayList<long[]> targetSketches = new ArrayList<>();
+        NTHashIterator itr = graph.getHashIterator(1);
+
+        for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
+            for (int l=LENGTH_STRATUM_NAMES.length-1; l>=0; --l) {
+                long cid = 0;
+                
+                String readFile = correctedLongReadFileNames[c][l];
+                FastaReader fr = new FastaReader(readFile);
+                
+                while (true) {
+                    String seq;
+                    
+                    try {
+                        seq = fr.next();
+                    }
+                    catch(NoSuchElementException e) {
+                        fr.close();
+                        break;
+                    }
+                    
+                    long[] sketch = getMinHashSketch(seq, itr, sketchSize, getNumKmers(seq, k));
+                    int bestTargetSketchID = -1;
+                    
+                    if (targetSketches.isEmpty()) {
+                        targetSketches.add(sketch);
+                        bestTargetSketchID = 0;
+                    }
+                    else {
+                        /** start thread pool*/
+                        MyExecutorService service = new MyExecutorService(numThreads, numThreads);
+                        JaccardSimiliarityCalculator[] workers = new JaccardSimiliarityCalculator[numThreads];
+                        for (int i=0; i<numThreads; ++i) {
+                            JaccardSimiliarityCalculator worker = new JaccardSimiliarityCalculator(sketch, targetSketches, 
+                                                                                        sketchIDsAwaitingComparison, scoreQueue);
+                            workers[i] = worker;
+                            service.submit(worker);
+                        }
+                        
+                        /** compare sketch against target sketches*/
+                        TargetSimilarityScore bestScore = null;
+                        int numTargets = targetSketches.size();
+                        for (int i=0; i<numTargets; ++i) {
+                            sketchIDsAwaitingComparison.put(i);
+                            
+                            if (scoreQueue.remainingCapacity() <= numThreads) {
+                                if (bestScore == null) {
+                                    bestScore = scoreQueue.poll();
+                                }
+                                
+                                while (!scoreQueue.isEmpty()) {
+                                    TargetSimilarityScore score = scoreQueue.poll();
+                                    if (bestScore.jaccardSimilarity < score.jaccardSimilarity) {
+                                        bestScore = score;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        for (JaccardSimiliarityCalculator worker : workers) {
+                            worker.terminateWhenInputExhausts();
+                        }
+                        
+                        service.terminate();
+                        
+                        if (bestScore == null) {
+                            bestScore = scoreQueue.poll();
+                        }
+                        
+                        while (!scoreQueue.isEmpty()) {
+                            TargetSimilarityScore score = scoreQueue.poll();
+                            if (bestScore.jaccardSimilarity < score.jaccardSimilarity) {
+                                bestScore = score;
+                            }
+                        }
+                        
+                        if (bestScore.jaccardSimilarity < jaccardSimilarityThreshold) {
+                            // start a new cluster
+                            targetSketches.add(sketch);
+                            bestTargetSketchID = targetSketches.size()-1;
+                        }
+                        else {
+                            bestTargetSketchID = bestScore.sketchID;
+                        }
+                    }
+                    
+                    /** add sequence to target cluster*/
+                    String path = clusteredLongReadsDirectory + File.separator + bestTargetSketchID + ".fa";
+                    FastaWriter writer = new FastaWriter(path, true);
+                    String header = COVERAGE_ORDER[c] + "." + LENGTH_STRATUM_NAMES[l] + "." + ++cid;
+                    writer.write(header, seq);
+                    writer.close();
+                }
+            }
+        }
+    }
+    
     public static final int LENGTH_STRATUM_MIN_S_INDEX = 0;
     public static final int LENGTH_STRATUM_S_Q1_INDEX = 1;
     public static final int LENGTH_STRATUM_Q1_MED_INDEX = 2;
@@ -2086,6 +2257,7 @@ public class RNABloom {
         private long numCorrected = 0;
         private boolean successful = false;
         private Exception exception = null;
+        private LongReadCorrectionWorker[] workersToWait = null;
         
         public CorrectedLongReadsWriterWorker(ArrayBlockingQueue<Sequence> inputQueue, FastaWriter[][] writers, int maxSampleSize, int minSeqLen) {
             this.inputQueue = inputQueue;
@@ -2139,11 +2311,9 @@ public class RNABloom {
                     
                     writers[covStatumIndex][lengthStratumIndex].write(header, seq.seq);
                 }
-                
-                sample = null;
 
                 /** write the remaining sequences to file */
-                while(!(terminateWhenInputExhausts && inputQueue.isEmpty())) {
+                while(!(terminateWhenInputExhausts && inputQueue.isEmpty() && areDependentWorkersDone())) {
                     Sequence seq = inputQueue.poll(1, TimeUnit.SECONDS);
                     if (seq == null) {
                         continue;
@@ -2166,8 +2336,25 @@ public class RNABloom {
             }
         }
         
-        public void terminateWhenInputExhausts() {
+        public void terminateWhenInputExhausts(LongReadCorrectionWorker[] workersToWait) {
             terminateWhenInputExhausts = true;
+            this.workersToWait = workersToWait;
+        }
+        
+        public boolean areDependentWorkersDone() {
+            if (workersToWait == null) {
+                return false;
+            }
+            else {
+                int numRemaining = workersToWait.length;
+                for (LongReadCorrectionWorker worker : workersToWait) {
+                    if (worker.successful || worker.exception != null) {
+                        --numRemaining;
+                    }
+                }
+                
+                return numRemaining <= 0;
+            }
         }
         
         public boolean isSucessful() {
@@ -2279,11 +2466,11 @@ public class RNABloom {
         ArrayBlockingQueue<Sequence> outputQueue = new ArrayBlockingQueue<>(maxQueueSize);
                 
         int numCorrectionWorkers = numThreads;
-        ArrayDeque<LongReadCorrectionWorker> correctionWorkers = new ArrayDeque<>(numCorrectionWorkers);
+        LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numCorrectionWorkers];
         
         for (int i=0; i<numCorrectionWorkers; ++i) {
             LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov);
-            correctionWorkers.add(worker);
+            correctionWorkers[i] = worker;
             service.submit(worker);
         }
         
@@ -2308,7 +2495,7 @@ public class RNABloom {
             worker.terminateWhenInputExhausts();
         }
         
-        writerWorker.terminateWhenInputExhausts();
+        writerWorker.terminateWhenInputExhausts(correctionWorkers);
         
         service.terminate();
         
@@ -3286,6 +3473,22 @@ public class RNABloom {
         }
     }
     
+    
+    
+    private static void clusterLongReads(RNABloom assembler, String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads) throws IOException, InterruptedException {
+        File outdir = new File(clusteredLongReadsDirectory);
+        if (outdir.exists()) {
+            for (File f : outdir.listFiles()) {
+                f.delete();
+            }
+        }
+        else {
+            outdir.mkdirs();
+        }
+        
+        assembler.clusterLongReads(correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads);
+    }
+    
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, FastxFilePair[] fqPairs,
             long sbfSize, long pkbfSize, int sbfNumHash, int pkbfNumHash, int numThreads,
@@ -4172,6 +4375,7 @@ public class RNABloom {
             File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
             File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
             File longReadsCorrectedStamp = new File(outdir + File.separator + STAMP_LONG_READS_CORRECTED);
+            File longReadsClusteredStamp = new File(outdir + File.separator + STAMP_LONG_READS_CLUSTERED);
             
             if (forceOverwrite) {
                 if (startedStamp.exists()) {
@@ -4196,6 +4400,10 @@ public class RNABloom {
                 
                 if (longReadsCorrectedStamp.exists()) {
                     longReadsCorrectedStamp.delete();
+                }
+                
+                if (longReadsClusteredStamp.exists()) {
+                    longReadsClusteredStamp.delete();
                 }
             }
                         
@@ -4608,20 +4816,24 @@ public class RNABloom {
                 
                 final String correctedLongReadFilePrefix = outdir + File.separator + name + ".longreads.corrected";
 
+                final int numCovStrata = COVERAGE_ORDER.length;
+                final int numLenStrata = LENGTH_STRATUM_NAMES.length;
+                String[][] correctedLongReadFileNames = new String[numCovStrata][numLenStrata];
+                for (int c=0; c<numCovStrata; ++c) {
+                    String covStratumName = COVERAGE_ORDER[c];
+                    for (int l=0; l<numLenStrata; ++l) {
+                        String lengthStratumName = LENGTH_STRATUM_NAMES[l];
+
+                        String correctedLongReadsFasta = correctedLongReadFilePrefix + "." + covStratumName + "." + lengthStratumName + ".fa";
+                        correctedLongReadFileNames[c][l] = correctedLongReadsFasta;
+                    }
+                }
+                
                 if (forceOverwrite || !longReadsCorrectedStamp.exists()) {
                     /* set up the file writers */
-                    final int numCovStrata = COVERAGE_ORDER.length;
-                    final int numLenStrata = LENGTH_STRATUM_NAMES.length;
-                    String[][] correctedLongReadFileNames = new String[numCovStrata][numLenStrata];
-                    for (int c=0; c<numCovStrata; ++c) {
-                        String covStratumName = COVERAGE_ORDER[c];
-                        for (int l=0; l<numLenStrata; ++l) {
-                            String lengthStratumName = LENGTH_STRATUM_NAMES[l];
-
-                            String correctedLongReadsFasta = correctedLongReadFilePrefix + "." + covStratumName + "." + lengthStratumName + ".fa";
-                            correctedLongReadFileNames[c][l] = correctedLongReadsFasta;
-
-                            File correctedLongReadsFastaPath = new File(correctedLongReadsFasta);
+                    for (String[] row : correctedLongReadFileNames) {
+                        for (String fasta : row) {
+                            File correctedLongReadsFastaPath = new File(fasta);
                             if (correctedLongReadsFastaPath.exists()) {
                                 correctedLongReadsFastaPath.delete();
                             }
@@ -4633,6 +4845,13 @@ public class RNABloom {
                     touch(longReadsCorrectedStamp);
                 }
                 
+                final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
+                
+                if (forceOverwrite || !longReadsClusteredStamp.exists()) {
+                    clusterLongReads(assembler, correctedLongReadFileNames, clusteredLongReadsDirectory, minHashSketchSize, numThreads);
+                    
+                    touch(longReadsClusteredStamp);
+                }
                 /**@TODO*/
             }
             else {
