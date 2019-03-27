@@ -2873,7 +2873,12 @@ public final class GraphUtils {
                         continue;
                     }
                     else {
-                        ArrayDeque<Kmer> path = getMaxCoveragePath(graph, kmers2.get(kmers2.size()-1), kmer, numBadKmersSince + maxIndelSize, lookahead, minKmerCov);
+                        int maxLengthDifference = 0;
+                        if (percentIdentity < 1.0f) {
+                            maxLengthDifference = Math.max(1, (int) Math.ceil(numBadKmersSince * (1 - percentIdentity))) * maxIndelSize;
+                        }
+                        
+                        ArrayDeque<Kmer> path = getMaxCoveragePath(graph, kmers2.get(kmers2.size()-1), kmer, numBadKmersSince + maxLengthDifference, lookahead, minKmerCov);
                         if (path == null) {
                             // fill with original sequence
                             for (int j=i-numBadKmersSince; j<i; ++j) {
@@ -2883,13 +2888,13 @@ public final class GraphUtils {
                         else {
                             int altPathLen = path.size();
 
-                            if (numBadKmersSince-maxIndelSize <= altPathLen && 
-                                    altPathLen <= numBadKmersSince+maxIndelSize && 
+                            if (numBadKmersSince-maxLengthDifference <= altPathLen && 
+                                    altPathLen <= numBadKmersSince+maxLengthDifference && 
                                     (altPathLen <= k+maxIndelSize ||
                                         getPercentIdentity(graph.assemble(path), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity)) {
                                 
-                                    kmers2.addAll(path);
-                                    corrected = true;
+                                kmers2.addAll(path);
+                                corrected = true;
                             }
                             else {
                                 // fill with original sequence
