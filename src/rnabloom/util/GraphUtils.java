@@ -2531,98 +2531,45 @@ public final class GraphUtils {
         // insert the new hash value
         sketch[i] = newVal;
     }
-
-    public static long[] getMinHashSketch(String seq, NTHashIterator itr, int sketchSize, int numKmers) {
-        long[] sketch = new long[sketchSize];
+        
+    public static long[] getAscendingHashValues(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
+        HashSet<Long> hashValSet = new HashSet<>(numKmers);
         
         itr.start(seq);
         long[] hVals = itr.hVals;
-        for (int i=0; i<sketchSize; ++i) {
+        for (int i=0; i<numKmers; ++i) {
             itr.next();
-            sketch[i] = hVals[0];
-        }
-                
-        Arrays.sort(sketch);
-        
-        for (int i=sketchSize; i<numKmers; ++i) {
-            itr.next();
-            updateMinHashSketch(sketch, sketchSize, hVals[0]);
-        }
-        
-        return sketch;
-    }
-    
-    /**
-     * Method to return the minhash sketch for the list of kmers.
-     * @param kmers      list of kmers
-     * @param sketchSize sketch size
-     * @return           minhash sketch
-     */
-    public static long[] getMinHashSketch(ArrayList<Kmer> kmers,
-                                        int sketchSize) {
-        long[] sketch = new long[sketchSize];
-        
-        for (int i=0; i<sketchSize; ++i) {
-            sketch[i] = kmers.get(i).getHash();
-        }
-        
-        Arrays.sort(sketch);
-        
-        int numKmers = kmers.size();
-        for (int i=sketchSize; i<numKmers; ++i) {
-            updateMinHashSketch(sketch, sketchSize, kmers.get(i).getHash());
-        }
-        
-        return sketch;
-    }
-    
-    /**
-     * Method to return the minhash sketch for kmers above the minimum coverage threshold.
-     * @param kmers      list of kmers
-     * @param sketchSize sketch size
-     * @param minKmerCov minimum coverage threshold
-     * @return           minhash sketch
-     */
-    public static long[] getMinHashSketch(ArrayList<Kmer> kmers,
-                                        int sketchSize,
-                                        int minKmerCov) {
-        long[] sketch = new long[sketchSize];
-        
-        int i = 0;
-        for (Kmer kmer : kmers) {
-            if (kmer.count >= minKmerCov) {
-                sketch[i] = kmer.getHash();
-                
-                if (++i >= sketchSize) {
-                    break;
-                }
+            if (graph.getCount(hVals) >= minCoverage) {
+                hashValSet.add(hVals[0]);
             }
         }
         
-        Arrays.sort(sketch);
-        
-        int numKmers = kmers.size();
-        for (; i<numKmers; ++i) {
-            updateMinHashSketch(sketch, sketchSize, kmers.get(i).getHash());
+        int numVals = hashValSet.size();
+        long[] result = new long[numVals];
+        int i=0;
+        for (Long h : hashValSet) {
+            result[i++] = h;
         }
         
-        return sketch;
+        Arrays.sort(result);
+        
+        return result;
     }
     
-    /**
-     * Method to return the jaccard similarity coefficient of 2 minhashs sketches.
-     * The 2 sketches must have the same size.
-     * @param sketch1 sorted minhash sketch from set 1
-     * @param sketch2 sorted minhash sketch from set 2
-     * @return jaccard similarity coefficient
-     */
-    public static float getJaccardSimilarity(long[] sketch1, long[] sketch2) {
+    public static long[] getMinHashSketch(long[] sortedHashVals, int sketchSize) {
+        long[] sketch = new long[sketchSize];
+        System.arraycopy(sortedHashVals, 0, sketch, 0, sketchSize);
+        return sketch;
+    }
+        
+    public static int getNumIntersection(long[] sketch1, long[] sketch2) {
+        int sketchSize1 = sketch1.length;
+        int sketchSize2 = sketch2.length;
         int intersectionSize = 0;
-        int sketchSize = sketch1.length;
         int j = 0;
         
         long hash1, hash2;
-        for (int i=0; i<sketchSize && j<sketchSize; ++i) {
+        for (int i=0; i<sketchSize1 && j<sketchSize2; ++i) {
             hash1 = sketch1[i];
             hash2 = sketch2[j];
             
@@ -2631,7 +2578,7 @@ public final class GraphUtils {
                 ++j;
             }
             else if (hash1 > hash2) {
-                for (++j; j<sketchSize; ++j) {
+                for (++j; j<sketchSize2; ++j) {
                     hash2 = sketch2[j];
                     if (hash1 == hash2) {
                         ++intersectionSize;
@@ -2645,7 +2592,24 @@ public final class GraphUtils {
             }
         }
         
-        return intersectionSize / (2f * sketchSize - intersectionSize);
+        return intersectionSize;
+    }
+    
+    /**
+     * Method to return the jaccard similarity coefficient of 2 minhashs sketches.
+     * The 2 sketches must have the same size.
+     * @param sketch1 sorted minhash sketch from set 1
+     * @param sketch2 sorted minhash sketch from set 2
+     * @return jaccard similarity coefficient
+     */
+    public static float getResemblance(long[] sketch1, long[] sketch2) {
+        int intersectionSize = getNumIntersection(sketch1, sketch2);
+        
+        return getNumIntersection(sketch1, sketch2) / (float) (sketch1.length + sketch2.length - intersectionSize);
+    }
+    
+    public static float getContainment(long[] test, long[] target) {        
+        return getNumIntersection(test, target) / (float) (target.length);
     }
     
     public static ArrayList<Kmer> correctLongSequence(ArrayList<Kmer> kmers, 

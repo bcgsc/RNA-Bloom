@@ -127,7 +127,7 @@ public class HashFunction {
         
         return longestSegment;
     }
-    
+        
     public ArrayList<Kmer> getKmers(final String seq, final int start, final int end, final int numHash, BloomFilterDeBruijnGraph graph) {
         ArrayList<Kmer> result = new ArrayList<>();
         

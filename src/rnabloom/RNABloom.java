@@ -2054,32 +2054,21 @@ public class RNABloom {
         }
     }
     
-    public static class TargetSimilarityScore {
-        int sketchID;
-        float jaccardSimilarity;
-        
-        public TargetSimilarityScore(int sketchID, float jaccard) {
-            this.sketchID = sketchID;
-            this.jaccardSimilarity = jaccard;
-        }
-    }
-        
-    public class JaccardSimiliarityCalculator implements Runnable {
-        private final long[] querySketch;
+    public class ContainmentCalculator implements Runnable {
+        private final long[] queryHashVals;
         private final ArrayBlockingQueue<Integer> sketchIDsQueue;
-        private final ArrayBlockingQueue<TargetSimilarityScore> scoreQueue;
+        private float maxContainment = -1;
+        private int maxContainmentTargetIndex = -1;
         private final ArrayList<long[]> targetSketches;
         private boolean terminateWhenInputExhausts = false;
         private boolean successful = false;
         private Exception exception = null;
         
-        public JaccardSimiliarityCalculator(long[] querySketch, ArrayList<long[]> targetSketches, 
-                                    ArrayBlockingQueue<Integer> sketchIDsQueue,
-                                    ArrayBlockingQueue<TargetSimilarityScore> scoreQueue) {
-            this.querySketch = querySketch;
+        public ContainmentCalculator(long[] queryHashVals, ArrayList<long[]> targetSketches, 
+                                    ArrayBlockingQueue<Integer> sketchIDsQueue) {
+            this.queryHashVals = queryHashVals;
             this.targetSketches = targetSketches;
             this.sketchIDsQueue = sketchIDsQueue;
-            this.scoreQueue = scoreQueue;
         }
         
         @Override
@@ -2092,8 +2081,11 @@ public class RNABloom {
                         continue;
                     }
                     
-                    float jaccard = getJaccardSimilarity(querySketch, targetSketches.get(sketchID));
-                    scoreQueue.put(new TargetSimilarityScore(sketchID, jaccard));
+                    float score = getContainment(queryHashVals, targetSketches.get(sketchID));
+                    if (maxContainmentTargetIndex < 0 || score > maxContainment) {
+                        maxContainmentTargetIndex = sketchID;
+                        maxContainment = score;
+                    }
                 }
                 
                 successful = true;
@@ -2102,6 +2094,14 @@ public class RNABloom {
                 exception = ex;
                 successful = false;
             }
+        }
+        
+        public int getMaxContainmentTargetIndex() {
+            return maxContainmentTargetIndex;
+        }
+        
+        public float getMaxContainment() {
+            return maxContainment;
         }
         
         public void terminateWhenInputExhausts() {
@@ -2117,22 +2117,24 @@ public class RNABloom {
         }
     }
     
-    public void clusterLongReads(String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads) throws IOException, InterruptedException {
-        final float jaccardSimilarityThreshold = 0.33f;
+    public void clusterLongReads(String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads, float minCoverage) throws IOException, InterruptedException {
+        final float similarityThreshold = 0.33f;
                 
         int maxQueueSize = 100;
-        ArrayBlockingQueue<Integer> sketchIDsAwaitingComparison = new ArrayBlockingQueue<>(maxQueueSize);
-        ArrayBlockingQueue<TargetSimilarityScore> scoreQueue = new ArrayBlockingQueue<>(maxQueueSize);
+        ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
         
         ArrayList<long[]> targetSketches = new ArrayList<>();
-        NTHashIterator itr = graph.getHashIterator(1);
-
+        NTHashIterator itr = graph.getHashIterator();
+        
         for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
-            for (int l=LENGTH_STRATUM_NAMES.length-1; l>=0; --l) {
+            for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
+                // skip l=0 because their lengths are too short to have a sketch
+                
                 long cid = 0;
                 
                 String readFile = correctedLongReadFileNames[c][l];
                 FastaReader fr = new FastaReader(readFile);
+                System.out.println("Parsing file `" + readFile + "`...");
                 
                 while (true) {
                     String seq;
@@ -2145,68 +2147,63 @@ public class RNABloom {
                         break;
                     }
                     
-                    long[] sketch = getMinHashSketch(seq, itr, sketchSize, getNumKmers(seq, k));
+                    int numKmers = getNumKmers(seq, k);
+                    long[] sortedHashVals = getAscendingHashValues(seq, itr, graph, numKmers, minCoverage);
+                    
+                    if (sortedHashVals.length < sketchSize) {
+                        // not enough good kmers
+                        continue;
+                    }
+                    
                     int bestTargetSketchID = -1;
                     
                     if (targetSketches.isEmpty()) {
+                        long[] sketch = getMinHashSketch(sortedHashVals, sketchSize);
                         targetSketches.add(sketch);
                         bestTargetSketchID = 0;
                     }
                     else {
                         /** start thread pool*/
+                        
                         MyExecutorService service = new MyExecutorService(numThreads, numThreads);
-                        JaccardSimiliarityCalculator[] workers = new JaccardSimiliarityCalculator[numThreads];
+                        
+                        ContainmentCalculator[] workers = new ContainmentCalculator[numThreads];
                         for (int i=0; i<numThreads; ++i) {
-                            JaccardSimiliarityCalculator worker = new JaccardSimiliarityCalculator(sketch, targetSketches, 
-                                                                                        sketchIDsAwaitingComparison, scoreQueue);
+                            ContainmentCalculator worker = new ContainmentCalculator(sortedHashVals, targetSketches, sketchIndexQueue);
                             workers[i] = worker;
                             service.submit(worker);
                         }
                         
-                        /** compare sketch against target sketches*/
-                        TargetSimilarityScore bestScore = null;
                         int numTargets = targetSketches.size();
                         for (int i=0; i<numTargets; ++i) {
-                            sketchIDsAwaitingComparison.put(i);
-                            
-                            if (scoreQueue.remainingCapacity() <= numThreads) {
-                                if (bestScore == null) {
-                                    bestScore = scoreQueue.poll();
-                                }
-                                
-                                while (!scoreQueue.isEmpty()) {
-                                    TargetSimilarityScore score = scoreQueue.poll();
-                                    if (bestScore.jaccardSimilarity < score.jaccardSimilarity) {
-                                        bestScore = score;
-                                    }
-                                }
-                            }
+                            sketchIndexQueue.put(i);
                         }
                         
-                        for (JaccardSimiliarityCalculator worker : workers) {
+                        for (ContainmentCalculator worker : workers) {
                             worker.terminateWhenInputExhausts();
                         }
                         
                         service.terminate();
                         
-                        if (bestScore == null) {
-                            bestScore = scoreQueue.poll();
-                        }
-                        
-                        while (!scoreQueue.isEmpty()) {
-                            TargetSimilarityScore score = scoreQueue.poll();
-                            if (bestScore.jaccardSimilarity < score.jaccardSimilarity) {
-                                bestScore = score;
+                        int bestSketchID = -1;
+                        float bestScore = -1;
+                        for (ContainmentCalculator worker : workers) {
+                            float mc = worker.getMaxContainment();
+                            if (mc > bestScore) {
+                                bestScore = mc;
+                                bestSketchID = worker.getMaxContainmentTargetIndex();
                             }
                         }
                         
-                        if (bestScore.jaccardSimilarity < jaccardSimilarityThreshold) {
+                        if (bestScore < similarityThreshold) {
                             // start a new cluster
+                            long[] sketch = getMinHashSketch(sortedHashVals, sketchSize);
+                            
                             targetSketches.add(sketch);
                             bestTargetSketchID = targetSketches.size()-1;
                         }
                         else {
-                            bestTargetSketchID = bestScore.sketchID;
+                            bestTargetSketchID = bestSketchID;
                         }
                     }
                     
@@ -2219,6 +2216,8 @@ public class RNABloom {
                 }
             }
         }
+        
+        System.out.println("Reads are clustered in " + targetSketches.size() + " groups.");
     }
     
     public static final int LENGTH_STRATUM_MIN_S_INDEX = 0;
@@ -2313,7 +2312,7 @@ public class RNABloom {
                 }
 
                 /** write the remaining sequences to file */
-                while(!(terminateWhenInputExhausts && inputQueue.isEmpty() && areDependentWorkersDone())) {
+                while(!(terminateWhenInputExhausts && areDependentWorkersDone() && inputQueue.isEmpty())) {
                     Sequence seq = inputQueue.poll(1, TimeUnit.SECONDS);
                     if (seq == null) {
                         continue;
@@ -3475,7 +3474,7 @@ public class RNABloom {
     
     
     
-    private static void clusterLongReads(RNABloom assembler, String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads) throws IOException, InterruptedException {
+    private static void clusterLongReads(RNABloom assembler, String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads, float minKmerCov) throws IOException, InterruptedException {
         File outdir = new File(clusteredLongReadsDirectory);
         if (outdir.exists()) {
             for (File f : outdir.listFiles()) {
@@ -3486,7 +3485,7 @@ public class RNABloom {
             outdir.mkdirs();
         }
         
-        assembler.clusterLongReads(correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads);
+        assembler.clusterLongReads(correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -4811,8 +4810,8 @@ public class RNABloom {
                 touch(txptsDoneStamp);
             }
             else if (longReadPaths != null && longReadPaths.length > 0) {
-                int minHashSketchSize = 200;
-                int minSeqLen = getSeqLength(minHashSketchSize, k);
+                int sketchSize = 300;
+                int minSeqLen = getSeqLength(sketchSize, k);
                 
                 final String correctedLongReadFilePrefix = outdir + File.separator + name + ".longreads.corrected";
 
@@ -4840,17 +4839,28 @@ public class RNABloom {
                         }
                     }
 
+                    System.out.println("Correcting long reads for \"" + name + "\"");
+                    MyTimer stageTimer = new MyTimer();
+                    stageTimer.start();
+                    
                     correctLongReads(assembler, longReadPaths, correctedLongReadFileNames, maxErrCorrItr, minKmerCov, numThreads, sampleSize, minSeqLen);
                     
                     touch(longReadsCorrectedStamp);
+                    System.out.println("Reads corrected in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                 }
                 
                 final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
                 
                 if (forceOverwrite || !longReadsClusteredStamp.exists()) {
-                    clusterLongReads(assembler, correctedLongReadFileNames, clusteredLongReadsDirectory, minHashSketchSize, numThreads);
+                    
+                    System.out.println("Clustering long reads for \"" + name + "\"");
+                    MyTimer stageTimer = new MyTimer();
+                    stageTimer.start();
+                    
+                    clusterLongReads(assembler, correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov);
                     
                     touch(longReadsClusteredStamp);
+                    System.out.println("Reads clustered in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                 }
                 /**@TODO*/
             }
