@@ -48,6 +48,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -3871,13 +3872,13 @@ public class RNABloom {
         }
     }
     
-    private static long getNumUniqueKmers(int threads, int k, String histogramPathPrefix, String[] leftReadPaths, String[] rightReadPaths, boolean forceOverwrite) throws IOException, InterruptedException {
+    private static long getNumUniqueKmers(int threads, int k, String histogramPathPrefix, String[] readPaths, boolean forceOverwrite) throws IOException, InterruptedException {
         long numKmers = -1L;
         String histogramPath = histogramPathPrefix + "_k" + k + ".hist";
         int exitVal = 0;
         
         if (forceOverwrite || !new File(histogramPath).isFile()) {
-            String cmd = "ntcard -t " + threads + " -k " + k + " -c 65535 -p " + histogramPathPrefix + " " + String.join(" ", leftReadPaths) + " " + String.join(" ", rightReadPaths);
+            String cmd = "ntcard -t " + threads + " -k " + k + " -c 65535 -p " + histogramPathPrefix + " " + String.join(" ", readPaths);
             Runtime rt = Runtime.getRuntime();
             System.out.println("Running command: `" + cmd + "`...");
             Process pr = rt.exec(cmd);
@@ -4549,7 +4550,14 @@ public class RNABloom {
                 String histogramPathPrefix = outdir + File.separator + name;
                 
                 timer.start();
-                expNumKmers = getNumUniqueKmers(numThreads, k, histogramPathPrefix, leftReadPaths, rightReadPaths, forceOverwrite);
+                
+                if (leftReadPaths != null && leftReadPaths.length > 0 && rightReadPaths != null && rightReadPaths.length > 0) {
+                    String[] readPaths = Stream.concat(Arrays.stream(leftReadPaths), Arrays.stream(rightReadPaths)).toArray(String[]::new);
+                    expNumKmers = getNumUniqueKmers(numThreads, k, histogramPathPrefix, readPaths, forceOverwrite);
+                }
+                else if (longReadPaths != null && longReadPaths.length > 0) {
+                    expNumKmers = getNumUniqueKmers(numThreads, k, histogramPathPrefix, longReadPaths, forceOverwrite);
+                }
                     
                 if (expNumKmers <= 0) {
                     exitOnError("Cannot get number of unique k-mers from ntcard! (" + expNumKmers + ")");
