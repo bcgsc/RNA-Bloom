@@ -2842,22 +2842,28 @@ public final class GraphUtils {
                             maxLengthDifference = Math.max(1, (int) Math.ceil(numBadKmersSince * (1 - percentIdentity))) * maxIndelSize;
                         }
                         
-                        ArrayDeque<Kmer> path = getMaxCoveragePath(graph, kmers2.get(kmers2.size()-1), kmer, numBadKmersSince + maxLengthDifference, lookahead, minKmerCov);
-                        if (path == null) {
+                        ArrayDeque<Kmer> altPath = getMaxCoveragePath(graph, kmers2.get(kmers2.size()-1), kmer, numBadKmersSince + maxLengthDifference, lookahead, minKmerCov);
+                        
+                        if (altPath == null) {
                             // fill with original sequence
                             for (int j=i-numBadKmersSince; j<i; ++j) {
                                 kmers2.add(kmers.get(j));
                             }
                         }
                         else {
-                            int altPathLen = path.size();
+                            float altPathMinCov = getMinimumKmerCoverage(altPath);
+                            float oriPathMinCov = getMinimumKmerCoverage(kmers, i-numBadKmersSince, i);
+                            
+                            int altPathLen = altPath.size();
 
-                            if (numBadKmersSince-maxLengthDifference <= altPathLen && 
+                            if (oriPathMinCov < altPathMinCov &&
+                                    numBadKmersSince-maxLengthDifference <= altPathLen && 
                                     altPathLen <= numBadKmersSince+maxLengthDifference && 
                                     (altPathLen <= k+maxIndelSize ||
-                                        getPercentIdentity(graph.assemble(path), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity)) {
+                                        (oriPathMinCov < minKmerCov && altPathMinCov >= minKmerCov) ||
+                                        getPercentIdentity(graph.assemble(altPath), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity)) {
                                 
-                                kmers2.addAll(path);
+                                kmers2.addAll(altPath);
                                 corrected = true;
                             }
                             else {
