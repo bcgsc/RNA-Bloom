@@ -79,6 +79,7 @@ import rnabloom.io.FastxSequenceIterator;
 import rnabloom.io.FileFormatException;
 import rnabloom.util.GraphUtils;
 import static rnabloom.util.GraphUtils.*;
+import rnabloom.util.NTCardHistogram;
 import static rnabloom.util.SeqUtils.*;
 
 /**
@@ -3871,9 +3872,9 @@ public class RNABloom {
             return false;
         }
     }
-    
-    private static long getNumUniqueKmers(int threads, int k, String histogramPathPrefix, String[] readPaths, boolean forceOverwrite) throws IOException, InterruptedException {
-        long numKmers = -1L;
+        
+    private static NTCardHistogram getNTCardHistogram(int threads, int k, String histogramPathPrefix, String[] readPaths, boolean forceOverwrite) throws IOException, InterruptedException {
+        NTCardHistogram hist = null;
         String histogramPath = histogramPathPrefix + "_k" + k + ".hist";
         int exitVal = 0;
         
@@ -3887,22 +3888,11 @@ public class RNABloom {
         
         if (exitVal == 0) {
             System.out.println("Parsing histogram file `" + histogramPath + "`...");
-            BufferedReader br = new BufferedReader(new FileReader(histogramPath));
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.length() > 0) {
-                    String[] cols = line.split("\t");
-                    if (cols[0].equals("F0")) {
-                        numKmers = Long.parseLong(cols[1]);
-                        br.close();
-                        break; 
-                    }
-                }
-            }
-            br.close();
+            hist = new NTCardHistogram(histogramPath);
+            
         }
         
-        return numKmers;
+        return hist;
     }
     
     private static final String STAMP_STARTED = "STARTED";
@@ -4519,7 +4509,7 @@ public class RNABloom {
             
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), optBaseQualFragDefault));
-            final int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), optMinKmerCovDefault));
+            int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), optMinKmerCovDefault));
                         
             float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
             float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8.5f)));
@@ -4553,17 +4543,21 @@ public class RNABloom {
                 
                 if (leftReadPaths != null && leftReadPaths.length > 0 && rightReadPaths != null && rightReadPaths.length > 0) {
                     String[] readPaths = Stream.concat(Arrays.stream(leftReadPaths), Arrays.stream(rightReadPaths)).toArray(String[]::new);
-                    expNumKmers = getNumUniqueKmers(numThreads, k, histogramPathPrefix, readPaths, forceOverwrite);
+                    expNumKmers = getNTCardHistogram(numThreads, k, histogramPathPrefix, readPaths, forceOverwrite).numKmers;
+                    System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
                 }
                 else if (longReadPaths != null && longReadPaths.length > 0) {
-                    expNumKmers = getNumUniqueKmers(numThreads, k, histogramPathPrefix, longReadPaths, forceOverwrite);
+                    NTCardHistogram hist = getNTCardHistogram(numThreads, k, histogramPathPrefix, longReadPaths, forceOverwrite);
+                    expNumKmers = hist.numKmers;
+                    minKmerCov = hist.covThreshold;
+                    System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
+                    System.out.println("Min k-mer coverage threshold: " + NumberFormat.getInstance().format(minKmerCov));
                 }
                     
                 if (expNumKmers <= 0) {
                     exitOnError("Cannot get number of unique k-mers from ntcard! (" + expNumKmers + ")");
                 }
                 
-                System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
                 System.out.println("K-mer counting completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));                
             }
             else {
