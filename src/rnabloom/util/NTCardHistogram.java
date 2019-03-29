@@ -39,6 +39,9 @@ public class NTCardHistogram {
                         covThreshold = Integer.parseInt(cols[0]);
                         break;
                     }
+                    else {
+                        lastCount = count;
+                    }
                 }
             }
         }
