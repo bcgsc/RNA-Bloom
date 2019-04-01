@@ -2307,7 +2307,9 @@ public class RNABloom {
                     int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, minSeqLen, seq.length);
                     int covStatumIndex = getCoverageOrderOfMagnitude(seq.coverage);
                     
-                    String header = Long.toString(++numCorrected) + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
+                    //String header = Long.toString(++numCorrected) + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
+                    ++numCorrected;
+                    String header = seq.name + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
                     
                     writers[covStatumIndex][lengthStratumIndex].write(header, seq.seq);
                 }
@@ -2322,7 +2324,9 @@ public class RNABloom {
                     int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, minSeqLen, seq.length);
                     int covStatumIndex = getCoverageOrderOfMagnitude(seq.coverage);
 
-                    String header = Long.toString(++numCorrected) + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
+                    //String header = Long.toString(++numCorrected) + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
+                    ++numCorrected;
+                    String header = seq.name + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
 
                     writers[covStatumIndex][lengthStratumIndex].write(header, seq.seq);
                 }
@@ -2375,11 +2379,13 @@ public class RNABloom {
     }
     
     public static class Sequence {
+        String name;
         String seq;
         int length;
         float coverage;
         
-        public Sequence(String seq, int length, float coverage) {
+        public Sequence(String name, String seq, int length, float coverage) {
+            this.name = name;
             this.seq = seq;
             this.length = length;
             this.coverage = coverage;
@@ -2387,7 +2393,7 @@ public class RNABloom {
     }
     
     public class LongReadCorrectionWorker implements Runnable {
-        private final ArrayBlockingQueue<String> inputQueue;
+        private final ArrayBlockingQueue<String[]> inputQueue;
         private final ArrayBlockingQueue<Sequence> outputQueue;
         private boolean terminateWhenInputExhausts = false;
         private boolean successful = false;
@@ -2395,7 +2401,7 @@ public class RNABloom {
         private final int maxErrCorrItr;
         private final int minKmerCov;
 
-        public LongReadCorrectionWorker(ArrayBlockingQueue<String> inputQueue, ArrayBlockingQueue<Sequence> outputQueue, int maxErrCorrItr, int minKmerCov) {
+        public LongReadCorrectionWorker(ArrayBlockingQueue<String[]> inputQueue, ArrayBlockingQueue<Sequence> outputQueue, int maxErrCorrItr, int minKmerCov) {
             this.inputQueue = inputQueue;
             this.outputQueue = outputQueue;
             this.maxErrCorrItr = maxErrCorrItr;
@@ -2410,10 +2416,12 @@ public class RNABloom {
                         break;
                     }
                     
-                    String seq = inputQueue.poll(1, TimeUnit.SECONDS);
-                    if (seq == null) {
+                    String[] nameSeqPair = inputQueue.poll(1, TimeUnit.SECONDS);
+                    if (nameSeqPair == null) {
                         continue;
                     }
+                    
+                    String seq = nameSeqPair[1];
                     
                     ArrayList<Kmer> kmers = graph.getKmers(seq);
                     
@@ -2430,7 +2438,7 @@ public class RNABloom {
                         int length = getSeqLength(correctedKmers.size(), k);
                         float cov = getMedianKmerCoverage(correctedKmers);
                         seq = graph.assemble(correctedKmers);
-                        outputQueue.put(new Sequence(seq, length, cov));
+                        outputQueue.put(new Sequence(nameSeqPair[0], seq, length, cov));
                     }
                 } catch (InterruptedException ex) {
                     System.out.println(ex.getMessage());
@@ -2462,7 +2470,7 @@ public class RNABloom {
         MyExecutorService service = new MyExecutorService(numThreads+1, numThreads+1);
         
         int maxQueueSize = 100;
-        ArrayBlockingQueue<String> inputQueue = new ArrayBlockingQueue<>(maxQueueSize);
+        ArrayBlockingQueue<String[]> inputQueue = new ArrayBlockingQueue<>(maxQueueSize);
         ArrayBlockingQueue<Sequence> outputQueue = new ArrayBlockingQueue<>(maxQueueSize);
                 
         int numCorrectionWorkers = numThreads;
@@ -2479,16 +2487,16 @@ public class RNABloom {
         service.submit(writerWorker);
         
         for (FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths); ; ++numReads) {
-            String seq;
+            String[] nameSeqPair;
             
             try {
-                seq = itr.next();
+                nameSeqPair = itr.nextWithName();
             }
             catch (NoSuchElementException e) {
                 break;
             }
             
-            inputQueue.put(seq);
+            inputQueue.put(nameSeqPair);
         }
         
         for (LongReadCorrectionWorker worker : correctionWorkers) {
