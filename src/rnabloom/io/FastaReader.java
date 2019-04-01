@@ -86,6 +86,26 @@ public class FastaReader implements FastxReaderInterface {
         return itr.next();
     }
 
+    @Override
+    public synchronized String[] nextWithName() throws FileFormatException {
+        String line1, name, seq;
+        
+        synchronized(this) {
+            line1 = itr.next();
+            seq = itr.next();
+        }
+    
+        Matcher m = RECORD_NAME_PATTERN.matcher(line1);
+        if (m.matches()) {
+            name = m.group(1);
+        }
+        else {
+            throw new FileFormatException("Line 1 of a FASTA record is expected to start with '>'");
+        }
+        
+        return new String[]{name, seq};
+    }
+    
     public void nextWithName(FastaRecord fr) throws FileFormatException {
         String line1;
         

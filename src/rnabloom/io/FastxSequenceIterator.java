@@ -109,4 +109,37 @@ public class FastxSequenceIterator {
         return seq;
     }
     
+    public String[] nextWithName() throws FileFormatException, IOException {
+        String[] nameSeqPair;
+        
+        try {
+            nameSeqPair = reader.nextWithName();
+        }
+        catch (NoSuchElementException e) {
+            reader.close();
+            
+            if (++fileCursor >= fastxPaths.length) {
+                throw new NoSuchElementException();
+            }
+            
+            String path = fastxPaths[fileCursor];
+        
+            if (FastqReader.isCorrectFormat(path)) {
+                reader = new FastqReader(path);
+            }
+            else if (FastaReader.isCorrectFormat(path)) {
+                reader = new FastaReader(path);
+            }
+            else {
+                throw new FileFormatException("Incompatible file format for `" + path + "`");
+            }
+            
+            System.out.println("Parsing `" + path + "`...");
+            
+            return this.nextWithName();
+        }
+        
+        return nameSeqPair;
+    }
+    
 }

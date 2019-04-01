@@ -25,5 +25,6 @@ import java.io.IOException;
 public interface FastxReaderInterface {
     boolean hasNext();
     String next() throws FileFormatException;
+    String[] nextWithName() throws FileFormatException;
     void close() throws IOException;
 }
