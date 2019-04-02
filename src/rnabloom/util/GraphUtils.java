@@ -2681,9 +2681,6 @@ public final class GraphUtils {
         }
 
         if (numNeeded <= 0) {
-//        CoverageStats covStat = getCoverageStats(kmers, maxCovGradient, lookahead);
-//        if (covStat.q3 >= minKmerCov) {
-
             // use each window's median kmer coverage as threshold
             int windowSize = 500;
             int shift = windowSize/2;
@@ -2692,6 +2689,7 @@ public final class GraphUtils {
             ArrayList<Kmer> testKmers = trimLowCoverageEdgeKmers(kmers,
                                                                 graph, 
                                                                 lookahead,
+                                                                windowSize,
                                                                 minKmerCov);
             
             if (testKmers == null) {
@@ -2751,6 +2749,26 @@ public final class GraphUtils {
                 testKmers = correctedKmers;
                 toShift = !toShift;
             }
+            
+            int numKmers = testKmers.size();
+            ArrayList<Kmer> window = new ArrayList<>(testKmers.subList(0, Math.min(windowSize, numKmers)));
+            CoverageStats leftCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
+            
+            window = new ArrayList<>(testKmers.subList(Math.max(0, numKmers-windowSize), numKmers));
+            CoverageStats rightCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
+            
+            if (leftCovStat.dropoff > 0 || rightCovStat.dropoff > 0) {
+                ArrayList<Kmer> correctedKmers = correctEdgeErrors(testKmers,
+                                                                    graph,
+                                                                    lookahead,
+                                                                    leftCovStat.dropoff,
+                                                                    rightCovStat.dropoff,
+                                                                    percentIdentity,
+                                                                    minKmerCov);
+                if (correctedKmers != null) {
+                    testKmers = correctedKmers;
+                }
+            }
                         
             return testKmers;
         }
@@ -2761,12 +2779,14 @@ public final class GraphUtils {
     public static ArrayList<Kmer> trimLowCoverageEdgeKmers(ArrayList<Kmer> kmers,
                                                         BloomFilterDeBruijnGraph graph, 
                                                         int lookahead,
+                                                        int windowSize,
                                                         float threshold) {
         int numKmers = kmers.size();
         int headIndex = 0;
         int tailIndex = numKmers;
 
-        for (int i=0; i<numKmers; ++i) {
+        int end = Math.min(numKmers, windowSize);
+        for (int i=0; i<end; ++i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i+1, i+lookahead, threshold)) {
                 headIndex = i;
@@ -2774,7 +2794,8 @@ public final class GraphUtils {
             }
         }
 
-        for (int i=numKmers-1; i>=0; --i) {
+        end = Math.max(0, numKmers-windowSize);
+        for (int i=numKmers-1; i>=end; --i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i-lookahead, i, threshold)) {
                 tailIndex = i+1;
@@ -2784,6 +2805,125 @@ public final class GraphUtils {
         
         if (headIndex > 0 || tailIndex < numKmers) {
             return new ArrayList<>(kmers.subList(headIndex, tailIndex));
+        }
+        
+        return null;
+    }
+    
+    public static ArrayList<Kmer> correctEdgeErrors(ArrayList<Kmer> kmers,
+                                                    BloomFilterDeBruijnGraph graph,
+                                                    int lookahead,
+                                                    float headCovThreshold,
+                                                    float tailCovThreshold,
+                                                    float percentIdentity,
+                                                    float minKmerCov) {
+        int numKmers = kmers.size();
+        int headIndex = 0;
+        int tailIndex = numKmers-1;
+
+        if (headCovThreshold > 0) {
+            for (int i=0; i<numKmers; ++i) {
+                Kmer kmer = kmers.get(i);
+                if (kmer.count >= headCovThreshold) {
+                    headIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        if (tailCovThreshold > 0) {
+            for (int i=numKmers-1; i>=0; --i) {
+                Kmer kmer = kmers.get(i);
+                if (kmer.count >= tailCovThreshold) {
+                    tailIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        ArrayDeque<Kmer> newHead = null;
+        boolean trimHead = false;
+        if (headIndex > 0) {
+            int k = graph.getK();
+            int numHash = graph.getMaxNumHash();
+            
+            Kmer original = kmers.get(headIndex-1);
+            ArrayList<Kmer> path = new ArrayList<>(kmers.subList(0, headIndex));
+            int pathLen = path.size();
+            float pathCov = getMedianKmerCoverage(path);
+            
+            float altPathCov = 0;
+            for (Kmer var : original.getLeftVariants(k, numHash, graph, minKmerCov)) {
+                ArrayDeque<Kmer> varPath = greedyExtendLeft(graph, var, lookahead, pathLen-1);
+                varPath.addLast(var);
+                if (varPath.size() == pathLen) {
+                    float cov = getMedianKmerCoverage(varPath);
+                    if (cov > pathCov && cov > altPathCov && getPercentIdentity(graph.assemble(varPath), graph.assemble(kmers, 0, headIndex)) >= percentIdentity) {
+                        newHead = varPath;
+                    }
+                }
+            }
+            
+            if (newHead == null && headIndex < k) {
+                trimHead = true;
+            }
+        }
+        
+        ArrayDeque<Kmer> newTail = null;
+        boolean trimTail = false;
+        if (tailIndex < numKmers-1) {
+            int k = graph.getK();
+            int numHash = graph.getMaxNumHash();
+            
+            Kmer original = kmers.get(tailIndex+1);
+            ArrayList<Kmer> path = new ArrayList<>(kmers.subList(tailIndex+1, numKmers));
+            int pathLen = path.size();
+            float pathCov = getMedianKmerCoverage(path);
+            
+            float altPathCov = 0;
+            for (Kmer var : original.getRightVariants(k, numHash, graph, minKmerCov)) {
+                ArrayDeque<Kmer> varPath = greedyExtendRight(graph, var, lookahead, pathLen-1);
+                varPath.addFirst(var);
+                if (varPath.size() == pathLen) {
+                    float cov = getMedianKmerCoverage(varPath);
+                    if (cov > pathCov && cov > altPathCov &&
+                            getPercentIdentity(graph.assemble(varPath), graph.assemble(kmers, tailIndex+1, numKmers)) >= percentIdentity) {
+                        newTail = varPath;
+                    }
+                }
+            }
+            
+            if (newTail == null && tailIndex >= numKmers - k) {
+                trimTail = true;
+            }
+        }
+        
+        if (newHead != null || newTail != null || trimHead || trimTail) {
+            ArrayList<Kmer> newKmers = new ArrayList<>(numKmers);
+            
+            if (trimHead) {
+                newKmers.addAll(kmers.subList(headIndex, Math.min(tailIndex+1, numKmers)));
+            }
+            else if (newHead == null) {
+                newKmers.addAll(kmers.subList(0, tailIndex+1));
+            }
+            else {
+                newKmers.addAll(newHead);
+                newKmers.addAll(kmers.subList(headIndex, Math.min(tailIndex+1, numKmers)));
+            }
+            
+            if (!trimTail) {
+                if (newTail == null) {
+                    if (tailIndex+1 < numKmers) {
+                        newKmers.addAll(kmers.subList(tailIndex+1, numKmers));
+                    }
+                }
+                else {
+                    newKmers.addAll(newTail);
+                }
+            }
+            
+            return newKmers;
         }
         
         return null;
@@ -2829,7 +2969,7 @@ public final class GraphUtils {
                         
                         ArrayList<Kmer> testKmers;
                         float[] m3;
-                        for (Kmer var : rightEdgeKmer.getLeftVariants(k, numKmers, graph, minKmerCov)) {
+                        for (Kmer var : rightEdgeKmer.getLeftVariants(k, graph.getMaxNumHash(), graph, minKmerCov)) {
                             testKmers = graph.getKmers(prefix + var.toString());
                             if (!testKmers.isEmpty()) {
                                 m3 = getMinMedMaxKmerCoverage(testKmers);
