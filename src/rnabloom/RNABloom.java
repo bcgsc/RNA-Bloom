@@ -2400,12 +2400,14 @@ public class RNABloom {
         private Exception exception = null;
         private final int maxErrCorrItr;
         private final int minKmerCov;
+        private final int minNumSolidKmers;
 
-        public LongReadCorrectionWorker(ArrayBlockingQueue<String[]> inputQueue, ArrayBlockingQueue<Sequence> outputQueue, int maxErrCorrItr, int minKmerCov) {
+        public LongReadCorrectionWorker(ArrayBlockingQueue<String[]> inputQueue, ArrayBlockingQueue<Sequence> outputQueue, int maxErrCorrItr, int minKmerCov, int minNumSolidKmers) {
             this.inputQueue = inputQueue;
             this.outputQueue = outputQueue;
             this.maxErrCorrItr = maxErrCorrItr;
             this.minKmerCov = minKmerCov;
+            this.minNumSolidKmers = minNumSolidKmers;
         }
         
         @Override
@@ -2425,6 +2427,10 @@ public class RNABloom {
                     
                     ArrayList<Kmer> kmers = graph.getKmers(seq);
                     
+//                    if (nameSeqPair[0].equals("ENSMUST00000177715.7_113418557_aligned_2774_R_49_1714_30")) {
+//                        System.out.println(">before\n" + seq);
+//                    }
+                    
                     ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
                                                                         graph, 
                                                                         maxErrCorrItr, 
@@ -2432,12 +2438,19 @@ public class RNABloom {
                                                                         lookahead, 
                                                                         maxIndelSize, 
                                                                         percentIdentity, 
-                                                                        minKmerCov);
+                                                                        minKmerCov,
+                                                                        minNumSolidKmers);
                     
-                    if (correctedKmers != null) {
+                    if (correctedKmers != null) {                        
                         int length = getSeqLength(correctedKmers.size(), k);
                         float cov = getMedianKmerCoverage(correctedKmers);
+//                        float cov = getAdjustedMeanKmerCoverage(correctedKmers, maxCovGradient, lookahead);
                         seq = graph.assemble(correctedKmers);
+                                                
+//                        if (nameSeqPair[0].equals("ENSMUST00000177715.7_113418557_aligned_2774_R_49_1714_30")) {
+//                            System.out.println(">after\n" + seq);
+//                        }
+                        
                         outputQueue.put(new Sequence(nameSeqPair[0], seq, length, cov));
                     }
                 } catch (InterruptedException ex) {
@@ -2475,9 +2488,10 @@ public class RNABloom {
                 
         int numCorrectionWorkers = numThreads;
         LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numCorrectionWorkers];
+        int minNumSolidKmers = 100;
         
         for (int i=0; i<numCorrectionWorkers; ++i) {
-            LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov);
+            LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov, minNumSolidKmers);
             correctionWorkers[i] = worker;
             service.submit(worker);
         }
@@ -2527,7 +2541,7 @@ public class RNABloom {
         System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "(" + numDiscarded * 100f/numReads + "%)");
     }
         
-    public void correctLongReadsSingleThreaded(String[] inputFastxPaths, FastaWriter[][] writers, int minKmerCov, int maxErrCorrItr, int maxSampleSize, int minSeqLen) throws IOException {
+    public void correctLongReadsSingleThreaded(String[] inputFastxPaths, FastaWriter[][] writers, int minKmerCov, int maxErrCorrItr, int maxSampleSize, int minSeqLen, int minNumSolidKmers) throws IOException {
         
         long numReads = 0;
         long numCorrected = 0;
@@ -2554,7 +2568,8 @@ public class RNABloom {
                                                                 lookahead, 
                                                                 maxIndelSize, 
                                                                 percentIdentity, 
-                                                                minKmerCov);
+                                                                minKmerCov,
+                                                                minNumSolidKmers);
 
             if (correctedKmers != null) {
                 sample.add(correctedKmers);
@@ -2614,7 +2629,8 @@ public class RNABloom {
                                                                 lookahead, 
                                                                 maxIndelSize, 
                                                                 percentIdentity, 
-                                                                minKmerCov);
+                                                                minKmerCov,
+                                                                minNumSolidKmers);
 
             if (correctedKmers != null) {
                 int length = getSeqLength(correctedKmers.size(), k);
