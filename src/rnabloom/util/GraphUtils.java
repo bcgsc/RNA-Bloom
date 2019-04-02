@@ -2689,7 +2689,6 @@ public final class GraphUtils {
             ArrayList<Kmer> testKmers = trimLowCoverageEdgeKmers(kmers,
                                                                 graph, 
                                                                 lookahead,
-                                                                windowSize,
                                                                 minKmerCov);
             
             if (testKmers == null) {
@@ -2779,14 +2778,14 @@ public final class GraphUtils {
     public static ArrayList<Kmer> trimLowCoverageEdgeKmers(ArrayList<Kmer> kmers,
                                                         BloomFilterDeBruijnGraph graph, 
                                                         int lookahead,
-                                                        int windowSize,
                                                         float threshold) {
         int numKmers = kmers.size();
+        int halfNumKmers = numKmers/2;
         int headIndex = 0;
         int tailIndex = numKmers;
 
-        int end = Math.min(numKmers, windowSize);
-        for (int i=0; i<end; ++i) {
+        //int end = Math.min(numKmers, halfNumKmers);
+        for (int i=0; i<halfNumKmers; ++i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i+1, i+lookahead, threshold)) {
                 headIndex = i;
@@ -2794,8 +2793,8 @@ public final class GraphUtils {
             }
         }
 
-        end = Math.max(0, numKmers-windowSize);
-        for (int i=numKmers-1; i>=end; --i) {
+        //end = Math.max(0, numKmers-windowSize);
+        for (int i=numKmers-1; i>=halfNumKmers; --i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i-lookahead, i, threshold)) {
                 tailIndex = i+1;
