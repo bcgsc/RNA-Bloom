@@ -2692,7 +2692,6 @@ public final class GraphUtils {
             ArrayList<Kmer> testKmers = trimLowCoverageEdgeKmers(kmers,
                                                                 graph, 
                                                                 lookahead,
-                                                                windowSize,
                                                                 minKmerCov);
             
             if (testKmers == null) {
@@ -2762,58 +2761,25 @@ public final class GraphUtils {
     public static ArrayList<Kmer> trimLowCoverageEdgeKmers(ArrayList<Kmer> kmers,
                                                         BloomFilterDeBruijnGraph graph, 
                                                         int lookahead,
-                                                        int windowSize,
                                                         float threshold) {
         int numKmers = kmers.size();
         int headIndex = 0;
         int tailIndex = numKmers;
-        
-        if (windowSize <= numKmers) {
-//            Stats covStat = getCoverageStats(kmers, maxCovGradient, lookahead);
-//            float threshold = covStat.dropoff;
-//            
-//            if (threshold > 0) {
-                for (int i=0; i<numKmers; ++i) {
-                    Kmer kmer = kmers.get(i);
-                    if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i+1, i+lookahead, threshold)) {
-                        headIndex = i;
-                        break;
-                    }
-                }
-                
-                for (int i=numKmers-1; i>=0; --i) {
-                    Kmer kmer = kmers.get(i);
-                    if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i-lookahead, i, threshold)) {
-                        tailIndex = i+1;
-                        break;
-                    }
-                }
-//            }
+
+        for (int i=0; i<numKmers; ++i) {
+            Kmer kmer = kmers.get(i);
+            if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i+1, i+lookahead, threshold)) {
+                headIndex = i;
+                break;
+            }
         }
-        else {            
-//            Stats covStat = getCoverageStats(kmers.subList(0, windowSize), maxCovGradient, lookahead);
-//            float threshold = covStat.dropoff;
-//            if (threshold > 0) {
-                for (int i=0; i<windowSize; ++i) {
-                    Kmer kmer = kmers.get(i);
-                    if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i+1, i+lookahead, threshold)) {
-                        headIndex = i;
-                        break;
-                    }
-                }
-//            }
-//            
-//            covStat = getCoverageStats(kmers.subList(numKmers-windowSize, numKmers), maxCovGradient, lookahead);
-//            threshold = covStat.dropoff;
-//            if (threshold > 0) {
-                for (int i=numKmers-1; i>=numKmers-windowSize; --i) {
-                    Kmer kmer = kmers.get(i);
-                    if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i-lookahead, i, threshold)) {
-                        tailIndex = i+1;
-                        break;
-                    }
-                }
-//            }
+
+        for (int i=numKmers-1; i>=0; --i) {
+            Kmer kmer = kmers.get(i);
+            if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i-lookahead, i, threshold)) {
+                tailIndex = i+1;
+                break;
+            }
         }
         
         if (headIndex > 0 || tailIndex < numKmers) {
