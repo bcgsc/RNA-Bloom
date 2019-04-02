@@ -36,7 +36,7 @@ public class NTCardHistogram {
                         lastCount = count;
                     }
                     else if (2 * count > lastCount) {
-                        covThreshold = Integer.parseInt(cols[0]);
+                        covThreshold = Integer.parseInt(cols[0]) - 1;
                         break;
                     }
                     else {
