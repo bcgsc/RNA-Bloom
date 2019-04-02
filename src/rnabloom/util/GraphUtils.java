@@ -2751,17 +2751,17 @@ public final class GraphUtils {
             
             int numKmers = testKmers.size();
             ArrayList<Kmer> window = new ArrayList<>(testKmers.subList(0, Math.min(windowSize, numKmers)));
-            CoverageStats leftCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
+            CoverageStats headCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
             
             window = new ArrayList<>(testKmers.subList(Math.max(0, numKmers-windowSize), numKmers));
-            CoverageStats rightCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
+            CoverageStats tailCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
             
-            if (leftCovStat.dropoff > 0 || rightCovStat.dropoff > 0) {
+            if (headCovStat.dropoff > 0 || tailCovStat.dropoff > 0) {
                 ArrayList<Kmer> correctedKmers = correctEdgeErrors(testKmers,
                                                                     graph,
                                                                     lookahead,
-                                                                    leftCovStat.dropoff,
-                                                                    rightCovStat.dropoff,
+                                                                    headCovStat.dropoff,
+                                                                    tailCovStat.dropoff,
                                                                     percentIdentity,
                                                                     minKmerCov);
                 if (correctedKmers != null) {
