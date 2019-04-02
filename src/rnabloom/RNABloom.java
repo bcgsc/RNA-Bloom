@@ -2138,10 +2138,12 @@ public class RNABloom {
                 System.out.println("Parsing file `" + readFile + "`...");
                 
                 while (true) {
-                    String seq;
+                    String name, seq;
                     
                     try {
-                        seq = fr.next();
+                        String[] nameSeqPair = fr.nextWithName();
+                        name = nameSeqPair[0];
+                        seq = nameSeqPair[1];
                     }
                     catch(NoSuchElementException e) {
                         fr.close();
@@ -2211,8 +2213,9 @@ public class RNABloom {
                     /** add sequence to target cluster*/
                     String path = clusteredLongReadsDirectory + File.separator + bestTargetSketchID + ".fa";
                     FastaWriter writer = new FastaWriter(path, true);
-                    String header = COVERAGE_ORDER[c] + "." + LENGTH_STRATUM_NAMES[l] + "." + ++cid;
-                    writer.write(header, seq);
+                    //String header = COVERAGE_ORDER[c] + "." + LENGTH_STRATUM_NAMES[l] + "." + ++cid;
+                    //writer.write(header, seq);
+                    writer.write(name, seq);
                     writer.close();
                 }
             }
