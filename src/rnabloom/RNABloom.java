@@ -2058,18 +2058,22 @@ public class RNABloom {
     public class ContainmentCalculator implements Runnable {
         private final long[] queryHashVals;
         private final ArrayBlockingQueue<Integer> sketchIDsQueue;
-        private float maxContainment = -1;
-        private int maxContainmentTargetIndex = -1;
+        private float bestOverlap = -1;
+        private int bestTargetIndex = -1;
         private final ArrayList<long[]> targetSketches;
         private boolean terminateWhenInputExhausts = false;
         private boolean successful = false;
         private Exception exception = null;
+        private int minSketchOverlap = -1;
+        private ArrayDeque<Integer> overlappingSketchIndexes = new ArrayDeque<>();
         
         public ContainmentCalculator(long[] queryHashVals, ArrayList<long[]> targetSketches, 
-                                    ArrayBlockingQueue<Integer> sketchIDsQueue) {
+                                    ArrayBlockingQueue<Integer> sketchIDsQueue,
+                                    int minSketchOverlap) {
             this.queryHashVals = queryHashVals;
             this.targetSketches = targetSketches;
             this.sketchIDsQueue = sketchIDsQueue;
+            this.minSketchOverlap = minSketchOverlap;
         }
         
         @Override
@@ -2082,10 +2086,17 @@ public class RNABloom {
                         continue;
                     }
                     
-                    float score = getContainment(queryHashVals, targetSketches.get(sketchID));
-                    if (maxContainmentTargetIndex < 0 || score > maxContainment) {
-                        maxContainmentTargetIndex = sketchID;
-                        maxContainment = score;
+                    int overlap = getNumIntersection(queryHashVals, targetSketches.get(sketchID));
+                    if (overlap >= minSketchOverlap) {
+                        if (bestTargetIndex < 0) {
+                            bestTargetIndex = sketchID;
+                            bestOverlap = overlap;
+                        }
+                        else if (overlap > bestOverlap) {
+                            overlappingSketchIndexes.add(bestTargetIndex);
+                            bestTargetIndex = sketchID;
+                            bestOverlap = overlap;
+                        }
                     }
                 }
                 
@@ -2097,12 +2108,16 @@ public class RNABloom {
             }
         }
         
-        public int getMaxContainmentTargetIndex() {
-            return maxContainmentTargetIndex;
+        public int getBestTargetIndex() {
+            return bestTargetIndex;
         }
         
-        public float getMaxContainment() {
-            return maxContainment;
+        public float getMaxIntersection() {
+            return bestOverlap;
+        }
+        
+        public ArrayDeque<Integer> getOverlappingSketchIndexes() {
+            return overlappingSketchIndexes;
         }
         
         public void terminateWhenInputExhausts() {
@@ -2118,8 +2133,27 @@ public class RNABloom {
         }
     }
     
+    private static void combineClusterFasta(int target, HashSet<Integer> overlaps, String clusteredLongReadsDirectory) throws IOException {
+        String path = clusteredLongReadsDirectory + File.separator + target + ".fa";
+        FastaWriter writer = new FastaWriter(path, true);
+        for (int i : overlaps) {
+            path = clusteredLongReadsDirectory + File.separator + i + ".fa";
+            
+            FastaReader reader = new FastaReader(path);
+            while (reader.hasNext()) {
+                String[] nameSeqPair = reader.nextWithName();
+                writer.write(nameSeqPair[0], nameSeqPair[1]);
+            }
+            reader.close();
+            
+            new File(path).delete();
+        }
+        writer.close();
+    }
+    
     public void clusterLongReads(String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads, float minCoverage) throws IOException, InterruptedException {
-        final float similarityThreshold = 0.33f;
+        //final float similarityThreshold = 0.33f;
+        final int minSketchOverlap = sketchSize/3;
                 
         int maxQueueSize = 100;
         ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
@@ -2130,8 +2164,6 @@ public class RNABloom {
         for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
             for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
                 // skip l=0 because their lengths are too short to have a sketch
-                
-                long cid = 0;
                 
                 String readFile = correctedLongReadFileNames[c][l];
                 FastaReader fr = new FastaReader(readFile);
@@ -2172,14 +2204,16 @@ public class RNABloom {
                         
                         ContainmentCalculator[] workers = new ContainmentCalculator[numThreads];
                         for (int i=0; i<numThreads; ++i) {
-                            ContainmentCalculator worker = new ContainmentCalculator(sortedHashVals, targetSketches, sketchIndexQueue);
+                            ContainmentCalculator worker = new ContainmentCalculator(sortedHashVals, targetSketches, sketchIndexQueue, minSketchOverlap);
                             workers[i] = worker;
                             service.submit(worker);
                         }
                         
                         int numTargets = targetSketches.size();
                         for (int i=0; i<numTargets; ++i) {
-                            sketchIndexQueue.put(i);
+                            if (targetSketches.get(i) != null) {
+                                sketchIndexQueue.put(i);
+                            }
                         }
                         
                         for (ContainmentCalculator worker : workers) {
@@ -2189,32 +2223,69 @@ public class RNABloom {
                         service.terminate();
                         
                         int bestSketchID = -1;
-                        float bestScore = -1;
+                        float bestIntersectionSize = -1;
+                        HashSet<Integer> overlapSketchIdSet = new HashSet<>();
                         for (ContainmentCalculator worker : workers) {
-                            float mc = worker.getMaxContainment();
-                            if (mc > bestScore) {
-                                bestScore = mc;
-                                bestSketchID = worker.getMaxContainmentTargetIndex();
+                            float mc = worker.getMaxIntersection();
+                            if (mc > 0) {
+                                ArrayDeque<Integer> overlaps = worker.getOverlappingSketchIndexes();
+                                if (!overlaps.isEmpty()) {
+                                    overlapSketchIdSet.addAll(overlaps);
+                                }
+                                
+                                if (mc > bestIntersectionSize) {
+                                    if (bestSketchID >= 0) {
+                                        overlapSketchIdSet.add(bestSketchID);
+                                    }
+                                    bestIntersectionSize = mc;
+                                    bestSketchID = worker.getBestTargetIndex();
+                                }
                             }
                         }
                         
-                        if (bestScore < similarityThreshold) {
+                        if (bestIntersectionSize <= 0) {
                             // start a new cluster
                             long[] sketch = getMinHashSketch(sortedHashVals, sketchSize);
                             
-                            targetSketches.add(sketch);
-                            bestTargetSketchID = targetSketches.size()-1;
+                            int nullSketchID = targetSketches.indexOf(null);
+                            if (nullSketchID >= 0) {
+                                targetSketches.set(nullSketchID, sketch);
+                                bestTargetSketchID = nullSketchID;
+                            }
+                            else {
+                                targetSketches.add(sketch);
+                                bestTargetSketchID = targetSketches.size()-1;
+                            }
                         }
                         else {
                             bestTargetSketchID = bestSketchID;
+                            
+                            if (!overlapSketchIdSet.isEmpty()) {
+                                // combine overlapping clusters
+                                
+                                ArrayDeque<long[]> sketches = new ArrayDeque<>();
+                                
+                                sketches.add(targetSketches.get(bestSketchID));
+                                
+                                for (int i : overlapSketchIdSet) {
+                                    sketches.add(targetSketches.get(i));
+                                    targetSketches.set(i, null);
+                                }
+                                
+                                long[] newSketch = combineMinHashSketches(sketches);
+                                
+                                targetSketches.set(bestSketchID, newSketch);
+                                
+                                // combine FASTA files
+                                //System.out.println("Combining " + overlapSketchIdSet.size() + " clusters into cluster " +  bestSketchID);
+                                combineClusterFasta(bestSketchID, overlapSketchIdSet, clusteredLongReadsDirectory);
+                            }
                         }
                     }
                     
                     /** add sequence to target cluster*/
                     String path = clusteredLongReadsDirectory + File.separator + bestTargetSketchID + ".fa";
                     FastaWriter writer = new FastaWriter(path, true);
-                    //String header = COVERAGE_ORDER[c] + "." + LENGTH_STRATUM_NAMES[l] + "." + ++cid;
-                    //writer.write(header, seq);
                     writer.write(name, seq);
                     writer.close();
                 }
