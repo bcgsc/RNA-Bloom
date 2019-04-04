@@ -2587,6 +2587,26 @@ public final class GraphUtils {
         return result;
     }
     
+    public static long[] combineMinHashSketches(ArrayDeque<long[]> sketches) {
+        HashSet<Long> hashValSet = new HashSet<>();
+        for (long[] sketch : sketches) {
+            for (long val : sketch) {
+                hashValSet.add(val);
+            }
+        }
+        
+        int numVals = hashValSet.size();
+        long[] result = new long[numVals];
+        int i=0;
+        for (Long h : hashValSet) {
+            result[i++] = h;
+        }
+        
+        Arrays.sort(result);
+        
+        return result;
+    }
+    
     public static long[] getMinHashSketch(long[] sortedHashVals, int sketchSize) {
         long[] sketch = new long[sketchSize];
         System.arraycopy(sortedHashVals, 0, sketch, 0, sketchSize);
