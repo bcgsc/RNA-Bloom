@@ -2517,8 +2517,8 @@ public class RNABloom {
                     
                     if (correctedKmers != null) {                        
                         int length = getSeqLength(correctedKmers.size(), k);
-                        float cov = getMedianKmerCoverage(correctedKmers);
-//                        float cov = getAdjustedMeanKmerCoverage(correctedKmers, maxCovGradient, lookahead);
+//                        float cov = getMedianKmerCoverage(correctedKmers);
+                        float cov = getAdjustedMeanKmerCoverage(correctedKmers, maxCovGradient, lookahead);
                         seq = graph.assemble(correctedKmers);
                                                 
 //                        if (nameSeqPair[0].equals("ENSMUST00000177715.7_113418557_aligned_2774_R_49_1714_30")) {
