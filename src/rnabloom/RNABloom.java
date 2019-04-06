@@ -23,16 +23,12 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import static java.lang.Math.pow;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.NumberFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -44,8 +40,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -77,6 +71,10 @@ import rnabloom.io.FastqRecord;
 import rnabloom.io.FastxPairReader;
 import rnabloom.io.FastxSequenceIterator;
 import rnabloom.io.FileFormatException;
+import static rnabloom.olc.OverlapLayoutConcensus.hasMiniasm;
+import static rnabloom.olc.OverlapLayoutConcensus.hasMinimap2;
+import static rnabloom.olc.OverlapLayoutConcensus.hasRacon;
+import static rnabloom.olc.OverlapLayoutConcensus.overlapLayoutConcensus;
 import rnabloom.util.GraphUtils;
 import static rnabloom.util.GraphUtils.*;
 import rnabloom.util.NTCardHistogram;
@@ -2295,6 +2293,64 @@ public class RNABloom {
         System.out.println("Reads are clustered in " + targetSketches.size() + " groups.");
     }
     
+    public boolean assembleLongReads(String clusteredLongReadsDirectory, String assembledLongReadsDirectory, int numThreads) throws IOException {
+        if (!hasMinimap2()) {
+            exitOnError("`minimap2` not found in PATH!");
+        }
+        
+        if (!hasMiniasm()) {
+            exitOnError("`miniasm` not found!");
+        }
+        
+        if (!hasRacon()) {
+            exitOnError("`racon` not found!");
+        }
+        
+        ArrayList<Integer> clusterIDs = new ArrayList<>();
+        
+        for (File f : new File(clusteredLongReadsDirectory).listFiles()) {
+            String name = f.getName();
+            if (name.endsWith(".fa")) {
+                clusterIDs.add(Integer.parseInt(name.substring(0, name.lastIndexOf(".fa"))));
+            }
+        }
+        
+        Collections.sort(clusterIDs);
+        System.out.println("Total of " + clusterIDs.size() + " clusters to be assembled");
+        
+        ArrayList<Integer> errors = new ArrayList<>();
+        for (int clusterID : clusterIDs) {
+            String stampPath = assembledLongReadsDirectory + File.separator + clusterID + ".DONE";
+            File stampFile = new File(stampPath);
+            
+            if (!stampFile.exists()) {
+                String readsPath = clusteredLongReadsDirectory + File.separator + clusterID + ".fa";
+                String tmpPrefix = assembledLongReadsDirectory + File.separator + clusterID;
+                String concensusPath = assembledLongReadsDirectory + File.separator + clusterID + "_transcripts.fa";
+
+                System.out.println("Assembling cluster `" + clusterID + "`...");
+
+                boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, concensusPath, numThreads);
+                if (!ok) {
+                    System.out.println("*** Error assembling cluster `" + clusterID + "`!!! ***");
+                    errors.add(clusterID);
+                    //@TODO return false;
+                }
+
+                touch(stampFile);
+            }
+        }
+        
+        boolean ok = errors.isEmpty();
+        if (!ok) {
+            System.out.println("Cannot assemble the following clusters:");
+            Collections.sort(errors);
+            System.out.println(Arrays.toString(errors.toArray()));
+        }
+        
+        return ok;
+    }
+    
     public static final int LENGTH_STRATUM_MIN_S_INDEX = 0;
     public static final int LENGTH_STRATUM_S_Q1_INDEX = 1;
     public static final int LENGTH_STRATUM_Q1_MED_INDEX = 2;
@@ -3571,13 +3627,17 @@ public class RNABloom {
         }
     }
     
-    
-    
-    private static void clusterLongReads(RNABloom assembler, String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads, float minKmerCov) throws IOException, InterruptedException {
+    private static void clusterLongReads(RNABloom assembler, 
+            String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory,
+            int sketchSize, int numThreads, float minKmerCov,
+            boolean forceOverwrite) throws IOException, InterruptedException {
+        
         File outdir = new File(clusteredLongReadsDirectory);
         if (outdir.exists()) {
-            for (File f : outdir.listFiles()) {
-                f.delete();
+            if (forceOverwrite) {
+                for (File f : outdir.listFiles()) {
+                    f.delete();
+                }
             }
         }
         else {
@@ -3585,6 +3645,25 @@ public class RNABloom {
         }
         
         assembler.clusterLongReads(correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov);
+    }
+    
+    private static boolean assembleLongReads(RNABloom assembler, 
+            String clusteredLongReadsDirectory, String assembledLongReadsDirectory, 
+            int numThreads, boolean forceOverwrite) throws IOException {
+        
+        File outdir = new File(assembledLongReadsDirectory);
+        if (outdir.exists()) {
+            if (forceOverwrite) {
+                for (File f : outdir.listFiles()) {
+                    f.delete();
+                }
+            }
+        }
+        else {
+            outdir.mkdirs();
+        }
+        
+        return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, numThreads);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -4000,6 +4079,7 @@ public class RNABloom {
     private static final String STAMP_TRANSCRIPTS_NR_DONE = "TRANSCRIPTS_NR.DONE";
     private static final String STAMP_LONG_READS_CORRECTED = "LONGREADS.CORRECTED";
     private static final String STAMP_LONG_READS_CLUSTERED = "LONGREADS.CLUSTERED";
+    private static final String STAMP_LONG_READS_ASSEMBLED = "LONGREADS.ASSEMBLED";
     
     /**
      * @param args the command line arguments
@@ -4463,6 +4543,7 @@ public class RNABloom {
             File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
             File longReadsCorrectedStamp = new File(outdir + File.separator + STAMP_LONG_READS_CORRECTED);
             File longReadsClusteredStamp = new File(outdir + File.separator + STAMP_LONG_READS_CLUSTERED);
+            File longReadsAssembledStamp = new File(outdir + File.separator + STAMP_LONG_READS_ASSEMBLED);
             
             if (forceOverwrite) {
                 if (startedStamp.exists()) {
@@ -4491,6 +4572,10 @@ public class RNABloom {
                 
                 if (longReadsClusteredStamp.exists()) {
                     longReadsClusteredStamp.delete();
+                }
+                
+                if (longReadsAssembledStamp.exists()) {
+                    longReadsAssembledStamp.delete();
                 }
             }
                         
@@ -4956,12 +5041,31 @@ public class RNABloom {
                     MyTimer stageTimer = new MyTimer();
                     stageTimer.start();
                     
-                    clusterLongReads(assembler, correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov);
+                    clusterLongReads(assembler, correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov, forceOverwrite);
                     
                     touch(longReadsClusteredStamp);
                     System.out.println("Reads clustered in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                 }
-                /**@TODO*/
+                
+                final String assembledLongReadsDirectory = outdir + File.separator + name + ".longreads.assembly";
+                if (forceOverwrite || !longReadsAssembledStamp.exists()) {
+                    assembler.destroyAllBf();
+                    
+                    System.out.println("Assembling long reads for \"" + name + "\"");
+                    MyTimer stageTimer = new MyTimer();
+                    stageTimer.start();
+                    
+                    boolean ok = assembleLongReads(assembler, clusteredLongReadsDirectory, assembledLongReadsDirectory, numThreads, forceOverwrite);
+                    
+                    if (ok) {
+                        touch(longReadsAssembledStamp);
+                        System.out.println("Reads assembled in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                    }
+                    else {
+                        exitOnError("Error assembling long reads!");
+                    }
+                }
+                
             }
             else {
                 FastxFilePair[] fqPairs = new FastxFilePair[leftReadPaths.length];
