@@ -2336,8 +2336,9 @@ public class RNABloom {
                     errors.add(clusterID);
                     //@TODO return false;
                 }
-
-                touch(stampFile);
+                else {
+                    touch(stampFile);
+                }
             }
         }
         
