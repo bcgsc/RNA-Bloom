@@ -6,16 +6,21 @@
 package rnabloom.olc;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.lang.ProcessBuilder.Redirect;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
 
@@ -26,33 +31,61 @@ import rnabloom.io.FastaWriter;
 public class OverlapLayoutConcensus {
     
     private final static String GZIP_EXTENSION = ".gz";
+    private final static String LOG_EXTENSION = ".log";
     
     private final static String MINIMAP2 = "minimap2";
     private final static String MINIASM = "miniasm";
     private final static String RACON = "racon";
     
-    private static boolean runCommand(List<String> command, boolean printErrorStream) {
+    private static boolean runCommand(List<String> command, String logPath) {
         try {            
-            ProcessBuilder pb = new ProcessBuilder(command);            
-            Process process = pb.start();
-            
-            //printErrorStream = true;
-            if (printErrorStream) {
-                InputStream is = process.getErrorStream();
-                InputStreamReader isr = new InputStreamReader(is);
-                BufferedReader br = new BufferedReader(isr);
-                String line;
-                while ((line = br.readLine()) != null) {
-                    System.out.println(line);
-                }
+            ProcessBuilder pb = new ProcessBuilder(command);
+            if (logPath != null) {
+                // write stdout and stderr to file to avoid hanging due to buffer overflow
+                pb.redirectErrorStream(true);
+                File logFile = new File(logPath);
+                pb.redirectOutput(Redirect.appendTo(logFile));
             }
-            
-            int exitVal = process.waitFor();
-            return exitVal == 0;
+            Process process = pb.start();
+            int exitStatus = process.waitFor();
+            return exitStatus == 0;
         }
         catch (IOException | InterruptedException e) {
             return false;
         }
+    }
+    
+    private static boolean runCommand(List<String> command, String logPath, String gzipOutPath) {
+        try {            
+            ProcessBuilder pb = new ProcessBuilder(command);
+            
+            if (logPath != null) {
+                File logFile = new File(logPath);
+                pb.redirectError(Redirect.appendTo(logFile));
+            }
+            
+            Process process = pb.start();
+
+            File outFile = new File(gzipOutPath);
+            GZIPOutputStream zip = new GZIPOutputStream(new FileOutputStream(outFile));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(zip, "UTF-8"));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            
+            String line;
+            while ((line = reader.readLine()) != null) {
+                writer.append(line);
+            }
+            
+            int exitStatus = process.waitFor();
+            
+            reader.close();
+            writer.close();
+            
+            return exitStatus == 0;
+        }
+        catch (IOException | InterruptedException e) {
+            return false;
+        }        
     }
     
     public static boolean hasOnlyOneSequence(String fasta) throws IOException {
@@ -74,7 +107,7 @@ public class OverlapLayoutConcensus {
         command.add(MINIMAP2);
         command.add("--version");
         
-        return runCommand(command, false);
+        return runCommand(command, null);
     }
     
     public static boolean hasMiniasm() {
@@ -82,7 +115,7 @@ public class OverlapLayoutConcensus {
         command.add(MINIASM);
         command.add("-V");
         
-        return runCommand(command, false);
+        return runCommand(command, null);
     }
     
     public static boolean hasRacon() {
@@ -90,7 +123,7 @@ public class OverlapLayoutConcensus {
         command.add(RACON);
         command.add("--version");
         
-        return runCommand(command, false);
+        return runCommand(command, null);
     }
     
     public static boolean overlapONT(String sequencePath, String outputPath, int numThreads) {
@@ -100,7 +133,7 @@ public class OverlapLayoutConcensus {
         // CIGAR string is required for more accurate assembly with miniasm
         command.add(MINIMAP2 + " -x ava-ont -c -t " + numThreads + " " + sequencePath + " " + sequencePath + " | gzip -c > " + outputPath);
         
-        return runCommand(command, false);
+        return runCommand(command, outputPath + LOG_EXTENSION);
     }
     
     public static boolean mapONT(String queryPath, String targetPath, String outputPath, int numThreads) {
@@ -110,7 +143,7 @@ public class OverlapLayoutConcensus {
         // long CIGAR string will cause a segfault in RACON
         command.add(MINIMAP2 + " -x map-ont -t " + numThreads + " " + targetPath + " " + queryPath + " | gzip -c > " + outputPath);
         
-        return runCommand(command, false);
+        return runCommand(command, outputPath + LOG_EXTENSION);
     }
     
     public static boolean layout(String sequencePath, String overlapPath, String layoutPath) {
@@ -119,7 +152,7 @@ public class OverlapLayoutConcensus {
         command.add("-c");
         command.add(MINIASM + " -c 1 -e 1 -s 200 -h 100 -d 10 -g 10 -f " + sequencePath + " " + overlapPath + " | gzip -c > " + layoutPath);
         
-        return runCommand(command, false);
+        return runCommand(command, layoutPath + LOG_EXTENSION);
     }
     
     public static boolean concensus(String queryPath, String targetPath, String mappingPath, String concensusPath, int numThreads) {
@@ -128,7 +161,7 @@ public class OverlapLayoutConcensus {
         command.add("-c");
         command.add(RACON + " " + queryPath + " " + mappingPath + " " + targetPath + " -u -t " + numThreads + " > " + concensusPath);
         
-        return runCommand(command, false);
+        return runCommand(command, concensusPath + LOG_EXTENSION);
     }
     
     public static int convertGfaToFasta(String gfaPath, String fastaPath) throws IOException {
@@ -204,7 +237,7 @@ public class OverlapLayoutConcensus {
         if (numBackbones == 0) {
             String[] nameSeq = findLongestSequence(readsPath);
             FastaWriter writer = new FastaWriter(gfafa, false);
-            writer.write(nameSeq[0], nameSeq[1]);
+            writer.write("longest_read", nameSeq[1]);
             writer.close();
         }
         
