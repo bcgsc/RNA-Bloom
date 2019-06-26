@@ -2681,6 +2681,30 @@ public final class GraphUtils {
         return total/numKmers; 
     }
     
+    public static float getMinMedianKmerCoverage(ArrayList<Kmer> kmers, int windowSize) {
+        int numKmers = kmers.size();
+        
+        if (numKmers <= windowSize) {
+            return getMedianKmerCoverage(kmers);
+        }
+        
+        float minCov = Float.MAX_VALUE;
+        
+        float[] window = new float[windowSize];
+        for (int i=(numKmers % windowSize)/2; i+windowSize<=numKmers; i+=windowSize) {
+            for (int j=0; j<windowSize; ++j) {
+                window[j] = kmers.get(i+j).count;
+            }
+            
+            float m = getMedian(window);
+            if (m < minCov) {
+                minCov = m;
+            }
+        }
+                
+        return minCov;
+    }
+    
     public static ArrayList<Kmer> correctLongSequence(ArrayList<Kmer> kmers, 
                                                     BloomFilterDeBruijnGraph graph, 
                                                     int maxErrCorrItr, 
