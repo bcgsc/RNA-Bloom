@@ -2562,7 +2562,49 @@ public final class GraphUtils {
         // insert the new hash value
         sketch[i] = newVal;
     }
+
+    private static long getMinimizer(NTHashIterator itr, int windowSize) {
+        long[] hVals = itr.hVals;
+        itr.next();
+        long minimizer = hVals[0];
+
+        for (int i=1; i<windowSize; ++i) {
+            itr.next();
+            long h = hVals[0];
+            if (h < minimizer) {
+                minimizer = h;
+            }
+        }
         
+        return minimizer;
+    }
+    
+    public static long[] getMinimizers(String seq, NTHashIterator itr, int numKmers, int windowSize) {
+        if (numKmers <= windowSize) {
+            itr.start(seq);
+            return new long[]{getMinimizer(itr, numKmers)};
+        }
+        
+        int numWindows = numKmers/windowSize;
+        int remainder = numKmers % windowSize;
+        int numMinimizers = remainder>0 ? numWindows+1 : numWindows;
+        long[] minimizers = new long[numMinimizers]; 
+        
+        itr.start(seq);
+        
+        for (int w=0; w<numWindows; ++w) {
+            minimizers[w] = getMinimizer(itr, windowSize);
+        }
+        
+        if (remainder > 0) {
+            minimizers[numWindows] = getMinimizer(itr, remainder);
+        }
+        
+        Arrays.sort(minimizers);
+        
+        return minimizers;
+    }
+    
     public static long[] getAscendingHashValues(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
         HashSet<Long> hashValSet = new HashSet<>(numKmers);
         
