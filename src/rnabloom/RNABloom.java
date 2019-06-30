@@ -23,6 +23,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import static java.lang.Math.pow;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.NumberFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -2131,12 +2134,12 @@ public class RNABloom {
         }
     }
     
-    private static void combineClusterFasta(int target, HashSet<Integer> overlaps, String clusteredLongReadsDirectory) throws IOException {
+    private static void mergeClusterFastas(int target, int maxAltID, String clusteredLongReadsDirectory) throws IOException {
         String path = clusteredLongReadsDirectory + File.separator + target + ".fa";
+        
         FastaWriter writer = new FastaWriter(path, true);
-        for (int i : overlaps) {
-            path = clusteredLongReadsDirectory + File.separator + i + ".fa";
-            
+        for (int i=0; i<=maxAltID; ++i) {
+            path = clusteredLongReadsDirectory + File.separator + target + "_" + i + ".fa";
             FastaReader reader = new FastaReader(path);
             while (reader.hasNext()) {
                 String[] nameSeqPair = reader.nextWithName();
@@ -2149,18 +2152,41 @@ public class RNABloom {
         writer.close();
     }
     
+    private static int aggregateClusterFastas(int target, HashSet<Integer> overlaps, ArrayList<Integer> altIDs, String clusteredLongReadsDirectory) throws IOException {
+        int altID = altIDs.get(target);
+        
+        for (int i : overlaps) {
+            Path source = Paths.get(clusteredLongReadsDirectory + File.separator + i + ".fa");
+            Path dest = Paths.get(clusteredLongReadsDirectory + File.separator + target + "_" + ++altID + ".fa");
+            Files.move(source, dest);
+            
+            int overlapAltID = altIDs.get(i);
+            for (int j=0; j<=overlapAltID; ++j) {
+                source = Paths.get(clusteredLongReadsDirectory + File.separator + i + "_" + j + ".fa");
+                dest = Paths.get(clusteredLongReadsDirectory + File.separator + target + "_" + ++altID + ".fa");
+                Files.move(source, dest);
+            }
+            
+        }
+        
+        return altID;
+    }
+    
     public void clusterLongReads(String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads, float minCoverage) throws IOException, InterruptedException {
-        //final float similarityThreshold = 0.33f;
-        final int minSketchOverlap = sketchSize/3;
-                
+        final int minSketchOverlap = sketchSize/10;
+
+//        final int minimizerWindowSize = k;
+        
         int maxQueueSize = 100;
         ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
         
         ArrayList<long[]> targetSketches = new ArrayList<>();
+        ArrayList<Integer> targetSketchesAltIDs = new ArrayList<>();
+        ArrayDeque<Integer> targetSketchesNullIndexes = new ArrayDeque<>();
         NTHashIterator itr = graph.getHashIterator();
         
-        for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
-            for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
+        for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
+            for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
                 // skip l=0 because their lengths are too short to have a sketch
                 
                 String readFile = correctedLongReadFileNames[c][l];
@@ -2187,22 +2213,32 @@ public class RNABloom {
                         // not enough good kmers
                         continue;
                     }
-                    
+
+//                    if (sortedHashVals.length < minSketchOverlap) {
+//                        // not enough good kmers
+//                        continue;
+//                    }                    
+
                     int bestTargetSketchID = -1;
+//                    long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
                     
                     if (targetSketches.isEmpty()) {
-                        long[] sketch = getMinHashSketch(sortedHashVals, sketchSize);
+                        long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
+//                        long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
                         targetSketches.add(sketch);
+                        targetSketchesAltIDs.add(-1);
                         bestTargetSketchID = 0;
                     }
                     else {
                         /** start thread pool*/
+//                        int minSketchOverlap = numKmers / minimizerWindowSize / 10;
                         
                         MyExecutorService service = new MyExecutorService(numThreads, numThreads);
                         
                         ContainmentCalculator[] workers = new ContainmentCalculator[numThreads];
                         for (int i=0; i<numThreads; ++i) {
                             ContainmentCalculator worker = new ContainmentCalculator(sortedHashVals, targetSketches, sketchIndexQueue, minSketchOverlap);
+//                            ContainmentCalculator worker = new ContainmentCalculator(sketch, targetSketches, sketchIndexQueue, minSketchOverlap);
                             workers[i] = worker;
                             service.submit(worker);
                         }
@@ -2220,7 +2256,6 @@ public class RNABloom {
                         
                         service.terminate();
                         
-                        int bestSketchID = -1;
                         float bestIntersectionSize = -1;
                         HashSet<Integer> overlapSketchIdSet = new HashSet<>();
                         for (ContainmentCalculator worker : workers) {
@@ -2232,52 +2267,67 @@ public class RNABloom {
                                 }
                                 
                                 if (mc > bestIntersectionSize) {
-                                    if (bestSketchID >= 0) {
-                                        overlapSketchIdSet.add(bestSketchID);
+                                    if (bestTargetSketchID >= 0) {
+                                        overlapSketchIdSet.add(bestTargetSketchID);
                                     }
                                     bestIntersectionSize = mc;
-                                    bestSketchID = worker.getBestTargetIndex();
+                                    bestTargetSketchID = worker.getBestTargetIndex();
                                 }
                             }
                         }
                         
                         if (bestIntersectionSize <= 0) {
                             // start a new cluster
-                            long[] sketch = getMinHashSketch(sortedHashVals, sketchSize);
+                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
+//                            long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
                             
-                            int nullSketchID = targetSketches.indexOf(null);
-                            if (nullSketchID >= 0) {
-                                targetSketches.set(nullSketchID, sketch);
-                                bestTargetSketchID = nullSketchID;
+                            if (targetSketchesNullIndexes.isEmpty()) {
+                                targetSketches.add(sketch);
+                                targetSketchesAltIDs.add(-1);
+                                bestTargetSketchID = targetSketches.size()-1;
                             }
                             else {
-                                targetSketches.add(sketch);
-                                bestTargetSketchID = targetSketches.size()-1;
+                                bestTargetSketchID = targetSketchesNullIndexes.poll();
+                                targetSketches.set(bestTargetSketchID, sketch);
+                                targetSketchesAltIDs.set(bestTargetSketchID, -1);
                             }
                         }
                         else {
-                            bestTargetSketchID = bestSketchID;
+                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
+//                            long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
                             
                             if (!overlapSketchIdSet.isEmpty()) {
                                 // combine overlapping clusters
+                                                                
+                                // combine FASTA files
+//                                System.out.println("Combining " + overlapSketchIdSet.size() + " clusters into cluster " +  bestTargetSketchID);
+                                int newTargetAltID = aggregateClusterFastas(bestTargetSketchID, overlapSketchIdSet, targetSketchesAltIDs, clusteredLongReadsDirectory);
+                                targetSketchesAltIDs.set(bestTargetSketchID, newTargetAltID);
+                                
                                 
                                 ArrayDeque<long[]> sketches = new ArrayDeque<>();
+                                // add the sketch of this read
+                                sketches.add(sketch);
                                 
-                                sketches.add(targetSketches.get(bestSketchID));
+                                // add the sketch of the best target
+                                sketches.add(targetSketches.get(bestTargetSketchID));
                                 
+                                // add the sketches of other targets
                                 for (int i : overlapSketchIdSet) {
                                     sketches.add(targetSketches.get(i));
                                     targetSketches.set(i, null);
+                                    targetSketchesNullIndexes.add(i);
+                                    targetSketchesAltIDs.set(i, -1);
                                 }
                                 
-                                long[] newSketch = combineMinHashSketches(sketches);
+                                long[] newSketch = combineSketches(sketches);
                                 
-                                targetSketches.set(bestSketchID, newSketch);
-                                
-                                // combine FASTA files
-                                //System.out.println("Combining " + overlapSketchIdSet.size() + " clusters into cluster " +  bestSketchID);
-                                combineClusterFasta(bestSketchID, overlapSketchIdSet, clusteredLongReadsDirectory);
+                                targetSketches.set(bestTargetSketchID, newSketch);
                             }
+//                            else {
+//                                long[] newSketch = combineSketches(sketch, targetSketches.get(bestTargetSketchID));
+//                                targetSketches.set(bestTargetSketchID, newSketch);
+//                            }
                         }
                     }
                     
@@ -2290,7 +2340,17 @@ public class RNABloom {
             }
         }
         
-        System.out.println("Reads are clustered in " + targetSketches.size() + " groups.");
+        //merge alt FASTA files
+        System.out.println("Merging alternate cluster FASTAs ...");
+        int targetSketchesSize = targetSketches.size();
+        for (int i=0; i<targetSketchesSize; ++i) {
+            int altID = targetSketchesAltIDs.get(i);
+            if (altID >= 0) {
+                mergeClusterFastas(i, altID, clusteredLongReadsDirectory);
+            }
+        }
+        
+        System.out.println("Reads are clustered in " + (targetSketches.size() - targetSketchesNullIndexes.size()) + " groups.");
     }
     
     public boolean assembleLongReads(String clusteredLongReadsDirectory, String assembledLongReadsDirectory, int numThreads) throws IOException {
@@ -3631,15 +3691,12 @@ public class RNABloom {
     
     private static void clusterLongReads(RNABloom assembler, 
             String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory,
-            int sketchSize, int numThreads, float minKmerCov,
-            boolean forceOverwrite) throws IOException, InterruptedException {
+            int sketchSize, int numThreads, float minKmerCov) throws IOException, InterruptedException {
         
         File outdir = new File(clusteredLongReadsDirectory);
         if (outdir.exists()) {
-            if (forceOverwrite) {
-                for (File f : outdir.listFiles()) {
-                    f.delete();
-                }
+            for (File f : outdir.listFiles()) {
+                f.delete();
             }
         }
         else {
@@ -5043,7 +5100,7 @@ public class RNABloom {
                     MyTimer stageTimer = new MyTimer();
                     stageTimer.start();
                     
-                    clusterLongReads(assembler, correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov, forceOverwrite);
+                    clusterLongReads(assembler, correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov);
                     
                     touch(longReadsClusteredStamp);
                     System.out.println("Reads clustered in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));

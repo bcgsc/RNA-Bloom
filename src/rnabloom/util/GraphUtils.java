@@ -30,6 +30,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
+import java.util.TreeSet;
 import rnabloom.RNABloom.ReadPair;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.hash.NTHashIterator;
@@ -2536,7 +2537,7 @@ public final class GraphUtils {
         return null;
     }
     
-    private static void updateMinHashSketch(long[] sketch, int sketchSize, long newVal) {
+    private static void updateSketch(long[] sketch, int sketchSize, long newVal) {
         int i = sketchSize - 1;
         if (newVal >= sketch[i]) {
             return;
@@ -2562,47 +2563,66 @@ public final class GraphUtils {
         // insert the new hash value
         sketch[i] = newVal;
     }
-
-    private static long getMinimizer(NTHashIterator itr, int windowSize) {
-        long[] hVals = itr.hVals;
-        itr.next();
-        long minimizer = hVals[0];
-
-        for (int i=1; i<windowSize; ++i) {
+    
+    public static long[] getMinimizers(String seq, int numKmers, NTHashIterator itr, int windowSize) {        
+        long[] hashes = new long[numKmers];
+        itr.start(seq);
+        long[] hvals = itr.hVals;
+        for (int i=0; i<numKmers; ++i) {
             itr.next();
-            long h = hVals[0];
-            if (h < minimizer) {
-                minimizer = h;
+            hashes[i] = hvals[0];
+        }
+        
+        if (numKmers <= windowSize) {
+            long minimizer = hashes[0];
+            for(int i=1; i<numKmers; ++i) {
+                long h = hashes[i];
+                if (h < minimizer) {
+                    minimizer = h;
+                }
+            }
+            
+            return new long[]{minimizer};
+        }
+        
+        TreeSet<Long> minimizers = new TreeSet<>();
+        int numWindows = numKmers - windowSize + 1;
+        long previousMinimizer = 0;
+        int previousMinimizerPos = -1;
+        for (int w=0; w<numWindows; ++w) {
+            if (previousMinimizerPos >= w) {
+                int pos = w+windowSize-1;
+                long h = hashes[pos];
+                if (h < previousMinimizer) {
+                    previousMinimizer = h;
+                    previousMinimizerPos = pos;
+                    minimizers.add(h);
+                }
+            }
+            else {
+                long minimizer = hashes[w];
+                int minimizerPos = w;
+                for (int i=1; i<windowSize; ++i) {
+                    int pos = w+i;
+                    long h = hashes[pos];
+                    if (h < minimizer) {
+                        minimizer = h;
+                        minimizerPos = pos;
+                    }
+                }
+                previousMinimizer = minimizer;
+                previousMinimizerPos = minimizerPos;
+                minimizers.add(minimizer);
             }
         }
         
-        return minimizer;
-    }
-    
-    public static long[] getMinimizers(String seq, NTHashIterator itr, int numKmers, int windowSize) {
-        if (numKmers <= windowSize) {
-            itr.start(seq);
-            return new long[]{getMinimizer(itr, numKmers)};
+        long[] minimizersArr = new long[minimizers.size()];
+        int i=0;
+        for (Long m : minimizers) {
+            minimizersArr[i++] = m;
         }
         
-        int numWindows = numKmers/windowSize;
-        int remainder = numKmers % windowSize;
-        int numMinimizers = remainder>0 ? numWindows+1 : numWindows;
-        long[] minimizers = new long[numMinimizers]; 
-        
-        itr.start(seq);
-        
-        for (int w=0; w<numWindows; ++w) {
-            minimizers[w] = getMinimizer(itr, windowSize);
-        }
-        
-        if (remainder > 0) {
-            minimizers[numWindows] = getMinimizer(itr, remainder);
-        }
-        
-        Arrays.sort(minimizers);
-        
-        return minimizers;
+        return minimizersArr;
     }
     
     public static long[] getAscendingHashValues(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
@@ -2629,8 +2649,8 @@ public final class GraphUtils {
         return result;
     }
     
-    public static long[] combineMinHashSketches(ArrayDeque<long[]> sketches) {
-        HashSet<Long> hashValSet = new HashSet<>();
+    public static long[] combineSketches(long[]... sketches) {
+        TreeSet<Long> hashValSet = new TreeSet<>();
         for (long[] sketch : sketches) {
             for (long val : sketch) {
                 hashValSet.add(val);
@@ -2644,12 +2664,32 @@ public final class GraphUtils {
             result[i++] = h;
         }
         
-        Arrays.sort(result);
+//        Arrays.sort(result);
         
         return result;
     }
     
-    public static long[] getMinHashSketch(long[] sortedHashVals, int sketchSize) {
+    public static long[] combineSketches(ArrayDeque<long[]> sketches) {
+        TreeSet<Long> hashValSet = new TreeSet<>();
+        for (long[] sketch : sketches) {
+            for (long val : sketch) {
+                hashValSet.add(val);
+            }
+        }
+        
+        int numVals = hashValSet.size();
+        long[] result = new long[numVals];
+        int i=0;
+        for (Long h : hashValSet) {
+            result[i++] = h;
+        }
+        
+//        Arrays.sort(result);
+        
+        return result;
+    }
+    
+    public static long[] getBottomSketch(long[] sortedHashVals, int sketchSize) {
         long[] sketch = new long[sketchSize];
         System.arraycopy(sortedHashVals, 0, sketch, 0, sketchSize);
         return sketch;
@@ -2689,10 +2729,10 @@ public final class GraphUtils {
     }
     
     /**
-     * Method to return the jaccard similarity coefficient of 2 minhashs sketches.
+     * Method to return the jaccard similarity coefficient of 2 bottom sketches.
      * The 2 sketches must have the same size.
-     * @param sketch1 sorted minhash sketch from set 1
-     * @param sketch2 sorted minhash sketch from set 2
+     * @param sketch1 sorted bottom sketch from set 1
+     * @param sketch2 sorted bottom sketch from set 2
      * @return jaccard similarity coefficient
      */
     public static float getResemblance(long[] sketch1, long[] sketch2) {
