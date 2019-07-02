@@ -2585,7 +2585,7 @@ public final class GraphUtils {
             return new long[]{minimizer};
         }
         
-        TreeSet<Long> minimizers = new TreeSet<>();
+        HashSet<Long> minimizers = new HashSet<>();
         int numWindows = numKmers - windowSize + 1;
         long previousMinimizer = 0;
         int previousMinimizerPos = -1;
@@ -2621,6 +2621,8 @@ public final class GraphUtils {
         for (Long m : minimizers) {
             minimizersArr[i++] = m;
         }
+        
+        Arrays.sort(minimizersArr);
         
         return minimizersArr;
     }
@@ -2905,6 +2907,7 @@ public final class GraphUtils {
                                                         BloomFilterDeBruijnGraph graph, 
                                                         int lookahead,
                                                         float threshold) {
+        int k = graph.getK();
         int numKmers = kmers.size();
         int halfNumKmers = numKmers/2;
         int headIndex = 0;
@@ -2914,8 +2917,14 @@ public final class GraphUtils {
         for (int i=0; i<halfNumKmers; ++i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i+1, i+lookahead, threshold)) {
-                headIndex = i;
-                break;
+                if (isLowComplexity2(kmer.bytes)) {
+                    // skip the bases in this kmer entirely
+                    i += k-1;
+                }
+                else {
+                    headIndex = i;
+                    break;
+                }
             }
         }
 
@@ -2923,8 +2932,14 @@ public final class GraphUtils {
         for (int i=numKmers-1; i>=halfNumKmers; --i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i-lookahead, i, threshold)) {
-                tailIndex = i+1;
-                break;
+                if (isLowComplexity2(kmer.bytes)) {
+                    // skip the bases in this kmer entirely
+                    i -= k-1;
+                }
+                else {
+                    tailIndex = i+1;
+                    break;
+                }
             }
         }
         

@@ -305,7 +305,7 @@ public final class SeqUtils {
             }
         }
     }
-    
+        
     private static final float LOW_COMPLEXITY_THRESHOLD = 0.95f;
     
     public static final boolean isLowComplexity2(byte[] bytes) {
