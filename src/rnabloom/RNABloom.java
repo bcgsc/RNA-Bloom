@@ -2173,9 +2173,10 @@ public class RNABloom {
     }
     
     public void clusterLongReads(String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads, float minCoverage) throws IOException, InterruptedException {
-        final int minSketchOverlap = sketchSize/10;
+//        final int minSketchOverlap = sketchSize/2;
 
-//        final int minimizerWindowSize = k;
+        final int minimizerWindowSize = k;
+        final int covMagnitudeCeilling = 3;
         
         int maxQueueSize = 100;
         ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
@@ -2185,9 +2186,10 @@ public class RNABloom {
         ArrayDeque<Integer> targetSketchesNullIndexes = new ArrayDeque<>();
         NTHashIterator itr = graph.getHashIterator();
         
+        // skip l=0 because their lengths are too short to have a sketch
         for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
             for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
-                // skip l=0 because their lengths are too short to have a sketch
+                double overlapThresholdMultiplier = Math.pow(percentIdentity, c>=covMagnitudeCeilling ? 1 : covMagnitudeCeilling-c+1);
                 
                 String readFile = correctedLongReadFileNames[c][l];
                 FastaReader fr = new FastaReader(readFile);
@@ -2223,15 +2225,15 @@ public class RNABloom {
 //                    long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
                     
                     if (targetSketches.isEmpty()) {
-                        long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
-//                        long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
+//                        long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
+                        long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
                         targetSketches.add(sketch);
                         targetSketchesAltIDs.add(-1);
                         bestTargetSketchID = 0;
                     }
                     else {
                         /** start thread pool*/
-//                        int minSketchOverlap = numKmers / minimizerWindowSize / 10;
+                        int minSketchOverlap = Math.max(1, (int) Math.ceil(overlapThresholdMultiplier * numKmers/minimizerWindowSize));
                         
                         MyExecutorService service = new MyExecutorService(numThreads, numThreads);
                         
@@ -2278,8 +2280,8 @@ public class RNABloom {
                         
                         if (bestIntersectionSize <= 0) {
                             // start a new cluster
-                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
-//                            long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
+//                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
+                            long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
                             
                             if (targetSketchesNullIndexes.isEmpty()) {
                                 targetSketches.add(sketch);
@@ -2293,7 +2295,7 @@ public class RNABloom {
                             }
                         }
                         else {
-                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
+//                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
 //                            long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
                             
                             if (!overlapSketchIdSet.isEmpty()) {
@@ -2307,7 +2309,7 @@ public class RNABloom {
                                 
                                 ArrayDeque<long[]> sketches = new ArrayDeque<>();
                                 // add the sketch of this read
-                                sketches.add(sketch);
+//                                sketches.add(sketch);
                                 
                                 // add the sketch of the best target
                                 sketches.add(targetSketches.get(bestTargetSketchID));
@@ -5053,8 +5055,7 @@ public class RNABloom {
                 touch(txptsDoneStamp);
             }
             else if (longReadPaths != null && longReadPaths.length > 0) {
-                int sketchSize = 300;
-                int minSeqLen = getSeqLength(sketchSize, k);
+                int sketchSize = minTranscriptLength + k + 1;
                 
                 final String correctedLongReadFilePrefix = outdir + File.separator + name + ".longreads.corrected";
 
@@ -5086,7 +5087,7 @@ public class RNABloom {
                     MyTimer stageTimer = new MyTimer();
                     stageTimer.start();
                     
-                    correctLongReads(assembler, longReadPaths, correctedLongReadFileNames, maxErrCorrItr, minKmerCov, numThreads, sampleSize, minSeqLen);
+                    correctLongReads(assembler, longReadPaths, correctedLongReadFileNames, maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength);
                     
                     touch(longReadsCorrectedStamp);
                     System.out.println("Reads corrected in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
