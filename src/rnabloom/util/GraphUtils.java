@@ -2909,12 +2909,12 @@ public final class GraphUtils {
                                                         float threshold) {
         int k = graph.getK();
         int numKmers = kmers.size();
-        int halfNumKmers = numKmers/2;
+//        int halfNumKmers = numKmers/2;
         int headIndex = 0;
         int tailIndex = numKmers;
 
         //int end = Math.min(numKmers, halfNumKmers);
-        for (int i=0; i<halfNumKmers; ++i) {
+        for (int i=0; i<numKmers; ++i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i+1, i+lookahead, threshold)) {
                 if (isLowComplexity2(kmer.bytes)) {
@@ -2928,8 +2928,12 @@ public final class GraphUtils {
             }
         }
 
+        if (headIndex == numKmers-1) {
+            return new ArrayList<>();
+        }
+        
         //end = Math.max(0, numKmers-windowSize);
-        for (int i=numKmers-1; i>=halfNumKmers; --i) {
+        for (int i=numKmers-1; i>headIndex; --i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i-lookahead, i, threshold)) {
                 if (isLowComplexity2(kmer.bytes)) {
