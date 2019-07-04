@@ -2182,10 +2182,8 @@ public class RNABloom {
     }
     
     public void clusterLongReads(String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads, float minCoverage) throws IOException, InterruptedException {
-//        final int minSketchOverlap = sketchSize/2;
 
         final int minimizerWindowSize = k;
-        final int covMagnitudeCeilling = 5;
         
         int maxQueueSize = 100;
         ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
@@ -2198,8 +2196,6 @@ public class RNABloom {
         // skip l=0 because their lengths are too short to have a sketch
         for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
             for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
-            
-//                float minSketchOverlapProportion = (float) Math.pow(percentIdentity, c>=covMagnitudeCeilling ? 1 : covMagnitudeCeilling-c+1);
                 
                 String readFile = correctedLongReadFileNames[c][l];
                 FastaReader fr = new FastaReader(readFile);
@@ -2243,7 +2239,7 @@ public class RNABloom {
                     }
                     else {
                         float minSketchOverlapProportion = (float) Math.pow((float)sortedHashVals.length / (float)numKmers, 2);
-                        int minSketchOverlap = Math.max(1, (int) Math.floor(minSketchOverlapProportion * sortedHashVals.length/minimizerWindowSize));
+                        int minSketchOverlap = Math.max(1, (int) Math.floor(minSketchOverlapProportion * (sortedHashVals.length-minimizerWindowSize+1)/minimizerWindowSize));
                         
                         /** start thread pool*/
                         MyExecutorService service = new MyExecutorService(numThreads, numThreads);
@@ -2251,7 +2247,6 @@ public class RNABloom {
                         ContainmentCalculator[] workers = new ContainmentCalculator[numThreads];
                         for (int i=0; i<numThreads; ++i) {
                             ContainmentCalculator worker = new ContainmentCalculator(sortedHashVals, targetSketches, sketchIndexQueue, minSketchOverlap, minSketchOverlapProportion);
-//                            ContainmentCalculator worker = new ContainmentCalculator(sketch, targetSketches, sketchIndexQueue, minSketchOverlap);
                             workers[i] = worker;
                             service.submit(worker);
                         }
@@ -2305,43 +2300,45 @@ public class RNABloom {
                                 targetSketchesAltIDs.set(bestTargetSketchID, -1);
                             }
                         }
-//                        else {
-////                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
-////                            long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
-//                            
-//                            if (!overlapSketchIdSet.isEmpty()) {
-//                                // combine overlapping clusters
-//                                                                
-//                                // combine FASTA files
-////                                System.out.println("Combining " + overlapSketchIdSet.size() + " clusters into cluster " +  bestTargetSketchID);
-//                                int newTargetAltID = aggregateClusterFastas(bestTargetSketchID, overlapSketchIdSet, targetSketchesAltIDs, clusteredLongReadsDirectory);
-//                                targetSketchesAltIDs.set(bestTargetSketchID, newTargetAltID);
-//                                
-//                                
+                        else {
+//                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
+//                            long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
+                            
+                            if (c > 0 && !overlapSketchIdSet.isEmpty()) {
+                                // combine overlapping clusters
+                                                                
+                                // combine FASTA files
+//                                System.out.println("Combining " + overlapSketchIdSet.size() + " clusters into cluster " +  bestTargetSketchID);
+                                int newTargetAltID = aggregateClusterFastas(bestTargetSketchID, overlapSketchIdSet, targetSketchesAltIDs, clusteredLongReadsDirectory);
+                                targetSketchesAltIDs.set(bestTargetSketchID, newTargetAltID);
+                                
+                                
 //                                ArrayDeque<long[]> sketches = new ArrayDeque<>();
 //                                // add the sketch of this read
-////                                sketches.add(sketch);
+//                                sketches.add(sketch);
 //                                
 //                                // add the sketch of the best target
 //                                sketches.add(targetSketches.get(bestTargetSketchID));
-//                                
-//                                // add the sketches of other targets
-//                                for (int i : overlapSketchIdSet) {
+                                
+                                // add the sketches of other targets
+                                for (int i : overlapSketchIdSet) {
 //                                    sketches.add(targetSketches.get(i));
-//                                    targetSketches.set(i, null);
-//                                    targetSketchesNullIndexes.add(i);
-//                                    targetSketchesAltIDs.set(i, -1);
-//                                }
-//                                
+                                    targetSketches.set(i, null);
+                                    targetSketchesNullIndexes.add(i);
+                                    targetSketchesAltIDs.set(i, -1);
+                                }
+                                
+                                long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
+                                targetSketches.set(bestTargetSketchID, sketch);
+                                
 //                                long[] newSketch = combineSketches(sketches);
-//                                
+//                                targetSketches.set(bestTargetSketchID, newSketch);
+                            }
+//                            else {
+//                                long[] newSketch = combineSketches(sketch, targetSketches.get(bestTargetSketchID));
 //                                targetSketches.set(bestTargetSketchID, newSketch);
 //                            }
-////                            else {
-////                                long[] newSketch = combineSketches(sketch, targetSketches.get(bestTargetSketchID));
-////                                targetSketches.set(bestTargetSketchID, newSketch);
-////                            }
-//                        }
+                        }
                     }
                     
                     /** add sequence to target cluster*/
@@ -2631,10 +2628,6 @@ public class RNABloom {
                     
                     ArrayList<Kmer> kmers = graph.getKmers(seq);
                     
-//                    if (nameSeqPair[0].equals("ENSMUST00000177715.7_113418557_aligned_2774_R_49_1714_30")) {
-//                        System.out.println(">before\n" + seq);
-//                    }
-                    
                     ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
                                                                         graph, 
                                                                         maxErrCorrItr, 
@@ -2645,18 +2638,10 @@ public class RNABloom {
                                                                         minKmerCov,
                                                                         minNumSolidKmers);
                     
-                    if (correctedKmers != null) {                        
-                        int length = getSeqLength(correctedKmers.size(), k);
-//                        float cov = getMedianKmerCoverage(correctedKmers);
-//                        float cov = getAdjustedMeanKmerCoverage(correctedKmers, maxCovGradient, lookahead);
+                    if (correctedKmers != null) {
                         float cov = getMinMedianKmerCoverage(correctedKmers, 200);
                         seq = graph.assemble(correctedKmers);
-                                                
-//                        if (nameSeqPair[0].equals("ENSMUST00000177715.7_113418557_aligned_2774_R_49_1714_30")) {
-//                            System.out.println(">after\n" + seq);
-//                        }
-                        
-                        outputQueue.put(new Sequence(nameSeqPair[0], seq, length, cov));
+                        outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov));
                     }
                 } catch (InterruptedException ex) {
                     System.out.println(ex.getMessage());
