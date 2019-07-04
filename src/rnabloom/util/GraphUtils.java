@@ -136,6 +136,19 @@ public final class GraphUtils {
         return true;
     }
     
+    public static int getNumKmersAboveCoverageThreshold(final ArrayList<Kmer> kmers, int start, int end, float threshold) {
+        float c;
+        int num = 0;
+        for (int i=start; i<end; ++i) {
+            c = kmers.get(i).count;
+            if (c >= threshold) {
+                ++num;
+            }
+        }
+        
+        return num;
+    }
+    
     private static int getMinimumKmerCoverageIndexL2R(final ArrayList<Kmer> kmers, int start, int end) {
         // search from left to right
         
@@ -2909,40 +2922,41 @@ public final class GraphUtils {
                                                         float threshold) {
         int k = graph.getK();
         int numKmers = kmers.size();
-//        int halfNumKmers = numKmers/2;
         int headIndex = 0;
         int tailIndex = numKmers;
+        int window = k*5;
+        float windowThreshold = (float)5/(float)k;
 
-        //int end = Math.min(numKmers, halfNumKmers);
         for (int i=0; i<numKmers; ++i) {
             Kmer kmer = kmers.get(i);
-            if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i+1, i+lookahead, threshold)) {
-                if (isLowComplexity2(kmer.bytes)) {
-                    // skip the bases in this kmer entirely
-                    i += k-1;
-                }
-                else {
-                    headIndex = i;
-                    break;
+            if (kmer.count >= threshold) {
+                int end = Math.min(i+lookahead, numKmers);
+                if (areKmerCoverageAboveThreshold(kmers, i+1, end, threshold)) {
+                    if (isLowComplexity2(kmer.bytes)) {
+                        // skip the bases in this kmer entirely
+                        i += k-1;
+                    }
+                    else if (end == numKmers || (float)getNumKmersAboveCoverageThreshold(kmers, end, end+window, threshold)/(float)window > windowThreshold) {
+                        headIndex = i;
+                        break;
+                    }
                 }
             }
         }
 
-        if (headIndex == numKmers-1) {
-            return new ArrayList<>();
-        }
-        
-        //end = Math.max(0, numKmers-windowSize);
         for (int i=numKmers-1; i>headIndex; --i) {
             Kmer kmer = kmers.get(i);
-            if (kmer.count >= threshold && areKmerCoverageAboveThreshold(kmers, i-lookahead, i, threshold)) {
-                if (isLowComplexity2(kmer.bytes)) {
-                    // skip the bases in this kmer entirely
-                    i -= k-1;
-                }
-                else {
-                    tailIndex = i+1;
-                    break;
+            if (kmer.count >= threshold) {
+                int start = Math.max(0, i-lookahead);
+                if (areKmerCoverageAboveThreshold(kmers, start, i, threshold)) {
+                    if (isLowComplexity2(kmer.bytes)) {
+                        // skip the bases in this kmer entirely
+                        i -= k-1;
+                    }
+                    else if (start == 0 || (float)getNumKmersAboveCoverageThreshold(kmers, start-window, start, threshold)/(float)window > windowThreshold) {
+                        tailIndex = i+1;
+                        break;
+                    }
                 }
             }
         }
