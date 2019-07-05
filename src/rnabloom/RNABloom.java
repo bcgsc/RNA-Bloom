@@ -2232,7 +2232,7 @@ public class RNABloom {
                     
                     if (targetSketches.isEmpty()) {
 //                        long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
-                        long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
+                        long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
                         targetSketches.add(sketch);
                         targetSketchesAltIDs.add(-1);
                         bestTargetSketchID = 0;
@@ -2287,7 +2287,7 @@ public class RNABloom {
                         if (bestIntersectionSize <= 0) {
                             // start a new cluster
 //                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
-                            long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
+                            long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
                             
                             if (targetSketchesNullIndexes.isEmpty()) {
                                 targetSketches.add(sketch);
@@ -2328,7 +2328,7 @@ public class RNABloom {
                                     targetSketchesAltIDs.set(i, -1);
                                 }
                                 
-                                long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
+                                long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
                                 targetSketches.set(bestTargetSketchID, sketch);
                                 
 //                                long[] newSketch = combineSketches(sketches);
@@ -2638,7 +2638,7 @@ public class RNABloom {
                                                                         minKmerCov,
                                                                         minNumSolidKmers);
                     
-                    if (correctedKmers != null) {
+                    if (correctedKmers != null && !correctedKmers.isEmpty()) {
                         float cov = getMinMedianKmerCoverage(correctedKmers, 200);
                         seq = graph.assemble(correctedKmers);
                         outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov));
@@ -2761,7 +2761,7 @@ public class RNABloom {
                                                                 minKmerCov,
                                                                 minNumSolidKmers);
 
-            if (correctedKmers != null) {
+            if (correctedKmers != null && !correctedKmers.isEmpty()) {
                 sample.add(correctedKmers);
             }
         }
@@ -2822,7 +2822,7 @@ public class RNABloom {
                                                                 minKmerCov,
                                                                 minNumSolidKmers);
 
-            if (correctedKmers != null) {
+            if (correctedKmers != null && !correctedKmers.isEmpty()) {
                 int length = getSeqLength(correctedKmers.size(), k);
                 float cov = getMedianKmerCoverage(correctedKmers);
 
