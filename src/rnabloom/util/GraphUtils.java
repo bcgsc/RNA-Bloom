@@ -2640,6 +2640,82 @@ public final class GraphUtils {
         return minimizersArr;
     }
     
+    public static long[] getMinimizers(String seq, int numKmers, NTHashIterator itr, int windowSize, BloomFilterDeBruijnGraph graph, float minCoverage) {        
+        long[] hashes = new long[numKmers];
+        float[] covs = new float[numKmers];
+        
+        itr.start(seq);
+        long[] hvals = itr.hVals;
+        for (int i=0; i<numKmers; ++i) {
+            itr.next();
+            hashes[i] = hvals[0];
+            covs[i] = graph.getCount(hvals);
+        }
+        
+        if (numKmers <= windowSize) {
+            long minimizer = hashes[0];
+            int minimizerPos = -1;
+            for(int i=0; i<numKmers; ++i) {
+                long h = hashes[i];
+                if ((minimizerPos < 0 || h < minimizer) && covs[i] >= minCoverage) {
+                    minimizer = h;
+                    minimizerPos = i;
+                }
+            }
+            
+            if (minimizerPos >= 0) {
+                return new long[]{minimizer};
+            }
+            else {
+                return new long[]{};
+            }
+        }
+        
+        HashSet<Long> minimizers = new HashSet<>();
+        int numWindows = numKmers - windowSize + 1;
+        long previousMinimizer = 0;
+        int previousMinimizerPos = -1;
+        for (int w=0; w<numWindows; ++w) {
+            if (previousMinimizerPos >= w) {
+                int pos = w+windowSize-1;
+                long h = hashes[pos];
+                if (h < previousMinimizer && covs[pos] >= minCoverage) {
+                    previousMinimizer = h;
+                    previousMinimizerPos = pos;
+                    minimizers.add(h);
+                }
+            }
+            else {
+                long minimizer = 0;
+                int minimizerPos = -1;
+                for (int i=0; i<windowSize; ++i) {
+                    int pos = w+i;
+                    long h = hashes[pos];
+                    if ((minimizerPos < 0 || h < minimizer) && covs[pos] >= minCoverage) {
+                        minimizer = h;
+                        minimizerPos = pos;
+                    }
+                }
+                
+                if (minimizerPos >= 0) {
+                    previousMinimizer = minimizer;
+                    previousMinimizerPos = minimizerPos;
+                    minimizers.add(minimizer);
+                }
+            }
+        }
+        
+        long[] minimizersArr = new long[minimizers.size()];
+        int i=0;
+        for (Long m : minimizers) {
+            minimizersArr[i++] = m;
+        }
+        
+        Arrays.sort(minimizersArr);
+        
+        return minimizersArr;
+    }
+    
     public static long[] getAscendingHashValues(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
         HashSet<Long> hashValSet = new HashSet<>(numKmers);
         
@@ -2891,22 +2967,24 @@ public final class GraphUtils {
             }
             
             int numKmers = testKmers.size();
-            ArrayList<Kmer> window = new ArrayList<>(testKmers.subList(0, Math.min(windowSize, numKmers)));
-            CoverageStats headCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
-            
-            window = new ArrayList<>(testKmers.subList(Math.max(0, numKmers-windowSize), numKmers));
-            CoverageStats tailCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
-            
-            if (headCovStat.dropoff > 0 || tailCovStat.dropoff > 0) {
-                ArrayList<Kmer> correctedKmers = correctEdgeErrors(testKmers,
-                                                                    graph,
-                                                                    lookahead,
-                                                                    headCovStat.dropoff,
-                                                                    tailCovStat.dropoff,
-                                                                    percentIdentity,
-                                                                    minKmerCov);
-                if (correctedKmers != null) {
-                    testKmers = correctedKmers;
+            if (numKmers > lookahead) {
+                ArrayList<Kmer> window = new ArrayList<>(testKmers.subList(0, Math.min(windowSize, numKmers)));
+                CoverageStats headCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
+
+                window = new ArrayList<>(testKmers.subList(Math.max(0, numKmers-windowSize), numKmers));
+                CoverageStats tailCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
+
+                if (headCovStat.dropoff > 0 || tailCovStat.dropoff > 0) {
+                    ArrayList<Kmer> correctedKmers = correctEdgeErrors(testKmers,
+                                                                        graph,
+                                                                        lookahead,
+                                                                        headCovStat.dropoff,
+                                                                        tailCovStat.dropoff,
+                                                                        percentIdentity,
+                                                                        minKmerCov);
+                    if (correctedKmers != null) {
+                        testKmers = correctedKmers;
+                    }
                 }
             }
                         
@@ -2936,7 +3014,7 @@ public final class GraphUtils {
                         // skip the bases in this kmer entirely
                         i += k-1;
                     }
-                    else if (end == numKmers || (float)getNumKmersAboveCoverageThreshold(kmers, end, end+window, threshold)/(float)window > windowThreshold) {
+                    else if (end+window > numKmers || (float)getNumKmersAboveCoverageThreshold(kmers, end, end+window, threshold)/(float)window > windowThreshold) {
                         headIndex = i;
                         break;
                     }
@@ -2953,7 +3031,7 @@ public final class GraphUtils {
                         // skip the bases in this kmer entirely
                         i -= k-1;
                     }
-                    else if (start == 0 || (float)getNumKmersAboveCoverageThreshold(kmers, start-window, start, threshold)/(float)window > windowThreshold) {
+                    else if (start-window < 0 || (float)getNumKmersAboveCoverageThreshold(kmers, start-window, start, threshold)/(float)window > windowThreshold) {
                         tailIndex = i+1;
                         break;
                     }
@@ -2962,9 +3040,17 @@ public final class GraphUtils {
         }
         
         if (headIndex > 0 || tailIndex < numKmers) {
-            return new ArrayList<>(kmers.subList(headIndex, tailIndex));
+            if (tailIndex - headIndex > 1) {
+                // trimming was done
+                return new ArrayList<>(kmers.subList(headIndex, tailIndex));
+            }
+            else {
+                // sequence was trimmed to nothing
+                return new ArrayList<>();
+            }
         }
         
+        // no trimming was done
         return null;
     }
     
