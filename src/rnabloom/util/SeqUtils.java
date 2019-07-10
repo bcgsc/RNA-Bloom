@@ -55,8 +55,15 @@ public final class SeqUtils {
     public static final byte[] stringToBytes(String seq, int len) {
         byte[] arr = new byte[len];
         
+        byte b;
         for (int i=0; i<len; ++i) {
-            arr[i] = (byte) seq.charAt(i);
+            b = (byte) seq.charAt(i);
+            if (b == CHAR_U_INT) {
+                arr[i] = CHAR_T_INT;
+            }
+            else {
+                arr[i] = b;
+            }
         }
         
         return arr;
