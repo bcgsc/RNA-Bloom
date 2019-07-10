@@ -2361,7 +2361,10 @@ public class RNABloom {
         System.out.println("Reads are clustered in " + (targetSketches.size() - targetSketchesNullIndexes.size()) + " groups.");
     }
     
-    public boolean assembleLongReads(String clusteredLongReadsDirectory, String assembledLongReadsDirectory, int numThreads) throws IOException {
+    public boolean assembleLongReads(String clusteredLongReadsDirectory, 
+                                    String assembledLongReadsDirectory, 
+                                    String assembledLongReadsCombined,
+                                    int numThreads) throws IOException {
         if (!hasMinimap2()) {
             exitOnError("`minimap2` not found in PATH!");
         }
@@ -2411,7 +2414,28 @@ public class RNABloom {
         }
         
         boolean ok = errors.isEmpty();
-        if (!ok) {
+        if (ok) {
+            // combine assembly files
+            FastaWriter fout = new FastaWriter(assembledLongReadsCombined, false);
+            FastaReader fin;
+            for (int clusterID : clusterIDs) {
+                String clusterAssemblyPath = assembledLongReadsDirectory + File.separator + clusterID + "_transcripts.fa";
+                fin = new FastaReader(clusterAssemblyPath);
+                while(fin.hasNext()) {
+                    String[] nameCommentSeq = fin.nextWithComment();
+                    String comment = nameCommentSeq[1];
+                    if (comment.isEmpty()) {
+                        fout.write(clusterID + '_' + nameCommentSeq[0], nameCommentSeq[2]);
+                    }
+                    else {
+                        fout.write(clusterID + '_' + nameCommentSeq[0] + ' ' + comment, nameCommentSeq[2]);
+                    }
+                }
+                fin.close();
+            }
+            fout.close();
+        }
+        else {
             System.out.println("Cannot assemble the following clusters:");
             Collections.sort(errors);
             System.out.println(Arrays.toString(errors.toArray()));
@@ -3703,7 +3727,8 @@ public class RNABloom {
     }
     
     private static boolean assembleLongReads(RNABloom assembler, 
-            String clusteredLongReadsDirectory, String assembledLongReadsDirectory, 
+            String clusteredLongReadsDirectory, String assembledLongReadsDirectory,
+            String assembledLongReadsCombined,
             int numThreads, boolean forceOverwrite) throws IOException {
         
         File outdir = new File(assembledLongReadsDirectory);
@@ -3718,7 +3743,7 @@ public class RNABloom {
             outdir.mkdirs();
         }
         
-        return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, numThreads);
+        return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined, numThreads);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -5102,6 +5127,7 @@ public class RNABloom {
                 }
                 
                 final String assembledLongReadsDirectory = outdir + File.separator + name + ".longreads.assembly";
+                final String assembledLongReadsCombined = outdir + File.separator + name + ".transcripts.fa";
                 if (forceOverwrite || !longReadsAssembledStamp.exists()) {
                     assembler.destroyAllBf();
                     
@@ -5109,7 +5135,7 @@ public class RNABloom {
                     MyTimer stageTimer = new MyTimer();
                     stageTimer.start();
                     
-                    boolean ok = assembleLongReads(assembler, clusteredLongReadsDirectory, assembledLongReadsDirectory, numThreads, forceOverwrite);
+                    boolean ok = assembleLongReads(assembler, clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined, numThreads, forceOverwrite);
                     
                     if (ok) {
                         touch(longReadsAssembledStamp);
