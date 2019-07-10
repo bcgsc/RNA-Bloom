@@ -98,7 +98,7 @@ public class NTHash {
     };
 
     protected final static long[][] msTab = {
-        vecN, vecT, vecN, vecG, vecA, vecN, vecN, vecC, // 0..7
+        vecN, vecT, vecN, vecG, vecA, vecA, vecN, vecC, // 0..7
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 8..15
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 16..23
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 24..31
@@ -108,11 +108,11 @@ public class NTHash {
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 56..63
         vecN, vecA, vecN, vecC, vecN, vecN, vecN, vecG, // 64..71
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 72..79
-        vecN, vecN, vecN, vecN, vecT, vecN, vecN, vecN, // 80..87
+        vecN, vecN, vecN, vecN, vecT, vecT, vecN, vecN, // 80..87
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 88..95
         vecN, vecA, vecN, vecC, vecN, vecN, vecN, vecG, // 96..103
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 104..111
-        vecN, vecN, vecN, vecN, vecT, vecN, vecN, vecN, // 112..119
+        vecN, vecN, vecN, vecN, vecT, vecT, vecN, vecN, // 112..119
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 120..127
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 128..135
         vecN, vecN, vecN, vecN, vecN, vecN, vecN, vecN, // 136..143
@@ -133,7 +133,7 @@ public class NTHash {
     };
 
     private final static long[] seedTab = {
-        seedN, seedT, seedN, seedG, seedA, seedN, seedN, seedC, // 0..7
+        seedN, seedT, seedN, seedG, seedA, seedA, seedN, seedC, // 0..7
         seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 8..15
         seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 16..23
         seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 24..31
@@ -143,11 +143,11 @@ public class NTHash {
         seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 56..63
         seedN, seedA, seedN, seedC, seedN, seedN, seedN, seedG, // 64..71
         seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 72..79
-        seedN, seedN, seedN, seedN, seedT, seedN, seedN, seedN, // 80..87
+        seedN, seedN, seedN, seedN, seedT, seedT, seedN, seedN, // 80..87
         seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 88..95
         seedN, seedA, seedN, seedC, seedN, seedN, seedN, seedG, // 96..103
         seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 104..111
-        seedN, seedN, seedN, seedN, seedT, seedN, seedN, seedN, // 112..119
+        seedN, seedN, seedN, seedN, seedT, seedT, seedN, seedN, // 112..119
         seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 120..127
         seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 128..135
         seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 136..143
@@ -729,11 +729,18 @@ public class NTHash {
     }
         
     public static void main(String[] args) {
+        for (char n : new char[]{'A','C','G','T','U', 'a','c','g','t','u'}) {
+            System.out.println(n + ":" + (int)(n) + "," + (int)(n&cpOff));
+        }
+        
         String seq =  "ACGTACGTACGTACGT";
         int k = seq.length();
+        System.out.println(NTP64(seq, k));
+        System.out.println(NTP64RC(stringToBytes(seq, k), k));
         
-        System.out.println(NTP64RC(seq, k));
-        
+        seq =  "ACGUACGUACGUACGU";
+        k = seq.length();
+        System.out.println(NTP64(seq, k));
         System.out.println(NTP64RC(stringToBytes(seq, k), k));
     }
 }
