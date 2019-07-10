@@ -2425,10 +2425,10 @@ public class RNABloom {
                     String[] nameCommentSeq = fin.nextWithComment();
                     String comment = nameCommentSeq[1];
                     if (comment.isEmpty()) {
-                        fout.write(clusterID + '_' + nameCommentSeq[0], nameCommentSeq[2]);
+                        fout.write(clusterID + "_" + nameCommentSeq[0], nameCommentSeq[2]);
                     }
                     else {
-                        fout.write(clusterID + '_' + nameCommentSeq[0] + ' ' + comment, nameCommentSeq[2]);
+                        fout.write(clusterID + "_" + nameCommentSeq[0] + " " + comment, nameCommentSeq[2]);
                     }
                 }
                 fin.close();

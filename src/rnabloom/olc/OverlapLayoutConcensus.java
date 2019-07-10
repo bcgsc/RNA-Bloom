@@ -221,7 +221,7 @@ public class OverlapLayoutConcensus {
         String mapPaf = tmpPrefix + "_map.paf.gz";
         
         if (hasOnlyOneSequence(readsPath)) {
-            Files.copy(Paths.get(readsPath), Paths.get(gfafa));
+            Files.copy(Paths.get(readsPath), Paths.get(concensusPath));
             return true;
         }
         
