@@ -36,6 +36,7 @@ import java.util.zip.GZIPInputStream;
 public class FastaReader implements FastxReaderInterface {
     private final static String GZIP_EXTENSION = ".gz";
     private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("^>([^\\s/]+)(?:/[12])?.*$");
+    private final static Pattern RECORD_NAME_COMMENT_PATTERN = Pattern.compile("^>([^\\s/]+)\\s+(.*)$");
     private final Iterator<String> itr;
     private final BufferedReader br;
     
@@ -121,6 +122,31 @@ public class FastaReader implements FastxReaderInterface {
         else {
             throw new FileFormatException("Line 1 of a FASTA record is expected to start with '>'");
         }
+    }
+    
+    public synchronized String[] nextWithComment() throws FileFormatException {
+        String line1, name, comment, seq;
+        
+        synchronized(this) {
+            line1 = itr.next();
+            seq = itr.next();
+        }
+    
+        Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
+        if (m.matches()) {
+            name = m.group(1);
+            if (m.groupCount() > 2) {
+                comment = m.group(2);
+            }
+            else {
+                comment = "";
+            }
+        }
+        else {
+            throw new FileFormatException("Line 1 of a FASTA record is expected to start with '>'");
+        }
+        
+        return new String[]{name, comment, seq};
     }
     
     @Override
