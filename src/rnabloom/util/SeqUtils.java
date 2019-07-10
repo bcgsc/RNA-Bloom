@@ -35,11 +35,13 @@ public final class SeqUtils {
     private final static int CHAR_C_INT = (int) 'C';
     private final static int CHAR_G_INT = (int) 'G';
     private final static int CHAR_T_INT = (int) 'T';
+    private final static int CHAR_U_INT = (int) 'U';
     
     private final static int CHAR_A_BYTE = (byte) 'A';
     private final static int CHAR_C_BYTE = (byte) 'C';
     private final static int CHAR_G_BYTE = (byte) 'G';
     private final static int CHAR_T_BYTE = (byte) 'T';
+    private final static int CHAR_U_BYTE = (byte) 'U';
     public final static byte[] NUCLEOTIDE_BYTES = new byte[] {CHAR_A_BYTE, CHAR_C_BYTE, CHAR_G_BYTE, CHAR_T_BYTE};
     
     public static final char GAP_CHAR = 'N';
@@ -100,6 +102,8 @@ public final class SeqUtils {
                 return G_ALT_NUCLEOTIDES;
             case CHAR_T_BYTE:
                 return T_ALT_NUCLEOTIDES;
+            case CHAR_U_BYTE:
+                return T_ALT_NUCLEOTIDES;
             default:
                 return NUCLEOTIDES;
         }
@@ -114,6 +118,8 @@ public final class SeqUtils {
             case 'G':
                 return G_ALT_NUCLEOTIDES;
             case 'T':
+                return T_ALT_NUCLEOTIDES;
+            case 'U':
                 return T_ALT_NUCLEOTIDES;
             default:
                 return NUCLEOTIDES;
@@ -264,6 +270,8 @@ public final class SeqUtils {
                 return 2;
             case CHAR_T_BYTE:
                 return 3;
+            case CHAR_U_BYTE:
+                return 3;
             default:
                 return -1;
         }
@@ -278,6 +286,8 @@ public final class SeqUtils {
             case CHAR_G_INT:
                 return 2;
             case CHAR_T_INT:
+                return 3;
+            case CHAR_U_INT:
                 return 3;
             default:
                 return -1;
@@ -470,6 +480,9 @@ public final class SeqUtils {
                 case 'T':
                     count = ++numT;
                     break;
+                case 'U':
+                    count = ++numT;
+                    break;
                 default:
                     count = 0;
             }
@@ -495,7 +508,7 @@ public final class SeqUtils {
             
             if (numT > maxCount) {
                 maxChar = 'T';
-//                maxCount = numT;
+                maxCount = numT;
             }
             
             for (int j=i+tolerance; j>i; --j) {
@@ -606,6 +619,9 @@ public final class SeqUtils {
                 case CHAR_T_INT:
                     rc[--i] = 'A';
                     break;
+                case CHAR_U_INT:
+                    rc[--i] = 'A';
+                    break;
                 default:
                     rc[--i] = 'N';
             }
@@ -709,6 +725,8 @@ public final class SeqUtils {
             case CHAR_G_BYTE:
                 return CHAR_C_BYTE;
             case CHAR_T_BYTE:
+                return CHAR_A_BYTE;
+            case CHAR_U_BYTE:
                 return CHAR_A_BYTE;
         }
         
@@ -840,14 +858,15 @@ public final class SeqUtils {
     }
     
     public static Pattern getNucleotideCharsPattern(int minLength) {
-        return Pattern.compile("[ACGT]{" + Integer.toString(minLength) + ",}", Pattern.CASE_INSENSITIVE);
+        return Pattern.compile("[ACGTU]{" + Integer.toString(minLength) + ",}", Pattern.CASE_INSENSITIVE);
     }
     
     public static Pattern getHomoPolymerPattern(int length) {
         return Pattern.compile("(?:A{" + length + ",})" +
                               "|(?:C{" + length + ",})" +
                               "|(?:G{" + length + ",})" +
-                              "|(?:T{" + length + ",})", Pattern.CASE_INSENSITIVE);
+                              "|(?:T{" + length + ",})" +
+                              "|(?:U{" + length + ",})", Pattern.CASE_INSENSITIVE);
     }
     
     public static Pattern getPolyATailPattern(int minLength) {
