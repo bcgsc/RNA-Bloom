@@ -135,12 +135,7 @@ public class FastaReader implements FastxReaderInterface {
         Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
         if (m.matches()) {
             name = m.group(1);
-            if (m.groupCount() > 2) {
-                comment = m.group(2);
-            }
-            else {
-                comment = "";
-            }
+            comment = m.group(2);
         }
         else {
             throw new FileFormatException("Line 1 of a FASTA record is expected to start with '>'");
