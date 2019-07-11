@@ -36,7 +36,7 @@ import java.util.zip.GZIPInputStream;
 public class FastaReader implements FastxReaderInterface {
     private final static String GZIP_EXTENSION = ".gz";
     private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("^>([^\\s/]+)(?:/[12])?.*$");
-    private final static Pattern RECORD_NAME_COMMENT_PATTERN = Pattern.compile("^>([^\\s/]+)\\s+(.*)$");
+    private final static Pattern RECORD_NAME_COMMENT_PATTERN = Pattern.compile("^>([^\\s/]+)\\s*(.*)?$");
     private final Iterator<String> itr;
     private final BufferedReader br;
     
