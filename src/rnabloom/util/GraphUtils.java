@@ -4469,12 +4469,32 @@ public final class GraphUtils {
         return leftWing + graph.assemble(pathKmers) + rightWing;
     }
 
-    public static ArrayList<Kmer> overlap(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, BloomFilterDeBruijnGraph graph, int minOverlap, float minKmerCov) {
-//        int k = graph.getK();
-        
+    public static ArrayList<Kmer> overlap(ArrayList<Kmer> leftKmers, ArrayList<Kmer> rightKmers, BloomFilterDeBruijnGraph graph, int minOverlap, float minKmerCov) {        
         String left = graph.assemble(leftKmers);
         String right = graph.assemble(rightKmers);
         String overlapped = overlapMaximally(left, right, minOverlap);
+        
+        if (overlapped == null) {
+            // detect dovetail overlap
+            
+            // increase min overlap threshold
+            minOverlap = Math.max(minOverlap, Math.min(left.length(), right.length())*3/4);
+            
+            overlapped = overlapMaximally(right, left, minOverlap);
+            
+            if (overlapped != null) {
+                //System.out.println(">left\n" + left + "\n>right\n" + right + "\n>overlapped\n" + overlapped);
+                
+                // swap left and right reads
+                ArrayList<Kmer> tmpKmers = leftKmers;
+                leftKmers = rightKmers;
+                rightKmers = tmpKmers;
+                
+                String tmp = left;
+                left = right;
+                right = tmp;
+            }
+        }
         
         if (overlapped != null) {
             int overlappedSeqLength = overlapped.length();
