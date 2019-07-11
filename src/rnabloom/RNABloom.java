@@ -822,17 +822,20 @@ public class RNABloom {
         private final FastaWriter foutShort;
         private final int minTranscriptLength;
         private final int maxTipLength;
+        private final boolean writeUracil;
         private String prefix = "";
         private long cid = 0;
         
-        public TranscriptWriter(FastaWriter fout, 
+        public TranscriptWriter(FastaWriter fout,
                                 FastaWriter foutShort,
                                 int minTranscriptLength,
-                                int maxTipLength) {
+                                int maxTipLength,
+                                boolean writeUracil) {
             this.fout = fout;
             this.foutShort = foutShort;
             this.minTranscriptLength = minTranscriptLength;
             this.maxTipLength = maxTipLength;
+            this.writeUracil = writeUracil;
         }
         
         public void setOutputPrefix(String prefix) {
@@ -952,14 +955,23 @@ public class RNABloom {
                         for (int p : pasPositions) {
                             for (int i=0; i<6; ++i) {
                                 char c = transcript.charAt(p+i);
-                                transcriptSB.setCharAt(p+i, Character.toLowerCase(c));
+                                if (writeUracil && c=='T') {
+                                    transcriptSB.setCharAt(p+i, 'u');
+                                }
+                                else {
+                                    transcriptSB.setCharAt(p+i, Character.toLowerCase(c));
+                                }
                             }
                         }
-
+                        
                         transcript = transcriptSB.toString();
                         
                         headerBuilder.append("]");
                     }
+                }
+                
+                if (writeUracil) {
+                    transcript = transcript.replace('T', 'U');
                 }
                 
                 if (len >= minTranscriptLength) {
@@ -2364,7 +2376,8 @@ public class RNABloom {
     public boolean assembleLongReads(String clusteredLongReadsDirectory, 
                                     String assembledLongReadsDirectory, 
                                     String assembledLongReadsCombined,
-                                    int numThreads) throws IOException {
+                                    int numThreads,
+                                    boolean writeUracil) throws IOException {
         if (!hasMinimap2()) {
             exitOnError("`minimap2` not found in PATH!");
         }
@@ -2424,11 +2437,17 @@ public class RNABloom {
                 while(fin.hasNext()) {
                     String[] nameCommentSeq = fin.nextWithComment();
                     String comment = nameCommentSeq[1];
+                    String seq = nameCommentSeq[2];
+                    
+                    if (writeUracil) {
+                        seq = seq.replace('T', 'U');
+                    }
+                    
                     if (comment.isEmpty()) {
-                        fout.write(clusterID + "_" + nameCommentSeq[0], nameCommentSeq[2]);
+                        fout.write(clusterID + "_" + nameCommentSeq[0], seq);
                     }
                     else {
-                        fout.write(clusterID + "_" + nameCommentSeq[0] + " " + comment, nameCommentSeq[2]);
+                        fout.write(clusterID + "_" + nameCommentSeq[0] + " " + comment, seq);
                     }
                 }
                 fin.close();
@@ -3386,7 +3405,8 @@ public class RNABloom {
                                                 boolean reqFragKmersConsistency,
                                                 String txptNamePrefix,
                                                 float minKmerCov,
-                                                String branchFreeExtensionThreshold) throws IOException, InterruptedException {
+                                                String branchFreeExtensionThreshold,
+                                                boolean writeUracil) throws IOException, InterruptedException {
         
         long numFragmentsParsed = 0;
 
@@ -3395,7 +3415,7 @@ public class RNABloom {
         FastaWriter fout = new FastaWriter(outFasta, false);
         FastaWriter foutShort = new FastaWriter(outFastaShort, false);
         //TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, sensitiveMode ? maxTipLength : Math.max(k, maxTipLength));
-        TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, maxTipLength);
+        TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, maxTipLength, writeUracil);
 
 
         boolean allowNaiveExtension = true;
@@ -3726,7 +3746,7 @@ public class RNABloom {
     private static boolean assembleLongReads(RNABloom assembler, 
             String clusteredLongReadsDirectory, String assembledLongReadsDirectory,
             String assembledLongReadsCombined,
-            int numThreads, boolean forceOverwrite) throws IOException {
+            int numThreads, boolean forceOverwrite, boolean writeUracil) throws IOException {
         
         File outdir = new File(assembledLongReadsDirectory);
         if (outdir.exists()) {
@@ -3740,7 +3760,7 @@ public class RNABloom {
             outdir.mkdirs();
         }
         
-        return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined, numThreads);
+        return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined, numThreads, writeUracil);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -3928,7 +3948,7 @@ public class RNABloom {
             int sampleSize, int minTranscriptLength, boolean keepArtifact, boolean keepChimera, 
             boolean reqFragKmersConsistency, boolean restorePairedKmers,
             float minKmerCov, String branchFreeExtensionThreshold,
-            boolean reduceRedundancy, boolean assemblePolya) throws IOException, InterruptedException {
+            boolean reduceRedundancy, boolean assemblePolya, boolean writeUracil) throws IOException, InterruptedException {
         
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
         final File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
@@ -4072,7 +4092,8 @@ public class RNABloom {
                                                         reqFragKmersConsistency,
                                                         txptNamePrefix,
                                                         minKmerCov,
-                                                        branchFreeExtensionThreshold);
+                                                        branchFreeExtensionThreshold,
+                                                        writeUracil);
             
             System.out.println("Transcripts assembled in " + MyTimer.hmsFormat(timer.elapsedMillis()));
 
@@ -4238,6 +4259,13 @@ public class RNABloom {
                                     .argName("STR")
                                     .build();
         options.addOption(optPrefix);
+        
+        Option optUracil = Option.builder("u")
+                                    .longOpt("uracil")
+                                    .desc("output uracils (U) in place of thymines (T) in final assembly FASTA [false]")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optUracil);
         
         final String optThreadsDefault = "2";
         Option optThreads = Option.builder("t")
@@ -4764,6 +4792,7 @@ public class RNABloom {
             final boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
             final boolean revCompRight = line.hasOption(optRevCompRight.getOpt());
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
+            final boolean writeUracil = line.hasOption(optUracil.getOpt());
             
             final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), optKmerSizeDefault));
             
@@ -5061,7 +5090,7 @@ public class RNABloom {
                                     sbfSize, sbfNumHash, pkbfSize, pkbfNumHash, numThreads, noFragDBG,
                                     sampleSize, minTranscriptLength, keepArtifact, keepChimera,
                                     reqFragKmersConsistency, true, minKmerCov,
-                                    branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0);
+                                    branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0, writeUracil);
                     
                     System.out.print("\n");
                 }
@@ -5103,7 +5132,9 @@ public class RNABloom {
                     MyTimer stageTimer = new MyTimer();
                     stageTimer.start();
                     
-                    correctLongReads(assembler, longReadPaths, correctedLongReadFileNames, maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength);
+                    correctLongReads(assembler,
+                            longReadPaths, correctedLongReadFileNames,
+                            maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength);
                     
                     touch(longReadsCorrectedStamp);
                     System.out.println("Reads corrected in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
@@ -5117,7 +5148,9 @@ public class RNABloom {
                     MyTimer stageTimer = new MyTimer();
                     stageTimer.start();
                     
-                    clusterLongReads(assembler, correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov);
+                    clusterLongReads(assembler,
+                            correctedLongReadFileNames, clusteredLongReadsDirectory,
+                            sketchSize, numThreads, minKmerCov);
                     
                     touch(longReadsClusteredStamp);
                     System.out.println("Reads clustered in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
@@ -5132,7 +5165,9 @@ public class RNABloom {
                     MyTimer stageTimer = new MyTimer();
                     stageTimer.start();
                     
-                    boolean ok = assembleLongReads(assembler, clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined, numThreads, forceOverwrite);
+                    boolean ok = assembleLongReads(assembler,
+                            clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined,
+                            numThreads, forceOverwrite, writeUracil);
                     
                     if (ok) {
                         touch(longReadsAssembledStamp);
@@ -5174,7 +5209,7 @@ public class RNABloom {
                                 sbfSize, sbfNumHash, pkbfSize, pkbfNumHash, numThreads, noFragDBG,
                                 sampleSize, minTranscriptLength, keepArtifact, keepChimera,
                                 reqFragKmersConsistency, true, minKmerCov, 
-                                branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0);
+                                branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0, writeUracil);
                 
                 System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }      
