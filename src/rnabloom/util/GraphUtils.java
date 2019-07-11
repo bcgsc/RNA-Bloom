@@ -1961,7 +1961,7 @@ public final class GraphUtils {
         
         stats.dropoff = 0;
         
-        if (calcDropOff) {
+        if (calcDropOff && len >= lookahead) {
             float last = covs[len-lookahead];
             for (i=len-lookahead-1; i>=0; --i) {
                 float c = covs[i];
@@ -2935,20 +2935,22 @@ public final class GraphUtils {
                     ArrayList<Kmer> window = new ArrayList<>(testKmers.subList(i, end));
                     ArrayList<Kmer> windowCorrected = null;
 
-                    CoverageStats covStat = getCoverageStats(window, maxCovGradient, lookahead, true);
-                    float threshold = covStat.median;
-                    if (covStat.dropoff > 0) {
-                        threshold = covStat.dropoff;
+                    if (end-i >= lookahead) {
+                        CoverageStats covStat = getCoverageStats(window, maxCovGradient, lookahead, true);
+                        float threshold = covStat.median;
+                        if (covStat.dropoff > 0) {
+                            threshold = covStat.dropoff;
+                        }
+
+                        windowCorrected = correctInternalErrors(window,
+                                                                    graph, 
+                                                                    lookahead,
+                                                                    maxIndelSize,
+                                                                    threshold,
+                                                                    percentIdentity,
+                                                                    minKmerCov);
                     }
-
-                    windowCorrected = correctInternalErrors(window,
-                                                                graph, 
-                                                                lookahead,
-                                                                maxIndelSize,
-                                                                threshold,
-                                                                percentIdentity,
-                                                                minKmerCov);
-
+                    
                     if (windowCorrected == null) {
                         correctedKmers.addAll(window);
                     }

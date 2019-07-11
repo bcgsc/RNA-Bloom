@@ -2635,12 +2635,8 @@ public class RNABloom {
         
         @Override
         public void run() {
-            while(true) {
-                try {
-                    if (terminateWhenInputExhausts && inputQueue.isEmpty()) {
-                        break;
-                    }
-                    
+            while(!terminateWhenInputExhausts || !inputQueue.isEmpty()) {
+                try {                    
                     String[] nameSeqPair = inputQueue.poll(1, TimeUnit.SECONDS);
                     if (nameSeqPair == null) {
                         continue;
@@ -2665,8 +2661,9 @@ public class RNABloom {
                         seq = graph.assemble(correctedKmers);
                         outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov));
                     }
-                } catch (InterruptedException ex) {
+                } catch (Exception ex) {
                     System.out.println(ex.getMessage());
+                    ex.printStackTrace();
                     exception = ex;
                     successful = false;
                     return;
