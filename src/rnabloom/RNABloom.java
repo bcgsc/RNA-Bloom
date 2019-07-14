@@ -4838,7 +4838,9 @@ public class RNABloom {
                 else if (longReadPaths != null && longReadPaths.length > 0) {
                     NTCardHistogram hist = getNTCardHistogram(numThreads, k, histogramPathPrefix, longReadPaths, forceOverwrite);
                     expNumKmers = hist.numKmers;
-                    minKmerCov = hist.covThreshold;
+                    if (!line.hasOption(optMinKmerCov.getOpt())) {
+                        minKmerCov = hist.covThreshold;
+                    }
                     System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
                     System.out.println("Min k-mer coverage threshold: " + NumberFormat.getInstance().format(minKmerCov));
                 }
