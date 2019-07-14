@@ -68,10 +68,10 @@ public class HashFunction {
                 itr.next();
                 c = graph.getCount(hVals);
                 
-                if (c <= 0) {
-                    // not a valid sequence
-                    return new ArrayList<>();
-                }
+//                if (c <= 0) {
+//                    // not a valid sequence
+//                    return new ArrayList<>();
+//                }
                 
                 i = itr.getPos();
                 result.add(new Kmer(Arrays.copyOfRange(bytes, i, i+k), c, hVals[0]));

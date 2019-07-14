@@ -248,7 +248,7 @@ public class RNABloom {
 
         if (loadDbgBits) {
             dbgFPR = graph.getDbgbfFPR();
-            System.out.println("DBG Bloom filter FPR:               " + dbgFPR * 100 + " %");
+            System.out.println("DBG Bloom filter FPR:                " + dbgFPR * 100 + " %");
         }
 
         covFPR = graph.getCbfFPR();
@@ -1621,11 +1621,8 @@ public class RNABloom {
         else if (c >= 1e1) {
             return 1;
         }
-        else if (c >= 1e0) {
-            return 0;
-        }
         else {
-            return -1;
+            return 0;
         }
     }
     
@@ -2575,7 +2572,7 @@ public class RNABloom {
                 
                 successful = true;
             
-            } catch (InterruptedException|IOException ex) {
+            } catch (Exception ex) {
                 System.out.println(ex.getMessage());
                 exception = ex;
                 successful = false;

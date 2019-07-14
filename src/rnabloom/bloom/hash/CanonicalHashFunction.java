@@ -60,10 +60,10 @@ public class CanonicalHashFunction extends HashFunction {
                 itr.next();
                 c = graph.getCount(hVals);
                 
-                if (c <= 0) {
-                    // not a valid sequence
-                    return new ArrayList<>();
-                }
+//                if (c <= 0) {
+//                    // not a valid sequence
+//                    return new ArrayList<>();
+//                }
                 
                 i = itr.getPos();
                 result.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), c, frhval[0], frhval[1]));

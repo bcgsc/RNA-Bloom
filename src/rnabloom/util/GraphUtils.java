@@ -2939,7 +2939,7 @@ public final class GraphUtils {
                         CoverageStats covStat = getCoverageStats(window, maxCovGradient, lookahead, true);
                         float threshold = covStat.median;
                         if (covStat.dropoff > 0) {
-                            threshold = covStat.dropoff;
+                            threshold = Math.max(covStat.dropoff, minKmerCov);
                         }
 
                         windowCorrected = correctInternalErrors(window,
@@ -2980,8 +2980,8 @@ public final class GraphUtils {
                     ArrayList<Kmer> correctedKmers = correctEdgeErrors(testKmers,
                                                                         graph,
                                                                         lookahead,
-                                                                        headCovStat.dropoff,
-                                                                        tailCovStat.dropoff,
+                                                                        Math.max(minKmerCov, headCovStat.dropoff),
+                                                                        Math.max(minKmerCov, tailCovStat.dropoff),
                                                                         percentIdentity,
                                                                         minKmerCov);
                     if (correctedKmers != null) {
