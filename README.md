@@ -39,7 +39,7 @@ tar -zxf rnabloom_vX.X.X.tar.gz
 
 ## Quick Start :running:
 
-:warning: RNA-Bloom only supports paired-end RNA-seq data. Input reads must be in either FASTQ or FASTA format and may be compressed with GZIP. 
+:warning: RNA-Bloom only supports paired-end short-read RNA-seq data (eg. Illumina, BGISEQ) and nanopore RNA-seq data (Oxford Nanopore Technologies). Input reads must be in either FASTQ or FASTA format and may be compressed with GZIP. 
 
 ### assemble bulk RNA-seq data:
 ```
@@ -70,22 +70,24 @@ This file consists of 3 columns, ie.
 2. path of left reads
 3. path of right reads
 
+### assemble nanopore cDNA sequencing data:
+```
+java -jar RNA-Bloom.jar -ntcard -c 3 -k 17 -indel 10 -e 3 -p 0.8 -long READS.fa -t THREADS -outdir OUTDIR
+```
+
+### assemble nanopore direct RNA sequencing data:
+```
+java -jar RNA-Bloom.jar -stranded -ntcard -c 3 -k 17 -indel 10 -e 3 -p 0.8 -long READS.fa -t THREADS -outdir OUTDIR
+```
+
 ### set the Bloom filter sizes based on the maximum allowable false positive rate and the expected number of unique k-mers:
 ```
 java -jar RNA-Bloom.jar -fpr 0.1 -nk 28077715 ...
 ```
 The number of unique k-mers in your dataset can be estimated efficiently with [ntCard](https://github.com/bcgsc/ntCard).
 
-When running ntCard, please specifiy the same k-mer size to be used in RNA-Bloom (eg. 25), eg.
-```
-ntcard -k 25 -c 65535 -p outdir/freq LEFT.fastq.gz RIGHT.fastq.gz
-```
-ntCard would generate a histogram file `outdir/freq_k25.hist`, where `F0` on the 2nd row is the number of unique k-mers, eg.
-```
-F1	140110302
-F0	28077715
-```
-Alternatively, you can use the `-ntcard` option in RNA-Bloom if `ntcard` is already in your `PATH`, eg.
+As an alternative to `-nk`, you can use the `-ntcard` option in RNA-Bloom if `ntcard` is already in your `PATH`, eg.
+
 ```
 java -jar RNA-Bloom.jar -fpr 0.05 -ntcard ...
 ```
@@ -108,5 +110,14 @@ java -Xmx1g -jar RNA-Bloom.jar ...
 This option does not need to be set larger than the total Bloom filter size.
 
 [Other JVM options](https://docs.oracle.com/cd/E37116_01/install.111210/e23737/configuring_jvm.htm#OUDIG00071) may also be used.
+
+
+## Citation
+
+RNA-Bloom provides lightweight reference-free transcriptome assembly for single cells
+
+Ka Ming Nip, Readman Chiu, Chen Yang, Justin Chu, Hamid Mohamadi, Rene L Warren, Inanc Birol
+
+bioRxiv 701607; doi: https://doi.org/10.1101/701607
 
 --------------------------------------------------------------------------------
