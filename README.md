@@ -2,7 +2,12 @@
   <img src="rnabloom_logo.png" alt="RNA-Bloom's logo"/>
 </p>
 
-**RNA-Bloom** is a fast and memory-efficient *de novo* transcript sequence assembler for bulk and single-cell paired-end RNA-seq data.
+**RNA-Bloom** is a fast and memory-efficient *de novo* transcript sequence assembler. It is designed for the following sequencing data types:
+* paired-end bulk RNA-seq (strand-specific/agnostic)
+* paired-end single-cell RNA-seq (strand-specific/agnostic)
+* nanopore RNA-seq (cDNA/direct RNA)
+
+See [Quick Start](#quick-start-running) for example usage.
 
 Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
