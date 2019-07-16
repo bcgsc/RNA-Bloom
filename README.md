@@ -112,9 +112,9 @@ This option does not need to be set larger than the total Bloom filter size.
 [Other JVM options](https://docs.oracle.com/cd/E37116_01/install.111210/e23737/configuring_jvm.htm#OUDIG00071) may also be used.
 
 
-## Citing RNA-Bloom:
+## Citing RNA-Bloom :scroll:
 
-If you use RNA-Bloom in your work, please cit us:
+If you use RNA-Bloom in your work, please cite us:
 
 > Ka Ming Nip, Readman Chiu, Chen Yang, Justin Chu, Hamid Mohamadi, Rene L Warren, Inanc Birol. (2019) RNA-Bloom provides lightweight reference-free transcriptome assembly for single cells. bioRxiv 701607. doi: https://doi.org/10.1101/701607
 
