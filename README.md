@@ -14,6 +14,16 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 * [Java SE Runtime Environment (JRE) 8](http://www.oracle.com/technetwork/java/javase/downloads/jre8-downloads-2133155.html)
 
+Required for nanopore RNA-seq assembly:
+
+* [minimap2](https://github.com/lh3/minimap2)
+* [miniasm](https://github.com/lh3/miniasm)
+* [Racon](https://github.com/isovic/racon)
+
+Optional:
+
+* [ntCard](https://github.com/bcgsc/ntCard)
+
 Check your Java version:
 ```
 java -version
