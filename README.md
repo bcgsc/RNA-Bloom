@@ -92,7 +92,7 @@ As an alternative to `-nk`, you can use the `-ntcard` option in RNA-Bloom if `nt
 java -jar RNA-Bloom.jar -fpr 0.05 -ntcard ...
 ```
 
-### limit the total size of Bloom filters to 3GB:
+### set the total size of Bloom filters to 3GB:
 ```
 java -jar RNA-Bloom.jar -mem 3 ...
 ```
