@@ -82,7 +82,7 @@ java -jar RNA-Bloom.jar -stranded -ntcard -c 3 -k 17 -indel 10 -e 3 -p 0.8 -long
 
 ### set the Bloom filter sizes based on the maximum allowable false positive rate and the expected number of unique k-mers:
 ```
-java -jar RNA-Bloom.jar -fpr 0.1 -nk 28077715 ...
+java -jar RNA-Bloom.jar -fpr 0.05 -nk 28077715 ...
 ```
 The number of unique k-mers in your dataset can be estimated efficiently with [ntCard](https://github.com/bcgsc/ntCard).
 
