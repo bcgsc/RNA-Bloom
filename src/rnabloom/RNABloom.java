@@ -697,7 +697,8 @@ public class RNABloom {
     }
     
     public boolean withinMaxFPR(float fpr) {
-        return graph.getDbgbfFPR() <= fpr || graph.getCbfFPR() <= fpr || graph.getRpkbfFPR() <= fpr;
+        float maxFPR = fpr + fpr*fpr;
+        return graph.getDbgbfFPR() <= maxFPR && graph.getCbfFPR() <= maxFPR && graph.getRpkbfFPR() <= maxFPR;
     }
     
     public long[] getOptimalBloomFilterSizes(float maxFPR) {
@@ -4816,6 +4817,10 @@ public class RNABloom {
             
             final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), optFprDefault));
             
+            boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
+            boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
+            boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
+            
             long expNumKmers = -1L;
             if (line.hasOption(optNtcard.getOpt())) {
                 if (!hasNtcard()) {
@@ -4827,12 +4832,12 @@ public class RNABloom {
                 
                 timer.start();
                 
-                if (leftReadPaths != null && leftReadPaths.length > 0 && rightReadPaths != null && rightReadPaths.length > 0) {
+                if (hasLeftReadFiles && hasRightReadFiles) {
                     String[] readPaths = Stream.concat(Arrays.stream(leftReadPaths), Arrays.stream(rightReadPaths)).toArray(String[]::new);
                     expNumKmers = getNTCardHistogram(numThreads, k, histogramPathPrefix, readPaths, forceOverwrite).numKmers;
                     System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
                 }
-                else if (longReadPaths != null && longReadPaths.length > 0) {
+                else if (hasLongReadFiles) {
                     NTCardHistogram hist = getNTCardHistogram(numThreads, k, histogramPathPrefix, longReadPaths, forceOverwrite);
                     expNumKmers = hist.numKmers;
                     if (!line.hasOption(optMinKmerCov.getOpt())) {
@@ -4918,7 +4923,7 @@ public class RNABloom {
             FileWriter writer = new FileWriter(startedStamp, false);
             writer.write(String.join(" ", args));
             writer.close();
-            
+                        
             if (!forceOverwrite && dbgDoneStamp.exists()) {
                 System.out.println("WARNING: Graph was already constructed (k=" + k + ")!");
                 
@@ -4938,7 +4943,7 @@ public class RNABloom {
                 ArrayList<String> backwardFilesList = new ArrayList<>();
                 ArrayList<String> longFilesList = new ArrayList<>();
                 
-                if (leftReadPaths != null && leftReadPaths.length > 0) {
+                if (hasLeftReadFiles) {
                     if (revCompLeft) {
                         backwardFilesList.addAll(Arrays.asList(leftReadPaths));
                     }
@@ -4947,7 +4952,7 @@ public class RNABloom {
                     }
                 }
                 
-                if (rightReadPaths != null && rightReadPaths.length > 0) {
+                if (hasRightReadFiles) {
                     if (revCompRight) {
                         backwardFilesList.addAll(Arrays.asList(rightReadPaths));
                     }
@@ -4956,7 +4961,7 @@ public class RNABloom {
                     }
                 }
                 
-                if (longReadPaths != null && longReadPaths.length > 0) {
+                if (hasLongReadFiles) {
                     longFilesList.addAll(Arrays.asList(longReadPaths));
                 }
                        
@@ -5098,7 +5103,7 @@ public class RNABloom {
                 
                 touch(txptsDoneStamp);
             }
-            else if (longReadPaths != null && longReadPaths.length > 0) {
+            else if (hasLongReadFiles) {
                 int sketchSize = minTranscriptLength + k + 1;
                 
                 final String correctedLongReadFilePrefix = outdir + File.separator + name + ".longreads.corrected";
