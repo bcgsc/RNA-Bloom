@@ -697,7 +697,7 @@ public class RNABloom {
     }
     
     public boolean withinMaxFPR(float fpr) {
-        float maxFPR = fpr + fpr*fpr;
+        float maxFPR = fpr * 1.5f;
         return graph.getDbgbfFPR() <= maxFPR && graph.getCbfFPR() <= maxFPR && graph.getRpkbfFPR() <= maxFPR;
     }
     
@@ -4299,9 +4299,18 @@ public class RNABloom {
                                     .build();
         options.addOption(optKmerSize);
         
-        final String optStageDefault = "3";
+        final String optStageDefault = "4";
         Option optStage = Option.builder("stage")
-                                    .desc("assembly end point, eg. '1' (construct graph), '2' (assemble fragments), '3' (assemble transcripts) [" + optStageDefault + "]")
+                                    .desc("assembly termination stage\n" +
+                                            "short reads: [3]\n" +
+                                            "1. construct graph\n" +
+                                            "2. assemble fragments\n" +
+                                            "3. assemble transcripts\n" +
+                                            "long reads: [4]\n" + 
+                                            "1. construct graph\n" +
+                                            "2. correct reads\n" +
+                                            "3. cluster reads\n" + 
+                                            "4. assemble transcripts")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -5132,7 +5141,7 @@ public class RNABloom {
                         }
                     }
 
-                    System.out.println("Correcting long reads for \"" + name + "\"");
+                    System.out.println("\n> Stage 2: Correcting long reads for \"" + name + "\"");
                     MyTimer stageTimer = new MyTimer();
                     stageTimer.start();
                     
@@ -5141,14 +5150,19 @@ public class RNABloom {
                             maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength);
                     
                     touch(longReadsCorrectedStamp);
-                    System.out.println("Reads corrected in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                    System.out.println("> Stage 2 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                }
+                
+                if (endstage <= 2) {
+                    System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+                    System.exit(0);
                 }
                 
                 final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
                 
                 if (forceOverwrite || !longReadsClusteredStamp.exists()) {
                     
-                    System.out.println("Clustering long reads for \"" + name + "\"");
+                    System.out.println("\n> Stage 3: Clustering long reads for \"" + name + "\"");
                     MyTimer stageTimer = new MyTimer();
                     stageTimer.start();
                     
@@ -5157,7 +5171,12 @@ public class RNABloom {
                             sketchSize, numThreads, minKmerCov);
                     
                     touch(longReadsClusteredStamp);
-                    System.out.println("Reads clustered in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                    System.out.println("Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                }
+                
+                if (endstage <= 3) {
+                    System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+                    System.exit(0);
                 }
                 
                 final String assembledLongReadsDirectory = outdir + File.separator + name + ".longreads.assembly";
@@ -5165,7 +5184,7 @@ public class RNABloom {
                 if (forceOverwrite || !longReadsAssembledStamp.exists()) {
                     assembler.destroyAllBf();
                     
-                    System.out.println("Assembling long reads for \"" + name + "\"");
+                    System.out.println("\n> Stage 4: Assembling long reads for \"" + name + "\"");
                     MyTimer stageTimer = new MyTimer();
                     stageTimer.start();
                     
@@ -5175,7 +5194,7 @@ public class RNABloom {
                     
                     if (ok) {
                         touch(longReadsAssembledStamp);
-                        System.out.println("Reads assembled in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                        System.out.println("> Stage 4 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                     }
                     else {
                         exitOnError("Error assembling long reads!");
