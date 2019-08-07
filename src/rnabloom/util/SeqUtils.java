@@ -942,6 +942,30 @@ public final class SeqUtils {
         
         return true;
     }
+    
+    public static String compressHomoPolymers(String seq) {
+        if (seq.isEmpty()) {
+            return seq;
+        }
+        
+        int len = seq.length();
+        
+        StringBuilder sb = new StringBuilder(len);
+        
+        char lastN = seq.charAt(0);
+        sb.append(lastN);
+        
+        char n;
+        for (int i=1; i<len; ++i) {
+            n = seq.charAt(i);
+            if (n != lastN) {
+                sb.append(n);
+                lastN = n;
+            }
+        }
+        
+        return sb.toString();
+    }
 
     public static ArrayList<String> filterFasta(String seq, Pattern seqPattern) {
 

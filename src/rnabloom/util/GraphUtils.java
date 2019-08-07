@@ -2577,7 +2577,12 @@ public final class GraphUtils {
         sketch[i] = newVal;
     }
     
-    public static long[] getMinimizers(String seq, int numKmers, NTHashIterator itr, int windowSize) {        
+    public static long[] getMinimizersWithCompressedHomoPolymers(String seq, int k, NTHashIterator itr, int windowSize) {
+        String chpSeq = compressHomoPolymers(seq);
+        return getMinimizers(chpSeq, getNumKmers(chpSeq, k), itr, windowSize);
+    }
+    
+    public static long[] getMinimizers(String seq, int numKmers, NTHashIterator itr, int windowSize) {
         long[] hashes = new long[numKmers];
         itr.start(seq);
         long[] hvals = itr.hVals;
@@ -2714,6 +2719,28 @@ public final class GraphUtils {
         Arrays.sort(minimizersArr);
         
         return minimizersArr;
+    }
+    
+    public static long[] getAscendingHashValuesWithCompressedHomoPolymers(String seq, NTHashIterator itr, int numKmers) {
+        HashSet<Long> hashValSet = new HashSet<>(numKmers);
+        
+        itr.start(compressHomoPolymers(seq));
+        long[] hVals = itr.hVals;
+        for (int i=0; i<numKmers; ++i) {
+            itr.next();
+            hashValSet.add(hVals[0]);
+        }
+        
+        int numVals = hashValSet.size();
+        long[] result = new long[numVals];
+        int i=0;
+        for (Long h : hashValSet) {
+            result[i++] = h;
+        }
+        
+        Arrays.sort(result);
+        
+        return result;
     }
     
     public static long[] getAscendingHashValues(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
