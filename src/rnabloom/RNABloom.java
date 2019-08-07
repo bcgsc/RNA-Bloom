@@ -4840,19 +4840,30 @@ public class RNABloom {
                 String histogramPathPrefix = outdir + File.separator + name;
                 
                 timer.start();
+                                
+                Stream<String> readPaths = Stream.empty();
                 
-                if (hasLeftReadFiles && hasRightReadFiles) {
-                    String[] readPaths = Stream.concat(Arrays.stream(leftReadPaths), Arrays.stream(rightReadPaths)).toArray(String[]::new);
-                    expNumKmers = getNTCardHistogram(numThreads, k, histogramPathPrefix, readPaths, forceOverwrite).numKmers;
-                    System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
+                if (hasLeftReadFiles) {
+                    readPaths = Stream.concat(readPaths, Arrays.stream(leftReadPaths));
                 }
-                else if (hasLongReadFiles) {
-                    NTCardHistogram hist = getNTCardHistogram(numThreads, k, histogramPathPrefix, longReadPaths, forceOverwrite);
-                    expNumKmers = hist.numKmers;
+                
+                if (hasRightReadFiles) {
+                    readPaths = Stream.concat(readPaths, Arrays.stream(rightReadPaths));
+                }
+                
+                if (hasLongReadFiles) {
+                    readPaths = Stream.concat(readPaths, Arrays.stream(longReadPaths));
+                }
+                
+                NTCardHistogram hist = getNTCardHistogram(numThreads, k, histogramPathPrefix, readPaths.toArray(String[]::new), forceOverwrite);
+                expNumKmers = hist.numKmers;
+                System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
+
+                if (hasLongReadFiles) {
                     if (!line.hasOption(optMinKmerCov.getOpt())) {
                         minKmerCov = hist.covThreshold;
                     }
-                    System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
+                    
                     System.out.println("Min k-mer coverage threshold: " + NumberFormat.getInstance().format(minKmerCov));
                 }
                     
