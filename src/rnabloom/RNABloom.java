@@ -2191,7 +2191,8 @@ public class RNABloom {
         return altID;
     }
     
-    public void clusterLongReads(String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory, int sketchSize, int numThreads, float minCoverage) throws IOException, InterruptedException {
+    public void clusterLongReads(String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory,
+            int sketchSize, int numThreads, float minCoverage, boolean useCompressedMinimizers) throws IOException, InterruptedException {
 
         final int minimizerWindowSize = k;
         
@@ -2225,7 +2226,7 @@ public class RNABloom {
                     }
                     
                     int numKmers = getNumKmers(seq, k);
-                    long[] sortedHashVals = getAscendingHashValues(seq, itr, graph, numKmers, minCoverage);
+                    long[] sortedHashVals = useCompressedMinimizers ? getAscendingHashValuesWithCompressedHomoPolymers(seq, itr, numKmers) : getAscendingHashValues(seq, itr, graph, numKmers, minCoverage);
                     
                     if (sortedHashVals.length < sketchSize) {
                         // not enough good kmers
@@ -2242,7 +2243,7 @@ public class RNABloom {
                     
                     if (targetSketches.isEmpty()) {
 //                        long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
-                        long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
+                        long[] sketch = useCompressedMinimizers ? getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) : getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
                         targetSketches.add(sketch);
                         targetSketchesAltIDs.add(-1);
                         bestTargetSketchID = 0;
@@ -2298,7 +2299,7 @@ public class RNABloom {
                         if (bestIntersectionSize <= 0) {
                             // start a new cluster
 //                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
-                            long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
+                            long[] sketch = useCompressedMinimizers ? getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) : getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
                             
                             if (targetSketchesNullIndexes.isEmpty()) {
                                 targetSketches.add(sketch);
@@ -3728,7 +3729,7 @@ public class RNABloom {
     
     private static void clusterLongReads(RNABloom assembler, 
             String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory,
-            int sketchSize, int numThreads, float minKmerCov) throws IOException, InterruptedException {
+            int sketchSize, int numThreads, float minKmerCov, boolean useCompressedMinimizers) throws IOException, InterruptedException {
         
         File outdir = new File(clusteredLongReadsDirectory);
         if (outdir.exists()) {
@@ -3740,7 +3741,7 @@ public class RNABloom {
             outdir.mkdirs();
         }
         
-        assembler.clusterLongReads(correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov);
+        assembler.clusterLongReads(correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov, useCompressedMinimizers);
     }
     
     private static boolean assembleLongReads(RNABloom assembler, 
@@ -4608,6 +4609,12 @@ public class RNABloom {
                                     .hasArg(false)
                                     .build();
         options.addOption(optMinimapAln);
+
+        Option optHomopolymerCompressed = Option.builder("hpcm")
+                                    .desc("use homopolymer-compressed minimizers in long-read clustering [false]\n(Requires `-long`)")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optHomopolymerCompressed);
         
         Option optHelp = Option.builder("h")
                                     .longOpt("help")
@@ -4813,6 +4820,7 @@ public class RNABloom {
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             final boolean writeUracil = line.hasOption(optUracil.getOpt());
             final boolean minimapAlign = line.hasOption(optMinimapAln.getOpt());
+            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             
             final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), optKmerSizeDefault));
             
@@ -5191,7 +5199,7 @@ public class RNABloom {
                 if (forceOverwrite || !longReadsClusteredStamp.exists()) {                    
                     clusterLongReads(assembler,
                             correctedLongReadFileNames, clusteredLongReadsDirectory,
-                            sketchSize, numThreads, minKmerCov);
+                            sketchSize, numThreads, minKmerCov, useCompressedMinimizers);
                     
                     touch(longReadsClusteredStamp);
                 }
