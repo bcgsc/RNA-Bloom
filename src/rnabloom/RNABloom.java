@@ -2375,7 +2375,9 @@ public class RNABloom {
                                     String assembledLongReadsDirectory, 
                                     String assembledLongReadsCombined,
                                     int numThreads,
-                                    boolean writeUracil) throws IOException {
+                                    boolean writeUracil,
+                                    boolean minimapAlign,
+                                    String txptNamePrefix) throws IOException {
         if (!hasMinimap2()) {
             exitOnError("`minimap2` not found in PATH!");
         }
@@ -2412,7 +2414,7 @@ public class RNABloom {
 
                 System.out.println("Assembling cluster `" + clusterID + "`...");
 
-                boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, concensusPath, numThreads);
+                boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, concensusPath, numThreads, minimapAlign);
                 if (!ok) {
                     System.out.println("*** Error assembling cluster `" + clusterID + "`!!! ***");
                     errors.add(clusterID);
@@ -2442,10 +2444,10 @@ public class RNABloom {
                     }
                     
                     if (comment.isEmpty()) {
-                        fout.write(clusterID + "_" + nameCommentSeq[0], seq);
+                        fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0], seq);
                     }
                     else {
-                        fout.write(clusterID + "_" + nameCommentSeq[0] + " " + comment, seq);
+                        fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0] + " " + comment, seq);
                     }
                 }
                 fin.close();
@@ -3744,7 +3746,8 @@ public class RNABloom {
     private static boolean assembleLongReads(RNABloom assembler, 
             String clusteredLongReadsDirectory, String assembledLongReadsDirectory,
             String assembledLongReadsCombined,
-            int numThreads, boolean forceOverwrite, boolean writeUracil) throws IOException {
+            int numThreads, boolean forceOverwrite,
+            boolean writeUracil, boolean minimapAlign, String txptNamePrefix) throws IOException {
         
         File outdir = new File(assembledLongReadsDirectory);
         if (outdir.exists()) {
@@ -3758,7 +3761,8 @@ public class RNABloom {
             outdir.mkdirs();
         }
         
-        return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined, numThreads, writeUracil);
+        return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined,
+                numThreads, writeUracil, minimapAlign, txptNamePrefix);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -3949,7 +3953,6 @@ public class RNABloom {
             boolean reduceRedundancy, boolean assemblePolya, boolean writeUracil) throws IOException, InterruptedException {
         
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
-        final File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
         final String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
         final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short.fa";
                 
@@ -4104,32 +4107,41 @@ public class RNABloom {
         }
         
         if (reduceRedundancy) {
-            final String transcriptsNrFasta = outdir + File.separator + name + ".transcripts.nr.fa";
+            generateNonRedundantTranscripts(assembler, forceOverwrite, outdir, name, sbfSize, sbfNumHash);
+        }
+    }
+    
+    private static void generateNonRedundantTranscripts(RNABloom assembler, boolean forceOverwrite,
+            String outdir, String name,
+            long sbfSize, int sbfNumHash) throws IOException {
 
-            if (forceOverwrite || !txptsNrDoneStamp.exists()) {
-                File transcriptsNrFile = new File(transcriptsNrFasta);
-                if (transcriptsNrFile.exists()) {
-                    transcriptsNrFile.delete();
-                }
-                
-                MyTimer timer = new MyTimer();
-
-                System.out.println("Reducing redundancy...");
-                timer.start();
-                
-                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-                
-                assembler.reduceSequenceRedundancy(transcriptsFasta, transcriptsNrFasta);
-
-                System.out.println("Redundancy reduction completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                
-                touch(txptsNrDoneStamp);
-                
-                System.out.println("Non-redundant transcripts at `" + transcriptsNrFasta + "`");
-            }   
-            else {
-                System.out.println("WARNING: Redundancy reduction already completed for \"" + name + "\"!");
+        final File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
+        final String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
+        final String transcriptsNrFasta = outdir + File.separator + name + ".transcripts.nr.fa";
+        
+        if (forceOverwrite || !txptsNrDoneStamp.exists()) {
+            File transcriptsNrFile = new File(transcriptsNrFasta);
+            if (transcriptsNrFile.exists()) {
+                transcriptsNrFile.delete();
             }
+
+            MyTimer timer = new MyTimer();
+
+            System.out.println("Reducing redundancy...");
+            timer.start();
+
+            assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+
+            assembler.reduceSequenceRedundancy(transcriptsFasta, transcriptsNrFasta);
+
+            System.out.println("Redundancy reduction completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+
+            touch(txptsNrDoneStamp);
+
+            System.out.println("Non-redundant transcripts at `" + transcriptsNrFasta + "`");
+        }   
+        else {
+            System.out.println("WARNING: Redundancy reduction already completed for \"" + name + "\"!");
         }
     }
     
@@ -4452,7 +4464,7 @@ public class RNABloom {
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
-        options.addOption(optTipLength);  
+        options.addOption(optTipLength);
         
         final String optLookaheadDefault = "3";
         Option optLookahead = Option.builder("lookahead")
@@ -4462,29 +4474,22 @@ public class RNABloom {
                                     .build();
         options.addOption(optLookahead);        
         
-        final String optOverlapDefault = "10";
-        Option optOverlap = Option.builder("overlap")
-                                    .desc("minimum number of overlapping bases between read mates [" + optOverlapDefault + "]")
-                                    .hasArg(true)
-                                    .argName("INT")
-                                    .build();
-        options.addOption(optOverlap);
-        
-        final String optBoundDefault = "500";
-        Option optBound = Option.builder("bound")
-                                    .desc("maximum distance between read mates [" + optBoundDefault + "]")
-                                    .hasArg(true)
-                                    .argName("INT")
-                                    .build();
-        options.addOption(optBound);
-
         final String optSampleDefault = "1000";
         Option optSample = Option.builder("sample")
-                                    .desc("sample size for estimating fragment lengths [" + optSampleDefault + "]")
+                                    .desc("sample size for estimating read/fragment lengths [" + optSampleDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
         options.addOption(optSample);
+        
+        final String optErrCorrItrDefault = "1";
+        Option optErrCorrItr = Option.builder("e")
+                                    .longOpt("errcorritr")
+                                    .desc("number of iterations of error-correction in reads [" + optErrCorrItrDefault + "]")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optErrCorrItr);
         
         final String optMaxCovGradDefault = "0.50";
         Option optMaxCovGrad = Option.builder("grad")
@@ -4511,6 +4516,14 @@ public class RNABloom {
                                     .argName("DECIMAL")
                                     .build();
         options.addOption(optPercentIdentity);
+                
+        final String optMinLengthDefault = "200";
+        Option optMinLength = Option.builder("length")
+                                    .desc("minimum transcript length in output assembly [" + optMinLengthDefault + "]")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optMinLength);  
         
         Option optReduce = Option.builder("nr")
                                     .desc("output non-redundant transcripts in 'transcripts.nr.fa' [false]")
@@ -4518,26 +4531,27 @@ public class RNABloom {
                                     .build();
         options.addOption(optReduce);
         
-        final String optErrCorrItrDefault = "1";
-        Option optErrCorrItr = Option.builder("e")
-                                    .longOpt("errcorritr")
-                                    .desc("number of iterations of error-correction in reads [" + optErrCorrItrDefault + "]")
+        final String optOverlapDefault = "10";
+        Option optOverlap = Option.builder("overlap")
+                                    .desc("minimum number of overlapping bases between read mates [" + optOverlapDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
-        options.addOption(optErrCorrItr);        
-
+        options.addOption(optOverlap);
+        
+        final String optBoundDefault = "500";
+        Option optBound = Option.builder("bound")
+                                    .desc("maximum distance between read mates [" + optBoundDefault + "]")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optBound);
+        
         Option optExtend = Option.builder("extend")
                                     .desc("extend fragments outward during fragment reconstruction [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optExtend);
-
-//        Option optNoFragDBG = Option.builder("nofdbg")
-//                                    .desc("do not rebuild DBG from fragment k-mers [false]")
-//                                    .hasArg(false)
-//                                    .build();
-//        options.addOption(optNoFragDBG);
 
         Option optNoFragmentsConsistency = Option.builder("nofc")
                                     .desc("turn off assembly consistency with fragment paired k-mers [false]")
@@ -4562,7 +4576,7 @@ public class RNABloom {
                                     .hasArg(false)
                                     .build();
         options.addOption(optKeepChimera);
-        
+                
         final String optBranchFreeExtensionDefault = STRATUM_E0;
         final String optBranchFreeExtensionChoicesStr = String.join("|", STRATA);
         Option optBranchFreeExtensionThreshold = Option.builder("stratum")
@@ -4579,15 +4593,7 @@ public class RNABloom {
                                     .argName("INT")
                                     .build();
         options.addOption(optMinKmerPairs);  
-        
-        final String optMinLengthDefault = "200";
-        Option optMinLength = Option.builder("length")
-                                    .desc("minimum transcript length in output assembly [" + optMinLengthDefault + "]")
-                                    .hasArg(true)
-                                    .argName("INT")
-                                    .build();
-        options.addOption(optMinLength);  
-        
+                
         final String optPolyATailDefault = "0";
         Option optPolyATail = Option.builder("a")
                                     .longOpt("polya")
@@ -4596,6 +4602,12 @@ public class RNABloom {
                                     .argName("INT")
                                     .build();
         options.addOption(optPolyATail);  
+        
+        Option optMinimapAln = Option.builder("mmaln")
+                                    .desc("generate alignment for read overlaps in minimap2 [false]\n(Requires `-long`; yields better assembly but slower runtime)")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optMinimapAln);
         
         Option optHelp = Option.builder("h")
                                     .longOpt("help")
@@ -4800,6 +4812,7 @@ public class RNABloom {
             final boolean revCompRight = line.hasOption(optRevCompRight.getOpt());
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             final boolean writeUracil = line.hasOption(optUracil.getOpt());
+            final boolean minimapAlign = line.hasOption(optMinimapAln.getOpt());
             
             final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), optKmerSizeDefault));
             
@@ -5140,6 +5153,10 @@ public class RNABloom {
                         correctedLongReadFileNames[c][l] = correctedLongReadsFasta;
                     }
                 }
+
+                System.out.println("\n> Stage 2: Correct long reads for \"" + name + "\"");
+                MyTimer stageTimer = new MyTimer();
+                stageTimer.start();
                 
                 if (forceOverwrite || !longReadsCorrectedStamp.exists()) {
                     /* set up the file writers */
@@ -5151,18 +5168,15 @@ public class RNABloom {
                             }
                         }
                     }
-
-                    System.out.println("\n> Stage 2: Correcting long reads for \"" + name + "\"");
-                    MyTimer stageTimer = new MyTimer();
-                    stageTimer.start();
                     
                     correctLongReads(assembler,
                             longReadPaths, correctedLongReadFileNames,
                             maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength);
                     
                     touch(longReadsCorrectedStamp);
-                    System.out.println("> Stage 2 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                 }
+                
+                System.out.println("> Stage 2 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                 
                 if (endstage <= 2) {
                     System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
@@ -5171,47 +5185,49 @@ public class RNABloom {
                 
                 final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
                 
-                if (forceOverwrite || !longReadsClusteredStamp.exists()) {
-                    
-                    System.out.println("\n> Stage 3: Clustering long reads for \"" + name + "\"");
-                    MyTimer stageTimer = new MyTimer();
-                    stageTimer.start();
-                    
+                System.out.println("\n> Stage 3: Cluster long reads for \"" + name + "\"");
+                stageTimer.start();
+                
+                if (forceOverwrite || !longReadsClusteredStamp.exists()) {                    
                     clusterLongReads(assembler,
                             correctedLongReadFileNames, clusteredLongReadsDirectory,
                             sketchSize, numThreads, minKmerCov);
                     
                     touch(longReadsClusteredStamp);
-                    System.out.println("Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                 }
+                
+                System.out.println("Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                 
                 if (endstage <= 3) {
                     System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
                     System.exit(0);
                 }
                 
+                System.out.println("\n> Stage 4: Assemble long reads for \"" + name + "\"");
+                stageTimer.start();
+                
                 final String assembledLongReadsDirectory = outdir + File.separator + name + ".longreads.assembly";
                 final String assembledLongReadsCombined = outdir + File.separator + name + ".transcripts.fa";
                 if (forceOverwrite || !longReadsAssembledStamp.exists()) {
                     assembler.destroyAllBf();
-                    
-                    System.out.println("\n> Stage 4: Assembling long reads for \"" + name + "\"");
-                    MyTimer stageTimer = new MyTimer();
-                    stageTimer.start();
-                    
+                                        
                     boolean ok = assembleLongReads(assembler,
                             clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined,
-                            numThreads, forceOverwrite, writeUracil);
+                            numThreads, forceOverwrite, writeUracil, minimapAlign, txptNamePrefix);
                     
                     if (ok) {
                         touch(longReadsAssembledStamp);
-                        System.out.println("> Stage 4 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
                     }
                     else {
                         exitOnError("Error assembling long reads!");
                     }
                 }
                 
+                if (outputNrTxpts) {
+                    generateNonRedundantTranscripts(assembler, forceOverwrite, outdir, name, sbfSize, sbfNumHash);
+                }
+                
+                System.out.println("> Stage 4 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }
             else {
                 FastxFilePair[] fqPairs = new FastxFilePair[leftReadPaths.length];

@@ -126,12 +126,18 @@ public class OverlapLayoutConcensus {
         return runCommand(command, null);
     }
     
-    public static boolean overlapONT(String sequencePath, String outputPath, int numThreads) {
+    public static boolean overlapONT(String sequencePath, String outputPath, int numThreads, boolean minimapAlign) {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
-        // CIGAR string is required for more accurate assembly with miniasm
-        command.add(MINIMAP2 + " -x ava-ont -c -t " + numThreads + " " + sequencePath + " " + sequencePath + " | gzip -c > " + outputPath);
+        
+        if (minimapAlign) {
+            // generate CIGAR would yield more accurate miniasm assembly
+            command.add(MINIMAP2 + " -x ava-ont -c -t " + numThreads + " " + sequencePath + " " + sequencePath + " | gzip -c > " + outputPath);
+        }
+        else {
+            command.add(MINIMAP2 + " -x ava-ont -t " + numThreads + " " + sequencePath + " " + sequencePath + " | gzip -c > " + outputPath);
+        }
         
         return runCommand(command, outputPath + LOG_EXTENSION);
     }
@@ -214,7 +220,7 @@ public class OverlapLayoutConcensus {
         return longestNameSeq;
     }
     
-    public static boolean overlapLayoutConcensus(String readsPath, String tmpPrefix, String concensusPath, int numThreads) throws IOException {
+    public static boolean overlapLayoutConcensus(String readsPath, String tmpPrefix, String concensusPath, int numThreads, boolean minimapAlign) throws IOException {
         String avaPaf = tmpPrefix + "_ava.paf.gz";
         String gfa = tmpPrefix + "_backbones.gfa.gz";
         String gfafa = tmpPrefix + "_backbones.fa";
@@ -225,7 +231,7 @@ public class OverlapLayoutConcensus {
             return true;
         }
         
-        if (!overlapONT(readsPath, avaPaf, numThreads)) {
+        if (!overlapONT(readsPath, avaPaf, numThreads, minimapAlign)) {
             return false;
         }
         
