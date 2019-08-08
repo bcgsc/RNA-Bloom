@@ -2239,17 +2239,16 @@ public class RNABloom {
 //                    }                    
 
                     int bestTargetSketchID = -1;
-//                    long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
                     
                     if (targetSketches.isEmpty()) {
-//                        long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
-                        long[] sketch = useCompressedMinimizers ? getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) : getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
+                        long[] sketch = useCompressedMinimizers ?
+                                        getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
+                                        getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
                         targetSketches.add(sketch);
                         targetSketchesAltIDs.add(-1);
                         bestTargetSketchID = 0;
                     }
                     else {
-                        //float minSketchOverlapProportion = (float) Math.pow((float)sortedHashVals.length / (float)numKmers, 2);
                         float minSketchOverlapProportion = (float)sortedHashVals.length / (float)numKmers;
                         int minSketchOverlap = Math.max(1, (int) Math.floor(minSketchOverlapProportion * (sortedHashVals.length-minimizerWindowSize+1)/minimizerWindowSize));
                         
@@ -2298,8 +2297,9 @@ public class RNABloom {
                         
                         if (bestIntersectionSize <= 0) {
                             // start a new cluster
-//                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
-                            long[] sketch = useCompressedMinimizers ? getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) : getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
+                            long[] sketch = useCompressedMinimizers ?
+                                            getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
+                                            getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
                             
                             if (targetSketchesNullIndexes.isEmpty()) {
                                 targetSketches.add(sketch);
@@ -2312,10 +2312,7 @@ public class RNABloom {
                                 targetSketchesAltIDs.set(bestTargetSketchID, -1);
                             }
                         }
-                        else {
-//                            long[] sketch = getBottomSketch(sortedHashVals, sketchSize);
-//                            long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize);
-                            
+                        else {                            
                             if (c > 0 && !overlapSketchIdSet.isEmpty()) {
                                 // combine overlapping clusters
                                                                 
@@ -2337,16 +2334,9 @@ public class RNABloom {
                                     targetSketchesAltIDs.set(i, -1);
                                 }
                                 
-//                                long[] sketch = getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
-//                                targetSketches.set(bestTargetSketchID, sketch);
-                                
                                 long[] newSketch = combineSketches(sketches);
                                 targetSketches.set(bestTargetSketchID, newSketch);
                             }
-//                            else {
-//                                long[] newSketch = combineSketches(sketch, targetSketches.get(bestTargetSketchID));
-//                                targetSketches.set(bestTargetSketchID, newSketch);
-//                            }
                         }
                     }
                     
