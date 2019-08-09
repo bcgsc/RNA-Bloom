@@ -2226,7 +2226,9 @@ public class RNABloom {
                     }
                     
                     int numKmers = getNumKmers(seq, k);
-                    long[] sortedHashVals = useCompressedMinimizers ? getAscendingHashValuesWithCompressedHomoPolymers(seq, itr, numKmers) : getAscendingHashValues(seq, itr, graph, numKmers, minCoverage);
+                    long[] sortedHashVals = useCompressedMinimizers ? 
+                                            getAscendingHashValuesWithCompressedHomoPolymers(seq, itr, k) : 
+                                            getAscendingHashValues(seq, itr, graph, numKmers, minCoverage);
                     
                     if (sortedHashVals.length < sketchSize) {
                         // not enough good kmers

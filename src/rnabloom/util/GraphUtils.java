@@ -2721,10 +2721,13 @@ public final class GraphUtils {
         return minimizersArr;
     }
     
-    public static long[] getAscendingHashValuesWithCompressedHomoPolymers(String seq, NTHashIterator itr, int numKmers) {
+    public static long[] getAscendingHashValuesWithCompressedHomoPolymers(String seq, NTHashIterator itr, int k) {
+        seq = compressHomoPolymers(seq);
+        int numKmers = getNumKmers(seq, k);
+        
         HashSet<Long> hashValSet = new HashSet<>(numKmers);
         
-        itr.start(compressHomoPolymers(seq));
+        itr.start(seq);
         long[] hVals = itr.hVals;
         for (int i=0; i<numKmers; ++i) {
             itr.next();
