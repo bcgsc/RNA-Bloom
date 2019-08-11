@@ -4602,11 +4602,11 @@ public class RNABloom {
                                     .build();
         options.addOption(optMinimapAln);
 
-        Option optHomopolymerCompressed = Option.builder("hpcm")
-                                    .desc("use homopolymer-compressed minimizers in long-read clustering [false]\n(Requires `-long`)")
-                                    .hasArg(false)
-                                    .build();
-        options.addOption(optHomopolymerCompressed);
+//        Option optHomopolymerCompressed = Option.builder("hpcm")
+//                                    .desc("use homopolymer-compressed minimizers in long-read clustering [false]\n(Requires `-long`)")
+//                                    .hasArg(false)
+//                                    .build();
+//        options.addOption(optHomopolymerCompressed);
         
         Option optHelp = Option.builder("h")
                                     .longOpt("help")
@@ -4812,8 +4812,9 @@ public class RNABloom {
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             final boolean writeUracil = line.hasOption(optUracil.getOpt());
             final boolean minimapAlign = line.hasOption(optMinimapAln.getOpt());
-            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
-            
+//            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
+            final boolean useCompressedMinimizers = false;
+
             final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), optKmerSizeDefault));
             
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
