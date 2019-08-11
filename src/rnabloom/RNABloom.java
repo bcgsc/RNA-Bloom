@@ -4219,7 +4219,7 @@ public class RNABloom {
         options.addOption(optPooledAssembly);
         
         Option optLongReads = Option.builder("long")
-                                    .desc("long reads file(s)")
+                                    .desc("long reads file(s). Presets `-k 17 -indel 10 -e 3 -p 0.8` unless defined otherwise.")
                                     .hasArgs()
                                     .argName("FILE")
                                     .build();
@@ -4702,11 +4702,16 @@ public class RNABloom {
                 }
             }
                         
-            final String pooledReadsListFile = line.getOptionValue(optPooledAssembly.getOpt());
             String[] leftReadPaths = line.getOptionValues(optLeftReads.getOpt());
             String[] rightReadPaths = line.getOptionValues(optRightReads.getOpt());
             String[] longReadPaths = line.getOptionValues(optLongReads.getOpt());
+            
+            final String pooledReadsListFile = line.getOptionValue(optPooledAssembly.getOpt());
             final boolean pooledGraphMode = pooledReadsListFile != null;
+            
+            boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
+            boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
+            boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
             
             HashMap<String, ArrayList<String>> pooledLeftReadPaths = new HashMap<>();
             HashMap<String, ArrayList<String>> pooledRightReadPaths = new HashMap<>();
@@ -4815,7 +4820,17 @@ public class RNABloom {
 //            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final boolean useCompressedMinimizers = false;
 
-            final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), optKmerSizeDefault));
+            String defaultK = hasLongReadFiles ? "17" : optKmerSizeDefault;
+            final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), defaultK));
+            
+            String defaultPercentIdentity = hasLongReadFiles ? "0.8" : optPercentIdentityDefault;
+            final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), defaultPercentIdentity));
+            
+            String defaultMaxIndelSize = hasLongReadFiles ? "10" : optIndelSizeDefault;
+            final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), defaultMaxIndelSize));
+            
+            String defaultMaxErrCorrItr = hasLongReadFiles ? "3" : optErrCorrItrDefault;
+            final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), defaultMaxErrCorrItr));
             
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), optBaseQualFragDefault));
@@ -4839,11 +4854,7 @@ public class RNABloom {
             final int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), allNumHashStr));
             
             final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), optFprDefault));
-            
-            boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
-            boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
-            boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
-            
+                        
             long expNumKmers = -1L;
             if (line.hasOption(optNtcard.getOpt())) {
                 if (!hasNtcard()) {
@@ -4913,10 +4924,7 @@ public class RNABloom {
             final int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), optLookaheadDefault));
             final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), optTipLengthDefault));
             final float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), optMaxCovGradDefault));
-            final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), optPercentIdentityDefault));
             final boolean outputNrTxpts = line.hasOption(optReduce.getOpt());
-            final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), optIndelSizeDefault));
-            int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), optErrCorrItrDefault));
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), optMinLengthDefault));
             
             final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), optPolyATailDefault));

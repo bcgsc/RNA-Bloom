@@ -87,12 +87,12 @@ This file consists of 3 columns, ie.
 
 ### assemble nanopore cDNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -ntcard -c 3 -k 17 -indel 10 -e 3 -p 0.8 -long READS.fa -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -ntcard -long READS.fa -t THREADS -outdir OUTDIR
 ```
 
 ### assemble nanopore direct RNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -stranded -ntcard -c 3 -k 17 -indel 10 -e 3 -p 0.8 -long READS.fa -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -stranded -ntcard -long READS.fa -t THREADS -outdir OUTDIR
 ```
 
 ### set the Bloom filter sizes based on the maximum allowable false positive rate and the expected number of unique k-mers:
