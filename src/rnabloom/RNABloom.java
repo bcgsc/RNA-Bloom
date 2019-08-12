@@ -4219,7 +4219,7 @@ public class RNABloom {
         options.addOption(optPooledAssembly);
         
         Option optLongReads = Option.builder("long")
-                                    .desc("long reads file(s). Presets `-k 17 -indel 10 -e 3 -p 0.8` unless defined otherwise.")
+                                    .desc("long reads file(s). Presets `-k 17 -c 3 -indel 10 -e 3 -p 0.8` unless defined otherwise.")
                                     .hasArgs()
                                     .argName("FILE")
                                     .build();
@@ -4397,7 +4397,7 @@ public class RNABloom {
         options.addOption(optNumKmers);
         
         Option optNtcard = Option.builder("ntcard")
-                                    .desc("run `ntCard` to count the number of unique k-mers in input reads [false]")
+                                    .desc("run `ntCard` to count the number of unique k-mers in input reads [false]. If the `-long` option is also used, the `-c` option is set automatically unless defined otherwise. ")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNtcard);        
@@ -4832,9 +4832,11 @@ public class RNABloom {
             String defaultMaxErrCorrItr = hasLongReadFiles ? "3" : optErrCorrItrDefault;
             final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), defaultMaxErrCorrItr));
             
+            String defaultMinKmerCov = hasLongReadFiles ? "3" : optMinKmerCovDefault;
+            int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), defaultMinKmerCov));
+            
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), optBaseQualFragDefault));
-            int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), optMinKmerCovDefault));
                         
             float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
             float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8.5f)));
@@ -4900,6 +4902,7 @@ public class RNABloom {
             }
             else {
                 expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt(), "-1"));
+                System.out.println("Min k-mer coverage threshold: " + NumberFormat.getInstance().format(minKmerCov));
             }
             
             if (expNumKmers > 0) {
