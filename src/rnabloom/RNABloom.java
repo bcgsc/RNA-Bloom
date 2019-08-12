@@ -4397,7 +4397,7 @@ public class RNABloom {
         options.addOption(optNumKmers);
         
         Option optNtcard = Option.builder("ntcard")
-                                    .desc("run `ntcard` to count the number of unique k-mers in input reads [false]\nIf this option is used along with `-long`, the value for `-c` is set automatically based on the ntCard histogram, unless `-c` is defined otherwise. ")
+                                    .desc("run `ntcard` to count the number of unique k-mers in input reads [false]\n(If this option is used along with `-long`, the value for `-c` is set automatically based on the ntCard histogram, unless `-c` is defined otherwise)")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNtcard);        
@@ -4863,7 +4863,7 @@ public class RNABloom {
                     exitOnError("`ntcard` not found in your PATH!");
                 }
                 
-                System.out.println("\nK-mer counting with ntcard...");
+                System.out.println("\nK-mer counting with ntCard...");
                 String histogramPathPrefix = outdir + File.separator + name;
                 
                 timer.start();
@@ -4895,7 +4895,7 @@ public class RNABloom {
                 }
                     
                 if (expNumKmers <= 0) {
-                    exitOnError("Cannot get number of unique k-mers from ntcard! (" + expNumKmers + ")");
+                    exitOnError("Cannot get number of unique k-mers from ntCard! (" + expNumKmers + ")");
                 }
                 
                 System.out.println("K-mer counting completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));                
