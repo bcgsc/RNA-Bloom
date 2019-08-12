@@ -4219,7 +4219,7 @@ public class RNABloom {
         options.addOption(optPooledAssembly);
         
         Option optLongReads = Option.builder("long")
-                                    .desc("long reads file(s). Presets `-k 17 -c 3 -indel 10 -e 3 -p 0.8` unless defined otherwise.")
+                                    .desc("long reads file(s)\n(Presets `-k 17 -c 3 -indel 10 -e 3 -p 0.8` unless each option is defined otherwise.)")
                                     .hasArgs()
                                     .argName("FILE")
                                     .build();
@@ -4397,7 +4397,7 @@ public class RNABloom {
         options.addOption(optNumKmers);
         
         Option optNtcard = Option.builder("ntcard")
-                                    .desc("run `ntcard` to count the number of unique k-mers in input reads [false]. If this option is used along with `-long`, the value for `-c` is set automatically based on the ntCard histogram, unless defined otherwise. ")
+                                    .desc("run `ntcard` to count the number of unique k-mers in input reads [false]\nIf this option is used along with `-long`, the value for `-c` is set automatically based on the ntCard histogram, unless `-c` is defined otherwise. ")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNtcard);        
