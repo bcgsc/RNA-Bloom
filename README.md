@@ -106,6 +106,7 @@ As an alternative to `-nk`, you can use the `-ntcard` option in RNA-Bloom if `nt
 ```
 java -jar RNA-Bloom.jar -fpr 0.05 -ntcard ...
 ```
+As a rule of thumb, a lower false positive rate may result in a better assembly but requires more memory for a larger Bloom filter.
 
 ### set the total size of Bloom filters to 3GB:
 ```
