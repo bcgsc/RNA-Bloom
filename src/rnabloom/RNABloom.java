@@ -4397,7 +4397,7 @@ public class RNABloom {
         options.addOption(optNumKmers);
         
         Option optNtcard = Option.builder("ntcard")
-                                    .desc("run `ntCard` to count the number of unique k-mers in input reads [false]. If the `-long` option is also used, the `-c` option is set automatically unless defined otherwise. ")
+                                    .desc("run `ntcard` to count the number of unique k-mers in input reads [false]. If this option is used along with `-long`, the value for `-c` is set automatically based on the ntCard histogram, unless defined otherwise. ")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNtcard);        
