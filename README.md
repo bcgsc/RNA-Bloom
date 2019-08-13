@@ -114,6 +114,19 @@ java -jar RNA-Bloom.jar -mem 3 ...
 ```
 Otherwise, it is adjusted automatically based on the size of input read files.
 
+### stop at an intermediate stage:
+```
+java -jar RNA-Bloom.jar -stage N ...
+```
+| N   | short reads          | long reads           |
+| --- | -------------------- | -------------------- |
+| 1   | construct graph      | construct graph      |
+| 2   | assemble fragments   | correct reads        |
+| 3   | assemble transcripts | cluster reads        |
+| 4   | N/A                  | assemble transcripts |
+
+This is a very useful option if you only want to assemble fragments or correct long reads (ie. with `-stage 2`)!
+
 ### list all available options in RNA-Bloom:
 ```
 java -jar RNA-Bloom.jar -help
