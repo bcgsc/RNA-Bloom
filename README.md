@@ -72,18 +72,19 @@ Note that dUTP protocols produce reads in the F2R1 orientation, where `/2` denot
 java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -t THREADS -outdir OUTDIR
 ```
 
-### example READSLIST.txt for the `-pool` option:
+#### file format for the `-pool` option:
+
+This text file is expected to have 3 columns, ie.
+
+| cell ID | path of left reads | path of right reads |
+
+Columns are separated by space/tab characters, eg.
+
 ```
 cell1 /path/to/cell1/left.fastq.gz /path/to/cell1/right.fastq.gz
 cell2 /path/to/cell2/left.fastq.gz /path/to/cell2/right.fastq.gz
 cell3 /path/to/cell3/left.fastq.gz /path/to/cell3/right.fastq.gz
 ```
-Columns are separated by space/tab characters.
-
-This file consists of 3 columns, ie.
-1. cell ID
-2. path of left reads
-3. path of right reads
 
 ### assemble nanopore cDNA sequencing data:
 ```
