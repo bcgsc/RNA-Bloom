@@ -76,7 +76,9 @@ java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -t THREADS -outdir OU
 
 This text file is expected to have 3 columns, ie.
 
-| cell ID | path of left reads | path of right reads |
+| column 1 | column 2           | column 3            |
+| -------- | ------------------ | ------------------- |
+| cell ID  | path of left reads | path of right reads |
 
 Columns are separated by space/tab characters, eg.
 
