@@ -21,8 +21,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,7 +39,7 @@ public class FastaReader implements FastxReaderInterface {
     private final BufferedReader br;
     
     public FastaReader(String path) throws IOException {
-        if (path.endsWith(GZIP_EXTENSION) || Files.probeContentType(Paths.get(path)).equals("application/gzip")) {
+        if (path.endsWith(GZIP_EXTENSION)) {
             br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))));
         }
         else {

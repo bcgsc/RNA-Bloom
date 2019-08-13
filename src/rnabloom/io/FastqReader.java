@@ -40,7 +40,7 @@ public final class FastqReader implements FastxReaderInterface {
     private final Iterator<String> itr;
     
     public FastqReader(String path) throws IOException {        
-        if (path.endsWith(GZIP_EXTENSION) || Files.probeContentType(Paths.get(path)).equals("application/gzip")) {
+        if (path.endsWith(GZIP_EXTENSION)) {
             br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))));
         }
         else {
