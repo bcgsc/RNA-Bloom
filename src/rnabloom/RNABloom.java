@@ -438,6 +438,9 @@ public class RNABloom {
                     catch (NoSuchElementException e) {
                         //end of file
                     }
+                    catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
                     
                     fr.close();
                 }
@@ -499,6 +502,9 @@ public class RNABloom {
                     }
                     catch (NoSuchElementException e) {
                         //end of file
+                    }
+                    catch (Exception e) {
+                        throw new RuntimeException(e);
                     }
                     
                     fr.close();
@@ -768,6 +774,9 @@ public class RNABloom {
             }
             catch (NoSuchElementException e) {
                 //end of file
+            }
+            catch (Exception e) {
+                throw new IOException(e);
             }
 
             fin.close();
@@ -1828,6 +1837,9 @@ public class RNABloom {
             catch (NoSuchElementException e) {
                 // end of file
             }
+            catch (Exception e) {
+                throw new IOException(e);
+            }
 
             in.close();
         }
@@ -2223,6 +2235,9 @@ public class RNABloom {
                     catch(NoSuchElementException e) {
                         fr.close();
                         break;
+                    }
+                    catch(Exception e) {
+                        throw new IOException(e);
                     }
                     
                     int numKmers = getNumKmers(seq, k);
@@ -2730,6 +2745,9 @@ public class RNABloom {
             catch (NoSuchElementException e) {
                 break;
             }
+            catch (Exception e) {
+                throw new IOException(e);
+            }
             
             inputQueue.put(nameSeqPair);
         }
@@ -2778,6 +2796,9 @@ public class RNABloom {
             }
             catch (NoSuchElementException e) {
                 break;
+            }
+            catch (Exception e) {
+                throw new IOException(e);
             }
 
             ArrayList<Kmer> kmers = graph.getKmers(seq);
@@ -2839,6 +2860,9 @@ public class RNABloom {
             }
             catch (NoSuchElementException e) {
                 break;
+            }
+            catch (Exception e) {
+                throw new IOException(e);
             }
             
             ArrayList<Kmer> kmers = graph.getKmers(seq);
@@ -3357,6 +3381,9 @@ public class RNABloom {
         }
         catch (NoSuchElementException e) {
             // end of file
+        }
+        catch (Exception e) {
+            throw new IOException(e);
         }
 
         fin.close();
