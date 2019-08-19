@@ -35,7 +35,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -373,138 +372,114 @@ public class RNABloom {
                 if (FastqReader.isCorrectFormat(path)) {
                     FastqReader fr = new FastqReader(path);
                     Matcher mQual = qualPatternDBG.matcher("");
-                    
-                    try {
-                        FastqRecord record = new FastqRecord();
-                        
-                        if (storeReadPairedKmers) {
-                            long[] phashVals = pitr.hVals3;
-                            
-                            while (true) {
-                                fr.nextWithoutName(record);
-                                mQual.reset(record.qual);
-                                mSeq.reset(record.seq);
-                                
-                                while (mQual.find()) {
-                                    mSeq.region(mQual.start(), mQual.end());
-                                    while (mSeq.find()) {
-                                        int start = mSeq.start();
-                                        int end = mSeq.end();
-                                        
-                                        itr.start(record.seq, start, end);
-                                        while (itr.hasNext()) {
-                                            itr.next();
-//                                            if (screeningBf.lookupThenAdd(hashVals)) {
-                                                addFunction.accept(hashVals);
-//                                            }
-                                        }
-                                        
-                                        if (end - start - k + 1 >= kmerPairDistance) {
-                                            pitr.start(record.seq, start, end);
-                                            while (pitr.hasNext()) {
-                                                pitr.next();
-                                                graph.addSingleReadPairedKmer(phashVals);
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                ++numReads;
-                            }
-                        }
-                        else {
-                            while (true) {
-                                fr.nextWithoutName(record);
-                                mQual.reset(record.qual);
-                                mSeq.reset(record.seq);
 
-                                while (mQual.find()) {
-                                    mSeq.region(mQual.start(), mQual.end());
-                                    while (mSeq.find()) {
-                                        itr.start(record.seq, mSeq.start(), mSeq.end());
-                                        while (itr.hasNext()) {
-                                            itr.next();
-//                                            if (screeningBf.lookupThenAdd(hashVals)) {
-                                                addFunction.accept(hashVals);
-//                                            }
-                                        }
-                                    }
-                                }
-                                
-                                ++numReads;
-                            }
-                        }
-                    }
-                    catch (NoSuchElementException e) {
-                        //end of file
-                    }
-                    catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                    
-                    fr.close();
-                }
-                else if (FastaReader.isCorrectFormat(path)) {
-                    FastaReader fr = new FastaReader(path);
-                    
-                    try {
-                        String seq;
-                        
-                        if (storeReadPairedKmers) {
-                            long[] phashVals = pitr.hVals3;
-                            
-                            while (true) {
-                                seq = fr.next();
-                                mSeq.reset(seq);
-                                                                
+                    FastqRecord record = new FastqRecord();
+
+                    if (storeReadPairedKmers) {
+                        long[] phashVals = pitr.hVals3;
+
+                        while (fr.hasNext()) {
+                            fr.nextWithoutName(record);
+                            mQual.reset(record.qual);
+                            mSeq.reset(record.seq);
+
+                            while (mQual.find()) {
+                                mSeq.region(mQual.start(), mQual.end());
                                 while (mSeq.find()) {
                                     int start = mSeq.start();
                                     int end = mSeq.end();
-                                    
-                                    itr.start(seq, start, end);
+
+                                    itr.start(record.seq, start, end);
                                     while (itr.hasNext()) {
                                         itr.next();
-//                                        if (screeningBf.lookupThenAdd(hashVals)) {
-                                            addFunction.accept(hashVals);
-//                                        }
+                                        addFunction.accept(hashVals);
                                     }
-                                    
+
                                     if (end - start - k + 1 >= kmerPairDistance) {
-                                        pitr.start(seq, start, end);
+                                        pitr.start(record.seq, start, end);
                                         while (pitr.hasNext()) {
                                             pitr.next();
                                             graph.addSingleReadPairedKmer(phashVals);
                                         }
                                     }
                                 }
-                                
-                                ++numReads;
                             }
-                        }
-                        else {
-                            while (true) {
-                                seq = fr.next();
-                                mSeq.reset(seq);
 
+                            ++numReads;
+                        }
+                    }
+                    else {
+                        while (fr.hasNext()) {
+                            fr.nextWithoutName(record);
+                            mQual.reset(record.qual);
+                            mSeq.reset(record.seq);
+
+                            while (mQual.find()) {
+                                mSeq.region(mQual.start(), mQual.end());
                                 while (mSeq.find()) {
-                                    itr.start(seq, mSeq.start(), mSeq.end());
+                                    itr.start(record.seq, mSeq.start(), mSeq.end());
                                     while (itr.hasNext()) {
                                         itr.next();
-//                                        if (screeningBf.lookupThenAdd(hashVals)) {
-                                            addFunction.accept(hashVals);
-//                                        }
+                                        addFunction.accept(hashVals);
                                     }
                                 }
-                                
-                                ++numReads;
                             }
+
+                            ++numReads;
                         }
                     }
-                    catch (NoSuchElementException e) {
-                        //end of file
+                    
+                    fr.close();
+                }
+                else if (FastaReader.isCorrectFormat(path)) {
+                    FastaReader fr = new FastaReader(path);
+
+                    String seq;
+
+                    if (storeReadPairedKmers) {
+                        long[] phashVals = pitr.hVals3;
+
+                        while (fr.hasNext()) {
+                            seq = fr.next();
+                            mSeq.reset(seq);
+
+                            while (mSeq.find()) {
+                                int start = mSeq.start();
+                                int end = mSeq.end();
+
+                                itr.start(seq, start, end);
+                                while (itr.hasNext()) {
+                                    itr.next();
+                                    addFunction.accept(hashVals);
+                                }
+
+                                if (end - start - k + 1 >= kmerPairDistance) {
+                                    pitr.start(seq, start, end);
+                                    while (pitr.hasNext()) {
+                                        pitr.next();
+                                        graph.addSingleReadPairedKmer(phashVals);
+                                    }
+                                }
+                            }
+
+                            ++numReads;
+                        }
                     }
-                    catch (Exception e) {
-                        throw new RuntimeException(e);
+                    else {
+                        while (fr.hasNext()) {
+                            seq = fr.next();
+                            mSeq.reset(seq);
+
+                            while (mSeq.find()) {
+                                itr.start(seq, mSeq.start(), mSeq.end());
+                                while (itr.hasNext()) {
+                                    itr.next();
+                                    addFunction.accept(hashVals);
+                                }
+                            }
+
+                            ++numReads;
+                        }
                     }
                     
                     fr.close();
@@ -675,7 +650,7 @@ public class RNABloom {
         }
         
         for (String path : longReadPaths) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, false, numHash, addCountsOnly, storeReadKmerPairs);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, false, numHash, addCountsOnly, false);
             service.submit(t);
             threadPool.add(t);
         }
@@ -739,44 +714,36 @@ public class RNABloom {
             System.out.println("Parsing `" + path + "`...");
 
             String seq;
-            try {
-                if (loadPairedKmers) {
-                    while (true) {
-                        seq = fin.next();
+            if (loadPairedKmers) {
+                while (fin.hasNext()) {
+                    seq = fin.next();
 
-                        if (itr.start(seq)) {
-                            while (itr.hasNext()) {
-                                itr.next();
-                                graph.addDbgOnly(hashVals);
-                            }
-                        }
-
-                        if (pItr.start(seq)) {
-                            while (pItr.hasNext()) {
-                                pItr.next();
-                                graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
-                            }
+                    if (itr.start(seq)) {
+                        while (itr.hasNext()) {
+                            itr.next();
+                            graph.addDbgOnly(hashVals);
                         }
                     }
-                }
-                else {
-                    while (true) {
-                        seq = fin.next();
 
-                        if (itr.start(seq)) {
-                            while (itr.hasNext()) {
-                                itr.next();
-                                graph.addDbgOnly(hashVals);
-                            }
+                    if (pItr.start(seq)) {
+                        while (pItr.hasNext()) {
+                            pItr.next();
+                            graph.addPairedKmers(hashVals1, hashVals2, hashVals3);
                         }
                     }
                 }
             }
-            catch (NoSuchElementException e) {
-                //end of file
-            }
-            catch (Exception e) {
-                throw new IOException(e);
+            else {
+                while (fin.hasNext()) {
+                    seq = fin.next();
+
+                    if (itr.start(seq)) {
+                        while (itr.hasNext()) {
+                            itr.next();
+                            graph.addDbgOnly(hashVals);
+                        }
+                    }
+                }
             }
 
             fin.close();
@@ -1734,97 +1701,95 @@ public class RNABloom {
             System.out.println("Parsing `" + fasta + "`...");
 
             // assemble the remaining fragments in multi-threaded mode
-            try {
-                while (true) {
-                    String left = in.next();
-                    String right = in.next();
-                    ++readPairsParsed;
+            while (in.hasNext()) {
+                String left = in.next();
+                String right = in.next();
+                ++readPairsParsed;
 
-                    if (left.length() >= k && right.length() >= k) {
-                        service.submit(new ReadConnector(left,
-                                                        right,
-                                                        fragments,
-                                                        newBound, 
-                                                        minOverlap,
-                                                        maxErrCorrIterations,
-                                                        false, // don't store the kmer pairs
-                                                        extendFragments,
-                                                        minKmerCov
-                        ));
-                    }
+                if (left.length() >= k && right.length() >= k) {
+                    service.submit(new ReadConnector(left,
+                                                    right,
+                                                    fragments,
+                                                    newBound, 
+                                                    minOverlap,
+                                                    maxErrCorrIterations,
+                                                    false, // don't store the kmer pairs
+                                                    extendFragments,
+                                                    minKmerCov
+                    ));
+                }
 
-                    if (fragments.remainingCapacity() <= maxConcurrentSubmissions) {
+                if (fragments.remainingCapacity() <= maxConcurrentSubmissions) {
 
-                        // write fragments to file
-                        int m;
-                        Fragment frag;
-                        for (int i=0; i<sampleSize; ++i) {
-                            frag = fragments.poll();
+                    // write fragments to file
+                    int m;
+                    Fragment frag;
+                    for (int i=0; i<sampleSize; ++i) {
+                        frag = fragments.poll();
 
-                            if (frag == null) {
-                                break;
+                        if (frag == null) {
+                            break;
+                        }
+
+                        if (frag.minCov >= 2) {
+                            /*
+                            When reads were parsed at k2, kmers common to both fragments and reads have counts incremented by 1.
+                            Kmers unique to fragments would have a count of 1.
+                            So, min kmer counts >= 2 need to be decremented by 1 when assigning fragments.
+                            */ 
+                            --frag.minCov;
+                        }
+
+                        if (frag.isUnconnectedRead) {
+                            if (frag.minCov == 1) {
+                                unconnectedSingletonsOut.write("r" + Long.toString(++unconnectedReadId) + "L ", frag.left);
+                                unconnectedSingletonsOut.write("r" + Long.toString(unconnectedReadId) + "R", frag.right);
                             }
+                            else if (frag.minCov > 1) {
+                                m = getCoverageOrderOfMagnitude(frag.minCov);
 
-                            if (frag.minCov >= 2) {
-                                /*
-                                When reads were parsed at k2, kmers common to both fragments and reads have counts incremented by 1.
-                                Kmers unique to fragments would have a count of 1.
-                                So, min kmer counts >= 2 need to be decremented by 1 when assigning fragments.
-                                */ 
-                                --frag.minCov;
-                            }
-
-                            if (frag.isUnconnectedRead) {
-                                if (frag.minCov == 1) {
-                                    unconnectedSingletonsOut.write("r" + Long.toString(++unconnectedReadId) + "L ", frag.left);
-                                    unconnectedSingletonsOut.write("r" + Long.toString(unconnectedReadId) + "R", frag.right);
+                                if (m >= 0) {
+                                    unconnectedReadsOut[m].write("r" + Long.toString(++unconnectedReadId) + "L ", frag.left);
+                                    unconnectedReadsOut[m].write("r" + Long.toString(unconnectedReadId) + "R", frag.right);
                                 }
-                                else if (frag.minCov > 1) {
-                                    m = getCoverageOrderOfMagnitude(frag.minCov);
+                            }
+                        }
+                        else {
+                            ++rescuedReadPairs;
 
-                                    if (m >= 0) {
-                                        unconnectedReadsOut[m].write("r" + Long.toString(++unconnectedReadId) + "L ", frag.left);
-                                        unconnectedReadsOut[m].write("r" + Long.toString(unconnectedReadId) + "R", frag.right);
+                            if (frag.length >= shortestFragmentLengthAllowed) {
+                                ArrayList<Kmer> fragKmers = frag.kmers;
+
+                                if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
+                                    if (frag.minCov == 1) {
+                                        graph.addPairedKmers(fragKmers);
+
+                                        if (frag.length >= longFragmentLengthThreshold) {
+                                            for (Kmer kmer : fragKmers) {
+                                                screeningBf.add(kmer.getHash());
+                                            } 
+
+                                            longSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
+                                        }
+                                        else {
+                                            shortSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
+                                        }
                                     }
-                                }
-                            }
-                            else {
-                                ++rescuedReadPairs;
+                                    else if (frag.minCov > 1) {
+                                        m = getCoverageOrderOfMagnitude(frag.minCov);
 
-                                if (frag.length >= shortestFragmentLengthAllowed) {
-                                    ArrayList<Kmer> fragKmers = frag.kmers;
-
-                                    if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
-                                        if (frag.minCov == 1) {
+                                        if (m >= 0) {
                                             graph.addPairedKmers(fragKmers);
 
                                             if (frag.length >= longFragmentLengthThreshold) {
                                                 for (Kmer kmer : fragKmers) {
                                                     screeningBf.add(kmer.getHash());
-                                                } 
+                                                }
 
-                                                longSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
+                                                longFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                             }
                                             else {
-                                                shortSingletonsOut.write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
-                                            }
-                                        }
-                                        else if (frag.minCov > 1) {
-                                            m = getCoverageOrderOfMagnitude(frag.minCov);
-
-                                            if (m >= 0) {
-                                                graph.addPairedKmers(fragKmers);
-
-                                                if (frag.length >= longFragmentLengthThreshold) {
-                                                    for (Kmer kmer : fragKmers) {
-                                                        screeningBf.add(kmer.getHash());
-                                                    }
-
-                                                    longFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
-                                                }
-                                                else {
-                                                    shortFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
-                                                }
+                                                shortFragmentsOut[m].write("r" + Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]", graph.assemble(frag.kmers));
                                             }
                                         }
                                     }
@@ -1833,12 +1798,6 @@ public class RNABloom {
                         }
                     }
                 }
-            }
-            catch (NoSuchElementException e) {
-                // end of file
-            }
-            catch (Exception e) {
-                throw new IOException(e);
             }
 
             in.close();
@@ -2224,21 +2183,10 @@ public class RNABloom {
                 FastaReader fr = new FastaReader(readFile);
                 System.out.println("Parsing file `" + readFile + "`...");
                 
-                while (true) {
-                    String name, seq;
-                    
-                    try {
-                        String[] nameSeqPair = fr.nextWithName();
-                        name = nameSeqPair[0];
-                        seq = nameSeqPair[1];
-                    }
-                    catch(NoSuchElementException e) {
-                        fr.close();
-                        break;
-                    }
-                    catch(Exception e) {
-                        throw new IOException(e);
-                    }
+                while (fr.hasNext()) {
+                    String[] nameSeqPair = fr.nextWithName();
+                    String name = nameSeqPair[0];
+                    String seq = nameSeqPair[1];
                     
                     int numKmers = getNumKmers(seq, k);
                     long[] sortedHashVals = useCompressedMinimizers ? 
@@ -2363,6 +2311,8 @@ public class RNABloom {
                     writer.write(name, seq);
                     writer.close();
                 }
+                
+                fr.close();
             }
         }
         
@@ -2736,20 +2686,8 @@ public class RNABloom {
         CorrectedLongReadsWriterWorker writerWorker = new CorrectedLongReadsWriterWorker(outputQueue, outFastaWriters, maxSampleSize, minSeqLen);
         service.submit(writerWorker);
         
-        for (FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths); ; ++numReads) {
-            String[] nameSeqPair;
-            
-            try {
-                nameSeqPair = itr.nextWithName();
-            }
-            catch (NoSuchElementException e) {
-                break;
-            }
-            catch (Exception e) {
-                throw new IOException(e);
-            }
-            
-            inputQueue.put(nameSeqPair);
+        for (FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths); itr.hasNext() ; ++numReads) {
+            inputQueue.put(itr.nextWithName());
         }
         
         for (LongReadCorrectionWorker worker : correctionWorkers) {
@@ -2788,18 +2726,8 @@ public class RNABloom {
         ArrayDeque<ArrayList<Kmer>> sample = new ArrayDeque<>(maxSampleSize);
         FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths);
         
-        for (; sample.size() < maxSampleSize; ++numReads) {
-            String seq;
-
-            try {
-                seq = itr.next();
-            }
-            catch (NoSuchElementException e) {
-                break;
-            }
-            catch (Exception e) {
-                throw new IOException(e);
-            }
+        for (; sample.size() < maxSampleSize && itr.hasNext(); ++numReads) {
+            String seq = itr.next();
 
             ArrayList<Kmer> kmers = graph.getKmers(seq);
 
@@ -2852,18 +2780,8 @@ public class RNABloom {
         sample = null;
 
         /** write the remaining sequences to file */
-        for (;; ++numReads) {
-            String seq;
-            
-            try {
-                seq = itr.next();
-            }
-            catch (NoSuchElementException e) {
-                break;
-            }
-            catch (Exception e) {
-                throw new IOException(e);
-            }
+        for (; itr.hasNext(); ++numReads) {
+            String seq = itr.next();
             
             ArrayList<Kmer> kmers = graph.getKmers(seq);
 
@@ -3373,17 +3291,9 @@ public class RNABloom {
         Thread writerThread = new Thread(writerWorker);
         writerThread.start();
 
-        try {
-            while (true) {
-                fragmentsQueue.put(fin.next());
-                ++numFragmentsParsed;
-            }
-        }
-        catch (NoSuchElementException e) {
-            // end of file
-        }
-        catch (Exception e) {
-            throw new IOException(e);
+        while (fin.hasNext()) {
+            fragmentsQueue.put(fin.next());
+            ++numFragmentsParsed;
         }
 
         fin.close();
