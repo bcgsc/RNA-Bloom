@@ -77,69 +77,152 @@ public class FastaReader implements FastxReaderInterface {
         return itr.hasNext();
     }
 
+    private String header = null;
+    
     @Override
     public synchronized String next() throws FileFormatException {
-        if (itr.next().charAt(0) != '>') {
-            throw new FileFormatException("Line 1 of a FASTA record is expected to start with '>'");
+        if (header == null) {
+            header = itr.next().trim();
         }
-        return itr.next();
+        
+        if (header.isEmpty()) {
+            throw new FileFormatException("Empty FASTA header");
+        }
+        else if (header.charAt(0) != '>') {
+            throw new FileFormatException("Incorrect FASTA header format");
+        }
+        
+        StringBuilder builder = new StringBuilder();
+        while (itr.hasNext()) {
+            String line = itr.next().trim();
+            if (line.isEmpty()) {
+                header = null;
+                break;
+            }
+            else if (line.charAt(0) == '>') {
+                header = line;
+                break;
+            }
+            else {
+                builder.append(line);
+            }
+        }
+        
+        return builder.toString();
     }
 
     @Override
     public synchronized String[] nextWithName() throws FileFormatException {
-        String line1, name, seq;
-        
-        synchronized(this) {
-            line1 = itr.next();
-            seq = itr.next();
+        if (header == null) {
+            header = itr.next().trim();
         }
-    
-        Matcher m = RECORD_NAME_PATTERN.matcher(line1);
+        
+        if (header.isEmpty()) {
+            throw new FileFormatException("Empty FASTA header");
+        }
+        
+        String name = null;
+        Matcher m = RECORD_NAME_PATTERN.matcher(header);
         if (m.matches()) {
             name = m.group(1);
         }
         else {
-            throw new FileFormatException("Line 1 of a FASTA record is expected to start with '>'");
+            throw new FileFormatException("Incorrect FASTA header format");
         }
         
-        return new String[]{name, seq};
+        StringBuilder builder = new StringBuilder();
+        while (itr.hasNext()) {
+            String line = itr.next().trim();
+            if (line.isEmpty()) {
+                header = null;
+                break;
+            }
+            else if (line.charAt(0) == '>') {
+                header = line;
+                break;
+            }
+            else {
+                builder.append(line);
+            }
+        }
+        
+        return new String[]{name, builder.toString()};
     }
     
     public void nextWithName(FastaRecord fr) throws FileFormatException {
-        String line1;
-        
-        synchronized(this) {
-            line1 = itr.next();
-            fr.seq = itr.next();
+        if (header == null) {
+            header = itr.next().trim();
         }
-    
-        Matcher m = RECORD_NAME_PATTERN.matcher(line1);
+        
+        if (header.isEmpty()) {
+            throw new FileFormatException("Empty FASTA header");
+        }
+        
+        String name = null;
+        Matcher m = RECORD_NAME_PATTERN.matcher(header);
         if (m.matches()) {
-            fr.name = m.group(1);
+            name = m.group(1);
         }
         else {
-            throw new FileFormatException("Line 1 of a FASTA record is expected to start with '>'");
+            throw new FileFormatException("Incorrect FASTA header format");
         }
+        
+        StringBuilder builder = new StringBuilder();
+        while (itr.hasNext()) {
+            String line = itr.next().trim();
+            if (line.isEmpty()) {
+                header = null;
+                break;
+            }
+            else if (line.charAt(0) == '>') {
+                header = line;
+                break;
+            }
+            else {
+                builder.append(line);
+            }
+        }
+        
+        fr.name = name;
+        fr.seq = builder.toString();
     }
     
     public synchronized String[] nextWithComment() throws FileFormatException {
-        String line1, name, comment, seq;
+        if (header == null) {
+            header = itr.next().trim();
+        }
         
-        synchronized(this) {
-            line1 = itr.next();
-            seq = itr.next();
+        if (header.isEmpty()) {
+            throw new FileFormatException("Empty FASTA header");
         }
     
-        Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
+        String name, comment = null;
+        Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(header);
         if (m.matches()) {
             name = m.group(1);
             comment = m.group(2);
         }
         else {
-            throw new FileFormatException("Line 1 of a FASTA record is expected to start with '>'");
+            throw new FileFormatException("Incorrect FASTA header format");
         }
         
-        return new String[]{name, comment, seq};
+        StringBuilder builder = new StringBuilder();
+        while (itr.hasNext()) {
+            String line = itr.next().trim();
+            if (line.isEmpty()) {
+                header = null;
+                break;
+            }
+            else if (line.charAt(0) == '>') {
+                header = line;
+                break;
+            }
+            else {
+                builder.append(line);
+            }
+        }
+        
+        return new String[]{name, comment, builder.toString()};
     }
     
     @Override
