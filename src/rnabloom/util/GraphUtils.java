@@ -2916,7 +2916,8 @@ public final class GraphUtils {
                                                     int maxIndelSize, 
                                                     float percentIdentity, 
                                                     int minKmerCov,
-                                                    int minNumSolidKmers) {
+                                                    int minNumSolidKmers,
+                                                    boolean trimLowCovEdges) {
 
         int numNeeded = minNumSolidKmers;
         for (Kmer kmer : kmers) {
@@ -2933,10 +2934,9 @@ public final class GraphUtils {
             int shift = windowSize/2;
             
             // trim head and tail
-            ArrayList<Kmer> testKmers = trimLowCoverageEdgeKmers(kmers,
-                                                                graph, 
-                                                                lookahead,
-                                                                minKmerCov);
+            ArrayList<Kmer> testKmers = trimLowCovEdges ?
+                                        trimLowCoverageEdgeKmers(kmers, graph, lookahead, minKmerCov) :
+                                        null;
             
             if (testKmers == null) {
                 testKmers = kmers;
@@ -2999,7 +2999,7 @@ public final class GraphUtils {
             }
             
             int numKmers = testKmers.size();
-            if (numKmers > lookahead) {
+            if (trimLowCovEdges && numKmers > lookahead) {
                 ArrayList<Kmer> window = new ArrayList<>(testKmers.subList(0, Math.min(windowSize, numKmers)));
                 CoverageStats headCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
 

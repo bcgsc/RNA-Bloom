@@ -2335,6 +2335,7 @@ public class RNABloom {
                                     int numThreads,
                                     boolean writeUracil,
                                     boolean minimapAlign,
+                                    int minKmerCov,
                                     String txptNamePrefix) throws IOException {
         if (!hasMinimap2()) {
             exitOnError("`minimap2` not found in PATH!");
@@ -2397,15 +2398,22 @@ public class RNABloom {
                     String comment = nameCommentSeq[1];
                     String seq = nameCommentSeq[2];
                     
+                    String tag = "";
+                    String polishedSeq = polishSequence(seq, 1, 2*minKmerCov, 100);
+                    if (polishedSeq != null && !polishedSeq.equals(seq)) {
+                        tag = "_p";
+                        seq = polishedSeq;
+                    }
+                    
                     if (writeUracil) {
                         seq = seq.replace('T', 'U');
                     }
                     
                     if (comment.isEmpty()) {
-                        fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0], seq);
+                        fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0] + tag, seq);
                     }
                     else {
-                        fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0] + " " + comment, seq);
+                        fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0] + tag + " " + comment, seq);
                     }
                 }
                 fin.close();
@@ -2631,7 +2639,8 @@ public class RNABloom {
                                                                         maxIndelSize, 
                                                                         percentIdentity, 
                                                                         minKmerCov,
-                                                                        minNumSolidKmers);
+                                                                        minNumSolidKmers,
+                                                                        true);
                     
                     if (correctedKmers != null && !correctedKmers.isEmpty()) {
                         float cov = getMinMedianKmerCoverage(correctedKmers, 200);
@@ -2717,7 +2726,28 @@ public class RNABloom {
         System.out.println("\tCorrected: " + NumberFormat.getInstance().format(numCorrected) + "(" + numCorrected * 100f/numReads + "%)");
         System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "(" + numDiscarded * 100f/numReads + "%)");
     }
+    
+    public String polishSequence(String seq, int maxErrCorrItr, int minKmerCov, int minNumSolidKmers) {
+        ArrayList<Kmer> kmers = graph.getKmers(seq);
+
+        ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
+                                                            graph, 
+                                                            maxErrCorrItr, 
+                                                            maxCovGradient, 
+                                                            lookahead, 
+                                                            maxIndelSize, 
+                                                            percentIdentity, 
+                                                            minKmerCov,
+                                                            minNumSolidKmers,
+                                                            false);
         
+        if (correctedKmers != null && !correctedKmers.isEmpty()) {
+            return graph.assemble(correctedKmers);
+        }
+        
+        return null;
+    }
+    
     public void correctLongReadsSingleThreaded(String[] inputFastxPaths, FastaWriter[][] writers, int minKmerCov, int maxErrCorrItr, int maxSampleSize, int minSeqLen, int minNumSolidKmers) throws IOException {
         
         long numReads = 0;
@@ -2739,7 +2769,8 @@ public class RNABloom {
                                                                 maxIndelSize, 
                                                                 percentIdentity, 
                                                                 minKmerCov,
-                                                                minNumSolidKmers);
+                                                                minNumSolidKmers,
+                                                                true);
 
             if (correctedKmers != null && !correctedKmers.isEmpty()) {
                 sample.add(correctedKmers);
@@ -2793,7 +2824,8 @@ public class RNABloom {
                                                                 maxIndelSize, 
                                                                 percentIdentity, 
                                                                 minKmerCov,
-                                                                minNumSolidKmers);
+                                                                minNumSolidKmers,
+                                                                true);
 
             if (correctedKmers != null && !correctedKmers.isEmpty()) {
                 int length = getSeqLength(correctedKmers.size(), k);
@@ -3677,7 +3709,7 @@ public class RNABloom {
             String clusteredLongReadsDirectory, String assembledLongReadsDirectory,
             String assembledLongReadsCombined,
             int numThreads, boolean forceOverwrite,
-            boolean writeUracil, boolean minimapAlign, String txptNamePrefix) throws IOException {
+            boolean writeUracil, boolean minimapAlign, int minKmerCov, String txptNamePrefix) throws IOException {
         
         File outdir = new File(assembledLongReadsDirectory);
         if (outdir.exists()) {
@@ -3692,7 +3724,7 @@ public class RNABloom {
         }
         
         return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined,
-                numThreads, writeUracil, minimapAlign, txptNamePrefix);
+                numThreads, writeUracil, minimapAlign, minKmerCov, txptNamePrefix);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -5156,13 +5188,13 @@ public class RNABloom {
                 stageTimer.start();
                 
                 final String assembledLongReadsDirectory = outdir + File.separator + name + ".longreads.assembly";
-                final String assembledLongReadsCombined = outdir + File.separator + name + ".transcripts.fa";
+                final String assembledLongReadsCombinedFile = outdir + File.separator + name + ".transcripts.fa";
                 if (forceOverwrite || !longReadsAssembledStamp.exists()) {
-                    assembler.destroyAllBf();
+//                    assembler.destroyAllBf();
                                         
                     boolean ok = assembleLongReads(assembler,
-                            clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined,
-                            numThreads, forceOverwrite, writeUracil, minimapAlign, txptNamePrefix);
+                            clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombinedFile,
+                            numThreads, forceOverwrite, writeUracil, minimapAlign, minKmerCov, txptNamePrefix);
                     
                     if (ok) {
                         touch(longReadsAssembledStamp);
