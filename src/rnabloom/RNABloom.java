@@ -2387,6 +2387,8 @@ public class RNABloom {
         
         boolean ok = errors.isEmpty();
         if (ok) {
+            Pattern raconRcPattern = Pattern.compile("RC:i:(\\d+)");
+            
             // combine assembly files
             FastaWriter fout = new FastaWriter(assembledLongReadsCombined, false);
             FastaReader fin;
@@ -2409,12 +2411,19 @@ public class RNABloom {
                         seq = seq.replace('T', 'U');
                     }
                     
-                    if (comment.isEmpty()) {
-                        fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0] + tag, seq);
+                    String length = Integer.toString(seq.length());
+                    
+                    String coverage = "1";
+                    if (!comment.isEmpty()) {
+                        Matcher m = raconRcPattern.matcher(comment);
+                        if (m.find()) {
+                            coverage = m.group(1);
+                        }
                     }
-                    else {
-                        fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0] + tag + " " + comment, seq);
-                    }
+                    
+                    fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0] + tag +
+                            " l=" + length + " c=" + coverage,
+                            seq);
                 }
                 fin.close();
             }
