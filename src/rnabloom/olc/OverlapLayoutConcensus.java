@@ -243,7 +243,7 @@ public class OverlapLayoutConcensus {
         if (numBackbones == 0) {
             String[] nameSeq = findLongestSequence(readsPath);
             FastaWriter writer = new FastaWriter(gfafa, false);
-            writer.write("longest_read", nameSeq[1]);
+            writer.write("longestread", nameSeq[1]);
             writer.close();
         }
         
