@@ -2399,14 +2399,7 @@ public class RNABloom {
                     String[] nameCommentSeq = fin.nextWithComment();
                     String comment = nameCommentSeq[1];
                     String seq = nameCommentSeq[2];
-                    
-                    String tag = "";
-                    String polishedSeq = polishSequence(seq, 1, 2*minKmerCov, 100);
-                    if (polishedSeq != null && !polishedSeq.equals(seq)) {
-                        tag = "_p";
-                        seq = polishedSeq;
-                    }
-                    
+                                        
                     if (writeUracil) {
                         seq = seq.replace('T', 'U');
                     }
@@ -2421,7 +2414,7 @@ public class RNABloom {
                         }
                     }
                     
-                    fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0] + tag +
+                    fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0] +
                             " l=" + length + " c=" + coverage,
                             seq);
                 }
@@ -5199,7 +5192,7 @@ public class RNABloom {
                 final String assembledLongReadsDirectory = outdir + File.separator + name + ".longreads.assembly";
                 final String assembledLongReadsCombinedFile = outdir + File.separator + name + ".transcripts.fa";
                 if (forceOverwrite || !longReadsAssembledStamp.exists()) {
-//                    assembler.destroyAllBf();
+                    assembler.destroyAllBf();
                                         
                     boolean ok = assembleLongReads(assembler,
                             clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombinedFile,
