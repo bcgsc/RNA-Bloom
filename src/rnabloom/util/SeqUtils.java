@@ -895,12 +895,16 @@ public final class SeqUtils {
     public static final String[] POLY_A_SIGNALS = {"AATAAA", "ATTAAA", "AGTAAA", "TATAAA",
                                                    "CATAAA", "GATAAA", "AATATA", "AATACA",
                                                    "AATAGA", "AAAAAG", "ACTAAA", "AAGAAA",
-                                                   "AATGAA", "TTTAAA", "AAAACA", "GGGGCT"};
+                                                   "AATGAA", "TTTAAA", "AAAACA", "GGGGCT",
+                                                   "AATAAT", "AACAAA", "ATTACA", "ATTATA",
+                                                   "AACAAG", "AATAAG", "TTTTTT"}; // PMID: 27382025
 
     public static final String[] POLY_A_SIGNALS_REV_COMP = {"TTTATT", "TTTAAT", "TTTACT", "TTTATA",
                                                    "TTTATG", "TTTATC", "TATATT", "TGTATT",
                                                    "TCTATT", "CTTTTT", "TTTAGT", "TTTCTT",
-                                                   "TTCATT", "TTTAAA", "TGTTTT", "AGCCCC"};
+                                                   "TTCATT", "TTTAAA", "TGTTTT", "AGCCCC",
+                                                   "ATTATT", "TTTGTT", "TGTAAT", "TATAAT",
+                                                   "CTTGTT", "CTTATT", "AAAAAA"};
     
     public static Pattern getPolyASignalPattern() {
         return Pattern.compile(String.join("|", POLY_A_SIGNALS), Pattern.CASE_INSENSITIVE);
@@ -919,7 +923,7 @@ public final class SeqUtils {
             
             if (tailStartPos > 10) {
                 Matcher pasMatcher = pasPattern.matcher(seq);
-                pasMatcher.region(Math.max(0, tailStartPos-50), tailStartPos-10);
+                pasMatcher.region(Math.max(0, tailStartPos-60), tailStartPos-10);
 
                 while (pasMatcher.find()) {
                     positions.add(pasMatcher.start());
