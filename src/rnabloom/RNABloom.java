@@ -2334,7 +2334,7 @@ public class RNABloom {
                                     String assembledLongReadsCombined,
                                     int numThreads,
                                     boolean writeUracil,
-                                    boolean minimapAlign,
+                                    String minimapOptions,
                                     int minKmerCov,
                                     String txptNamePrefix) throws IOException {
         if (!hasMinimap2()) {
@@ -2373,7 +2373,7 @@ public class RNABloom {
 
                 System.out.println("Assembling cluster `" + clusterID + "`...");
 
-                boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, concensusPath, numThreads, minimapAlign);
+                boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, concensusPath, numThreads, minimapOptions);
                 if (!ok) {
                     System.out.println("*** Error assembling cluster `" + clusterID + "`!!! ***");
                     errors.add(clusterID);
@@ -3711,7 +3711,7 @@ public class RNABloom {
             String clusteredLongReadsDirectory, String assembledLongReadsDirectory,
             String assembledLongReadsCombined,
             int numThreads, boolean forceOverwrite,
-            boolean writeUracil, boolean minimapAlign, int minKmerCov, String txptNamePrefix) throws IOException {
+            boolean writeUracil, String minimapOptions, int minKmerCov, String txptNamePrefix) throws IOException {
         
         File outdir = new File(assembledLongReadsDirectory);
         if (outdir.exists()) {
@@ -3726,7 +3726,7 @@ public class RNABloom {
         }
         
         return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined,
-                numThreads, writeUracil, minimapAlign, minKmerCov, txptNamePrefix);
+                numThreads, writeUracil, minimapOptions, minKmerCov, txptNamePrefix);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -4567,11 +4567,13 @@ public class RNABloom {
                                     .build();
         options.addOption(optPolyATail);  
         
-        Option optMinimapAln = Option.builder("mmaln")
-                                    .desc("generate alignment for read overlaps in minimap2 [false]\n(Requires `-long`; yields better assembly but slower runtime)")
-                                    .hasArg(false)
+        final String optMinimapOptionsDefault = "-r 150";
+        Option optMinimapOptions = Option.builder("mmopt")
+                                    .desc("options for minimap2 [" + optMinimapOptionsDefault + "]\n(`-x` and `-t` are already in use)")
+                                    .hasArg(true)
+                                    .argName("OPTIONS")
                                     .build();
-        options.addOption(optMinimapAln);
+        options.addOption(optMinimapOptions);
 
 //        Option optHomopolymerCompressed = Option.builder("hpcm")
 //                                    .desc("use homopolymer-compressed minimizers in long-read clustering [false]\n(Requires `-long`)")
@@ -4787,7 +4789,7 @@ public class RNABloom {
             final boolean revCompRight = line.hasOption(optRevCompRight.getOpt());
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             final boolean writeUracil = line.hasOption(optUracil.getOpt());
-            final boolean minimapAlign = line.hasOption(optMinimapAln.getOpt());
+            final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
 //            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final boolean useCompressedMinimizers = false;
 
@@ -5196,7 +5198,7 @@ public class RNABloom {
                                         
                     boolean ok = assembleLongReads(assembler,
                             clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombinedFile,
-                            numThreads, forceOverwrite, writeUracil, minimapAlign, minKmerCov, txptNamePrefix);
+                            numThreads, forceOverwrite, writeUracil, minimapOptions, minKmerCov, txptNamePrefix);
                     
                     if (ok) {
                         touch(longReadsAssembledStamp);
