@@ -79,6 +79,16 @@ public final class SeqUtils {
         return sb.toString();
     }
     
+    public static final String bytesToString(byte[] bytes, int start, int end) {
+        StringBuilder sb = new StringBuilder(end-start);
+        
+        for (int i=start; i<end; ++i) {
+            sb.append((char) bytes[i]);
+        }
+        
+        return sb.toString();
+    }
+    
     public static final byte[] shiftRight(byte[] bytes, int len) {
         byte[] bytes2 = new byte[len];
         System.arraycopy(bytes, 0, bytes2, 1, len-1);
@@ -750,6 +760,16 @@ public final class SeqUtils {
         }
         
         return rc;
+    }
+    
+    public static final String reverseComplement(byte[] seq, int start, int end) {
+        StringBuilder sb = new StringBuilder(end-start);
+        
+        for (int i=end-1; i>= start; --i) {
+            sb.append((char) complement(seq[i]));
+        }
+        
+        return sb.toString();
     }
         
     public static final String smallestStrand(String seq) {
