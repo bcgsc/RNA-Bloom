@@ -126,42 +126,54 @@ public class OverlapLayoutConcensus {
         return runCommand(command, null);
     }
     
-    public static boolean overlapONT(String sequencePath, String outputPath, int numThreads, String options) {
+    public static boolean overlapWithMinimap(String seqFastaPath, String outFastaPath, int numThreads, String options) {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
         
-        command.add(MINIMAP2 + " -x ava-ont " + options + " -t " + numThreads + " " + sequencePath + " " + sequencePath + " | gzip -c > " + outputPath);
+        command.add(MINIMAP2 + " -x ava-ont " + options + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath + " | gzip -c > " + outFastaPath);
         
-        return runCommand(command, outputPath + LOG_EXTENSION);
+        return runCommand(command, outFastaPath + LOG_EXTENSION);
     }
     
-    public static boolean mapONT(String queryPath, String targetPath, String outputPath, int numThreads, String options) {
+    public static boolean mapWithMinimap(String queryFastaPath, String targetFastaPath, String outPafPath, int numThreads, String options) {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
 
-        command.add(MINIMAP2 + " -x map-ont " + options + " -t " + numThreads + " " + targetPath + " " + queryPath + " | gzip -c > " + outputPath);
+        command.add(MINIMAP2 + " -x map-ont -c " + options + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath + " | gzip -c > " + outPafPath);
         
-        return runCommand(command, outputPath + LOG_EXTENSION);
+        return runCommand(command, outPafPath + LOG_EXTENSION);
     }
     
-    public static boolean layout(String sequencePath, String overlapPath, String layoutPath) {
+    public static boolean layout(String seqFastaPath, String overlapPafPath, String backboneFastaPath, boolean stranded) {
+        try {
+            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded);
+            myLayout.writeBackboneSequences(backboneFastaPath);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return false;
+        }
+        
+        return true;
+    }
+    
+    public static boolean layoutWithMiniasm(String seqFastaPath, String overlapPafPath, String layoutGfaPath) {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
-        command.add(MINIASM + " -c 1 -e 1 -s 200 -h 100 -d 10 -g 10 -f " + sequencePath + " " + overlapPath + " | gzip -c > " + layoutPath);
+        command.add(MINIASM + " -c 1 -e 1 -s 200 -h 100 -d 10 -g 10 -f " + seqFastaPath + " " + overlapPafPath + " | gzip -c > " + layoutGfaPath);
         
-        return runCommand(command, layoutPath + LOG_EXTENSION);
+        return runCommand(command, layoutGfaPath + LOG_EXTENSION);
     }
     
-    public static boolean concensus(String queryPath, String targetPath, String mappingPath, String concensusPath, int numThreads) {
+    public static boolean concensusWithRacon(String queryFastaPath, String targetFastaPath, String mappingPafPath, String concensusFastaPath, int numThreads) {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
-        command.add(RACON + " " + queryPath + " " + mappingPath + " " + targetPath + " -u -t " + numThreads + " > " + concensusPath);
+        command.add(RACON + " --no-trimming -u -t " + numThreads + " " + queryFastaPath + " " + mappingPafPath + " " + targetFastaPath + " > " + concensusFastaPath);
         
-        return runCommand(command, concensusPath + LOG_EXTENSION);
+        return runCommand(command, concensusFastaPath + LOG_EXTENSION);
     }
     
     public static int convertGfaToFasta(String gfaPath, String fastaPath) throws IOException {
@@ -214,10 +226,10 @@ public class OverlapLayoutConcensus {
         return longestNameSeq;
     }
     
-    public static boolean overlapLayoutConcensus(String readsPath, String tmpPrefix, String concensusPath, int numThreads, String options) throws IOException {
+    public static boolean overlapLayoutConcensus(String readsPath, String tmpPrefix, String concensusPath, int numThreads, boolean stranded, String minimapOptions) throws IOException {
         String avaPaf = tmpPrefix + "_ava.paf.gz";
-        String gfa = tmpPrefix + "_backbones.gfa.gz";
-        String gfafa = tmpPrefix + "_backbones.fa";
+//        String backbonesGfa = tmpPrefix + "_backbones.gfa.gz";
+        String backbonesFa = tmpPrefix + "_backbones.fa";
         String mapPaf = tmpPrefix + "_map.paf.gz";
         
         if (hasOnlyOneSequence(readsPath)) {
@@ -225,26 +237,32 @@ public class OverlapLayoutConcensus {
             return true;
         }
         
-        if (!overlapONT(readsPath, avaPaf, numThreads, options)) {
+        if (!overlapWithMinimap(readsPath, avaPaf, numThreads, minimapOptions)) {
             return false;
         }
         
-        if (!layout(readsPath, avaPaf, gfa)) {
+        if (!layout(readsPath, avaPaf, backbonesFa, stranded)) {
             return false;
         }
         
-        int numBackbones = convertGfaToFasta(gfa, gfafa);
+        /*
+        if (!layout(readsPath, avaPaf, backbonesGfa)) {
+            return false;
+        }
+        
+        int numBackbones = convertGfaToFasta(backbonesGfa, backbonesFa);
         if (numBackbones == 0) {
             String[] nameSeq = findLongestSequence(readsPath);
-            FastaWriter writer = new FastaWriter(gfafa, false);
+            FastaWriter writer = new FastaWriter(backbonesFa, false);
             writer.write("longestread", nameSeq[1]);
             writer.close();
         }
+        */
         
-        if (!mapONT(readsPath, gfafa, mapPaf, numThreads, options)) {
+        if (!mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads, minimapOptions)) {
             return false;
         }
         
-        return concensus(readsPath, gfafa, mapPaf, concensusPath, numThreads);
+        return concensusWithRacon(readsPath, backbonesFa, mapPaf, concensusPath, numThreads);
     }
 }
