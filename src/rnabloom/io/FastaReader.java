@@ -39,7 +39,7 @@ public class FastaReader implements FastxReaderInterface {
     private final BufferedReader br;
     
     public FastaReader(String path) throws IOException {
-        if (path.endsWith(GZIP_EXTENSION)) {
+        if (path.toLowerCase().endsWith(GZIP_EXTENSION)) {
             br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))));
         }
         else {
@@ -49,7 +49,7 @@ public class FastaReader implements FastxReaderInterface {
     }
     
     public FastaReader(File f) throws IOException {
-        if (f.getName().endsWith(GZIP_EXTENSION)) {
+        if (f.getName().toLowerCase().endsWith(GZIP_EXTENSION)) {
             br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(f))));
         }
         else {

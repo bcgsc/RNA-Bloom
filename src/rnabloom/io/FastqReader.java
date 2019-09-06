@@ -20,8 +20,6 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Iterator;
 //import java.util.NoSuchElementException;
 //import java.util.function.Supplier;
@@ -40,7 +38,7 @@ public final class FastqReader implements FastxReaderInterface {
     private final Iterator<String> itr;
     
     public FastqReader(String path) throws IOException {        
-        if (path.endsWith(GZIP_EXTENSION)) {
+        if (path.toLowerCase().endsWith(GZIP_EXTENSION)) {
             br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))));
         }
         else {
