@@ -42,8 +42,8 @@ public class Layout {
         this.stranded = stranded;
     }
     
-    private static final int maxEdgeClip = 100;
-    private static final float minAlnId = 0.75f;
+    private static final int maxEdgeClip = 50;
+    private static final float minAlnId = 0.50f;
     private static final int minOverlapMatches = 200;
     
     private class OverlapEdge extends DefaultEdge {
@@ -279,6 +279,12 @@ public class Layout {
             }
         }
         
+        for (String r : lengths.keySet()) {
+            if (!longestSet.contains(r) && !longestAlts.containsKey(r)) {
+                longestSet.add(r);
+            }
+        }
+        
         System.out.println("    - unique:    " + longestSet.size());
         System.out.println("Constructing overlap graph...");
         
@@ -313,6 +319,8 @@ public class Layout {
                 }
             }
         }
+        
+        
         
         // transitive reduction
         System.out.println("Transitive reduction...");
@@ -426,6 +434,12 @@ public class Layout {
             }
         }
         
+        for (String r : lengths.keySet()) {
+            if (!longestSet.contains(r) && !longestAlts.containsKey(r)) {
+                longestSet.add(r);
+            }
+        }
+        
         System.out.println("    - unique:    " + longestSet.size());
         System.out.println("Constructing overlap graph...");
         
@@ -504,9 +518,10 @@ public class Layout {
     public static void main(String[] args) {
         boolean stranded = false;
         String dir = "";
-        String seqFastaPath = dir + "/0.fa";
-        String overlapPafPath = dir + "/0_ava.paf.gz";
-        String backboneFastaPath = dir + "/0_backbones.fa";
+        String id = "";
+        String seqFastaPath = dir + "/" + id + ".fa";
+        String overlapPafPath = dir + "/" + id + "_ava.paf.gz";
+        String backboneFastaPath = dir + "/" + id + "_backbones.fa";
         
         try {
             Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded);
