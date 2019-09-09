@@ -3277,10 +3277,36 @@ public final class GraphUtils {
                     else {
                         int maxLengthDifference = 0;
                         if (percentIdentity < 1.0f) {
-                            maxLengthDifference = Math.max(1, (int) Math.ceil(numBadKmersSince * (1 - percentIdentity))) * maxIndelSize;
+                            maxLengthDifference = Math.max(1, (int) Math.ceil(numBadKmersSince * (1 - percentIdentity) / k)) * maxIndelSize;
                         }
                         
-                        ArrayDeque<Kmer> altPath = getMaxCoveragePath(graph, kmers2.get(kmers2.size()-1), kmer, numBadKmersSince + maxLengthDifference, lookahead, minKmerCov);
+                        // find best candidate for left kmer
+                        int kmers2Size = kmers2.size();
+                        int bestLeftKmerIndex = kmers2Size-1;
+                        int leftKmerStopIndex = Math.max(0, bestLeftKmerIndex-lookahead);
+                        Kmer bestLeftKmer = kmers2.get(bestLeftKmerIndex);
+                        for (int j=bestLeftKmerIndex-2; j>=leftKmerStopIndex; --j) {
+                            Kmer tmpKmer = kmers2.get(j);
+                            if (tmpKmer.count > bestLeftKmer.count) {
+                                bestLeftKmer = tmpKmer;
+                                bestLeftKmerIndex = j;
+                            }
+                        }
+                        
+                        // find best candidate for right kmer
+                        int bestRightKmerIndex = i;
+                        int rightKmerStopIndex = Math.min(bestRightKmerIndex+lookahead, kmers.size()-1);
+                        Kmer bestRightKmer = kmer;
+                        for (int j=bestRightKmerIndex+1; j<=rightKmerStopIndex; ++j) {
+                            Kmer tmpKmer = kmers.get(j);
+                            if (tmpKmer.count > bestRightKmer.count) {
+                                bestRightKmer = tmpKmer;
+                                bestRightKmerIndex = j;
+                            }
+                        }
+                        
+                        // find path between left and right kmers
+                        ArrayDeque<Kmer> altPath = getMaxCoveragePath(graph, bestLeftKmer, bestRightKmer, numBadKmersSince + maxLengthDifference, lookahead, minKmerCov);
                         
                         if (altPath == null) {
                             // fill with original sequence
@@ -3295,13 +3321,23 @@ public final class GraphUtils {
                             int altPathLen = altPath.size();
 
                             if (oriPathMinCov < altPathMinCov &&
-                                    numBadKmersSince-maxLengthDifference <= altPathLen && 
-                                    altPathLen <= numBadKmersSince+maxLengthDifference && 
-                                    (altPathLen <= k+maxIndelSize ||
-                                        (oriPathMinCov < minKmerCov && altPathMinCov >= minKmerCov) ||
-                                        getPercentIdentity(graph.assemble(altPath), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity)) {
+                                    (oriPathMinCov < minKmerCov && altPathMinCov >= minKmerCov) ||
+                                    (numBadKmersSince-maxLengthDifference <= altPathLen && altPathLen <= numBadKmersSince+maxLengthDifference && 
+                                        (altPathLen <= k+maxIndelSize ||
+                                            getPercentIdentity(graph.assemble(altPath), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity))) {
                                 
+                                // backtrack to best left kmer
+                                for (int j=kmers2.size()-1; j>bestLeftKmerIndex; --j) {
+                                    kmers2.remove(j);
+                                }
+                                
+                                // add all kmers from alternate path
                                 kmers2.addAll(altPath);
+                                
+                                // set cursor to best right kmer
+                                i = bestRightKmerIndex;
+                                kmer = bestRightKmer;
+                                
                                 corrected = true;
                             }
                             else {
