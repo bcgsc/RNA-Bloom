@@ -23,6 +23,7 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
+import rnabloom.io.PafReader;
 
 /**
  *
@@ -241,8 +242,20 @@ public class OverlapLayoutConcensus {
             return false;
         }
         
-        if (!layout(readsPath, avaPaf, backbonesFa, stranded)) {
-            return false;
+        PafReader reader = new PafReader(avaPaf);
+        boolean nonEmptyPafFile = reader.hasNext();
+        reader.close();
+        
+        if (nonEmptyPafFile) {
+            // lay out backbones
+            if (!layout(readsPath, avaPaf, backbonesFa, stranded)) {
+                return false;
+            }
+        }
+        else {
+            // PAF file is empty
+            Files.copy(Paths.get(readsPath), Paths.get(concensusPath));
+            return true;
         }
         
         /*

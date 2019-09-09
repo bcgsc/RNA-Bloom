@@ -42,7 +42,7 @@ public class Layout {
         this.stranded = stranded;
     }
     
-    private static final int maxEdgeClip = 50;
+    private static final int maxEdgeClip = 100;
     private static final float minAlnId = 0.50f;
     private static final int minOverlapMatches = 200;
     
@@ -319,8 +319,6 @@ public class Layout {
                 }
             }
         }
-        
-        
         
         // transitive reduction
         System.out.println("Transitive reduction...");
