@@ -73,9 +73,9 @@ import rnabloom.io.FastqRecord;
 import rnabloom.io.FastxPairReader;
 import rnabloom.io.FastxSequenceIterator;
 import rnabloom.io.FileFormatException;
-import static rnabloom.olc.OverlapLayoutConcensus.hasMiniasm;
 import static rnabloom.olc.OverlapLayoutConcensus.hasMinimap2;
 import static rnabloom.olc.OverlapLayoutConcensus.hasRacon;
+import static rnabloom.olc.OverlapLayoutConcensus.overlapLayout;
 import static rnabloom.olc.OverlapLayoutConcensus.overlapLayoutConcensus;
 import rnabloom.util.GraphUtils;
 import static rnabloom.util.GraphUtils.*;
@@ -2341,11 +2341,7 @@ public class RNABloom {
         if (!hasMinimap2()) {
             exitOnError("`minimap2` not found in PATH!");
         }
-        
-        if (!hasMiniasm()) {
-            exitOnError("`miniasm` not found!");
-        }
-        
+                
         if (!hasRacon()) {
             exitOnError("`racon` not found!");
         }
@@ -2387,11 +2383,14 @@ public class RNABloom {
         }
         
         boolean ok = errors.isEmpty();
+        String assembledLongReadsConcatenated = assembledLongReadsDirectory + File.separator + "all_transcripts.fa";
+        String tmpPrefix = assembledLongReadsDirectory + File.separator + "all_transcripts_overlap";
+        
         if (ok) {
             Pattern raconRcPattern = Pattern.compile("RC:i:(\\d+)");
             
             // combine assembly files
-            FastaWriter fout = new FastaWriter(assembledLongReadsCombined, false);
+            FastaWriter fout = new FastaWriter(assembledLongReadsConcatenated, false);
             FastaReader fin;
             for (int clusterID : clusterIDs) {
                 String clusterAssemblyPath = assembledLongReadsDirectory + File.separator + clusterID + "_transcripts.fa";
@@ -2427,7 +2426,11 @@ public class RNABloom {
             System.out.println("Cannot assemble the following clusters:");
             Collections.sort(errors);
             System.out.println(Arrays.toString(errors.toArray()));
+            return false;
         }
+        
+        System.out.println("Inter-cluster assembly...");
+        ok = overlapLayout(assembledLongReadsConcatenated, tmpPrefix, assembledLongReadsCombined, numThreads, stranded, minimapOptions);
         
         return ok;
     }
@@ -2631,7 +2634,7 @@ public class RNABloom {
                     }
                     
                     String seq = nameSeqPair[1];
-                    
+                   
                     ArrayList<Kmer> kmers = graph.getKmers(seq);
                     
                     ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
@@ -4682,11 +4685,7 @@ public class RNABloom {
             
             final String pooledReadsListFile = line.getOptionValue(optPooledAssembly.getOpt());
             final boolean pooledGraphMode = pooledReadsListFile != null;
-            
-            boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
-            boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
-            boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
-            
+                        
             HashMap<String, ArrayList<String>> pooledLeftReadPaths = new HashMap<>();
             HashMap<String, ArrayList<String>> pooledRightReadPaths = new HashMap<>();
             
@@ -4794,6 +4793,10 @@ public class RNABloom {
 //            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final boolean useCompressedMinimizers = false;
 
+            boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
+            boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
+            boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
+            
             String defaultK = hasLongReadFiles ? "17" : optKmerSizeDefault;
             final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), defaultK));
             
@@ -4857,6 +4860,10 @@ public class RNABloom {
                 }
                 
                 NTCardHistogram hist = getNTCardHistogram(numThreads, k, histogramPathPrefix, readPaths.toArray(String[]::new), forceOverwrite);
+                if (hist == null) {
+                    exitOnError("Error running ntCard!");
+                }
+                
                 expNumKmers = hist.numKmers;
                 System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
 

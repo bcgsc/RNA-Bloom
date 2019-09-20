@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.TransitiveReduction;
 import org.jgrapht.graph.DefaultDirectedGraph;
@@ -34,17 +35,19 @@ public class Layout {
     private String overlapPafPath;
     private String seqFastaPath;
     private boolean stranded;
+    private int maxEdgeClip = 100;
+    private float minAlnId = 0.50f;
+    private int minOverlapMatches = 200;
     
-    public Layout(String seqFile, String pafFile, boolean stranded) {
+    public Layout(String seqFile, String pafFile, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches) {
         this.graph = new DefaultDirectedGraph<>(OverlapEdge.class);
         this.overlapPafPath = pafFile;
         this.seqFastaPath = seqFile;
         this.stranded = stranded;
+        this.maxEdgeClip = maxEdgeClip;
+        this.minAlnId = minAlnId;
+        this.minOverlapMatches = minOverlapMatches;
     }
-    
-    private static final int maxEdgeClip = 100;
-    private static final float minAlnId = 0.50f;
-    private static final int minOverlapMatches = 200;
     
     private class OverlapEdge extends DefaultEdge {
         public int sourceStart, sourceEnd, sinkStart, sinkEnd;
@@ -99,6 +102,110 @@ public class Layout {
         }
         
         return false;
+    }
+    
+    private static String getVertexName(String vid) {
+        return vid.substring(0, vid.length()-1);
+    }
+    
+    private static char geVertexSign(String vid) {
+        return vid.charAt(vid.length()-1);
+    }
+    
+    private static boolean isVertexSignReverseComplement(String vid) {
+        return geVertexSign(vid) == '-';
+    }
+    
+    private static char getReverseComplementSign(char sign) {
+        switch (sign) {
+            case '+':
+                return '-';
+            case '-':
+                return '+';
+        }
+        
+        return '0';
+    }
+    
+    private static String getReverseComplementID(String vid) {
+        int lastIndex = vid.length()-1;
+        return vid.substring(0, lastIndex) + getReverseComplementSign(vid.charAt(lastIndex));
+    }
+    
+    private OverlapEdge getReverseComplementEdge(OverlapEdge e) {
+        String source = graph.getEdgeSource(e);
+        String sink = graph.getEdgeTarget(e);
+        return graph.getEdge(getReverseComplementID(sink), getReverseComplementID(source));
+    }
+    
+    private void resolveJunctions(HashSet<String> names, boolean strandSpecific) {
+        for (String name : names) {
+            name += '+';
+            
+            if (graph.outDegreeOf(name) > 1) {
+                Set<OverlapEdge> edges = graph.outgoingEdgesOf(name);
+                ArrayDeque<OverlapEdge> edgesToRemove = new ArrayDeque<>(edges.size()-1);
+                
+                // find the best edge
+                Iterator<OverlapEdge> itr = edges.iterator();
+                OverlapEdge bestEdge = itr.next();
+                int bestOverlap = bestEdge.sourceEnd - bestEdge.sourceStart;
+                while (itr.hasNext()) {
+                    OverlapEdge e = itr.next();
+                    int overlap = e.sourceEnd - e.sourceStart;
+                    if (overlap > bestOverlap) {
+                        edgesToRemove.add(bestEdge);
+                        if (!strandSpecific) {
+                            edgesToRemove.add(getReverseComplementEdge(bestEdge));
+                        }
+                        
+                        bestOverlap = overlap;
+                        bestEdge = e;
+                    }
+                    else {
+                        edgesToRemove.add(e);
+                        if (!strandSpecific) {
+                            edgesToRemove.add(getReverseComplementEdge(e));
+                        }
+                    }
+                }
+                                
+                // remove other edges from graph
+                graph.removeAllEdges(edgesToRemove);
+            }
+            
+            if (graph.inDegreeOf(name) > 1) {
+                Set<OverlapEdge> edges = graph.incomingEdgesOf(name);
+                ArrayDeque<OverlapEdge> edgesToRemove = new ArrayDeque<>(edges.size()-1);
+                
+                // find the best edge
+                Iterator<OverlapEdge> itr = edges.iterator();
+                OverlapEdge bestEdge = itr.next();
+                int bestOverlap = bestEdge.sinkEnd - bestEdge.sinkStart;
+                while (itr.hasNext()) {
+                    OverlapEdge e = itr.next();
+                    int overlap = e.sinkEnd - e.sinkStart;
+                    if (overlap > bestOverlap) {
+                        edgesToRemove.add(bestEdge);
+                        if (!strandSpecific) {
+                            edgesToRemove.add(getReverseComplementEdge(bestEdge));
+                        }
+                        
+                        bestOverlap = overlap;
+                        bestEdge = e;
+                    }
+                    else {
+                        edgesToRemove.add(e);
+                        if (!strandSpecific) {
+                            edgesToRemove.add(getReverseComplementEdge(e));
+                        }
+                    }
+                }
+                
+                // remove other edges from graph
+                graph.removeAllEdges(edgesToRemove);
+            }
+        }
     }
     
     private ArrayDeque<String> getUnambiguousRightExtension(String id) {
@@ -170,17 +277,17 @@ public class Layout {
         StringBuilder sb = new StringBuilder();
         
         Iterator<String> itr = path.iterator();
-        String name = itr.next();
-        boolean reverseComplement = name.charAt(name.length()-1) == '-';
+        String vid = itr.next();
         
-        byte[] bytes = sequences.get(name.substring(0, name.length()-1));
+        boolean reverseComplement = isVertexSignReverseComplement(vid);
+        byte[] bytes = sequences.get(getVertexName(vid));
         int start = 0;
         int end = bytes.length;
         
         while (itr.hasNext()) {
-            String nextName = itr.next();
+            String vid2 = itr.next();
             
-            OverlapEdge edge = graph.getEdge(name, nextName);
+            OverlapEdge edge = graph.getEdge(vid, vid2);
             if (reverseComplement) {
                 sb.append(reverseComplement(bytes, edge.sourceEnd, end));
             }
@@ -188,9 +295,9 @@ public class Layout {
                 sb.append(bytesToString(bytes, start, edge.sourceStart));
             }
             
-            name = nextName;
-            bytes = sequences.get(nextName.substring(0, nextName.length()-1));
-            reverseComplement = nextName.charAt(name.length()-1) == '-';
+            vid = vid2;
+            bytes = sequences.get(getVertexName(vid));
+            reverseComplement = isVertexSignReverseComplement(vid);
             
             if (reverseComplement) {
                 end = edge.sinkEnd;
@@ -216,40 +323,34 @@ public class Layout {
         HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
         HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
         ArrayDeque<PafRecord> dovetailRecords = new ArrayDeque<>();
-        
+               
         // look for containment and dovetails
-        System.out.println("Parsing overlaps...");
         PafReader reader = new PafReader(overlapPafPath);
         while (reader.hasNext()) {
-            PafRecord record = reader.next();
+            PafRecord r = reader.next();
             
-            String qName = record.qName;
-            int qLen = record.qLen;
+            lengths.put(r.qName, r.qLen);
+            lengths.put(r.tName, r.tLen);
             
-            String tName = record.tName;
-            int tLen = record.tLen;
-            
-            lengths.put(qName, qLen);
-            lengths.put(tName, tLen);
-            
-            if (isContainmentPafRecord(record)) {
+            if (isContainmentPafRecord(r)) {
                 String shorter, longer;
                 int longerLen;
 
-                if (qLen > tLen || (qLen == tLen && qName.compareTo(tName) > 0)) {
-                    shorter = tName;
-                    longer = qName;
-                    longerLen = qLen;
+                if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
+                    shorter = r.tName;
+                    longer = r.qName;
+                    longerLen = r.qLen;
                 }
                 else {
-                    shorter = qName;
-                    longer = tName;
-                    longerLen = tLen;
+                    shorter = r.qName;
+                    longer = r.tName;
+                    longerLen = r.tLen;
                 }
 
                 if (longestAlts.containsKey(shorter)) {
-                    String longest = longestAlts.get(shorter);
-                    if (lengths.get(longest) < longerLen) {
+                    String alt = longestAlts.get(shorter);
+                    int altLen = lengths.get(alt);
+                    if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
                         longestAlts.put(shorter, longer);
                     }
                 }
@@ -257,41 +358,34 @@ public class Layout {
                     longestAlts.put(shorter, longer);
                 }
             }
-            else if (!longestAlts.containsKey(qName) &&
-                    !longestAlts.containsKey(tName) &&
-                    isDovetailPafRecord(record)) {
-                dovetailRecords.add(record);
+            else if (!longestAlts.containsKey(r.qName) &&
+                    !longestAlts.containsKey(r.tName) &&
+                    isDovetailPafRecord(r)) {
+                dovetailRecords.add(r);
             }
         }
         reader.close();
         
-        System.out.println("Number of reads: " + lengths.size());
-        System.out.println("    - dovetail:  " + dovetailRecords.size());
+        System.out.println("Overlapped reads: " + lengths.size());
         
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>();
-        for (String r : longestAlts.values()) {
-            if (longestAlts.containsKey(r)) {
-                longestSet.add(longestAlts.get(r));
+        for (String name : lengths.keySet()) {
+            // get the longest representation of the sequence
+            while (longestAlts.containsKey(name)) {
+                name = longestAlts.get(name);
             }
-            else {
-                longestSet.add(r);
-            }
+
+            longestSet.add(name);
         }
         
-        for (String r : lengths.keySet()) {
-            if (!longestSet.contains(r) && !longestAlts.containsKey(r)) {
-                longestSet.add(r);
-            }
-        }
-        
-        System.out.println("    - unique:    " + longestSet.size());
-        System.out.println("Constructing overlap graph...");
+        System.out.println("      - unique:   " + Integer.toString(longestSet.size()));
+        System.out.println("      - dovetail: " + Integer.toString(dovetailRecords.size()) );
         
         // add nodes for reads
-        for (String r : longestSet) {
-            graph.addVertex(r + "+");
-            graph.addVertex(r + "-");
+        for (String name : longestSet) {
+            graph.addVertex(name + "+");
+            graph.addVertex(name + "-");
         }        
         
         // add edges for dovetails
@@ -320,28 +414,29 @@ public class Layout {
             }
         }
         
-        // transitive reduction
-        System.out.println("Transitive reduction...");
         TransitiveReduction.INSTANCE.reduce(graph);
+        resolveJunctions(longestSet, false);
         
         // extract longest read sequences
-        System.out.println("Extracting unique sequences...");
         HashMap<String, byte[]> longestReadSeqs = new HashMap<>(longestSet.size());
         FastaReader fr = new FastaReader(seqFastaPath);
+        FastaWriter fw = new FastaWriter(outFastaPath, false);
+        int seqID = 0;
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
             if (longestSet.contains(name)) {
                 longestReadSeqs.put(name, stringToBytes(nameSeq[1], lengths.get(name)));
             }
+            else if (!lengths.containsKey(name)) {
+                // an orphan sequence with no overlaps with other sequences
+                fw.write(Integer.toString(++seqID), nameSeq[1]);
+            }
         }
         fr.close();
         
         // layout unambiguous paths
-        System.out.println("Laying out backbones...");
         HashSet<String> visitedReadNames = new HashSet<>();
-        FastaWriter fw = new FastaWriter(outFastaPath, false);
-        int seqID = 0;
         for (String n : longestSet) {
             if (!visitedReadNames.contains(n)) {
                 n += "+";
@@ -363,12 +458,17 @@ public class Layout {
                 }
                 fw.write(header, backbone);
                 
-                for (String p : path) {
-                    visitedReadNames.add(p.substring(0, p.length()-1));
+                for (String vid : path) {
+                    visitedReadNames.add(getVertexName(vid));
                 }
             }
         }
         fw.close();
+        
+        if (seqID > 1)
+            System.out.println("Created " + Integer.toString(seqID) + " backbones.");
+        else
+            System.out.println("Created " + Integer.toString(seqID) + " backbone.");
     }
     
     private void layoutStrandedBackbones(String outFastaPath) throws IOException {
@@ -377,32 +477,32 @@ public class Layout {
         ArrayDeque<PafRecord> dovetailRecords = new ArrayDeque<>();
         
         // look for containment and overlaps
-        System.out.println("Parsing overlaps...");
         PafReader reader = new PafReader(overlapPafPath);
         while (reader.hasNext()) {
-            PafRecord record = reader.next();
+            PafRecord r = reader.next();
             
-            lengths.put(record.qName, record.qLen);
-            lengths.put(record.tName, record.tLen);
+            lengths.put(r.qName, r.qLen);
+            lengths.put(r.tName, r.tLen);
             
-            if (isStrandedContainmentPafRecord(record)) {
+            if (isStrandedContainmentPafRecord(r)) {
                 String shorter, longer;
                 int longerLen;
                
-                if (record.qLen > record.tLen || (record.qLen == record.tLen && record.qName.compareTo(record.tName) > 0)) {
-                    shorter = record.tName;
-                    longer = record.qName;
-                    longerLen = record.qLen;
+                if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
+                    shorter = r.tName;
+                    longer = r.qName;
+                    longerLen = r.qLen;
                 } 
                 else {
-                    shorter = record.qName;
-                    longer = record.tName;
-                    longerLen = record.tLen;
+                    shorter = r.qName;
+                    longer = r.tName;
+                    longerLen = r.tLen;
                 }
 
                 if (longestAlts.containsKey(shorter)) {
-                    String longest = longestAlts.get(shorter);
-                    if (lengths.get(longest) < longerLen) {
+                    String alt = longestAlts.get(shorter);
+                    int altLen = lengths.get(alt);
+                    if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
                         longestAlts.put(shorter, longer);
                     }
                 }
@@ -410,40 +510,33 @@ public class Layout {
                     longestAlts.put(shorter, longer);
                 }
             }
-            else if (!longestAlts.containsKey(record.qName) &&
-                    !longestAlts.containsKey(record.tName) &&
-                    isStrandedDovetailPafRecord(record)) {
-                dovetailRecords.add(record);
+            else if (!longestAlts.containsKey(r.qName) &&
+                    !longestAlts.containsKey(r.tName) &&
+                    isStrandedDovetailPafRecord(r)) {
+                dovetailRecords.add(r);
             }
         }
         reader.close();
         
-        System.out.println("Number of reads: " + lengths.size());
-        System.out.println("    - dovetail:  " + dovetailRecords.size());
+        System.out.println("Overlapped reads: " + lengths.size());
         
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>();
-        for (String r : longestAlts.values()) {
-            if (longestAlts.containsKey(r)) {
-                longestSet.add(longestAlts.get(r));
+        for (String name : lengths.keySet()) {
+            // get the longest representation of the sequence
+            while (longestAlts.containsKey(name)) {
+                name = longestAlts.get(name);
             }
-            else {
-                longestSet.add(r);
-            }
+
+            longestSet.add(name);
         }
         
-        for (String r : lengths.keySet()) {
-            if (!longestSet.contains(r) && !longestAlts.containsKey(r)) {
-                longestSet.add(r);
-            }
-        }
-        
-        System.out.println("    - unique:    " + longestSet.size());
-        System.out.println("Constructing overlap graph...");
+        System.out.println("      - unique:   " + Integer.toString(longestSet.size()));
+        System.out.println("      - dovetail: " + Integer.toString(dovetailRecords.size()));
         
         // add nodes for reads
-        for (String r : longestSet) {
-            graph.addVertex(r);
+        for (String name : longestSet) {
+            graph.addVertex(name);
         }        
         
         // add edges for dovetails
@@ -460,14 +553,14 @@ public class Layout {
             }
         }
         
-        // transitive reduction
-        System.out.println("Transitive reduction...");
         TransitiveReduction.INSTANCE.reduce(graph);
+        resolveJunctions(longestSet, true);
         
         // extract longest read sequences
-        System.out.println("Extracting unique sequences...");
         HashMap<String, byte[]> longestReadSeqs = new HashMap<>(longestSet.size());
         FastaReader fr = new FastaReader(seqFastaPath);
+        FastaWriter fw = new FastaWriter(outFastaPath, false);
+        int seqID = 0;
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
@@ -475,14 +568,15 @@ public class Layout {
                 String seq = nameSeq[1];
                 longestReadSeqs.put(name, stringToBytes(seq, seq.length()));
             }
+            else if (!lengths.containsKey(name)) {
+                // an orphan sequence with no overlaps with other sequences
+                fw.write(Integer.toString(++seqID), nameSeq[1]);
+            }
         }
         fr.close();
         
         // layout unambiguous paths
-        System.out.println("Laying out backbones...");
         HashSet<String> visitedReadNames = new HashSet<>();
-        FastaWriter fw = new FastaWriter(outFastaPath, false);
-        int seqID = 0;
         for (String n : longestSet) {
             if (!visitedReadNames.contains(n)) {
                 n += "+";
@@ -505,24 +599,27 @@ public class Layout {
                 }
                 fw.write(header, backbone);
                 
-                for (String p : path) {
-                    visitedReadNames.add(p.substring(0, p.length()-1));
+                for (String vid : path) {
+                    visitedReadNames.add(getVertexName(vid));
                 }
             }
         }
         fw.close();
+        
+        if (seqID > 1)
+            System.out.println("Created " + Integer.toString(seqID) + " backbones.");
+        else
+            System.out.println("Created " + Integer.toString(seqID) + " backbone.");
     }
     
     public static void main(String[] args) {
         boolean stranded = false;
-        String dir = "";
-        String id = "";
-        String seqFastaPath = dir + "/" + id + ".fa";
-        String overlapPafPath = dir + "/" + id + "_ava.paf.gz";
-        String backboneFastaPath = dir + "/" + id + "_backbones.fa";
+        String seqFastaPath = "";
+        String overlapPafPath = "";
+        String backboneFastaPath = "";
         
         try {
-            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded);
+            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 10, 0.95f, 500);
             myLayout.writeBackboneSequences(backboneFastaPath);
         } catch (Exception ex) {
             ex.printStackTrace();
