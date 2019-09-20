@@ -22,7 +22,6 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 Required for nanopore RNA-seq assembly:
 
 * [minimap2](https://github.com/lh3/minimap2)
-* [miniasm](https://github.com/lh3/miniasm)
 * [Racon](https://github.com/isovic/racon)
 
 Optional:
