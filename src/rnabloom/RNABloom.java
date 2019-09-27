@@ -617,6 +617,7 @@ public class RNABloom {
                             Collection<String> reverseReadPaths,
                             Collection<String> longReadPaths,
                             boolean strandSpecific,
+                            boolean reverseComplementLong,
                             int numThreads,
                             boolean addCountsOnly,
                             boolean storeReadKmerPairs) throws IOException, InterruptedException {        
@@ -650,7 +651,7 @@ public class RNABloom {
         }
         
         for (String path : longReadPaths) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, false, numHash, addCountsOnly, false);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, reverseComplementLong, numHash, addCountsOnly, false);
             service.submit(t);
             threadPool.add(t);
         }
@@ -2615,13 +2616,18 @@ public class RNABloom {
         private final int maxErrCorrItr;
         private final int minKmerCov;
         private final int minNumSolidKmers;
+        private final boolean reverseComplement;
 
-        public LongReadCorrectionWorker(ArrayBlockingQueue<String[]> inputQueue, ArrayBlockingQueue<Sequence> outputQueue, int maxErrCorrItr, int minKmerCov, int minNumSolidKmers) {
+        public LongReadCorrectionWorker(ArrayBlockingQueue<String[]> inputQueue,
+                                        ArrayBlockingQueue<Sequence> outputQueue,
+                                        int maxErrCorrItr, int minKmerCov, int minNumSolidKmers,
+                                        boolean reverseComplement) {
             this.inputQueue = inputQueue;
             this.outputQueue = outputQueue;
             this.maxErrCorrItr = maxErrCorrItr;
             this.minKmerCov = minKmerCov;
             this.minNumSolidKmers = minNumSolidKmers;
+            this.reverseComplement = reverseComplement;
         }
         
         @Override
@@ -2633,7 +2639,7 @@ public class RNABloom {
                         continue;
                     }
                     
-                    String seq = nameSeqPair[1];
+                    String seq = reverseComplement ? reverseComplement(nameSeqPair[1]) : nameSeqPair[1];
                    
                     ArrayList<Kmer> kmers = graph.getKmers(seq);
                     
@@ -2678,7 +2684,14 @@ public class RNABloom {
         }
     }
     
-    public void correctLongReadsMultithreaded(String[] inputFastxPaths, FastaWriter[][] outFastaWriters, int minKmerCov, int maxErrCorrItr, int numThreads, int maxSampleSize, int minSeqLen) throws InterruptedException, IOException, Exception {
+    public void correctLongReadsMultithreaded(String[] inputFastxPaths,
+                                                FastaWriter[][] outFastaWriters,
+                                                int minKmerCov,
+                                                int maxErrCorrItr,
+                                                int numThreads,
+                                                int maxSampleSize,
+                                                int minSeqLen,
+                                                boolean reverseComplement) throws InterruptedException, IOException, Exception {
         long numReads = 0;
         
         MyExecutorService service = new MyExecutorService(numThreads+1, numThreads+1);
@@ -2692,7 +2705,7 @@ public class RNABloom {
         int minNumSolidKmers = 100;
         
         for (int i=0; i<numCorrectionWorkers; ++i) {
-            LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov, minNumSolidKmers);
+            LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov, minNumSolidKmers, reverseComplement);
             correctionWorkers[i] = worker;
             service.submit(worker);
         }
@@ -3666,7 +3679,7 @@ public class RNABloom {
     
     private static void correctLongReads(RNABloom assembler, 
             String[] readFastxPaths, String[][] correctedLongReadFileNames, 
-            int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen) throws InterruptedException, IOException, Exception {
+            int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, boolean reverseComplement) throws InterruptedException, IOException, Exception {
         
         /* set up the file writers */
         final int numCovStrata = COVERAGE_ORDER.length;
@@ -3678,7 +3691,7 @@ public class RNABloom {
             }
         }
         
-        assembler.correctLongReadsMultithreaded(readFastxPaths, writers, minKmerCov, maxErrCorrItr, numThreads, sampleSize, minSeqLen);
+        assembler.correctLongReadsMultithreaded(readFastxPaths, writers, minKmerCov, maxErrCorrItr, numThreads, sampleSize, minSeqLen, reverseComplement);
         
 //        if (numThreads == 1) {
 //            assembler.correctLongReadsSingleThreaded(readFastxPaths, writers, minKmerCov, maxErrCorrItr, sampleSize, minSeqLen);
@@ -4213,6 +4226,13 @@ public class RNABloom {
                                     .hasArg(false)
                                     .build();
         options.addOption(optRevCompRight);
+
+        Option optRevCompLong = Option.builder("rc")
+                                    .longOpt("revcomp-long")
+                                    .desc("reverse-complement long reads [false]")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optRevCompLong);
         
         Option optStranded = Option.builder("ss")
                                     .longOpt("stranded")
@@ -4787,6 +4807,7 @@ public class RNABloom {
             
             final boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
             final boolean revCompRight = line.hasOption(optRevCompRight.getOpt());
+            final boolean revCompLong = line.hasOption(optRevCompLong.getOpt());
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             final boolean writeUracil = line.hasOption(optUracil.getOpt());
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
@@ -5000,7 +5021,7 @@ public class RNABloom {
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                 
                 boolean storeReadPairedKmers = forwardFilesList.size() > 0 || backwardFilesList.size() > 0;
-                assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, strandSpecific, numThreads, false, storeReadPairedKmers);
+                assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, strandSpecific, revCompLong, numThreads, false, storeReadPairedKmers);
                 
                 if (!assembler.withinMaxFPR(maxFPR)) {
                     System.out.println("WARNING: Bloom filter FPR is higher than the maximum allowed FPR (" + maxFPR*100 +"%)!");
@@ -5039,7 +5060,7 @@ public class RNABloom {
                     
                     System.out.println("Repopulate graph ...");
                     
-                    assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, strandSpecific, numThreads, false, storeReadPairedKmers);
+                    assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, strandSpecific, revCompLong, numThreads, false, storeReadPairedKmers);
                 }    
                 
                 
@@ -5164,7 +5185,8 @@ public class RNABloom {
                     
                     correctLongReads(assembler,
                             longReadPaths, correctedLongReadFileNames,
-                            maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength);
+                            maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength,
+                            revCompLong);
                     
                     touch(longReadsCorrectedStamp);
                 }

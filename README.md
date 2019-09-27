@@ -87,15 +87,21 @@ cell2 /path/to/cell2/left.fastq.gz /path/to/cell2/right.fastq.gz
 cell3 /path/to/cell3/left.fastq.gz /path/to/cell3/right.fastq.gz
 ```
 
-### assemble nanopore cDNA sequencing data:
+### assemble nanopore PCR cDNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -ntcard -long READS.fa -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long READS.fa -ntcard -t THREADS -outdir OUTDIR
+```
+
+### assemble nanopore direct cDNA sequencing data:
+```
+java -jar RNA-Bloom.jar -long READS.fa -stranded -revcomp-long -ntcard -t THREADS -outdir OUTDIR
 ```
 
 ### assemble nanopore direct RNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -stranded -ntcard -long READS.fa -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long READS.fa -stranded -ntcard -t THREADS -outdir OUTDIR
 ```
+All `U`s are written as `T`s by default, but you may request `U`s instead of `T`s using the `-uracil` option.
 
 ### set the Bloom filter sizes based on the maximum allowable false positive rate and the expected number of unique k-mers:
 ```

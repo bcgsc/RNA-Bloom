@@ -71,18 +71,18 @@ public class Layout {
         return !record.reverseComplemented && isContainmentPafRecord(record);
     }
     
-    private boolean isDovetailPafRecord(PafRecord record) {
-        if (record.numMatch >= minOverlapMatches &&
-            record.numMatch / (float)(record.qEnd - record.qStart) >= minAlnId &&
-            record.numMatch / (float)(record.tEnd - record.tStart) >= minAlnId) {
+    private boolean isDovetailPafRecord(PafRecord r) {
+        if (r.numMatch >= minOverlapMatches &&
+            r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
+            r.numMatch / (float)(r.tEnd - r.tStart) >= minAlnId) {
 
-            if (record.reverseComplemented) {
-                return (record.qEnd >= record.qLen - maxEdgeClip && record.tEnd >= record.tLen - maxEdgeClip) ||
-                        (record.tStart <= maxEdgeClip && record.qStart <= maxEdgeClip);
+            if (r.reverseComplemented) {
+                return (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip && r.qStart > r.tLen - r.tEnd) ||
+                        (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip && r.qLen - r.qStart > r.tStart);
             }
             else {
-                return (record.qEnd >= record.qLen - maxEdgeClip && record.tStart <= maxEdgeClip) ||
-                        (record.tEnd >= record.tLen - maxEdgeClip && record.qStart <= maxEdgeClip);
+                return (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip && r.qStart > r.tStart) ||
+                        (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip && r.tStart > r.qStart);
             }
 
         }
@@ -369,14 +369,11 @@ public class Layout {
         System.out.println("Overlapped reads: " + lengths.size());
         
         // look for longest reads
-        HashSet<String> longestSet = new HashSet<>();
+        HashSet<String> longestSet = new HashSet<>(longestAlts.values());
         for (String name : lengths.keySet()) {
-            // get the longest representation of the sequence
-            while (longestAlts.containsKey(name)) {
-                name = longestAlts.get(name);
+            if (!longestAlts.containsKey(name) && !longestSet.contains(name)) {
+                longestSet.add(name);
             }
-
-            longestSet.add(name);
         }
         
         System.out.println("      - unique:   " + Integer.toString(longestSet.size()));
@@ -521,14 +518,11 @@ public class Layout {
         System.out.println("Overlapped reads: " + lengths.size());
         
         // look for longest reads
-        HashSet<String> longestSet = new HashSet<>();
+        HashSet<String> longestSet = new HashSet<>(longestAlts.values());
         for (String name : lengths.keySet()) {
-            // get the longest representation of the sequence
-            while (longestAlts.containsKey(name)) {
-                name = longestAlts.get(name);
+            if (!longestAlts.containsKey(name) && !longestSet.contains(name)) {
+                longestSet.add(name);
             }
-
-            longestSet.add(name);
         }
         
         System.out.println("      - unique:   " + Integer.toString(longestSet.size()));
@@ -536,7 +530,7 @@ public class Layout {
         
         // add nodes for reads
         for (String name : longestSet) {
-            graph.addVertex(name);
+            graph.addVertex(name + "+");
         }        
         
         // add edges for dovetails
