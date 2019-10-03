@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -1101,11 +1102,11 @@ public class RNABloom {
         }
 
         private void storeConsistentReadSegments(String fragment, ArrayList<Kmer> txptKmers) throws InterruptedException {
-            ArrayDeque<ArrayList<Kmer>> readSegments = breakWithReadPairedKmers(txptKmers, graph, lookahead);
+            ArrayDeque<int[]> ranges = breakWithReadPairedKmers(txptKmers, graph, lookahead);
 
-            int numReadSegs = readSegments.size();
+            int numSegments = ranges.size();
 
-            if (numReadSegs == 1) {
+            if (numSegments == 1) {
                 if (!keepArtifact) {
                     if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
                         txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
@@ -1116,11 +1117,11 @@ public class RNABloom {
                     transcripts.put(new Transcript(fragment, txptKmers));
                 }
             }
-            else if (numReadSegs > 1) {
+            else if (numSegments > 1) {
                 int numFragKmers = getNumKmers(fragment, k);
-                for (ArrayList<Kmer> r : readSegments) {
-                    String rAssembled = graph.assemble(r);
-                    if (r.size() >= numFragKmers && rAssembled.contains(fragment)) {
+                for (int[] range : ranges) {
+                    String rAssembled = graph.assemble(txptKmers, range[0], range[1]);
+                    if (range[1]-range[0] >= numFragKmers && rAssembled.contains(fragment)) {
                         if (!keepArtifact) {
                             if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
                                 txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
@@ -1128,7 +1129,7 @@ public class RNABloom {
                             }
                         }
                         else {
-                            transcripts.put(new Transcript(fragment, r));
+                            transcripts.put(new Transcript(fragment, new ArrayList<>(txptKmers.subList(range[0], range[1]))));
                         }
                         
                         break;
@@ -1172,18 +1173,27 @@ public class RNABloom {
                                 extendPE(kmers, graph, maxTipLength, minKmerCov);
 
                                 if (reqFragKmersConsistency && kmers.size() >= fragKmersDist) {
-                                    ArrayDeque<ArrayList<Kmer>> fragSegments = breakWithFragPairedKmers(kmers, graph);
-                                    int numFragSegs = fragSegments.size();
+                                    ArrayDeque<int[]> ranges = breakWithFragPairedKmers(kmers, graph);
+                                    int numFragSegs = ranges.size();
 
                                     if (numFragSegs == 1) {
-                                        storeConsistentReadSegments(fragment, fragSegments.getFirst());
+                                        int[] range = ranges.peekFirst();
+                                        if (range[0] != 0 || range[1] != kmers.size()) {
+                                            storeConsistentReadSegments(fragment, new ArrayList<>(kmers.subList(range[0], range[1])));
+                                        }
+                                        else {
+                                            storeConsistentReadSegments(fragment, kmers);
+                                        }
                                     }
                                     else if (numFragSegs > 1) {
                                         int originalFragKmersSize = originalFragKmers.size();
-                                        for (ArrayList<Kmer> seg : fragSegments) {
-                                            if (seg.size() >= originalFragKmersSize && new HashSet<>(seg).containsAll(originalFragKmers)) {
-                                                storeConsistentReadSegments(fragment, seg);
-                                                break;
+                                        for (int[] range : ranges) {
+                                            if (range[1]-range[0] >= originalFragKmersSize) {
+                                                List<Kmer> segment = kmers.subList(range[0], range[1]);
+                                                if (new HashSet<>(segment).containsAll(originalFragKmers)) {
+                                                    storeConsistentReadSegments(fragment, new ArrayList<>(segment));
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
@@ -1308,9 +1318,9 @@ public class RNABloom {
                     ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound-k+1-leftKmers.size()-rightKmers.size(),
                             lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity, minKmerCov);
 
-                    ArrayDeque<ArrayList<Kmer>> segments = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
+                    ArrayDeque<int[]> ranges = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
                     
-                    if (segments.size() != 1) {
+                    if (ranges.size() != 1) {
                         fragmentKmers = null;
                     }
                     
@@ -1535,9 +1545,9 @@ public class RNABloom {
                     }
                     
                     if (graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
-                        ArrayDeque<ArrayList<Kmer>> segments = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
+                        ArrayDeque<int[]> ranges = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
 
-                        if (segments.size() != 1) {
+                        if (ranges.size() != 1) {
                             fragmentKmers = null;
                         }
                     }
