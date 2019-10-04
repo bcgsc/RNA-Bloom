@@ -140,7 +140,7 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
         unsafe.freeMemory(start);
     }
     
-    private final static int TMP_BUFF_SIZE = 100000000; // 100 MB
+    private final static int TMP_BUFF_SIZE = 1000000000; // 1 GB
     
     @Override
     public void write(FileOutputStream out) throws IOException {        
@@ -164,6 +164,8 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
             
             out.write(buffer);
         }
+        
+        out.flush();
     }
     
     @Override

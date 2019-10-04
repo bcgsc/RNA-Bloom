@@ -128,10 +128,10 @@ public class LargeByteBuffer extends AbstractLargeByteBuffer {
         this.empty();
     }
     
-    private final static int TMP_BUFF_SIZE = 100000000;
+    private final static int TMP_BUFF_SIZE = 1000000000; // 1 GB
     
     @Override
-    public void write(FileOutputStream out) throws IOException {
+    public void write(FileOutputStream out) throws IOException {        
         byte[] buffer = new byte[TMP_BUFF_SIZE];
         long i = 0;
         
