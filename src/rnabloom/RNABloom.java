@@ -4589,6 +4589,12 @@ public class RNABloom {
                                     .build();
         options.addOption(optFpr);
         
+        Option optSaveBf = Option.builder("savebf")
+                                    .desc("save graph from stage 1 (ie. Bloom filters) to disk")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optSaveBf);  
+        
         final String optTipLengthDefault = "5";
         Option optTipLength = Option.builder("tiplength")
                                     .desc("maximum branch length to be considered a tip [" + optTipLengthDefault + "]")
@@ -4999,6 +5005,7 @@ public class RNABloom {
             final int pkbfNumHash = Integer.parseInt(line.getOptionValue(optPkbfHash.getOpt(), allNumHashStr));
             
             final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), optFprDefault));
+            final boolean saveGraph = line.hasOption(optSaveBf.getOpt());
                         
             long expNumKmers = -1L;
             if (line.hasOption(optNtcard.getOpt())) {
@@ -5217,13 +5224,13 @@ public class RNABloom {
                     assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, refFilesList, strandSpecific, revCompLong, numThreads, false, storeReadPairedKmers);
                 }    
                 
-                
-                System.out.println("Saving graph to file `" + graphFile + "`...");
-                assembler.saveGraph(new File(graphFile));
+                if (saveGraph) {
+                    System.out.println("Saving graph to disk `" + graphFile + "`...");
+                    assembler.saveGraph(new File(graphFile));
+                    touch(dbgDoneStamp);
+                }
                 
                 System.out.println("> Stage 1 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                
-                touch(dbgDoneStamp);
                 
                 if (endstage <= 1) {
                     System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
