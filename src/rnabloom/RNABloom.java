@@ -1069,6 +1069,13 @@ public class RNABloom {
         }
     }
     
+    private static int intervalOverlapSize(int[] x, int[] y) {
+        int start = Math.max(x[0], y[0]);
+        int end = Math.min(x[1], y[1]);
+        
+        return Math.max(0, end-start);
+    }
+    
     private class TranscriptAssemblyWorker implements Runnable {
         
         private final ArrayBlockingQueue<String> fragments;
@@ -1100,43 +1107,6 @@ public class RNABloom {
         public void stopWhenEmpty () {
             keepGoing = false;
         }
-
-        private void storeConsistentReadSegments(String fragment, ArrayList<Kmer> txptKmers) throws InterruptedException {
-            ArrayDeque<int[]> ranges = breakWithReadPairedKmers(txptKmers, graph, lookahead);
-
-            int numSegments = ranges.size();
-
-            if (numSegments == 1) {
-                if (!keepArtifact) {
-                    if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
-                        txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
-                        transcripts.put(new Transcript(fragment, txptKmers));
-                    }
-                }
-                else {
-                    transcripts.put(new Transcript(fragment, txptKmers));
-                }
-            }
-            else if (numSegments > 1) {
-                int numFragKmers = getNumKmers(fragment, k);
-                for (int[] range : ranges) {
-                    String rAssembled = graph.assemble(txptKmers, range[0], range[1]);
-                    if (range[1]-range[0] >= numFragKmers && rAssembled.contains(fragment)) {
-                        if (!keepArtifact) {
-                            if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
-                                txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
-                                transcripts.put(new Transcript(fragment, txptKmers));
-                            }
-                        }
-                        else {
-                            transcripts.put(new Transcript(fragment, new ArrayList<>(txptKmers.subList(range[0], range[1]))));
-                        }
-                        
-                        break;
-                    }
-                }
-            }
-        }
         
         @Override
         public void run() {
@@ -1146,6 +1116,10 @@ public class RNABloom {
                 boolean keepBluntEndArtifact = keepArtifact;
                 
                 while (true) {
+//                    String seq = "";
+//                    ArrayList<Kmer> kmers2 = graph.getKmers(seq);
+//                    printPairedKmersPositions(kmers2, graph);
+                    
                     String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
                     
                     if (fragment == null) {
@@ -1157,8 +1131,6 @@ public class RNABloom {
                         ArrayList<Kmer> kmers = graph.getKmers(fragment);
                         
                         if (!kmers.isEmpty()) {
-                            ArrayList<Kmer> originalFragKmers = new ArrayList<>(kmers);
-
                             if ( (!extendBranchFreeFragmentsOnly || isBranchFree(kmers, graph, maxTipLength)) &&
                                  !represented(kmers,
                                                 graph,
@@ -1170,36 +1142,76 @@ public class RNABloom {
                                  (keepChimera || !isChimera(kmers, graph, screeningBf, lookahead)) &&
                                  (keepBluntEndArtifact || !isBluntEndArtifact(kmers, graph, screeningBf, maxEdgeClipLength)) ) {
                                 
-                                extendPE(kmers, graph, maxTipLength, minKmerCov);
+                                int[] originalFragRange = extendPE(kmers, graph, maxTipLength, minKmerCov);
 
-                                if (reqFragKmersConsistency && kmers.size() >= fragKmersDist) {
-                                    ArrayDeque<int[]> ranges = breakWithFragPairedKmers(kmers, graph);
-                                    int numFragSegs = ranges.size();
+                                int[] currentRange = new int[]{0, kmers.size()};
+                                
+                                if (reqFragKmersConsistency) {
+                                    if (kmers.size() >= fragKmersDist) {
+                                        ArrayDeque<int[]> ranges = breakWithFragPairedKmers(kmers, graph, lookahead);
+                                        int numFragSegs = ranges.size();
 
-                                    if (numFragSegs == 1) {
-                                        int[] range = ranges.peekFirst();
-                                        if (range[0] != 0 || range[1] != kmers.size()) {
-                                            storeConsistentReadSegments(fragment, new ArrayList<>(kmers.subList(range[0], range[1])));
+                                        if (numFragSegs == 1) {
+                                            currentRange = ranges.peekFirst();
                                         }
-                                        else {
-                                            storeConsistentReadSegments(fragment, kmers);
-                                        }
-                                    }
-                                    else if (numFragSegs > 1) {
-                                        int originalFragKmersSize = originalFragKmers.size();
-                                        for (int[] range : ranges) {
-                                            if (range[1]-range[0] >= originalFragKmersSize) {
-                                                List<Kmer> segment = kmers.subList(range[0], range[1]);
-                                                if (new HashSet<>(segment).containsAll(originalFragKmers)) {
-                                                    storeConsistentReadSegments(fragment, new ArrayList<>(segment));
-                                                    break;
+                                        else if (numFragSegs > 1) {
+                                            int bestOverlap = 0;
+                                            int[] bestRange = null;
+                                            for (int[] range : ranges) {
+                                                int overlap = intervalOverlapSize(range, originalFragRange);
+                                                if (overlap > bestOverlap) {
+                                                    bestOverlap = overlap;
+                                                    bestRange = range;
                                                 }
                                             }
+
+                                            currentRange = bestRange;
+                                        }
+                                        else {
+                                            currentRange = null;
                                         }
                                     }
+                                    else {
+                                        currentRange = null;
+                                    }
                                 }
-                                else {
-                                    storeConsistentReadSegments(fragment, kmers);
+                                
+                                if (currentRange != null) {
+                                    ArrayDeque<int[]> ranges = breakWithReadPairedKmers(kmers, graph, lookahead, currentRange[0], currentRange[1]);
+                                    int numFragSegs = ranges.size();
+
+                                    if (numFragSegs > 0) {
+                                        if (numFragSegs == 1) {
+                                            currentRange = ranges.peekFirst();
+                                        }
+                                        else if (numFragSegs > 1) {
+                                            int bestOverlap = 0;
+                                            int[] bestRange = null;
+                                            for (int[] range : ranges) {
+                                                int overlap = intervalOverlapSize(range, originalFragRange);
+                                                if (overlap > bestOverlap) {
+                                                    bestOverlap = overlap;
+                                                    bestRange = range;
+                                                }
+                                            }
+
+                                            currentRange = bestRange;
+                                        }
+                                        
+                                        if (currentRange != null) {
+                                            ArrayList<Kmer> txptKmers = new ArrayList<>(kmers.subList(currentRange[0], currentRange[1]));
+
+                                            if (!keepArtifact) {
+                                                if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
+                                                    txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
+                                                    transcripts.put(new Transcript(fragment, txptKmers));
+                                                }
+                                            }
+                                            else {
+                                                transcripts.put(new Transcript(fragment, txptKmers));
+                                            }     
+                                        }
+                                    }
                                 }
                             }
                         }
