@@ -144,7 +144,7 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     
     @Override
     public void write(FileOutputStream out) throws IOException {        
-        byte[] buffer = new byte[TMP_BUFF_SIZE];
+        byte[] buffer = size>TMP_BUFF_SIZE ? new byte[TMP_BUFF_SIZE] : new byte[(int)size];
         long i = 0;
         
         while (i < size) {
@@ -170,7 +170,7 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     
     @Override
     public void read(FileInputStream in) throws IOException {
-        byte[] buffer = new byte[TMP_BUFF_SIZE];
+        byte[] buffer = size>TMP_BUFF_SIZE ? new byte[TMP_BUFF_SIZE] : new byte[(int)size];
         long i = 0;
         
         while (i < size) {
