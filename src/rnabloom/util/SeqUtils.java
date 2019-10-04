@@ -89,6 +89,15 @@ public final class SeqUtils {
         return sb.toString();
     }
     
+    public static final String getHeadTailSummary(String seq, int k) {
+        int fragLen = seq.length();
+        if (fragLen > 2*k) {
+            return seq.substring(0, k) + "{" + Integer.toString(fragLen-2*k) + "}" + seq.substring(fragLen-k, fragLen);
+        }
+        
+        return seq;
+    }
+    
     public static final byte[] shiftRight(byte[] bytes, int len) {
         byte[] bytes2 = new byte[len];
         System.arraycopy(bytes, 0, bytes2, 1, len-1);

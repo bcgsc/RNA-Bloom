@@ -1204,11 +1204,11 @@ public class RNABloom {
                                             if (!keepArtifact) {
                                                 if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
                                                     txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
-                                                    transcripts.put(new Transcript(fragment, txptKmers));
+                                                    transcripts.put(new Transcript(getHeadTailSummary(fragment, k), txptKmers));
                                                 }
                                             }
                                             else {
-                                                transcripts.put(new Transcript(fragment, txptKmers));
+                                                transcripts.put(new Transcript(getHeadTailSummary(fragment, k), txptKmers));
                                             }     
                                         }
                                     }
@@ -1589,7 +1589,7 @@ public class RNABloom {
                                 graph.addPairedKmers(fragmentKmers);
                             }
 
-                            outList.put(new Fragment(left, right, fragmentKmers, fragLength, minCov, false));
+                            outList.put(new Fragment(getHeadTailSummary(left, k), getHeadTailSummary(right, k), fragmentKmers, fragLength, minCov, false));
                         }
                     }
                 }
@@ -1626,8 +1626,8 @@ public class RNABloom {
                     }
 
                     if (hasComplexLeftKmer || hasComplexRightKmer) {
-                        left = leftBad ? "" : graph.assemble(leftKmers);
-                        right = rightBad ? "" : graph.assemble(rightKmers);
+                        left = leftBad ? "" : getHeadTailSummary(left, k);
+                        right = rightBad ? "" : getHeadTailSummary(right, k);
                         
                         outList.put(new Fragment(left, right, null, 0, minCov, true));
                     }
