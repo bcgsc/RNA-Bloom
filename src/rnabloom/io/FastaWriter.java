@@ -17,19 +17,29 @@
 package rnabloom.io;
 
 import java.io.BufferedWriter;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.util.zip.GZIPOutputStream;
 
 /**
  *
  * @author Ka Ming Nip
  */
 public class FastaWriter {
-    private final BufferedWriter out;
+    private final static String GZIP_EXTENSION = ".gz";
+    private final Writer out;
     //private FileLock lock = null;
     
     public FastaWriter(String path, boolean append) throws IOException {
-        out = new BufferedWriter(new FileWriter(path, append));
+        if (path.toLowerCase().endsWith(GZIP_EXTENSION)) {
+            out = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(path, append)), "UTF-8");
+        }
+        else {
+            out = new BufferedWriter(new FileWriter(path, append));
+        }
         /*
         FileOutputStream stream = new FileOutputStream(path, append);
         out = new BufferedWriter(new OutputStreamWriter(stream));
@@ -43,11 +53,11 @@ public class FastaWriter {
     }
     
     public synchronized void write(String header, String seq) throws IOException {
-        out.write(">");
+        out.write('>');
         out.write(header);
-        out.newLine();
+        out.write('\n');
         out.write(seq);
-        out.newLine();
+        out.write('\n');
     }
     
     public void close() throws IOException {

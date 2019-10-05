@@ -96,6 +96,8 @@ public class RNABloom {
     public final static long NUM_BYTES_1MB = (long) pow(1024, 2);
     public final static long NUM_BYTES_1KB = (long) 1024;
     
+    private final static String FASTA_EXT = ".fa";
+    
     private boolean debug = false;
     private int k;
     private boolean strandSpecific;
@@ -2264,11 +2266,11 @@ public class RNABloom {
     }
     
     private static void mergeClusterFastas(int target, int maxAltID, String clusteredLongReadsDirectory) throws IOException {
-        String path = clusteredLongReadsDirectory + File.separator + target + ".fa";
+        String path = clusteredLongReadsDirectory + File.separator + target + FASTA_EXT;
         
         FastaWriter writer = new FastaWriter(path, true);
         for (int i=0; i<=maxAltID; ++i) {
-            path = clusteredLongReadsDirectory + File.separator + target + "_" + i + ".fa";
+            path = clusteredLongReadsDirectory + File.separator + target + "_" + i + FASTA_EXT;
             FastaReader reader = new FastaReader(path);
             while (reader.hasNext()) {
                 String[] nameSeqPair = reader.nextWithName();
@@ -2285,14 +2287,14 @@ public class RNABloom {
         int altID = altIDs.get(target);
         
         for (int i : overlaps) {
-            Path source = Paths.get(clusteredLongReadsDirectory + File.separator + i + ".fa");
-            Path dest = Paths.get(clusteredLongReadsDirectory + File.separator + target + "_" + ++altID + ".fa");
+            Path source = Paths.get(clusteredLongReadsDirectory + File.separator + i + FASTA_EXT);
+            Path dest = Paths.get(clusteredLongReadsDirectory + File.separator + target + "_" + ++altID + FASTA_EXT);
             Files.move(source, dest);
             
             int overlapAltID = altIDs.get(i);
             for (int j=0; j<=overlapAltID; ++j) {
-                source = Paths.get(clusteredLongReadsDirectory + File.separator + i + "_" + j + ".fa");
-                dest = Paths.get(clusteredLongReadsDirectory + File.separator + target + "_" + ++altID + ".fa");
+                source = Paths.get(clusteredLongReadsDirectory + File.separator + i + "_" + j + FASTA_EXT);
+                dest = Paths.get(clusteredLongReadsDirectory + File.separator + target + "_" + ++altID + FASTA_EXT);
                 Files.move(source, dest);
             }
             
@@ -2445,7 +2447,7 @@ public class RNABloom {
                     }
                     
                     /** add sequence to target cluster*/
-                    String path = clusteredLongReadsDirectory + File.separator + bestTargetSketchID + ".fa";
+                    String path = clusteredLongReadsDirectory + File.separator + bestTargetSketchID + FASTA_EXT;
                     FastaWriter writer = new FastaWriter(path, true);
                     writer.write(name, seq);
                     writer.close();
@@ -2489,8 +2491,8 @@ public class RNABloom {
         
         for (File f : new File(clusteredLongReadsDirectory).listFiles()) {
             String name = f.getName();
-            if (name.endsWith(".fa")) {
-                clusterIDs.add(Integer.parseInt(name.substring(0, name.lastIndexOf(".fa"))));
+            if (name.endsWith(FASTA_EXT)) {
+                clusterIDs.add(Integer.parseInt(name.substring(0, name.lastIndexOf(FASTA_EXT))));
             }
         }
         
@@ -2503,9 +2505,9 @@ public class RNABloom {
             File stampFile = new File(stampPath);
             
             if (!stampFile.exists()) {
-                String readsPath = clusteredLongReadsDirectory + File.separator + clusterID + ".fa";
+                String readsPath = clusteredLongReadsDirectory + File.separator + clusterID + FASTA_EXT;
                 String tmpPrefix = assembledLongReadsDirectory + File.separator + clusterID;
-                String concensusPath = assembledLongReadsDirectory + File.separator + clusterID + "_transcripts.fa";
+                String concensusPath = assembledLongReadsDirectory + File.separator + clusterID + "_transcripts" + FASTA_EXT;
 
                 System.out.println("Assembling cluster `" + clusterID + "`...");
 
@@ -2522,7 +2524,7 @@ public class RNABloom {
         }
         
         boolean ok = errors.isEmpty();
-        String assembledLongReadsConcatenated = assembledLongReadsDirectory + File.separator + "all_transcripts.fa";
+        String assembledLongReadsConcatenated = assembledLongReadsDirectory + File.separator + "all_transcripts" + FASTA_EXT;
         String tmpPrefix = assembledLongReadsDirectory + File.separator + "all_transcripts_overlap";
         
         if (ok) {
@@ -2532,7 +2534,7 @@ public class RNABloom {
             FastaWriter fout = new FastaWriter(assembledLongReadsConcatenated, false);
             FastaReader fin;
             for (int clusterID : clusterIDs) {
-                String clusterAssemblyPath = assembledLongReadsDirectory + File.separator + clusterID + "_transcripts.fa";
+                String clusterAssemblyPath = assembledLongReadsDirectory + File.separator + clusterID + "_transcripts" + FASTA_EXT;
                 fin = new FastaReader(clusterAssemblyPath);
                 while(fin.hasNext()) {
                     String[] nameCommentSeq = fin.nextWithComment();
@@ -3906,55 +3908,55 @@ public class RNABloom {
         final String shortPolyaFragmentsFastaPrefix =     outdir + File.separator + name + ".fragments.polya.short.";
         final String unconnectedPolyaReadsFastaPrefix =   outdir + File.separator + name + ".unconnected.polya.";
         
-        final String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                        longFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                        longFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                        longFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                        longFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                        longFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+        final String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                        longFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                        longFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                        longFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                        longFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                        longFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-        final String[] shortFragmentsFastaPaths = {shortFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+        final String[] shortFragmentsFastaPaths = {shortFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-        final String[] unconnectedReadsFastaPaths = {unconnectedReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+        final String[] unconnectedReadsFastaPaths = {unconnectedReadsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-        final String[] longPolyaFragmentsFastaPaths = {longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+        final String[] longPolyaFragmentsFastaPaths = {longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-        final String[] shortPolyaFragmentsFastaPaths = {shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+        final String[] shortPolyaFragmentsFastaPaths = {shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-        final String[] unconnectedPolyaReadsFastaPaths = {unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+        final String[] unconnectedPolyaReadsFastaPaths = {unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
         
-        final String longSingletonsFastaPath = longFragmentsFastaPrefix + "01.fa";
-        final String shortSingletonsFastaPath = shortFragmentsFastaPrefix + "01.fa";
-        final String unconnectedSingletonsFastaPath = unconnectedReadsFastaPrefix + "01.fa";
+        final String longSingletonsFastaPath = longFragmentsFastaPrefix + "01" + FASTA_EXT;
+        final String shortSingletonsFastaPath = shortFragmentsFastaPrefix + "01" + FASTA_EXT;
+        final String unconnectedSingletonsFastaPath = unconnectedReadsFastaPrefix + "01" + FASTA_EXT;
         
-        final String longPolyaSingletonsFastaPath = longPolyaFragmentsFastaPrefix + "01.fa";
-        final String shortPolyaSingletonsFastaPath = shortPolyaFragmentsFastaPrefix + "01.fa";
-        final String unconnectedPolyaSingletonsFastaPath = unconnectedPolyaReadsFastaPrefix + "01.fa";
+        final String longPolyaSingletonsFastaPath = longPolyaFragmentsFastaPrefix + "01" + FASTA_EXT;
+        final String shortPolyaSingletonsFastaPath = shortPolyaFragmentsFastaPrefix + "01" + FASTA_EXT;
+        final String unconnectedPolyaSingletonsFastaPath = unconnectedPolyaReadsFastaPrefix + "01" + FASTA_EXT;
 
         final File fragsDoneStamp = new File(outdir + File.separator + STAMP_FRAGMENTS_DONE);
         
@@ -4099,55 +4101,55 @@ public class RNABloom {
             final String shortPolyaFragmentsFastaPrefix =   outdir + File.separator + name + ".fragments.polya.short.";
             final String unconnectedPolyaReadsFastaPrefix = outdir + File.separator + name + ".unconnected.polya.";
 
-            final String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            final String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                            longFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                            longFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                            longFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                            longFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                            longFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-            final String[] shortFragmentsFastaPaths = {shortFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            final String[] shortFragmentsFastaPaths = {shortFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-            final String[] unconnectedReadsFastaPaths = {unconnectedReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            final String[] unconnectedReadsFastaPaths = {unconnectedReadsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-            final String longSingletonsFastaPath = longFragmentsFastaPrefix + "01.fa";
-            final String shortSingletonsFastaPath = shortFragmentsFastaPrefix + "01.fa";
-            final String unconnectedSingletonsFastaPath = unconnectedReadsFastaPrefix + "01.fa";
+            final String longSingletonsFastaPath = longFragmentsFastaPrefix + "01" + FASTA_EXT;
+            final String shortSingletonsFastaPath = shortFragmentsFastaPrefix + "01" + FASTA_EXT;
+            final String unconnectedSingletonsFastaPath = unconnectedReadsFastaPrefix + "01" + FASTA_EXT;
             
-            final String[] longPolyaFragmentsFastaPaths = {longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            final String[] longPolyaFragmentsFastaPaths = {longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-            final String[] shortPolyaFragmentsFastaPaths = {shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            final String[] shortPolyaFragmentsFastaPaths = {shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-            final String[] unconnectedPolyaReadsFastaPaths = {unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[0] + ".fa",
-                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[1] + ".fa",
-                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[2] + ".fa",
-                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[3] + ".fa",
-                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[4] + ".fa",
-                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[5] + ".fa"};
+            final String[] unconnectedPolyaReadsFastaPaths = {unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-            final String longPolyaSingletonsFastaPath = longPolyaFragmentsFastaPrefix + "01.fa";
-            final String shortPolyaSingletonsFastaPath = shortPolyaFragmentsFastaPrefix + "01.fa";
-            final String unconnectedPolyaSingletonsFastaPath = unconnectedPolyaReadsFastaPrefix + "01.fa";
+            final String longPolyaSingletonsFastaPath = longPolyaFragmentsFastaPrefix + "01" + FASTA_EXT;
+            final String shortPolyaSingletonsFastaPath = shortPolyaFragmentsFastaPrefix + "01" + FASTA_EXT;
+            final String unconnectedPolyaSingletonsFastaPath = unconnectedPolyaReadsFastaPrefix + "01" + FASTA_EXT;
             
             final String graphFile = outdir + File.separator + name + ".graph";
             
@@ -5351,7 +5353,7 @@ public class RNABloom {
                     for (int l=0; l<numLenStrata; ++l) {
                         String lengthStratumName = LENGTH_STRATUM_NAMES[l];
 
-                        String correctedLongReadsFasta = correctedLongReadFilePrefix + "." + covStratumName + "." + lengthStratumName + ".fa";
+                        String correctedLongReadsFasta = correctedLongReadFilePrefix + "." + covStratumName + "." + lengthStratumName + FASTA_EXT;
                         correctedLongReadFileNames[c][l] = correctedLongReadsFasta;
                     }
                 }
