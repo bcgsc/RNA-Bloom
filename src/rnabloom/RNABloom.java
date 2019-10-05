@@ -96,6 +96,7 @@ public class RNABloom {
     public final static long NUM_BYTES_1MB = (long) pow(1024, 2);
     public final static long NUM_BYTES_1KB = (long) 1024;
     
+    private boolean debug = false;
     private int k;
     private boolean strandSpecific;
     private Pattern seqPattern;
@@ -171,10 +172,10 @@ public class RNABloom {
         return getStratumIndex(name1) > getStratumIndex(name2);
     }
     
-    public RNABloom(int k, int qDBG, int qFrag) {
+    public RNABloom(int k, int qDBG, int qFrag, boolean debug) {
         this.qDBG = qDBG;
         this.qFrag = qFrag;
-        
+        this.debug = debug;
         this.setK(k);
     }
     
@@ -978,9 +979,11 @@ public class RNABloom {
                 headerBuilder.append(++cid);
                 headerBuilder.append(" l=");
                 headerBuilder.append(len);
-                headerBuilder.append(" F=[");
-                headerBuilder.append(fragment);
-                headerBuilder.append("]");
+                if (!fragment.isEmpty()) {
+                    headerBuilder.append(" F=[");
+                    headerBuilder.append(fragment);
+                    headerBuilder.append("]");
+                }
                 
                 if (minPolyATailLengthRequired > 0) {                    
                     if (pasPositions != null && !pasPositions.isEmpty()) {
@@ -1201,14 +1204,16 @@ public class RNABloom {
                                         if (currentRange != null) {
                                             ArrayList<Kmer> txptKmers = new ArrayList<>(kmers.subList(currentRange[0], currentRange[1]));
 
+                                            String fragInfo = debug ? fragment : "";
+                                            
                                             if (!keepArtifact) {
                                                 if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
                                                     txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
-                                                    transcripts.put(new Transcript(getHeadTailSummary(fragment, k), txptKmers));
+                                                    transcripts.put(new Transcript(fragInfo, txptKmers));
                                                 }
                                             }
                                             else {
-                                                transcripts.put(new Transcript(getHeadTailSummary(fragment, k), txptKmers));
+                                                transcripts.put(new Transcript(fragInfo, txptKmers));
                                             }     
                                         }
                                     }
@@ -1589,7 +1594,12 @@ public class RNABloom {
                                 graph.addPairedKmers(fragmentKmers);
                             }
 
-                            outList.put(new Fragment(getHeadTailSummary(left, k), getHeadTailSummary(right, k), fragmentKmers, fragLength, minCov, false));
+                            if (!debug) {
+                               left = "";
+                               right = "";
+                            }
+                            
+                            outList.put(new Fragment(left, right, fragmentKmers, fragLength, minCov, false));
                         }
                     }
                 }
@@ -1626,8 +1636,8 @@ public class RNABloom {
                     }
 
                     if (hasComplexLeftKmer || hasComplexRightKmer) {
-                        left = leftBad ? "" : getHeadTailSummary(left, k);
-                        right = rightBad ? "" : getHeadTailSummary(right, k);
+                        left = leftBad ? "" : left;
+                        right = rightBad ? "" : right;
                         
                         outList.put(new Fragment(left, right, null, 0, minCov, true));
                     }
@@ -3230,7 +3240,10 @@ public class RNABloom {
                                     }
                                 }
 
-                                String header = Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]";
+                                String header = Long.toString(++fragmentId);
+                                if (debug) {
+                                    header += " L=[" + frag.left + "] R=[" + frag.right + "]";
+                                }
                                 String seq = graph.assemble(fragKmers);
 
                                 FastaWriter writer = assignFragmentFastaWriter(frag, seq, assemblePolyaTails,
@@ -3309,7 +3322,10 @@ public class RNABloom {
                                         }
                                     }
 
-                                    String header = Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]";
+                                    String header = Long.toString(++fragmentId);
+                                    if (debug) {
+                                        header += " L=[" + frag.left + "] R=[" + frag.right + "]";
+                                    }
                                     String seq = graph.assemble(fragKmers);
 
                                     FastaWriter writer = assignFragmentFastaWriter(frag, seq, assemblePolyaTails,
@@ -3364,7 +3380,10 @@ public class RNABloom {
                                 }
                             }
 
-                            String header = Long.toString(++fragmentId) + " L=[" + frag.left + "] R=[" + frag.right + "]";
+                            String header = Long.toString(++fragmentId);
+                            if (debug) {
+                                header += " L=[" + frag.left + "] R=[" + frag.right + "]";
+                            }
                             String seq = graph.assemble(fragKmers);
 
                             FastaWriter writer = assignFragmentFastaWriter(frag, seq, assemblePolyaTails,
@@ -4748,6 +4767,12 @@ public class RNABloom {
                                     .build();
         options.addOption(optMinimapOptions);
 
+        Option optDebug = Option.builder("debug")
+                                    .desc("print debugging information [false]")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optDebug);
+        
 //        Option optHomopolymerCompressed = Option.builder("hpcm")
 //                                    .desc("use homopolymer-compressed minimizers in long-read clustering [false]\n(Requires `-long`)")
 //                                    .hasArg(false)
@@ -4786,6 +4811,7 @@ public class RNABloom {
                 exitOnError("Unknown stratum name specified, \"" + branchFreeExtensionThreshold + "\"");
             }
             
+            final boolean debug = line.hasOption(optDebug.getOpt());
             final int endstage = Integer.parseInt(line.getOptionValue(optStage.getOpt(), optStageDefault));
             final int numThreads = Integer.parseInt(line.getOptionValue(optThreads.getOpt(), optThreadsDefault));
             final boolean forceOverwrite = line.hasOption(optForce.getOpt());
@@ -5120,7 +5146,7 @@ public class RNABloom {
             System.out.println("====================================");
             System.out.println("Total:                 " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
             
-            RNABloom assembler = new RNABloom(k, qDBG, qFrag);
+            RNABloom assembler = new RNABloom(k, qDBG, qFrag, debug);
             assembler.setParams(strandSpecific, maxTipLen, lookahead, maxCovGradient, maxIndelSize, percentIdentity, minNumKmerPairs, minPolyATail);
 
             FileWriter writer = new FileWriter(startedStamp, false);
