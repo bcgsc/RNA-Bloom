@@ -4590,7 +4590,7 @@ public class RNABloom {
         options.addOption(optFpr);
         
         Option optSaveBf = Option.builder("savebf")
-                                    .desc("save graph from stage 1 (ie. Bloom filters) to disk")
+                                    .desc("save graph from stage 1 (ie. Bloom filters) to disk [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optSaveBf);  
