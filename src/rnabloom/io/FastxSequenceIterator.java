@@ -32,7 +32,11 @@ public class FastxSequenceIterator {
         this.fastxPaths = fastxPaths;
         fileCursor = 0;
         String path = fastxPaths[fileCursor];
-        
+        setReader(path);        
+        System.out.println("Parsing `" + path + "`...");
+    }
+    
+    private void setReader(String path) throws IOException {
         if (FastqReader.isCorrectFormat(path)) {
             reader = new FastqReader(path);
         }
@@ -42,8 +46,6 @@ public class FastxSequenceIterator {
         else {
             throw new FileFormatException("Incompatible file format for `" + path + "`");
         }
-        
-        System.out.println("Parsing `" + path + "`...");
     }
     
     public boolean hasNext() throws IOException {
@@ -57,17 +59,7 @@ public class FastxSequenceIterator {
             }
             
             String path = fastxPaths[fileCursor];
-        
-            if (FastqReader.isCorrectFormat(path)) {
-                reader = new FastqReader(path);
-            }
-            else if (FastaReader.isCorrectFormat(path)) {
-                reader = new FastaReader(path);
-            }
-            else {
-                throw new FileFormatException("Incompatible file format for `" + path + "`");
-            }
-            
+            setReader(path);            
             System.out.println("Parsing `" + path + "`...");
             
             return this.hasNext();
@@ -90,17 +82,7 @@ public class FastxSequenceIterator {
             }
             
             String path = fastxPaths[fileCursor];
-        
-            if (FastqReader.isCorrectFormat(path)) {
-                reader = new FastqReader(path);
-            }
-            else if (FastaReader.isCorrectFormat(path)) {
-                reader = new FastaReader(path);
-            }
-            else {
-                throw new FileFormatException("Incompatible file format for `" + path + "`");
-            }
-            
+            setReader(path);
             System.out.println("Parsing `" + path + "`...");
             
             return this.next();
@@ -123,17 +105,7 @@ public class FastxSequenceIterator {
             }
             
             String path = fastxPaths[fileCursor];
-        
-            if (FastqReader.isCorrectFormat(path)) {
-                reader = new FastqReader(path);
-            }
-            else if (FastaReader.isCorrectFormat(path)) {
-                reader = new FastaReader(path);
-            }
-            else {
-                throw new FileFormatException("Incompatible file format for `" + path + "`");
-            }
-            
+            setReader(path);
             System.out.println("Parsing `" + path + "`...");
             
             return this.nextWithName();
