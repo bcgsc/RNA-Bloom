@@ -3362,7 +3362,7 @@ public class RNABloom {
         
         boolean assemblePolyaTails = this.minPolyATailLengthRequired > 0;
         
-        ArrayBlockingQueue<PairedReadSegments> readPairs = new ArrayBlockingQueue<>(sampleSize);
+        ArrayBlockingQueue<PairedReadSegments> readPairs = new ArrayBlockingQueue<>(numThreads*2);
         ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
                 
         FragmentAssembler[] workers = new FragmentAssembler[numThreads];
@@ -3488,7 +3488,7 @@ public class RNABloom {
         long numFragmentsParsed = 0;
         FastaReader fin = new FastaReader(fragmentsFasta);
 
-        ArrayBlockingQueue<String> fragmentsQueue = new ArrayBlockingQueue<>(sampleSize, true);
+        ArrayBlockingQueue<String> fragmentsQueue = new ArrayBlockingQueue<>(numThreads*2, true);
         ArrayBlockingQueue<Transcript> transcriptsQueue = new ArrayBlockingQueue<>(numThreads*2, true);
         
         TranscriptAssemblyWorker[] workers = new TranscriptAssemblyWorker[numThreads];
