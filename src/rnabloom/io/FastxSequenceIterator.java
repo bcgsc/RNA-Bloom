@@ -31,9 +31,7 @@ public class FastxSequenceIterator {
     public FastxSequenceIterator(String[] fastxPaths) throws IOException {
         this.fastxPaths = fastxPaths;
         fileCursor = 0;
-        String path = fastxPaths[fileCursor];
-        setReader(path);        
-        System.out.println("Parsing `" + path + "`...");
+        setReader(fastxPaths[fileCursor]);
     }
     
     private void setReader(String path) throws IOException {
@@ -46,6 +44,8 @@ public class FastxSequenceIterator {
         else {
             throw new FileFormatException("Incompatible file format for `" + path + "`");
         }
+        
+        System.out.println("Parsing `" + path + "`...");
     }
     
     public boolean hasNext() throws IOException {
@@ -58,9 +58,7 @@ public class FastxSequenceIterator {
                 return false;
             }
             
-            String path = fastxPaths[fileCursor];
-            setReader(path);            
-            System.out.println("Parsing `" + path + "`...");
+            setReader(fastxPaths[fileCursor]);
             
             return this.hasNext();
         }
@@ -69,10 +67,8 @@ public class FastxSequenceIterator {
     }
 
     public String next() throws FileFormatException, IOException {
-        String seq;
-        
         try {
-            seq = reader.next();
+            return reader.next();
         }
         catch (NoSuchElementException e) {
             reader.close();
@@ -81,21 +77,15 @@ public class FastxSequenceIterator {
                 throw new NoSuchElementException();
             }
             
-            String path = fastxPaths[fileCursor];
-            setReader(path);
-            System.out.println("Parsing `" + path + "`...");
+            setReader(fastxPaths[fileCursor]);
             
             return this.next();
         }
-        
-        return seq;
     }
     
-    public String[] nextWithName() throws FileFormatException, IOException {
-        String[] nameSeqPair;
-        
+    public String[] nextWithName() throws FileFormatException, IOException {        
         try {
-            nameSeqPair = reader.nextWithName();
+            return reader.nextWithName();
         }
         catch (NoSuchElementException e) {
             reader.close();
@@ -104,14 +94,9 @@ public class FastxSequenceIterator {
                 throw new NoSuchElementException();
             }
             
-            String path = fastxPaths[fileCursor];
-            setReader(path);
-            System.out.println("Parsing `" + path + "`...");
+            setReader(fastxPaths[fileCursor]);
             
             return this.nextWithName();
         }
-        
-        return nameSeqPair;
     }
-    
 }

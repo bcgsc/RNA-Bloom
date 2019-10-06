@@ -24,12 +24,8 @@ public class FastxPairSequenceIterator {
         this.seqPattern = seqPattern;
         this.qualPattern = qualPattern;
         this.fastxPairs = fastxPairs;
-        
         this.fileCursor = 0;
-        FastxFilePair fxPair = fastxPairs[fileCursor];
-        setReader(fxPair);
-
-        System.out.println("Parsing `" + fxPair.leftPath + "` and `" + fxPair.rightPath + "`...");
+        setReader(fastxPairs[fileCursor]);
     }
     
     private void setReader(FastxFilePair fxPair) throws IOException {
@@ -42,6 +38,8 @@ public class FastxPairSequenceIterator {
         else {
             throw new FileFormatException("Incompatible file format for `" + fxPair.leftPath + "` and `" + fxPair.rightPath + "`");
         }
+        
+        System.out.println("Parsing `" + fxPair.leftPath + "` and `" + fxPair.rightPath + "`...");
     }
     
     public boolean hasNext() throws IOException {
@@ -54,9 +52,7 @@ public class FastxPairSequenceIterator {
                 return false;
             }
             
-            FastxFilePair fxPair = fastxPairs[fileCursor];
-            setReader(fxPair);            
-            System.out.println("Parsing `" + fxPair.leftPath + "` and `" + fxPair.rightPath + "`...");
+            setReader(fastxPairs[fileCursor]);
             
             return this.hasNext();
         }
@@ -64,10 +60,9 @@ public class FastxPairSequenceIterator {
         return hasNext;
     }
     
-    public PairedReadSegments next() throws FileFormatException, IOException {
-        PairedReadSegments pairedSeq;
+    public PairedReadSegments next() throws FileFormatException, IOException {        
         try {
-            pairedSeq = reader.next();
+            return reader.next();
         }
         catch (NoSuchElementException e) {
             reader.close();
@@ -76,13 +71,9 @@ public class FastxPairSequenceIterator {
                 throw new NoSuchElementException();
             }
             
-            FastxFilePair fxPair = fastxPairs[fileCursor];
-            setReader(fxPair);
-            System.out.println("Parsing `" + fxPair.leftPath + "` and `" + fxPair.rightPath + "`...");
+            setReader(fastxPairs[fileCursor]);
             
             return this.next();
         }
-        
-        return pairedSeq;
     }
 }
