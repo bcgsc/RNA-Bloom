@@ -23,6 +23,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import static java.lang.Math.pow;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -72,6 +74,7 @@ import rnabloom.io.PairedReadSegments;
 import rnabloom.io.FastqReader;
 import rnabloom.io.FastqRecord;
 import rnabloom.io.FastxPairReader;
+import rnabloom.io.FastxPairSequenceIterator;
 import rnabloom.io.FastxSequenceIterator;
 import rnabloom.io.FileFormatException;
 import static rnabloom.olc.OverlapLayoutConcensus.hasMinimap2;
@@ -1420,7 +1423,7 @@ public class RNABloom {
     }
     
     private class FragmentAssembler implements Runnable {
-        private PairedReadSegments p;
+        private ArrayBlockingQueue<PairedReadSegments> inList;
         private ArrayBlockingQueue<Fragment> outList;
         private int bound;
         private int minOverlap;
@@ -1431,8 +1434,9 @@ public class RNABloom {
         private boolean extendFragments;
         private int minKmerCov;
         private boolean trimArtifact;
+        private boolean keepGoing = true;
         
-        public FragmentAssembler(PairedReadSegments p,
+        public FragmentAssembler(ArrayBlockingQueue<PairedReadSegments> inList,
                                 ArrayBlockingQueue<Fragment> outList,
                                 int bound, 
                                 int minOverlap, 
@@ -1444,7 +1448,7 @@ public class RNABloom {
                                 int minKmerCov,
                                 boolean keepArtifact) {
             
-            this.p = p;
+            this.inList = inList;
             this.outList = outList;
             this.bound = bound;
             this.minOverlap = minOverlap;
@@ -1460,188 +1464,199 @@ public class RNABloom {
         @Override
         public void run() {
             try {
-                ArrayList<Kmer> leftKmers = null;
-                ArrayList<Kmer> rightKmers = null;
-                                
-                // connect segments of each read
-                String left = getBestSegment(p.left, graph);
-                
-                if (left.length() >= this.leftReadLengthThreshold) {
-                    if (!isLowComplexity2(left)) {
-                        if (minKmerCov > 1) {
-                            leftKmers = graph.getKmers(left, minKmerCov);
-                        }
-                        else {
-                            leftKmers = graph.getKmers(left);
-                        }
-                    }
-                }
-                
-                String right = getBestSegment(p.right, graph);
-                                
-                if (right.length() >= this.rightReadLengthThreshold) {
-                    if (!isLowComplexity2(right)) {
-                        if (minKmerCov > 1) {
-                            rightKmers = graph.getKmers(right, minKmerCov);
-                        }
-                        else {
-                            rightKmers = graph.getKmers(right);
-                        }
-                    }
-                }
-                                
-                boolean leftBad = leftKmers == null || leftKmers.isEmpty();
-                boolean rightBad = rightKmers == null || rightKmers.isEmpty();
-                
-                if (leftBad && rightBad) {
-                    return;
-                }
-                
-                ArrayList<Kmer> fragmentKmers = null;
-                
-                if (!leftBad && !rightBad) {
-                    if (errorCorrectionIterations > 0) {
-                        ReadPair correctedReadPair = correctErrorsPE(leftKmers,
-                                                                    rightKmers,
-                                                                    graph, 
-                                                                    lookahead, 
-                                                                    maxIndelSize, 
-                                                                    maxCovGradient, 
-                                                                    covFPR,
-                                                                    this.errorCorrectionIterations,
-                                                                    2,
-                                                                    percentIdentity,
-                                                                    minKmerCov);
-
-                        if (correctedReadPair.corrected) {
-                            leftKmers = correctedReadPair.leftKmers;
-                            rightKmers = correctedReadPair.rightKmers;
-                        }
-                    }
-
-                    fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound,
-                            lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity, minKmerCov);
-                }
-                else if (!leftBad) {
-                    if (errorCorrectionIterations > 0) {
-                        ArrayList<Kmer> corrected = correctErrorsSE(leftKmers,
-                                                                    graph, 
-                                                                    lookahead, 
-                                                                    maxIndelSize, 
-                                                                    maxCovGradient, 
-                                                                    covFPR,
-                                                                    percentIdentity,
-                                                                    minKmerCov);
-                        if (corrected != null && !corrected.isEmpty()) {
-                            leftKmers = corrected;
-                        }
-                    }
-                }
-                else if (!rightBad) {
-                    if (errorCorrectionIterations > 0) {
-                        ArrayList<Kmer> corrected = correctErrorsSE(rightKmers,
-                                                                    graph, 
-                                                                    lookahead, 
-                                                                    maxIndelSize, 
-                                                                    maxCovGradient, 
-                                                                    covFPR,
-                                                                    percentIdentity,
-                                                                    minKmerCov);
-                        if (corrected != null && !corrected.isEmpty()) {
-                            rightKmers = corrected;
-                        }
-                    }
-                }
-                
-                // check for read consistency if fragment is long enough
-                if (fragmentKmers != null) {
-                    if (extendFragments) {
-                        fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength, minKmerCov);
-                    }
+                while(true) {
+                    PairedReadSegments p  = inList.poll(10, TimeUnit.MICROSECONDS);
                     
-                    if (trimArtifact) {
-                        fragmentKmers = trimHairpinBySequenceMatching(fragmentKmers, k, percentIdentity, graph);
-                    }
-                    
-                    if (graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
-                        ArrayDeque<int[]> ranges = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
-
-                        if (ranges.size() != 1) {
-                            fragmentKmers = null;
+                    if (p == null) {
+                        if (!keepGoing) {
+                            break;
                         }
                     }
-                }
+                    else {                        
+                        ArrayList<Kmer> leftKmers = null;
+                        ArrayList<Kmer> rightKmers = null;
 
-                if (fragmentKmers != null) {
-                    int fragLength = fragmentKmers.size() + k - 1;
+                        // connect segments of each read
+                        String left = getBestSegment(p.left, graph);
 
-                    if (fragLength >= k + lookahead) {
-                        boolean hasComplexKmer = false;
-
-                        float minCov = Float.MAX_VALUE;
-                        for (Kmer kmer : fragmentKmers) {
-                            if (kmer.count < minCov) {
-                                minCov = kmer.count;
-                            }
-
-                            if (!hasComplexKmer) {
-                                if (!graph.isLowComplexity(kmer)) {
-                                    hasComplexKmer = true;
+                        if (left.length() >= this.leftReadLengthThreshold) {
+                            if (!isLowComplexity2(left)) {
+                                if (minKmerCov > 1) {
+                                    leftKmers = graph.getKmers(left, minKmerCov);
+                                }
+                                else {
+                                    leftKmers = graph.getKmers(left);
                                 }
                             }
                         }
 
-                        if (hasComplexKmer) {
-                            if (this.storeKmerPairs) {
-                                graph.addPairedKmers(fragmentKmers);
-                            }
+                        String right = getBestSegment(p.right, graph);
 
-                            if (!debug) {
-                               left = "";
-                               right = "";
-                            }
-                            
-                            outList.put(new Fragment(left, right, fragmentKmers, fragLength, minCov, false));
-                        }
-                    }
-                }
-                else {
-                    // this is an unconnected read pair
-                    float minCov = Float.MAX_VALUE;
-
-                    boolean hasComplexLeftKmer = false;
-
-                    if (!leftBad && leftKmers.size() >= lookahead) {
-                        for (Kmer kmer : leftKmers) {
-                            if (kmer.count < minCov) {
-                                minCov = kmer.count;
-                            }
-
-                            if (!hasComplexLeftKmer && !graph.isLowComplexity(kmer)) {
-                                hasComplexLeftKmer = true;
+                        if (right.length() >= this.rightReadLengthThreshold) {
+                            if (!isLowComplexity2(right)) {
+                                if (minKmerCov > 1) {
+                                    rightKmers = graph.getKmers(right, minKmerCov);
+                                }
+                                else {
+                                    rightKmers = graph.getKmers(right);
+                                }
                             }
                         }
-                    }
 
-                    boolean hasComplexRightKmer = false;
+                        boolean leftBad = leftKmers == null || leftKmers.isEmpty();
+                        boolean rightBad = rightKmers == null || rightKmers.isEmpty();
 
-                    if (!rightBad && rightKmers.size() >= lookahead) {
-                        for (Kmer kmer : rightKmers) {
-                            if (kmer.count < minCov) {
-                                minCov = kmer.count;
+                        if (leftBad && rightBad) {
+                            continue;
+                        }
+
+                        ArrayList<Kmer> fragmentKmers = null;
+
+                        if (!leftBad && !rightBad) {
+                            if (errorCorrectionIterations > 0) {
+                                ReadPair correctedReadPair = correctErrorsPE(leftKmers,
+                                                                            rightKmers,
+                                                                            graph, 
+                                                                            lookahead, 
+                                                                            maxIndelSize, 
+                                                                            maxCovGradient, 
+                                                                            covFPR,
+                                                                            this.errorCorrectionIterations,
+                                                                            2,
+                                                                            percentIdentity,
+                                                                            minKmerCov);
+
+                                if (correctedReadPair.corrected) {
+                                    leftKmers = correctedReadPair.leftKmers;
+                                    rightKmers = correctedReadPair.rightKmers;
+                                }
                             }
 
-                            if (!hasComplexRightKmer && !graph.isLowComplexity(kmer)) {
-                                hasComplexRightKmer = true;
+                            fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound,
+                                    lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity, minKmerCov);
+                        }
+                        else if (!leftBad) {
+                            if (errorCorrectionIterations > 0) {
+                                ArrayList<Kmer> corrected = correctErrorsSE(leftKmers,
+                                                                            graph, 
+                                                                            lookahead, 
+                                                                            maxIndelSize, 
+                                                                            maxCovGradient, 
+                                                                            covFPR,
+                                                                            percentIdentity,
+                                                                            minKmerCov);
+                                if (corrected != null && !corrected.isEmpty()) {
+                                    leftKmers = corrected;
+                                }
                             }
                         }
-                    }
+                        else if (!rightBad) {
+                            if (errorCorrectionIterations > 0) {
+                                ArrayList<Kmer> corrected = correctErrorsSE(rightKmers,
+                                                                            graph, 
+                                                                            lookahead, 
+                                                                            maxIndelSize, 
+                                                                            maxCovGradient, 
+                                                                            covFPR,
+                                                                            percentIdentity,
+                                                                            minKmerCov);
+                                if (corrected != null && !corrected.isEmpty()) {
+                                    rightKmers = corrected;
+                                }
+                            }
+                        }
 
-                    if (hasComplexLeftKmer || hasComplexRightKmer) {
-                        left = leftBad ? "" : left;
-                        right = rightBad ? "" : right;
-                        
-                        outList.put(new Fragment(left, right, null, 0, minCov, true));
+                        // check for read consistency if fragment is long enough
+                        if (fragmentKmers != null) {
+                            if (extendFragments) {
+                                fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength, minKmerCov);
+                            }
+
+                            if (trimArtifact) {
+                                fragmentKmers = trimHairpinBySequenceMatching(fragmentKmers, k, percentIdentity, graph);
+                            }
+
+                            if (graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
+                                ArrayDeque<int[]> ranges = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
+
+                                if (ranges.size() != 1) {
+                                    fragmentKmers = null;
+                                }
+                            }
+                        }
+
+                        if (fragmentKmers != null) {
+                            int fragLength = fragmentKmers.size() + k - 1;
+
+                            if (fragLength >= k + lookahead) {
+                                boolean hasComplexKmer = false;
+
+                                float minCov = Float.MAX_VALUE;
+                                for (Kmer kmer : fragmentKmers) {
+                                    if (kmer.count < minCov) {
+                                        minCov = kmer.count;
+                                    }
+
+                                    if (!hasComplexKmer) {
+                                        if (!graph.isLowComplexity(kmer)) {
+                                            hasComplexKmer = true;
+                                        }
+                                    }
+                                }
+
+                                if (hasComplexKmer) {
+                                    if (this.storeKmerPairs) {
+                                        graph.addPairedKmers(fragmentKmers);
+                                    }
+
+                                    if (!debug) {
+                                       left = "";
+                                       right = "";
+                                    }
+
+                                    outList.put(new Fragment(left, right, fragmentKmers, fragLength, minCov, false));
+                                }
+                            }
+                        }
+                        else {
+                            // this is an unconnected read pair
+                            float minCov = Float.MAX_VALUE;
+
+                            boolean hasComplexLeftKmer = false;
+
+                            if (!leftBad && leftKmers.size() >= lookahead) {
+                                for (Kmer kmer : leftKmers) {
+                                    if (kmer.count < minCov) {
+                                        minCov = kmer.count;
+                                    }
+
+                                    if (!hasComplexLeftKmer && !graph.isLowComplexity(kmer)) {
+                                        hasComplexLeftKmer = true;
+                                    }
+                                }
+                            }
+
+                            boolean hasComplexRightKmer = false;
+
+                            if (!rightBad && rightKmers.size() >= lookahead) {
+                                for (Kmer kmer : rightKmers) {
+                                    if (kmer.count < minCov) {
+                                        minCov = kmer.count;
+                                    }
+
+                                    if (!hasComplexRightKmer && !graph.isLowComplexity(kmer)) {
+                                        hasComplexRightKmer = true;
+                                    }
+                                }
+                            }
+
+                            if (hasComplexLeftKmer || hasComplexRightKmer) {
+                                left = leftBad ? "" : left;
+                                right = rightBad ? "" : right;
+
+                                outList.put(new Fragment(left, right, null, 0, minCov, true));
+                            }
+                        }
                     }
                 }
             }
@@ -1649,6 +1664,14 @@ public class RNABloom {
                 ex.printStackTrace();
                 throw new RuntimeException(ex);
             }
+        }
+        
+        public void updateBound(int bound) {
+            this.bound = bound;
+        }
+        
+        public void stopWhenEmpty () {
+            keepGoing = false;
         }
     }
     
@@ -2091,91 +2114,6 @@ public class RNABloom {
     
     private int getPairedReadsMaxDistance(int[] fragStats) {
         return fragStats[3] + ((fragStats[3] - fragStats[1]) * 3 / 2); // 1.5*IQR
-    }
-    
-    private FastaWriter assignUnconnectedFastaWriter(Fragment frag,
-                                        String seq,
-                                        boolean assemblePolyaTails,
-                                        FastaWriter[] unconnectedReadsOut,
-                                        FastaWriter unconnectedSingeltonsOut,
-                                        FastaWriter[] unconnectedPolyaReadsOut,
-                                        FastaWriter unconnectedPolyaSingletonsOut) {
-        
-        boolean isPolya = assemblePolyaTails && polyATailPattern.matcher(seq).matches();
-        
-        if (frag.minCov == 1) {
-            if (isPolya) {
-                return unconnectedPolyaSingletonsOut;
-            }
-            else {
-                return unconnectedSingeltonsOut;
-            }
-        }
-        else {
-            int m = getCoverageOrderOfMagnitude(frag.minCov);
-            
-            if (isPolya) {
-                return unconnectedPolyaReadsOut[m];
-            }
-            else {
-                return unconnectedReadsOut[m];
-            }
-        }
-    }
-    
-    private FastaWriter assignFragmentFastaWriter(Fragment frag,
-                                        String seq,
-                                        boolean assemblePolyaTails,
-                                        FastaWriter[] longFragmentsOut,
-                                        FastaWriter[] shortFragmentsOut,
-                                        FastaWriter longSingletonsOut,
-                                        FastaWriter shortSingletonsOut,
-                                        FastaWriter[] longPolyaFragmentsOut,
-                                        FastaWriter[] shortPolyaFragmentsOut,
-                                        FastaWriter longPolyaSingletonsOut,
-                                        FastaWriter shortPolyaSingletonsOut) {
-        
-        boolean isLong = frag.length >= longFragmentLengthThreshold;        
-        boolean isPolya = assemblePolyaTails && polyATailPattern.matcher(seq).matches();
-        
-        if (frag.minCov == 1) {
-            if (isLong) {
-                if (isPolya) {
-                    return longPolyaSingletonsOut;
-                }
-                else {
-                    return longSingletonsOut;
-                }
-            }
-            else {
-                if (isPolya) {
-                    return shortPolyaSingletonsOut;
-                }
-                else {
-                    return shortSingletonsOut;
-                }
-            }
-        }
-        else {
-            int m = getCoverageOrderOfMagnitude(frag.minCov);
-            
-            if (isLong) {
-                if (isPolya) {
-                    return longPolyaFragmentsOut[m];
-                }
-                else {
-                    return longFragmentsOut[m];
-                }
-            }
-            else {
-                if (isPolya) {
-                    return shortPolyaFragmentsOut[m];
-                }
-                else {
-                    return shortFragmentsOut[m];
-                }
-            }
-        }
     }
     
     public class ContainmentCalculator implements Runnable {
@@ -3004,308 +2942,216 @@ public class RNABloom {
         System.out.println("\tCorrected: " + NumberFormat.getInstance().format(numCorrected) + "(" + numCorrected * 100f/numReads + "%)");
         System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "(" + numDiscarded * 100f/numReads + "%)");
     }
+
+    private class FragmentWriters {
+        boolean assemblePolyaTails = false;
+        FastaWriter[] longFragmentsOut, shortFragmentsOut, unconnectedReadsOut, longPolyaFragmentsOut, shortPolyaFragmentsOut, unconnectedPolyaReadsOut;
+        FastaWriter longSingletonsOut, shortSingletonsOut, unconnectedSingletonsOut, longPolyaSingletonsOut, shortPolyaSingletonsOut, unconnectedPolyaSingletonsOut;
         
-    public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastqPairs, 
-                                                String[] longFragmentsFastaPaths,
-                                                String[] shortFragmentsFastaPaths,
-                                                String[] unconnectedReadsFastaPaths,
-                                                String longSingletonsFasta,
-                                                String shortSingletonsFasta,
-                                                String unconnectedSingletonsFasta,
-                                                String[] longPolyaFragmentsFastaPaths,
-                                                String[] shortPolyaFragmentsFastaPaths,
-                                                String[] unconnectedPolyaReadsFastaPaths,
-                                                String longPolyaSingletonsFasta,
-                                                String shortPolyaSingletonsFasta,
-                                                String unconnectedPolyaSingletonsFasta,
-                                                int bound,
-                                                int minOverlap,
-                                                int sampleSize, 
-                                                int numThreads, 
-                                                int maxErrCorrIterations,
-                                                boolean extendFragments,
-                                                int minKmerCov,
-                                                boolean keepArtifact) throws FileFormatException, IOException, InterruptedException {
-        
-        if (dbgFPR <= 0) {
-            dbgFPR = graph.getDbgbf().getFPR();
-        }
-        
-        if (covFPR <= 0) {
-            covFPR = graph.getCbf().getFPR();
-        }        
-        
-        long fragmentId = 0;
-        long unconnectedReadId = 0;
-        long readPairsParsed = 0;
-        long readPairsConnected = 0;
-        long readPairsNotConnected = 0;
-        
-        int maxTasksQueueSize = numThreads;
-        int maxConcurrentSubmissions = numThreads + maxTasksQueueSize;
-        
-        int newBound = bound;
-        int[] fragLengthsStats = null;
-        boolean pairedKmerDistanceIsSet = false;
-        int shortestFragmentLengthAllowed = k;
-        
-        boolean assemblePolyaTails = this.minPolyATailLengthRequired > 0;
-                        
-        FastaWriter[] longFragmentsOut = new FastaWriter[]{new FastaWriter(longFragmentsFastaPaths[0], true),
-                                                            new FastaWriter(longFragmentsFastaPaths[1], true),
-                                                            new FastaWriter(longFragmentsFastaPaths[2], true),
-                                                            new FastaWriter(longFragmentsFastaPaths[3], true),
-                                                            new FastaWriter(longFragmentsFastaPaths[4], true),
-                                                            new FastaWriter(longFragmentsFastaPaths[5], true)};
+        private FragmentWriters(FragmentPaths fragPaths, boolean assemblePolyaTails) throws IOException {
+            this.assemblePolyaTails = assemblePolyaTails;
+            longFragmentsOut = new FastaWriter[]{new FastaWriter(fragPaths.longFragmentsFastaPaths[0], true),
+                                                new FastaWriter(fragPaths.longFragmentsFastaPaths[1], true),
+                                                new FastaWriter(fragPaths.longFragmentsFastaPaths[2], true),
+                                                new FastaWriter(fragPaths.longFragmentsFastaPaths[3], true),
+                                                new FastaWriter(fragPaths.longFragmentsFastaPaths[4], true),
+                                                new FastaWriter(fragPaths.longFragmentsFastaPaths[5], true)};
 
-        FastaWriter[] shortFragmentsOut = new FastaWriter[]{new FastaWriter(shortFragmentsFastaPaths[0], true),
-                                                            new FastaWriter(shortFragmentsFastaPaths[1], true),
-                                                            new FastaWriter(shortFragmentsFastaPaths[2], true),
-                                                            new FastaWriter(shortFragmentsFastaPaths[3], true),
-                                                            new FastaWriter(shortFragmentsFastaPaths[4], true),
-                                                            new FastaWriter(shortFragmentsFastaPaths[5], true)};
+            shortFragmentsOut = new FastaWriter[]{new FastaWriter(fragPaths.shortFragmentsFastaPaths[0], true),
+                                                new FastaWriter(fragPaths.shortFragmentsFastaPaths[1], true),
+                                                new FastaWriter(fragPaths.shortFragmentsFastaPaths[2], true),
+                                                new FastaWriter(fragPaths.shortFragmentsFastaPaths[3], true),
+                                                new FastaWriter(fragPaths.shortFragmentsFastaPaths[4], true),
+                                                new FastaWriter(fragPaths.shortFragmentsFastaPaths[5], true)};
 
-        FastaWriter[] unconnectedReadsOut = new FastaWriter[]{new FastaWriter(unconnectedReadsFastaPaths[0], true),
-                                                            new FastaWriter(unconnectedReadsFastaPaths[1], true),
-                                                            new FastaWriter(unconnectedReadsFastaPaths[2], true),
-                                                            new FastaWriter(unconnectedReadsFastaPaths[3], true),
-                                                            new FastaWriter(unconnectedReadsFastaPaths[4], true),
-                                                            new FastaWriter(unconnectedReadsFastaPaths[5], true)};
+            unconnectedReadsOut = new FastaWriter[]{new FastaWriter(fragPaths.unconnectedReadsFastaPaths[0], true),
+                                                    new FastaWriter(fragPaths.unconnectedReadsFastaPaths[1], true),
+                                                    new FastaWriter(fragPaths.unconnectedReadsFastaPaths[2], true),
+                                                    new FastaWriter(fragPaths.unconnectedReadsFastaPaths[3], true),
+                                                    new FastaWriter(fragPaths.unconnectedReadsFastaPaths[4], true),
+                                                    new FastaWriter(fragPaths.unconnectedReadsFastaPaths[5], true)};
 
-        FastaWriter longSingletonsOut = new FastaWriter(longSingletonsFasta, true);
-        FastaWriter shortSingletonsOut = new FastaWriter(shortSingletonsFasta, true);
-        FastaWriter unconnectedSingletonsOut = new FastaWriter(unconnectedSingletonsFasta, true);
+            longSingletonsOut = new FastaWriter(fragPaths.longSingletonsFasta, true);
+            shortSingletonsOut = new FastaWriter(fragPaths.shortSingletonsFasta, true);
+            unconnectedSingletonsOut = new FastaWriter(fragPaths.unconnectedSingletonsFasta, true);
 
-        FastaWriter[] longPolyaFragmentsOut = null;
-        FastaWriter[]  shortPolyaFragmentsOut = null;
-        FastaWriter[] unconnectedPolyaReadsOut = null;
-        FastaWriter longPolyaSingletonsOut = null;
-        FastaWriter shortPolyaSingletonsOut = null;
-        FastaWriter unconnectedPolyaSingletonsOut = null;
+            if (assemblePolyaTails) {
+                longPolyaFragmentsOut = new FastaWriter[]{new FastaWriter(fragPaths.longPolyaFragmentsFastaPaths[0], true),
+                                                            new FastaWriter(fragPaths.longPolyaFragmentsFastaPaths[1], true),
+                                                            new FastaWriter(fragPaths.longPolyaFragmentsFastaPaths[2], true),
+                                                            new FastaWriter(fragPaths.longPolyaFragmentsFastaPaths[3], true),
+                                                            new FastaWriter(fragPaths.longPolyaFragmentsFastaPaths[4], true),
+                                                            new FastaWriter(fragPaths.longPolyaFragmentsFastaPaths[5], true)};
 
-        if (assemblePolyaTails) {
-            longPolyaFragmentsOut = new FastaWriter[]{new FastaWriter(longPolyaFragmentsFastaPaths[0], true),
-                                                        new FastaWriter(longPolyaFragmentsFastaPaths[1], true),
-                                                        new FastaWriter(longPolyaFragmentsFastaPaths[2], true),
-                                                        new FastaWriter(longPolyaFragmentsFastaPaths[3], true),
-                                                        new FastaWriter(longPolyaFragmentsFastaPaths[4], true),
-                                                        new FastaWriter(longPolyaFragmentsFastaPaths[5], true)};
+                shortPolyaFragmentsOut = new FastaWriter[]{new FastaWriter(fragPaths.shortPolyaFragmentsFastaPaths[0], true),
+                                                            new FastaWriter(fragPaths.shortPolyaFragmentsFastaPaths[1], true),
+                                                            new FastaWriter(fragPaths.shortPolyaFragmentsFastaPaths[2], true),
+                                                            new FastaWriter(fragPaths.shortPolyaFragmentsFastaPaths[3], true),
+                                                            new FastaWriter(fragPaths.shortPolyaFragmentsFastaPaths[4], true),
+                                                            new FastaWriter(fragPaths.shortPolyaFragmentsFastaPaths[5], true)};
 
-            shortPolyaFragmentsOut = new FastaWriter[]{new FastaWriter(shortPolyaFragmentsFastaPaths[0], true),
-                                                        new FastaWriter(shortPolyaFragmentsFastaPaths[1], true),
-                                                        new FastaWriter(shortPolyaFragmentsFastaPaths[2], true),
-                                                        new FastaWriter(shortPolyaFragmentsFastaPaths[3], true),
-                                                        new FastaWriter(shortPolyaFragmentsFastaPaths[4], true),
-                                                        new FastaWriter(shortPolyaFragmentsFastaPaths[5], true)};
+                unconnectedPolyaReadsOut = new FastaWriter[]{new FastaWriter(fragPaths.unconnectedPolyaReadsFastaPaths[0], true),
+                                                            new FastaWriter(fragPaths.unconnectedPolyaReadsFastaPaths[1], true),
+                                                            new FastaWriter(fragPaths.unconnectedPolyaReadsFastaPaths[2], true),
+                                                            new FastaWriter(fragPaths.unconnectedPolyaReadsFastaPaths[3], true),
+                                                            new FastaWriter(fragPaths.unconnectedPolyaReadsFastaPaths[4], true),
+                                                            new FastaWriter(fragPaths.unconnectedPolyaReadsFastaPaths[5], true)};
 
-            unconnectedPolyaReadsOut = new FastaWriter[]{new FastaWriter(unconnectedPolyaReadsFastaPaths[0], true),
-                                                        new FastaWriter(unconnectedPolyaReadsFastaPaths[1], true),
-                                                        new FastaWriter(unconnectedPolyaReadsFastaPaths[2], true),
-                                                        new FastaWriter(unconnectedPolyaReadsFastaPaths[3], true),
-                                                        new FastaWriter(unconnectedPolyaReadsFastaPaths[4], true),
-                                                        new FastaWriter(unconnectedPolyaReadsFastaPaths[5], true)};
-
-            longPolyaSingletonsOut = new FastaWriter(longPolyaSingletonsFasta, true);
-            shortPolyaSingletonsOut = new FastaWriter(shortPolyaSingletonsFasta, true);
-            unconnectedPolyaSingletonsOut = new FastaWriter(unconnectedPolyaSingletonsFasta, true);
-        }
-
-        PairedReadSegments p;
-        ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
-
-        for (FastxFilePair fxPair: fastqPairs) {
-
-            FastxPairReader fxpr = null;
-
-            if (FastqReader.isCorrectFormat(fxPair.leftPath) && FastqReader.isCorrectFormat(fxPair.rightPath)) {
-                fxpr = new FastqPairReader(fxPair.leftPath, fxPair.rightPath, qualPatternFrag, seqPattern, fxPair.leftRevComp, fxPair.rightRevComp);
+                longPolyaSingletonsOut = new FastaWriter(fragPaths.longPolyaSingletonsFasta, true);
+                shortPolyaSingletonsOut = new FastaWriter(fragPaths.shortPolyaSingletonsFasta, true);
+                unconnectedPolyaSingletonsOut = new FastaWriter(fragPaths.unconnectedPolyaSingletonsFasta, true);
             }
-            else if (FastaReader.isCorrectFormat(fxPair.leftPath) && FastaReader.isCorrectFormat(fxPair.rightPath)) {
-                fxpr = new FastaPairReader(fxPair.leftPath, fxPair.rightPath, seqPattern, fxPair.leftRevComp, fxPair.rightRevComp);
+        }
+        
+        public FastaWriter getWriter(Fragment frag, String seq) {
+            if (frag.isUnconnectedRead) {
+                boolean isPolya = assemblePolyaTails && polyATailPattern.matcher(seq).matches();
+
+                if (frag.minCov == 1) {
+                    if (isPolya) {
+                        return unconnectedPolyaSingletonsOut;
+                    }
+                    else {
+                        return unconnectedSingletonsOut;
+                    }
+                }
+                else {
+                    int m = getCoverageOrderOfMagnitude(frag.minCov);
+
+                    if (isPolya) {
+                        return unconnectedPolyaReadsOut[m];
+                    }
+                    else {
+                        return unconnectedReadsOut[m];
+                    }
+                }
             }
             else {
-                throw new FileFormatException("Incompatible file format for `" + fxPair.leftPath + "` and `" + fxPair.rightPath + "`");
-            }
+                boolean isLong = frag.length >= longFragmentLengthThreshold;        
+                boolean isPolya = assemblePolyaTails && polyATailPattern.matcher(seq).matches();
 
-            System.out.println("Parsing `" + fxPair.leftPath + "` and `" + fxPair.rightPath + "`...");
-
-            int leftReadLengthThreshold = k;
-            int rightReadLengthThreshold = k;
-
-            // set up thread pool
-            MyExecutorService service = new MyExecutorService(numThreads, maxTasksQueueSize);
-
-            if (!pairedKmerDistanceIsSet) {
-
-                // Assembled initial sample of fragments
-                while (fxpr.hasNext()) {
-                    p = fxpr.next();
-                    ++readPairsParsed;
-
-                    service.submit(new FragmentAssembler(p,
-                                                        fragments,
-                                                        bound,
-                                                        minOverlap,
-                                                        false, // do not store paired kmers
-                                                        maxErrCorrIterations, 
-                                                        leftReadLengthThreshold,
-                                                        rightReadLengthThreshold,
-                                                        extendFragments,
-                                                        minKmerCov,
-                                                        keepArtifact
-                    ));
-
-                    if (fragments.remainingCapacity() == 0) {
-                        break;
-                    }
-                }
-
-                if (!fxpr.hasNext() && fragments.isEmpty()) {
-                    // entire file has been exhausted but no output fragments; wait for the workers to be done
-                    service.terminate();
-                }
-
-                if (fragments.isEmpty()) {
-                    System.out.println("***************************************************************\n" +
-                                       "* WARNING: Insufficient high-quality k-mers from input reads! *\n" + 
-                                       "*          Output files may be empty!                         *\n" +
-                                       "***************************************************************");
-                }
-
-                // Calculate length stats
-                ArrayList<Integer> fragLengths = new ArrayList<>(sampleSize);
-                for (Fragment frag : fragments) {
-                    if (!frag.isUnconnectedRead) {
-                        fragLengths.add(frag.length);
-                    }
-                }
-
-                if (fragLengths.isEmpty()) {
-                    // use lengths of unconnected reads as fragment lengths
-                    for (Fragment frag : fragments) {
-                        fragLengths.add(frag.left.length());
-                        fragLengths.add(frag.right.length());
-                    }
-                }
-
-                fragLengthsStats = getMinQ1MedianQ3Max(fragLengths);
-                System.out.println("Fragment Lengths Distribution (n=" + fragLengths.size() + ")");
-                System.out.println("\tmin\tQ1\tM\tQ3\tmax");
-                System.out.println("\t" + fragLengthsStats[0] + "\t" + fragLengthsStats[1] + "\t" + fragLengthsStats[2] + "\t" + fragLengthsStats[3] + "\t" + fragLengthsStats[4]);
-
-                longFragmentLengthThreshold = fragLengthsStats[1];
-                setPairedKmerDistance(longFragmentLengthThreshold);
-
-                // Set new bound for graph search
-                newBound = getPairedReadsMaxDistance(fragLengthsStats);
-
-                System.out.println("Paired kmers distance:       " + (longFragmentLengthThreshold - k - minNumKmerPairs));
-                System.out.println("Max graph traversal depth:   " + newBound);
-//                    System.out.println("Shortest fragment allowed:   " + shortestFragmentLengthAllowed);
-
-                // Store kmer pairs and write fragments to file
-                while (!fragments.isEmpty()) {
-                    Fragment frag = fragments.poll();
-
-                    if (frag.isUnconnectedRead) {
-                        ++readPairsNotConnected;
-                        ++unconnectedReadId;
-
-                        String seq = frag.left;
-                        if (seq != null && seq.length() >= k) {
-                            FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                        unconnectedReadsOut, unconnectedSingletonsOut,
-                                                        unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
-                            writer.write(Long.toString(unconnectedReadId) + "L", seq);
+                if (frag.minCov == 1) {
+                    if (isLong) {
+                        if (isPolya) {
+                            return longPolyaSingletonsOut;
                         }
-
-                        seq = frag.right;
-                        if (seq != null && seq.length() >= k) {
-                            FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                        unconnectedReadsOut, unconnectedSingletonsOut,
-                                                        unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
-                            writer.write(Long.toString(unconnectedReadId) + "R", seq);
+                        else {
+                            return longSingletonsOut;
                         }
                     }
                     else {
-                        ++readPairsConnected;
-
-                        if (frag.length >= shortestFragmentLengthAllowed && frag.minCov > 0) {
-                            ArrayList<Kmer> fragKmers = frag.kmers;
-
-                            if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
-                                graph.addPairedKmers(fragKmers);
-
-                                if (frag.length >= longFragmentLengthThreshold) {
-                                    for (Kmer kmer : fragKmers) {
-                                        screeningBf.add(kmer.getHash());
-                                    }
-                                }
-
-                                String header = Long.toString(++fragmentId);
-                                if (debug) {
-                                    header += " L=[" + frag.left + "] R=[" + frag.right + "]";
-                                }
-                                String seq = graph.assemble(fragKmers);
-
-                                FastaWriter writer = assignFragmentFastaWriter(frag, seq, assemblePolyaTails,
-                                                        longFragmentsOut, shortFragmentsOut, longSingletonsOut, shortSingletonsOut,
-                                                        longPolyaFragmentsOut, shortPolyaFragmentsOut, longPolyaSingletonsOut, shortPolyaSingletonsOut);
-
-                                writer.write(header, seq);
-                            }
+                        if (isPolya) {
+                            return shortPolyaSingletonsOut;
+                        }
+                        else {
+                            return shortSingletonsOut;
                         }
                     }
-                }                    
+                }
+                else {
+                    int m = getCoverageOrderOfMagnitude(frag.minCov);
 
-                pairedKmerDistanceIsSet = true;
+                    if (isLong) {
+                        if (isPolya) {
+                            return longPolyaFragmentsOut[m];
+                        }
+                        else {
+                            return longFragmentsOut[m];
+                        }
+                    }
+                    else {
+                        if (isPolya) {
+                            return shortPolyaFragmentsOut[m];
+                        }
+                        else {
+                            return shortFragmentsOut[m];
+                        }
+                    }
+                }
             }
+        }
+        
+        public void closeAll() throws IOException {
+            for (FastaWriter f : longFragmentsOut) {
+                f.close();
+            }
+            
+            for (FastaWriter f : shortFragmentsOut) {
+                f.close();
+            }
+            
+            for (FastaWriter f : unconnectedReadsOut) {
+                f.close();
+            }
+            
+            longSingletonsOut.close();
+            shortSingletonsOut.close();
+            unconnectedSingletonsOut.close();
+            
+            if (assemblePolyaTails) {
+                for (FastaWriter f : longPolyaFragmentsOut) {
+                    f.close();
+                }
 
-            // assemble the remaining fragments in multi-threaded mode
-            while (fxpr.hasNext()) {
-                p = fxpr.next();
-                ++readPairsParsed;
+                for (FastaWriter f : shortPolyaFragmentsOut) {
+                    f.close();
+                }
 
-                service.submit(new FragmentAssembler(p,
-                                                    fragments,
-                                                    newBound, 
-                                                    minOverlap, 
-                                                    false, // do not store paired k-mers
-                                                    maxErrCorrIterations, 
-                                                    leftReadLengthThreshold, 
-                                                    rightReadLengthThreshold,
-                                                    extendFragments,
-                                                    minKmerCov,
-                                                    keepArtifact
-                ));
+                for (FastaWriter f : unconnectedPolyaReadsOut) {
+                    f.close();
+                }
 
-                if (fragments.remainingCapacity() <= maxConcurrentSubmissions) {
+                longPolyaSingletonsOut.close();
+                shortPolyaSingletonsOut.close();
+                unconnectedPolyaSingletonsOut.close();
+            }
+        }
+    }
+    
+    private class FragmentWriterWorker implements Runnable {
+        private int shortestFragmentLengthAllowed;
+        private ArrayBlockingQueue<Fragment> fragments;
+        private FragmentPaths outPaths;
+        private FragmentWriters writers;
+        private boolean keepGoing = true;
+        private long readPairsConnected = 0;
+        private long readPairsNotConnected = 0;
+        
+        private FragmentWriterWorker(ArrayBlockingQueue<Fragment> fragments, FragmentPaths outPaths, boolean assemblePolyaTails, int shortestFragmentLengthAllowed) throws IOException {
+            this.fragments = fragments;
+            this.outPaths = outPaths;
+            this.writers = new FragmentWriters(outPaths, assemblePolyaTails);
+            this.shortestFragmentLengthAllowed = shortestFragmentLengthAllowed;
+        }
+        
+        @Override
+        public void run() {
+            long fragmentId = 0;
+            long unconnectedReadId = 0;
+            
+            try {
+                while (true) {
+                    Fragment frag = fragments.poll(10, TimeUnit.MICROSECONDS);
 
-                    // write fragments to file
-                    for (int i=0; i<sampleSize; ++i) {
-                        Fragment frag = fragments.poll();
-
-                        if (frag == null) {
+                    if (frag == null) {
+                        if (!keepGoing) {
                             break;
                         }
-
+                    }
+                    else {
                         if (frag.isUnconnectedRead) {
                             ++readPairsNotConnected;
                             ++unconnectedReadId;
 
                             String seq = frag.left;
                             if (seq != null && seq.length() >= k) {
-                                FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                            unconnectedReadsOut, unconnectedSingletonsOut,
-                                                            unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
+                                FastaWriter writer = writers.getWriter(frag, seq);
                                 writer.write(Long.toString(unconnectedReadId) + "L", seq);
                             }
 
                             seq = frag.right;
                             if (seq != null && seq.length() >= k) {
-                                FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                            unconnectedReadsOut, unconnectedSingletonsOut,
-                                                            unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
+                                FastaWriter writer = writers.getWriter(frag, seq);
                                 writer.write(Long.toString(unconnectedReadId) + "R", seq);
                             }
                         }
@@ -3330,118 +3176,284 @@ public class RNABloom {
                                     }
                                     String seq = graph.assemble(fragKmers);
 
-                                    FastaWriter writer = assignFragmentFastaWriter(frag, seq, assemblePolyaTails,
-                                                            longFragmentsOut, shortFragmentsOut, longSingletonsOut, shortSingletonsOut,
-                                                            longPolyaFragmentsOut, shortPolyaFragmentsOut, longPolyaSingletonsOut, shortPolyaSingletonsOut);
+                                    FastaWriter writer = writers.getWriter(frag, seq);
                                     writer.write(header, seq);
                                 }
                             }
                         }
                     }
                 }
+                
+                writers.closeAll();
             }
-
-            service.terminate();
-
-            // write fragments to file
-            while (!fragments.isEmpty()) {
-                Fragment frag = fragments.poll();
-
-                if (frag.isUnconnectedRead) {
-                    ++readPairsNotConnected;
-                    ++unconnectedReadId;
-
-                    String seq = frag.left;
-                    if (seq != null && seq.length() >= k) {
-                        FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                    unconnectedReadsOut, unconnectedSingletonsOut,
-                                                    unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
-                        writer.write(Long.toString(unconnectedReadId) + "L", seq);
-                    }
-
-                    seq = frag.right;
-                    if (seq != null && seq.length() >= k) {
-                        FastaWriter writer = assignUnconnectedFastaWriter(frag, seq, assemblePolyaTails,
-                                                    unconnectedReadsOut, unconnectedSingletonsOut,
-                                                    unconnectedPolyaReadsOut, unconnectedPolyaSingletonsOut);
-                        writer.write(Long.toString(unconnectedReadId) + "R", seq);
-                    }
-                }
-                else {
-                    ++readPairsConnected;
-
-                    if (frag.length >= shortestFragmentLengthAllowed && frag.minCov > 0) {
-                        ArrayList<Kmer> fragKmers = frag.kmers;
-
-                        if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
-                            graph.addPairedKmers(fragKmers);
-
-                            if (frag.length >= longFragmentLengthThreshold) {
-                                for (Kmer kmer : fragKmers) {
-                                    screeningBf.add(kmer.getHash());
-                                }
-                            }
-
-                            String header = Long.toString(++fragmentId);
-                            if (debug) {
-                                header += " L=[" + frag.left + "] R=[" + frag.right + "]";
-                            }
-                            String seq = graph.assemble(fragKmers);
-
-                            FastaWriter writer = assignFragmentFastaWriter(frag, seq, assemblePolyaTails,
-                                                    longFragmentsOut, shortFragmentsOut, longSingletonsOut, shortSingletonsOut,
-                                                    longPolyaFragmentsOut, shortPolyaFragmentsOut, longPolyaSingletonsOut, shortPolyaSingletonsOut);
-                            writer.write(header, seq);
-                        }
-                    }
-                }
-            }
-
-            fxpr.close();
-        }
-
-        unconnectedSingletonsOut.close();
-        longSingletonsOut.close();
-        shortSingletonsOut.close();
-
-        for (FastaWriter out : longFragmentsOut) {
-            out.close();
-        }
-
-        for (FastaWriter out : shortFragmentsOut) {
-            out.close();
-        }
-
-        for (FastaWriter out : unconnectedReadsOut) {
-            out.close();
-        }
-
-        if (assemblePolyaTails) {
-            unconnectedPolyaSingletonsOut.close();
-            longPolyaSingletonsOut.close();
-            shortPolyaSingletonsOut.close();
-
-            for (FastaWriter out : longPolyaFragmentsOut) {
-                out.close();
-            }
-
-            for (FastaWriter out : shortPolyaFragmentsOut) {
-                out.close();
-            }
-
-            for (FastaWriter out : unconnectedPolyaReadsOut) {
-                out.close();
+            catch(Exception ex) {
+                ex.printStackTrace();
+                throw new RuntimeException(ex);
             }
         }
+        
+        public void stopWhenEmpty() {
+            keepGoing = false;
+        }
+        
+        public long getNumConnected() {
+            return readPairsConnected;
+        }
+        
+        public long getNumUnconnected() {
+            return readPairsNotConnected;
+        }
+    }    
+    
+    private static class FragmentPaths {
+        String[] longFragmentsFastaPaths;
+        String[] shortFragmentsFastaPaths;
+        String[] unconnectedReadsFastaPaths;
+        String longSingletonsFasta;
+        String shortSingletonsFasta;
+        String unconnectedSingletonsFasta;
+        String[] longPolyaFragmentsFastaPaths;
+        String[] shortPolyaFragmentsFastaPaths;
+        String[] unconnectedPolyaReadsFastaPaths;
+        String longPolyaSingletonsFasta;
+        String shortPolyaSingletonsFasta;
+        String unconnectedPolyaSingletonsFasta;
+        
+        public FragmentPaths(String outdir, String name) {
+            String longFragmentsFastaPrefix =      outdir + File.separator + name + ".fragments.long.";
+            String shortFragmentsFastaPrefix =     outdir + File.separator + name + ".fragments.short.";
+            String unconnectedReadsFastaPrefix =   outdir + File.separator + name + ".unconnected.";
+            String longPolyaFragmentsFastaPrefix =      outdir + File.separator + name + ".fragments.polya.long.";
+            String shortPolyaFragmentsFastaPrefix =     outdir + File.separator + name + ".fragments.polya.short.";
+            String unconnectedPolyaReadsFastaPrefix =   outdir + File.separator + name + ".unconnected.polya.";
+        
+            longFragmentsFastaPaths = new String[]{longFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                                        longFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                                        longFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                                        longFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                                        longFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                                        longFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-        System.out.println("Parsed " + NumberFormat.getInstance().format(readPairsParsed) + " read pairs.");
+            shortFragmentsFastaPaths = new String[]{shortFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-        System.out.println("\tconnected:\t" + NumberFormat.getInstance().format(readPairsConnected) + "\t(" + readPairsConnected*100f/readPairsParsed + "%)");
-        System.out.println("\tnot connected:\t" + NumberFormat.getInstance().format(readPairsNotConnected) + "\t(" + readPairsNotConnected*100f/readPairsParsed + "%)");
+            unconnectedReadsFastaPaths = new String[]{unconnectedReadsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
-        long numDiscarded = readPairsParsed-readPairsConnected-readPairsNotConnected;
-        System.out.println("\tdiscarded:\t" + NumberFormat.getInstance().format(numDiscarded) + "\t(" + numDiscarded*100f/readPairsParsed + "%)");
+            longPolyaFragmentsFastaPaths = new String[]{longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
 
+            shortPolyaFragmentsFastaPaths = new String[]{shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                                                shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                                                shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                                                shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                                                shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                                                shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
+
+            unconnectedPolyaReadsFastaPaths = new String[]{unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
+                                                                unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
+                                                                unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
+                                                                unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
+                                                                unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
+                                                                unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
+        
+            longSingletonsFasta = longFragmentsFastaPrefix + "01" + FASTA_EXT;
+            shortSingletonsFasta = shortFragmentsFastaPrefix + "01" + FASTA_EXT;
+            unconnectedSingletonsFasta = unconnectedReadsFastaPrefix + "01" + FASTA_EXT;
+        
+            longPolyaSingletonsFasta = longPolyaFragmentsFastaPrefix + "01" + FASTA_EXT;
+            shortPolyaSingletonsFasta = shortPolyaFragmentsFastaPrefix + "01" + FASTA_EXT;
+            unconnectedPolyaSingletonsFasta = unconnectedPolyaReadsFastaPrefix + "01" + FASTA_EXT;
+        }
+        
+        public ArrayList asList(boolean assemblePolya) {
+            ArrayList<String> paths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length + unconnectedReadsFastaPaths.length + 3);
+            paths.addAll(Arrays.asList(longFragmentsFastaPaths));
+            paths.addAll(Arrays.asList(shortFragmentsFastaPaths));
+            paths.addAll(Arrays.asList(unconnectedReadsFastaPaths));
+            paths.add(longSingletonsFasta);
+            paths.add(shortSingletonsFasta);
+            paths.add(unconnectedSingletonsFasta);
+
+            if (assemblePolya) {
+                paths.addAll(Arrays.asList(longPolyaFragmentsFastaPaths));
+                paths.addAll(Arrays.asList(shortPolyaFragmentsFastaPaths));
+                paths.addAll(Arrays.asList(unconnectedPolyaReadsFastaPaths));
+                paths.add(longPolyaSingletonsFasta);
+                paths.add(shortPolyaSingletonsFasta);
+                paths.add(unconnectedPolyaSingletonsFasta);
+            }
+            
+            return paths;
+        }
+        
+        public void deleteAll() throws IOException {
+            FileSystem sys = FileSystems.getDefault();
+            
+            for (String path : longFragmentsFastaPaths) {
+                Files.deleteIfExists(sys.getPath(path));
+            }
+            
+            for (String path : shortFragmentsFastaPaths) {
+                Files.deleteIfExists(sys.getPath(path));
+            }
+            
+            for (String path : unconnectedReadsFastaPaths) {
+                Files.deleteIfExists(sys.getPath(path));
+            }
+            
+            for (String path : longPolyaFragmentsFastaPaths) {
+                Files.deleteIfExists(sys.getPath(path));
+            }
+            
+            for (String path : shortPolyaFragmentsFastaPaths) {
+                Files.deleteIfExists(sys.getPath(path));
+            }
+            
+            for (String path : unconnectedPolyaReadsFastaPaths) {
+                Files.deleteIfExists(sys.getPath(path));
+            }
+            
+            Files.deleteIfExists(sys.getPath(longSingletonsFasta));
+            Files.deleteIfExists(sys.getPath(shortSingletonsFasta));
+            Files.deleteIfExists(sys.getPath(unconnectedSingletonsFasta));
+            Files.deleteIfExists(sys.getPath(longPolyaSingletonsFasta));
+            Files.deleteIfExists(sys.getPath(shortPolyaSingletonsFasta));
+            Files.deleteIfExists(sys.getPath(unconnectedPolyaSingletonsFasta));
+        }
+    }
+    
+    public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastqPairs, 
+                                                FragmentPaths fragPaths,
+                                                int bound,
+                                                int minOverlap,
+                                                int sampleSize, 
+                                                int numThreads, 
+                                                int maxErrCorrIterations,
+                                                boolean extendFragments,
+                                                int minKmerCov,
+                                                boolean keepArtifact) throws FileFormatException, IOException, InterruptedException {
+        
+        if (dbgFPR <= 0) {
+            dbgFPR = graph.getDbgbf().getFPR();
+        }
+        
+        if (covFPR <= 0) {
+            covFPR = graph.getCbf().getFPR();
+        }        
+        
+        long numParsed = 0;
+        
+        int shortestFragmentLengthAllowed = k;
+        int leftReadLengthThreshold = k;
+        int rightReadLengthThreshold = k;
+        
+        boolean assemblePolyaTails = this.minPolyATailLengthRequired > 0;
+        
+        ArrayBlockingQueue<PairedReadSegments> readPairs = new ArrayBlockingQueue<>(sampleSize);
+        ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
+                
+        FragmentAssembler[] workers = new FragmentAssembler[numThreads];
+        Thread[] threads = new Thread[numThreads];
+        for (int i=0; i<numThreads; ++i) {
+            workers[i] = new FragmentAssembler(readPairs,
+                                                fragments,
+                                                bound,
+                                                minOverlap,
+                                                false, // do not store paired kmers
+                                                maxErrCorrIterations, 
+                                                leftReadLengthThreshold,
+                                                rightReadLengthThreshold,
+                                                extendFragments,
+                                                minKmerCov,
+                                                keepArtifact
+                                               );
+            threads[i] = new Thread(workers[i]);
+            threads[i].start();
+        }
+        
+        FastxPairSequenceIterator rin = new FastxPairSequenceIterator(fastqPairs, this.seqPattern, this.qualPatternFrag);
+        while (rin.hasNext()) {
+            if (fragments.remainingCapacity() == 0) {
+                break;
+            }
+            
+            readPairs.put(rin.next());
+            ++numParsed;
+        }
+        
+        // Calculate length stats
+        ArrayList<Integer> fragLengths = new ArrayList<>(sampleSize);
+        for (Fragment frag : fragments) {
+            if (!frag.isUnconnectedRead) {
+                fragLengths.add(frag.length);
+            }
+        }
+
+        if (fragLengths.isEmpty()) {
+            // use lengths of unconnected reads as fragment lengths
+            for (Fragment frag : fragments) {
+                fragLengths.add(frag.left.length());
+                fragLengths.add(frag.right.length());
+            }
+        }
+        
+        int[] fragLengthsStats = getMinQ1MedianQ3Max(fragLengths);
+        
+        longFragmentLengthThreshold = fragLengthsStats[1];
+        setPairedKmerDistance(longFragmentLengthThreshold);
+        
+        int newBound = getPairedReadsMaxDistance(fragLengthsStats);
+        for (FragmentAssembler w : workers) {
+            w.updateBound(newBound);
+        }
+        
+        System.out.println("Fragment Lengths Distribution (n=" + fragLengths.size() + ")");
+        System.out.println("\tmin\tQ1\tM\tQ3\tmax");
+        System.out.println("\t" + fragLengthsStats[0] + "\t" + fragLengthsStats[1] + "\t" + fragLengthsStats[2] + "\t" + fragLengthsStats[3] + "\t" + fragLengthsStats[4]);
+        System.out.println("Paired kmers distance:       " + (longFragmentLengthThreshold - k - minNumKmerPairs));
+        System.out.println("Max graph traversal depth:   " + newBound);
+
+        FragmentWriterWorker writerWorker = new FragmentWriterWorker(fragments, fragPaths, assemblePolyaTails, shortestFragmentLengthAllowed);
+        Thread writerThread = new Thread(writerWorker);
+        writerThread.start();
+        
+        while (rin.hasNext()) {
+            readPairs.put(rin.next());
+            ++numParsed;
+        }
+        
+        for (FragmentAssembler w : workers) {
+            w.stopWhenEmpty();
+        }
+
+        for (Thread t : threads) {
+            t.join();
+        }
+
+        writerWorker.stopWhenEmpty();
+        writerThread.join();
+        
+        long numConnected = writerWorker.getNumConnected();
+        long numUnconnected = writerWorker.getNumUnconnected();
+        long numDiscarded = numParsed - numConnected - numUnconnected;
+
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numParsed) + " read pairs.");
+        System.out.println("\tconnected:\t" + NumberFormat.getInstance().format(numConnected) + "\t(" + numConnected*100f/numParsed + "%)");
+        System.out.println("\tnot connected:\t" + NumberFormat.getInstance().format(numUnconnected) + "\t(" + numUnconnected*100f/numParsed + "%)");
+        System.out.println("\tdiscarded:\t" + NumberFormat.getInstance().format(numDiscarded) + "\t(" + numDiscarded*100f/numParsed + "%)");
         System.out.println("Fragments paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100   + " %");
         System.out.println("Screening Bloom filter FPR:              " + screeningBf.getFPR() * 100 + " %");
 
@@ -3512,18 +3524,7 @@ public class RNABloom {
         return numFragmentsParsed;
     }
 
-    public void assembleTranscriptsMultiThreaded(String[] longFragmentsFastas, 
-                                                String[] shortFragmentsFastas,
-                                                String[] unconnectedReadsFastas,
-                                                String longSingletonsFasta,
-                                                String shortSingletonsFasta,
-                                                String unconnectedSingletonsFasta,
-                                                String[] longPolyaFragmentsFastas, 
-                                                String[] shortPolyaFragmentsFastas,
-                                                String[] unconnectedPolyaReadsFastas,
-                                                String longPolyaSingletonsFasta,
-                                                String shortPolyaSingletonsFasta,
-                                                String unconnectedPolyaSingletonsFasta,
+    public void assembleTranscriptsMultiThreaded(FragmentPaths fragPaths,
                                                 String outFasta,
                                                 String outFastaShort,
                                                 String graphFile,
@@ -3553,9 +3554,9 @@ public class RNABloom {
 
         if (assemblePolya) {
             // extend LONG fragments
-            for (int mag=longPolyaFragmentsFastas.length-1; mag>=0; --mag) {
+            for (int mag=fragPaths.longPolyaFragmentsFastaPaths.length-1; mag>=0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".L.");
-                String fragmentsFasta = longPolyaFragmentsFastas[mag];
+                String fragmentsFasta = fragPaths.longPolyaFragmentsFastaPaths[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
@@ -3564,9 +3565,9 @@ public class RNABloom {
             }
 
             // extend SHORT fragments
-            for (int mag=shortPolyaFragmentsFastas.length-1; mag>=0; --mag) {
+            for (int mag=fragPaths.shortPolyaFragmentsFastaPaths.length-1; mag>=0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".S.");
-                String fragmentsFasta = shortPolyaFragmentsFastas[mag];
+                String fragmentsFasta = fragPaths.shortPolyaFragmentsFastaPaths[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
@@ -3575,9 +3576,9 @@ public class RNABloom {
             }
 
             // extend UNCONNECTED reads
-            for (int mag=unconnectedPolyaReadsFastas.length-1; mag>=0; --mag) {
+            for (int mag=fragPaths.unconnectedPolyaReadsFastaPaths.length-1; mag>=0; --mag) {
                 writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".U.");
-                String fragmentsFasta = unconnectedPolyaReadsFastas[mag];
+                String fragmentsFasta = fragPaths.unconnectedPolyaReadsFastaPaths[mag];
                 System.out.println("Parsing `" + fragmentsFasta + "`...");
                 extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
                 numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
@@ -3589,31 +3590,31 @@ public class RNABloom {
 
             // extend LONG singleton fragments
             writer.setOutputPrefix(txptNamePrefix + "01.L.");
-            System.out.println("Parsing `" + longPolyaSingletonsFasta + "`...");
-            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(longPolyaSingletonsFasta, writer, sampleSize, numThreads,
+            System.out.println("Parsing `" + fragPaths.longPolyaSingletonsFasta + "`...");
+            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragPaths.longPolyaSingletonsFasta, writer, sampleSize, numThreads,
                                                                     allowNaiveExtension, extendBranchFreeOnly,
                                                                     keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
 
             // extend SHORT singleton fragments
             writer.setOutputPrefix(txptNamePrefix + "01.S.");
-            System.out.println("Parsing `" + shortPolyaSingletonsFasta + "`...");
-            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(shortPolyaSingletonsFasta, writer, sampleSize, numThreads,
+            System.out.println("Parsing `" + fragPaths.shortPolyaSingletonsFasta + "`...");
+            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragPaths.shortPolyaSingletonsFasta, writer, sampleSize, numThreads,
                                                                     allowNaiveExtension, extendBranchFreeOnly,
                                                                     keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
 
             // extend UNCONNECTED reads
             writer.setOutputPrefix(txptNamePrefix + "01.U.");
-            System.out.println("Parsing `" + unconnectedPolyaSingletonsFasta + "`...");
-            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(unconnectedPolyaSingletonsFasta, writer, sampleSize, numThreads,
+            System.out.println("Parsing `" + fragPaths.unconnectedPolyaSingletonsFasta + "`...");
+            numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragPaths.unconnectedPolyaSingletonsFasta, writer, sampleSize, numThreads,
                                                                     allowNaiveExtension, extendBranchFreeOnly,
                                                                     keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
         }
 
 
         // extend LONG fragments
-        for (int mag=longFragmentsFastas.length-1; mag>=0; --mag) {
+        for (int mag=fragPaths.longFragmentsFastaPaths.length-1; mag>=0; --mag) {
             writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".L.");
-            String fragmentsFasta = longFragmentsFastas[mag];
+            String fragmentsFasta = fragPaths.longFragmentsFastaPaths[mag];
             System.out.println("Parsing `" + fragmentsFasta + "`...");
             extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
             numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
@@ -3622,9 +3623,9 @@ public class RNABloom {
         }          
 
         // extend SHORT fragments
-        for (int mag=shortFragmentsFastas.length-1; mag>=0; --mag) {
+        for (int mag=fragPaths.shortFragmentsFastaPaths.length-1; mag>=0; --mag) {
             writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".S.");
-            String fragmentsFasta = shortFragmentsFastas[mag];
+            String fragmentsFasta = fragPaths.shortFragmentsFastaPaths[mag];
             System.out.println("Parsing `" + fragmentsFasta + "`...");
             extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
             numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
@@ -3633,9 +3634,9 @@ public class RNABloom {
         }
 
         // extend UNCONNECTED reads
-        for (int mag=unconnectedReadsFastas.length-1; mag>=0; --mag) {
+        for (int mag=fragPaths.unconnectedReadsFastaPaths.length-1; mag>=0; --mag) {
             writer.setOutputPrefix(txptNamePrefix + "E" + mag + ".U.");
-            String fragmentsFasta = unconnectedReadsFastas[mag];
+            String fragmentsFasta = fragPaths.unconnectedReadsFastaPaths[mag];
             System.out.println("Parsing `" + fragmentsFasta + "`...");
             extendBranchFreeOnly = isLowerStratum(COVERAGE_ORDER[mag], branchFreeExtensionThreshold);
             numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragmentsFasta, writer, sampleSize, numThreads,
@@ -3647,22 +3648,22 @@ public class RNABloom {
 
         // extend LONG singleton fragments
         writer.setOutputPrefix(txptNamePrefix + "01.L.");
-        System.out.println("Parsing `" + longSingletonsFasta + "`...");
-        numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(longSingletonsFasta, writer, sampleSize, numThreads,
+        System.out.println("Parsing `" + fragPaths.longSingletonsFasta + "`...");
+        numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragPaths.longSingletonsFasta, writer, sampleSize, numThreads,
                                                                 allowNaiveExtension, extendBranchFreeOnly,
                                                                 keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
 
         // extend SHORT singleton fragments
         writer.setOutputPrefix(txptNamePrefix + "01.S.");
-        System.out.println("Parsing `" + shortSingletonsFasta + "`...");
-        numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(shortSingletonsFasta, writer, sampleSize, numThreads,
+        System.out.println("Parsing `" + fragPaths.shortSingletonsFasta + "`...");
+        numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragPaths.shortSingletonsFasta, writer, sampleSize, numThreads,
                                                                 allowNaiveExtension, extendBranchFreeOnly,
                                                                 keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
 
         // extend UNCONNECTED reads
         writer.setOutputPrefix(txptNamePrefix + "01.U.");
-        System.out.println("Parsing `" + unconnectedSingletonsFasta + "`...");
-        numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(unconnectedSingletonsFasta, writer, sampleSize, numThreads,
+        System.out.println("Parsing `" + fragPaths.unconnectedSingletonsFasta + "`...");
+        numFragmentsParsed += assembleTranscriptsMultiThreadedHelper(fragPaths.unconnectedSingletonsFasta, writer, sampleSize, numThreads,
                                                                 allowNaiveExtension, extendBranchFreeOnly,
                                                                 keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
 
@@ -3900,169 +3901,30 @@ public class RNABloom {
             long sbfSize, long pkbfSize, int sbfNumHash, int pkbfNumHash, int numThreads,
             int bound, int minOverlap, int sampleSize, int maxErrCorrItr, boolean extendFragments,
             int minKmerCoverage, boolean keepArtifact) throws FileFormatException, IOException, InterruptedException {
-        
-        final String longFragmentsFastaPrefix =      outdir + File.separator + name + ".fragments.long.";
-        final String shortFragmentsFastaPrefix =     outdir + File.separator + name + ".fragments.short.";
-        final String unconnectedReadsFastaPrefix =   outdir + File.separator + name + ".unconnected.";
-        final String longPolyaFragmentsFastaPrefix =      outdir + File.separator + name + ".fragments.polya.long.";
-        final String shortPolyaFragmentsFastaPrefix =     outdir + File.separator + name + ".fragments.polya.short.";
-        final String unconnectedPolyaReadsFastaPrefix =   outdir + File.separator + name + ".unconnected.polya.";
-        
-        final String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                        longFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                        longFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                        longFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                        longFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                        longFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-
-        final String[] shortFragmentsFastaPaths = {shortFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                        shortFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-
-        final String[] unconnectedReadsFastaPaths = {unconnectedReadsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                        unconnectedReadsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-
-        final String[] longPolyaFragmentsFastaPaths = {longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                        longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-
-        final String[] shortPolyaFragmentsFastaPaths = {shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                        shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-
-        final String[] unconnectedPolyaReadsFastaPaths = {unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                        unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-        
-        final String longSingletonsFastaPath = longFragmentsFastaPrefix + "01" + FASTA_EXT;
-        final String shortSingletonsFastaPath = shortFragmentsFastaPrefix + "01" + FASTA_EXT;
-        final String unconnectedSingletonsFastaPath = unconnectedReadsFastaPrefix + "01" + FASTA_EXT;
-        
-        final String longPolyaSingletonsFastaPath = longPolyaFragmentsFastaPrefix + "01" + FASTA_EXT;
-        final String shortPolyaSingletonsFastaPath = shortPolyaFragmentsFastaPrefix + "01" + FASTA_EXT;
-        final String unconnectedPolyaSingletonsFastaPath = unconnectedPolyaReadsFastaPrefix + "01" + FASTA_EXT;
 
         final File fragsDoneStamp = new File(outdir + File.separator + STAMP_FRAGMENTS_DONE);
         
-        final String fragStatsFile = outdir + File.separator + name + ".fragstats";
-        final String graphFile = outdir + File.separator + name + ".graph";
-        
         if (forceOverwrite || !fragsDoneStamp.exists()) {
-            File fragmentsFile;
-
-            for (String fragmentsFasta : longFragmentsFastaPaths) {
-                fragmentsFile = new File(fragmentsFasta);
-                if (fragmentsFile.exists()) {
-                    fragmentsFile.delete();
-                }
-            }
-
-            for (String fragmentsFasta : shortFragmentsFastaPaths) {
-                fragmentsFile = new File(fragmentsFasta);
-                if (fragmentsFile.exists()) {
-                    fragmentsFile.delete();
-                }
-            }
-
-            for (String fragmentsFasta : unconnectedReadsFastaPaths) {
-                fragmentsFile = new File(fragmentsFasta);
-                if (fragmentsFile.exists()) {
-                    fragmentsFile.delete();
-                }
-            }
-
-            fragmentsFile = new File(longSingletonsFastaPath);
-            if (fragmentsFile.exists()) {
-                fragmentsFile.delete();
-            }
-
-            fragmentsFile = new File(shortSingletonsFastaPath);
-            if (fragmentsFile.exists()) {
-                fragmentsFile.delete();
-            }
-
-            fragmentsFile = new File(unconnectedSingletonsFastaPath);
-            if (fragmentsFile.exists()) {
-                fragmentsFile.delete();
-            }
-
-            for (String fragmentsFasta : longPolyaFragmentsFastaPaths) {
-                fragmentsFile = new File(fragmentsFasta);
-                if (fragmentsFile.exists()) {
-                    fragmentsFile.delete();
-                }
-            }
-
-            for (String fragmentsFasta : shortPolyaFragmentsFastaPaths) {
-                fragmentsFile = new File(fragmentsFasta);
-                if (fragmentsFile.exists()) {
-                    fragmentsFile.delete();
-                }
-            }
-
-            for (String fragmentsFasta : unconnectedPolyaReadsFastaPaths) {
-                fragmentsFile = new File(fragmentsFasta);
-                if (fragmentsFile.exists()) {
-                    fragmentsFile.delete();
-                }
-            }
-
-            fragmentsFile = new File(longPolyaSingletonsFastaPath);
-            if (fragmentsFile.exists()) {
-                fragmentsFile.delete();
-            }
-
-            fragmentsFile = new File(shortPolyaSingletonsFastaPath);
-            if (fragmentsFile.exists()) {
-                fragmentsFile.delete();
-            }
-
-            fragmentsFile = new File(unconnectedPolyaSingletonsFastaPath);
-            if (fragmentsFile.exists()) {
-                fragmentsFile.delete();
-            }
+            FragmentPaths fragPaths = new FragmentPaths(outdir, name);
+            fragPaths.deleteAll();
 
             assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
             assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
 
             int[] fragStats = assembler.assembleFragmentsMultiThreaded(fqPairs, 
-                                            longFragmentsFastaPaths, 
-                                            shortFragmentsFastaPaths,
-                                            unconnectedReadsFastaPaths,
-                                            longSingletonsFastaPath,
-                                            shortSingletonsFastaPath,
-                                            unconnectedSingletonsFastaPath,
-                                            longPolyaFragmentsFastaPaths, 
-                                            shortPolyaFragmentsFastaPaths,
-                                            unconnectedPolyaReadsFastaPaths,
-                                            longPolyaSingletonsFastaPath,
-                                            shortPolyaSingletonsFastaPath,
-                                            unconnectedPolyaSingletonsFastaPath,
-                                            bound, 
-                                            minOverlap,
-                                            sampleSize,
-                                            numThreads,
-                                            maxErrCorrItr,
-                                            extendFragments,
-                                            minKmerCoverage,
-                                            keepArtifact);
+                                                                        fragPaths,
+                                                                        bound, 
+                                                                        minOverlap,
+                                                                        sampleSize,
+                                                                        numThreads,
+                                                                        maxErrCorrItr,
+                                                                        extendFragments,
+                                                                        minKmerCoverage,
+                                                                        keepArtifact);
 
+            String fragStatsFile = outdir + File.separator + name + ".fragstats";
+            String graphFile = outdir + File.separator + name + ".graph";
+            
             //assembler.savePairedKmersBloomFilter(new File(graphFile));
             assembler.updateGraphDesc(new File(graphFile));
             assembler.writeFragStatsToFile(fragStats, fragStatsFile);
@@ -4093,87 +3955,14 @@ public class RNABloom {
 //            if (restorePairedKmersBloomFilter) {
 //                assembler.restorePairedKmersBloomFilter(new File(outdir + File.separator + name + ".graph"));
 //            }
-            
-            final String longFragmentsFastaPrefix =         outdir + File.separator + name + ".fragments.long.";
-            final String shortFragmentsFastaPrefix =        outdir + File.separator + name + ".fragments.short.";
-            final String unconnectedReadsFastaPrefix =      outdir + File.separator + name + ".unconnected.";
-            final String longPolyaFragmentsFastaPrefix =    outdir + File.separator + name + ".fragments.polya.long.";
-            final String shortPolyaFragmentsFastaPrefix =   outdir + File.separator + name + ".fragments.polya.short.";
-            final String unconnectedPolyaReadsFastaPrefix = outdir + File.separator + name + ".unconnected.polya.";
 
-            final String[] longFragmentsFastaPaths = {longFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                            longFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-
-            final String[] shortFragmentsFastaPaths = {shortFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                            shortFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-
-            final String[] unconnectedReadsFastaPaths = {unconnectedReadsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                            unconnectedReadsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-
-            final String longSingletonsFastaPath = longFragmentsFastaPrefix + "01" + FASTA_EXT;
-            final String shortSingletonsFastaPath = shortFragmentsFastaPrefix + "01" + FASTA_EXT;
-            final String unconnectedSingletonsFastaPath = unconnectedReadsFastaPrefix + "01" + FASTA_EXT;
-            
-            final String[] longPolyaFragmentsFastaPaths = {longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                            longPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-
-            final String[] shortPolyaFragmentsFastaPaths = {shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                            shortPolyaFragmentsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-
-            final String[] unconnectedPolyaReadsFastaPaths = {unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[0] + FASTA_EXT,
-                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[1] + FASTA_EXT,
-                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[2] + FASTA_EXT,
-                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[3] + FASTA_EXT,
-                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[4] + FASTA_EXT,
-                                            unconnectedPolyaReadsFastaPrefix + COVERAGE_ORDER[5] + FASTA_EXT};
-
-            final String longPolyaSingletonsFastaPath = longPolyaFragmentsFastaPrefix + "01" + FASTA_EXT;
-            final String shortPolyaSingletonsFastaPath = shortPolyaFragmentsFastaPrefix + "01" + FASTA_EXT;
-            final String unconnectedPolyaSingletonsFastaPath = unconnectedPolyaReadsFastaPrefix + "01" + FASTA_EXT;
+            FragmentPaths fragPaths = new FragmentPaths(outdir, name);
             
             final String graphFile = outdir + File.separator + name + ".graph";
             
             if (!noFragDBG) {
                 if (assembler.isGraphInitialized()) {
                     assembler.clearDbgBf();
-                }
-
-                // repopulate with kmers from fragments
-                ArrayList<String> fragmentPaths = new ArrayList<>(longFragmentsFastaPaths.length + shortFragmentsFastaPaths.length + unconnectedReadsFastaPaths.length + 3);
-                fragmentPaths.addAll(Arrays.asList(longFragmentsFastaPaths));
-                fragmentPaths.addAll(Arrays.asList(shortFragmentsFastaPaths));
-                fragmentPaths.addAll(Arrays.asList(unconnectedReadsFastaPaths));
-                fragmentPaths.add(longSingletonsFastaPath);
-                fragmentPaths.add(shortSingletonsFastaPath);
-                fragmentPaths.add(unconnectedSingletonsFastaPath);
-
-                if (assemblePolya) {
-                    fragmentPaths.addAll(Arrays.asList(longPolyaFragmentsFastaPaths));
-                    fragmentPaths.addAll(Arrays.asList(shortPolyaFragmentsFastaPaths));
-                    fragmentPaths.addAll(Arrays.asList(unconnectedPolyaReadsFastaPaths));
-                    fragmentPaths.add(longPolyaSingletonsFastaPath);
-                    fragmentPaths.add(shortPolyaSingletonsFastaPath);
-                    fragmentPaths.add(unconnectedPolyaSingletonsFastaPath);
                 }
                 
                 System.out.println("Rebuilding graph from assembled fragments...");
@@ -4182,7 +3971,7 @@ public class RNABloom {
                     assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
                     assembler.updateFragmentKmerDistance(graphFile);
                 }
-                assembler.populateGraphFromFragments(fragmentPaths, strandSpecific, restorePairedKmers);
+                assembler.populateGraphFromFragments(fragPaths.asList(assemblePolya), strandSpecific, restorePairedKmers);
                 System.out.println("Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));
                 
                 if (refTranscriptFile != null && refTranscriptFile.length > 0) {
@@ -4208,18 +3997,7 @@ public class RNABloom {
 
             assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
 
-            assembler.assembleTranscriptsMultiThreaded(longFragmentsFastaPaths, 
-                                                        shortFragmentsFastaPaths,
-                                                        unconnectedReadsFastaPaths,
-                                                        longSingletonsFastaPath,
-                                                        shortSingletonsFastaPath,
-                                                        unconnectedSingletonsFastaPath,
-                                                        longPolyaFragmentsFastaPaths, 
-                                                        shortPolyaFragmentsFastaPaths,
-                                                        unconnectedPolyaReadsFastaPaths,
-                                                        longPolyaSingletonsFastaPath,
-                                                        shortPolyaSingletonsFastaPath,
-                                                        unconnectedPolyaSingletonsFastaPath,
+            assembler.assembleTranscriptsMultiThreaded(fragPaths,
                                                         transcriptsFasta, 
                                                         shortTranscriptsFasta,
                                                         graphFile,
