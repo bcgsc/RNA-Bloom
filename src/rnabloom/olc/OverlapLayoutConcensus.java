@@ -231,7 +231,7 @@ public class OverlapLayoutConcensus {
         return longestNameSeq;
     }
     
-    public static boolean overlapLayout(String readsPath, String tmpPrefix, String layoutPath, int numThreads, boolean stranded, String minimapOptions) throws IOException {
+    public static boolean overlapLayout(String readsPath, String tmpPrefix, String layoutPath, int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip, float minAlnId, int minOverlapMatches) throws IOException {
         String avaPaf = tmpPrefix + "_ava.paf.gz";
         
         if (hasOnlyOneSequence(readsPath)) {
@@ -239,7 +239,7 @@ public class OverlapLayoutConcensus {
             return true;
         }
         
-        if (!overlapWithMinimap(readsPath, avaPaf, numThreads, true, "-r 20")) {
+        if (!overlapWithMinimap(readsPath, avaPaf, numThreads, true, minimapOptions)) {
             return false;
         }
         
@@ -249,7 +249,7 @@ public class OverlapLayoutConcensus {
         
         if (nonEmptyPafFile) {
             // lay out backbones
-            if (!layout(readsPath, avaPaf, layoutPath, stranded, 17, 0.8f, 200)) {
+            if (!layout(readsPath, avaPaf, layoutPath, stranded, maxEdgeClip, minAlnId, minOverlapMatches)) {
                 return false;
             }
         }
