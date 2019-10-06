@@ -2416,7 +2416,8 @@ public class RNABloom {
                                     String minimapOptions,
                                     int minKmerCov,
                                     String txptNamePrefix,
-                                    boolean stranded) throws IOException {
+                                    boolean stranded,
+                                    int minTranscriptLength) throws IOException {
         if (!hasMinimap2()) {
             exitOnError("`minimap2` not found in PATH!");
         }
@@ -2509,7 +2510,7 @@ public class RNABloom {
         }
         
         System.out.println("Inter-cluster assembly...");
-        ok = overlapLayout(assembledLongReadsConcatenated, tmpPrefix, assembledLongReadsCombined, numThreads, stranded, minimapOptions);
+        ok = overlapLayout(assembledLongReadsConcatenated, tmpPrefix, assembledLongReadsCombined, numThreads, stranded, "-r " + Integer.toString(2*maxIndelSize), k, percentIdentity, minTranscriptLength);
         
         return ok;
     }
@@ -3878,7 +3879,8 @@ public class RNABloom {
             String clusteredLongReadsDirectory, String assembledLongReadsDirectory,
             String assembledLongReadsCombined,
             int numThreads, boolean forceOverwrite,
-            boolean writeUracil, String minimapOptions, int minKmerCov, String txptNamePrefix, boolean stranded) throws IOException {
+            boolean writeUracil, String minimapOptions, int minKmerCov, String txptNamePrefix, 
+            boolean stranded, int minTranscriptLength) throws IOException {
         
         File outdir = new File(assembledLongReadsDirectory);
         if (outdir.exists()) {
@@ -3893,7 +3895,7 @@ public class RNABloom {
         }
         
         return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined,
-                numThreads, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, stranded);
+                numThreads, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, stranded, minTranscriptLength);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -5196,7 +5198,7 @@ public class RNABloom {
                                         
                     boolean ok = assembleLongReads(assembler,
                             clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombinedFile,
-                            numThreads, forceOverwrite, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, strandSpecific);
+                            numThreads, forceOverwrite, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, strandSpecific, minTranscriptLength);
                     
                     if (ok) {
                         touch(longReadsAssembledStamp);
