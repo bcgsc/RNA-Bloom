@@ -366,7 +366,7 @@ public class Layout {
         }
         reader.close();
         
-        System.out.println("Overlapped reads: " + lengths.size());
+        System.out.println("Overlapped sequences: " + lengths.size());
         
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
@@ -376,8 +376,8 @@ public class Layout {
             }
         }
         
-        System.out.println("      - unique:   " + Integer.toString(longestSet.size()));
-        System.out.println("      - dovetail: " + Integer.toString(dovetailRecords.size()) );
+        System.out.println("          - unique:   " + Integer.toString(longestSet.size()));
+        System.out.println("          - dovetail: " + Integer.toString(dovetailRecords.size()) );
         
         // add nodes for reads
         for (String name : longestSet) {
@@ -515,7 +515,7 @@ public class Layout {
         }
         reader.close();
         
-        System.out.println("Overlapped reads: " + lengths.size());
+        System.out.println("Overlapped sequences: " + lengths.size());
         
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
@@ -525,8 +525,8 @@ public class Layout {
             }
         }
         
-        System.out.println("      - unique:   " + Integer.toString(longestSet.size()));
-        System.out.println("      - dovetail: " + Integer.toString(dovetailRecords.size()));
+        System.out.println("          - unique:   " + Integer.toString(longestSet.size()));
+        System.out.println("          - dovetail: " + Integer.toString(dovetailRecords.size()));
         
         // add nodes for reads
         for (String name : longestSet) {
