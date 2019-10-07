@@ -6,6 +6,7 @@
 package rnabloom.olc;
 
 import java.io.IOException;
+import java.text.NumberFormat;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -366,7 +367,7 @@ public class Layout {
         }
         reader.close();
         
-        System.out.println("Overlapped sequences: " + lengths.size());
+        System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
         
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
@@ -376,8 +377,8 @@ public class Layout {
             }
         }
         
-        System.out.println("          - unique:   " + Integer.toString(longestSet.size()));
-        System.out.println("          - dovetail: " + Integer.toString(dovetailRecords.size()) );
+        System.out.println("          - unique:   " + NumberFormat.getInstance().format(longestSet.size()));
+        System.out.println("          - dovetail: " + NumberFormat.getInstance().format(dovetailRecords.size()));
         
         // add nodes for reads
         for (String name : longestSet) {
@@ -463,7 +464,7 @@ public class Layout {
         fw.close();
         
         if (seqID > 1)
-            System.out.println(Integer.toString(seqID) + " sequences remaining after layout");
+            System.out.println(NumberFormat.getInstance().format(seqID) + " sequences remaining after layout");
         else
             System.out.println(Integer.toString(seqID) + " sequence remaining after layout");
     }
@@ -515,7 +516,7 @@ public class Layout {
         }
         reader.close();
         
-        System.out.println("Overlapped sequences: " + lengths.size());
+        System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
         
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
@@ -525,8 +526,8 @@ public class Layout {
             }
         }
         
-        System.out.println("          - unique:   " + Integer.toString(longestSet.size()));
-        System.out.println("          - dovetail: " + Integer.toString(dovetailRecords.size()));
+        System.out.println("          - unique:   " + NumberFormat.getInstance().format(longestSet.size()));
+        System.out.println("          - dovetail: " + NumberFormat.getInstance().format(dovetailRecords.size()));
         
         // add nodes for reads
         for (String name : longestSet) {
@@ -601,7 +602,7 @@ public class Layout {
         fw.close();
         
         if (seqID > 1)
-            System.out.println(Integer.toString(seqID) + " sequences remaining after layout");
+            System.out.println(NumberFormat.getInstance().format(seqID) + " sequences remaining after layout");
         else
             System.out.println(Integer.toString(seqID) + " sequence remaining after layout");
     }
