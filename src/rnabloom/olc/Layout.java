@@ -463,9 +463,9 @@ public class Layout {
         fw.close();
         
         if (seqID > 1)
-            System.out.println("Created " + Integer.toString(seqID) + " backbones.");
+            System.out.println(Integer.toString(seqID) + " sequences remaining after layout");
         else
-            System.out.println("Created " + Integer.toString(seqID) + " backbone.");
+            System.out.println(Integer.toString(seqID) + " sequence remaining after layout");
     }
     
     private void layoutStrandedBackbones(String outFastaPath) throws IOException {
@@ -601,9 +601,9 @@ public class Layout {
         fw.close();
         
         if (seqID > 1)
-            System.out.println("Created " + Integer.toString(seqID) + " backbones.");
+            System.out.println(Integer.toString(seqID) + " sequences remaining after layout");
         else
-            System.out.println("Created " + Integer.toString(seqID) + " backbone.");
+            System.out.println(Integer.toString(seqID) + " sequence remaining after layout");
     }
     
     public static void main(String[] args) {
