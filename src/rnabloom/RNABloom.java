@@ -4136,7 +4136,7 @@ public class RNABloom {
         options.addOption(optPooledAssembly);
         
         Option optLongReads = Option.builder("long")
-                                    .desc("long reads file(s)\n(Presets `-k 17 -c 3 -indel 10 -e 3 -p 0.8` unless each option is defined otherwise.)")
+                                    .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `-k 17 -c 3 -indel 10 -e 3 -p 0.8` unless each option is defined otherwise.)")
                                     .hasArgs()
                                     .argName("FILE")
                                     .build();
@@ -4328,7 +4328,7 @@ public class RNABloom {
         options.addOption(optNumKmers);
         
         Option optNtcard = Option.builder("ntcard")
-                                    .desc("run `ntcard` to count the number of unique k-mers in input reads [false]\n(If this option is used along with `-long`, the value for `-c` is set automatically based on the ntCard histogram, unless `-c` is defined otherwise)")
+                                    .desc("count unique k-mers in input reads with ntCard [false]\n(Requires `ntcard` in PATH. If this option is used along with `-long`, the value for `-c` is set automatically based on the ntCard histogram, unless `-c` is defined otherwise)")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNtcard);        
@@ -4456,7 +4456,7 @@ public class RNABloom {
         options.addOption(optMinLength);  
         
         Option optReduce = Option.builder("nr")
-                                    .desc("output non-redundant transcripts in 'transcripts.nr.fa' [false]")
+                                    .desc("reduce redundancy in assembled transcripts [false]\n(Requires `minimap2` in PATH. Outputs sequences in 'transcripts.nr.fa')")
                                     .hasArg(false)
                                     .build();
         options.addOption(optReduce);
