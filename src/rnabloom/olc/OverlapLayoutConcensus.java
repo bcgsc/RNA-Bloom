@@ -16,6 +16,7 @@ import java.io.OutputStreamWriter;
 import java.lang.ProcessBuilder.Redirect;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -235,7 +236,7 @@ public class OverlapLayoutConcensus {
         String avaPaf = tmpPrefix + "_ava.paf.gz";
         
         if (hasOnlyOneSequence(readsPath)) {
-            Files.copy(Paths.get(readsPath), Paths.get(layoutPath));
+            Files.copy(Paths.get(readsPath), Paths.get(layoutPath), StandardCopyOption.REPLACE_EXISTING);
             return true;
         }
         
@@ -255,7 +256,7 @@ public class OverlapLayoutConcensus {
         }
         else {
             // PAF file is empty
-            Files.copy(Paths.get(readsPath), Paths.get(layoutPath));
+            Files.copy(Paths.get(readsPath), Paths.get(layoutPath), StandardCopyOption.REPLACE_EXISTING);
         }
         
         return true;
@@ -267,7 +268,7 @@ public class OverlapLayoutConcensus {
         String mapPaf = tmpPrefix + "_map.paf.gz";
         
         if (hasOnlyOneSequence(readsPath)) {
-            Files.copy(Paths.get(readsPath), Paths.get(concensusPath));
+            Files.copy(Paths.get(readsPath), Paths.get(concensusPath), StandardCopyOption.REPLACE_EXISTING);
             return true;
         }
         
@@ -287,7 +288,7 @@ public class OverlapLayoutConcensus {
         }
         else {
             // PAF file is empty
-            Files.copy(Paths.get(readsPath), Paths.get(concensusPath));
+            Files.copy(Paths.get(readsPath), Paths.get(concensusPath), StandardCopyOption.REPLACE_EXISTING);
             return true;
         }
         
