@@ -693,6 +693,11 @@ public class RNABloom {
         graph.setReadPairedKmerDistance(readLength - k - minNumKmerPairs);
     }
     
+    public int getReadLength() {
+        int d = graph.getReadPairedKmerDistance();
+        return d <= 0 ? d : d + k + minNumKmerPairs;
+    }
+    
     public void populateGraph(Collection<String> forwardReadPaths,
                             Collection<String> reverseReadPaths,
                             Collection<String> longReadPaths,
@@ -2418,13 +2423,6 @@ public class RNABloom {
                                     String txptNamePrefix,
                                     boolean stranded,
                                     int minTranscriptLength) throws IOException {
-        if (!hasMinimap2()) {
-            exitOnError("`minimap2` not found in PATH!");
-        }
-                
-        if (!hasRacon()) {
-            exitOnError("`racon` not found!");
-        }
         
         ArrayList<Integer> clusterIDs = new ArrayList<>();
         
@@ -4023,44 +4021,38 @@ public class RNABloom {
         else {
             System.out.println("WARNING: Transcripts were already assembled for \"" + name + "\"!");
         }
-        
+                
         if (reduceRedundancy) {
-            generateNonRedundantTranscripts(assembler, forceOverwrite, outdir, name, sbfSize, sbfNumHash);
+            final File nrTxptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
+            
+            if (forceOverwrite || !nrTxptsDoneStamp.exists()) {
+                String tmpPrefix = outdir + File.separator + name + ".tmp";
+                String nrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr.fa";
+                
+                Files.deleteIfExists(FileSystems.getDefault().getPath(nrTranscriptsFasta));
+                
+                System.out.println("Reducing redundancy in assembled transcripts...");
+                MyTimer timer = new MyTimer();
+                timer.start();
+
+                boolean ok = assembler.generateNonRedundantTranscripts(transcriptsFasta, tmpPrefix, nrTranscriptsFasta, numThreads);
+
+                if (ok) {
+                    System.out.println("Redundancy reduced in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                    touch(nrTxptsDoneStamp);
+                }
+                else {
+                    exitOnError("Error during redundancy reduction!");
+                }
+            }
+            else {
+                System.out.println("WARNING: Redundancy reduction had completed previously for \"" + name + "\"!");
+            }                
         }
     }
     
-    private static void generateNonRedundantTranscripts(RNABloom assembler, boolean forceOverwrite,
-            String outdir, String name,
-            long sbfSize, int sbfNumHash) throws IOException {
-
-        final File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
-        final String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
-        final String transcriptsNrFasta = outdir + File.separator + name + ".transcripts.nr.fa";
-        
-        if (forceOverwrite || !txptsNrDoneStamp.exists()) {
-            File transcriptsNrFile = new File(transcriptsNrFasta);
-            if (transcriptsNrFile.exists()) {
-                transcriptsNrFile.delete();
-            }
-
-            MyTimer timer = new MyTimer();
-
-            System.out.println("Reducing redundancy...");
-            timer.start();
-
-            assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-
-            assembler.reduceSequenceRedundancy(transcriptsFasta, transcriptsNrFasta);
-
-            System.out.println("Redundancy reduction completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
-
-            touch(txptsNrDoneStamp);
-
-            System.out.println("Non-redundant transcripts at `" + transcriptsNrFasta + "`");
-        }   
-        else {
-            System.out.println("WARNING: Redundancy reduction already completed for \"" + name + "\"!");
-        }
+    private boolean generateNonRedundantTranscripts(String inFasta, String tmpPrefix, String outFasta, int numThreads) throws IOException {
+        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), lookahead, 0.99f, getReadLength());
     }
     
     private static boolean hasNtcard() {
@@ -4768,6 +4760,7 @@ public class RNABloom {
             final boolean revCompLong = line.hasOption(optRevCompLong.getOpt());
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             final boolean writeUracil = line.hasOption(optUracil.getOpt());
+            final boolean outputNrTxpts = line.hasOption(optReduce.getOpt());
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
 //            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final boolean useCompressedMinimizers = false;
@@ -4776,6 +4769,14 @@ public class RNABloom {
             boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
             boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
             boolean hasRefTranscriptFiles = refTranscriptPaths != null && refTranscriptPaths.length > 0;
+            
+            if ((hasLongReadFiles || outputNrTxpts) && !hasMinimap2()) {
+                exitOnError("`minimap2` not found in PATH!");
+            }
+
+            if (hasLongReadFiles && !hasRacon()) {
+                exitOnError("`racon` not found in PATH!");
+            }
             
             String defaultK = hasLongReadFiles ? "17" : optKmerSizeDefault;
             final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), defaultK));
@@ -4893,7 +4894,6 @@ public class RNABloom {
             final int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), optLookaheadDefault));
             final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), optTipLengthDefault));
             final float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), optMaxCovGradDefault));
-            final boolean outputNrTxpts = line.hasOption(optReduce.getOpt());
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), optMinLengthDefault));
             
             final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), optPolyATailDefault));
@@ -5208,9 +5208,9 @@ public class RNABloom {
                     }
                 }
                 
-                if (outputNrTxpts) {
-                    generateNonRedundantTranscripts(assembler, forceOverwrite, outdir, name, sbfSize, sbfNumHash);
-                }
+//                if (outputNrTxpts) {
+//                    generateNonRedundantTranscripts(assembler, forceOverwrite, outdir, name, sbfSize, sbfNumHash);
+//                }
                 
                 System.out.println("> Stage 4 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }
