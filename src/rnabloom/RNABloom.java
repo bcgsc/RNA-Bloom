@@ -37,7 +37,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -65,15 +64,12 @@ import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
 import rnabloom.bloom.hash.ReverseComplementPairedNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer;
-import rnabloom.io.FastaPairReader;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
-import rnabloom.io.FastqPairReader;
 import rnabloom.io.FastxFilePair;
 import rnabloom.io.PairedReadSegments;
 import rnabloom.io.FastqReader;
 import rnabloom.io.FastqRecord;
-import rnabloom.io.FastxPairReader;
 import rnabloom.io.FastxPairSequenceIterator;
 import rnabloom.io.FastxSequenceIterator;
 import rnabloom.io.FileFormatException;
@@ -2843,104 +2839,6 @@ public class RNABloom {
         
         return null;
     }
-    
-    public void correctLongReadsSingleThreaded(String[] inputFastxPaths, FastaWriter[][] writers, int minKmerCov, int maxErrCorrItr, int maxSampleSize, int minSeqLen, int minNumSolidKmers) throws IOException {
-        
-        long numReads = 0;
-        long numCorrected = 0;
-        
-        ArrayDeque<ArrayList<Kmer>> sample = new ArrayDeque<>(maxSampleSize);
-        FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths);
-        
-        for (; sample.size() < maxSampleSize && itr.hasNext(); ++numReads) {
-            String seq = itr.next();
-
-            ArrayList<Kmer> kmers = graph.getKmers(seq);
-
-            ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
-                                                                graph, 
-                                                                maxErrCorrItr, 
-                                                                maxCovGradient, 
-                                                                lookahead, 
-                                                                maxIndelSize, 
-                                                                percentIdentity, 
-                                                                minKmerCov,
-                                                                minNumSolidKmers,
-                                                                true);
-
-            if (correctedKmers != null && !correctedKmers.isEmpty()) {
-                sample.add(correctedKmers);
-            }
-        }
-        
-        int sampleSize = sample.size();
-        int[] lengths = new int[sampleSize];
-        int i = 0;
-        for (ArrayList<Kmer> kmers : sample) {
-            lengths[i++] = getSeqLength(kmers.size(), k);
-        }
-
-        LengthStats sampleLengthStats = getLengthStats(lengths);
-
-        System.out.println("Corrected Read Lengths Distribution (n=" + sampleSize + ")");
-        System.out.println("\tmin\tq1\tmed\tq3\tmax");
-        System.out.println("\t" + sampleLengthStats.min + "\t" + 
-                                    sampleLengthStats.q1 + "\t" +
-                                    sampleLengthStats.median + "\t" +
-                                    sampleLengthStats.q3 + "\t" +
-                                    sampleLengthStats.max);
-        
-        /** write the sample sequences to file */
-        for (ArrayList<Kmer> kmers : sample) {
-            int length = getSeqLength(kmers.size(), k);
-            float cov = getMedianKmerCoverage(kmers);
-
-            int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, minSeqLen, length);
-            int covStatumIndex = getCoverageOrderOfMagnitude(cov);
-
-            String header = Long.toString(++numCorrected) + " l=" + Integer.toString(length) + " c=" + Float.toString(cov);
-            String seq = graph.assemble(kmers);
-
-            writers[covStatumIndex][lengthStratumIndex].write(header, seq);
-        }
-
-        sample = null;
-
-        /** write the remaining sequences to file */
-        for (; itr.hasNext(); ++numReads) {
-            String seq = itr.next();
-            
-            ArrayList<Kmer> kmers = graph.getKmers(seq);
-
-            ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
-                                                                graph, 
-                                                                maxErrCorrItr, 
-                                                                maxCovGradient, 
-                                                                lookahead, 
-                                                                maxIndelSize, 
-                                                                percentIdentity, 
-                                                                minKmerCov,
-                                                                minNumSolidKmers,
-                                                                true);
-
-            if (correctedKmers != null && !correctedKmers.isEmpty()) {
-                int length = getSeqLength(correctedKmers.size(), k);
-                float cov = getMedianKmerCoverage(correctedKmers);
-
-                int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, minSeqLen, length);
-                int covStatumIndex = getCoverageOrderOfMagnitude(cov);
-
-                String header = Long.toString(++numCorrected) + " l=" + Integer.toString(length) + " c=" + Float.toString(cov);
-                seq = graph.assemble(correctedKmers);
-                writers[covStatumIndex][lengthStratumIndex].write(header, seq);
-            }
-        }
-        
-        System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
-        long numDiscarded = numReads - numCorrected;
-        System.out.println("\tCorrected: " + NumberFormat.getInstance().format(numCorrected) + "(" + numCorrected * 100f/numReads + "%)");
-        System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "(" + numDiscarded * 100f/numReads + "%)");
-    }
 
     private class FragmentWriters {
         boolean assemblePolyaTails = false;
@@ -3672,20 +3570,7 @@ public class RNABloom {
         System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments.");
         System.out.println("Screening Bloom filter FPR:      " + screeningBf.getFPR() * 100 + " %");
     }
-    
-    public void reduceSequenceRedundancy(String inFasta, String outFasta) throws IOException {
-        int numRemoved = reduceRedundancy(inFasta,
-                                            outFasta,
-                                            graph,
-                                            screeningBf,
-                                            lookahead,
-                                            maxIndelSize,
-                                            maxTipLength,
-                                            percentIdentity);
-
-        System.out.println("Removed " + NumberFormat.getInstance().format(numRemoved) + " redundant sequences.");
-    }
-        
+            
     private static class MyTimer {
         private final long globalStartTime;
         private long startTime;
@@ -3842,13 +3727,6 @@ public class RNABloom {
         
         assembler.correctLongReadsMultithreaded(readFastxPaths, writers, minKmerCov, maxErrCorrItr, numThreads, sampleSize, minSeqLen, reverseComplement);
         
-//        if (numThreads == 1) {
-//            assembler.correctLongReadsSingleThreaded(readFastxPaths, writers, minKmerCov, maxErrCorrItr, sampleSize, minSeqLen);
-//        }
-//        else if (numThreads > 1) {
-//            assembler.correctLongReadsMultithreaded(readFastxPaths, writers, minKmerCov, maxErrCorrItr, numThreads, sampleSize, minSeqLen);
-//        }
-        
         for (int i=0; i<writers.length; ++i) {
             for (int j=0; j<writers[i].length; ++j) {
                 writers[i][j].close();
@@ -3925,7 +3803,6 @@ public class RNABloom {
             String fragStatsFile = outdir + File.separator + name + ".fragstats";
             String graphFile = outdir + File.separator + name + ".graph";
             
-            //assembler.savePairedKmersBloomFilter(new File(graphFile));
             assembler.updateGraphDesc(new File(graphFile));
             assembler.writeFragStatsToFile(fragStats, fragStatsFile);
 
@@ -3951,10 +3828,6 @@ public class RNABloom {
                 
         if (forceOverwrite || !txptsDoneStamp.exists()) {
             MyTimer timer = new MyTimer();
-            
-//            if (restorePairedKmersBloomFilter) {
-//                assembler.restorePairedKmersBloomFilter(new File(outdir + File.separator + name + ".graph"));
-//            }
 
             FragmentPaths fragPaths = new FragmentPaths(outdir, name);
             
