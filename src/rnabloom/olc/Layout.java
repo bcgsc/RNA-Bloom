@@ -168,7 +168,10 @@ public class Layout {
                     if (overlap > bestOverlap) {
                         edgesToRemove.add(bestEdge);
                         if (!strandSpecific) {
-                            edgesToRemove.add(getReverseComplementEdge(bestEdge));
+                            OverlapEdge re = getReverseComplementEdge(bestEdge);
+                            if (re != null) {
+                                edgesToRemove.add(re);
+                            }
                         }
                         
                         bestOverlap = overlap;
@@ -177,7 +180,10 @@ public class Layout {
                     else {
                         edgesToRemove.add(e);
                         if (!strandSpecific) {
-                            edgesToRemove.add(getReverseComplementEdge(e));
+                            OverlapEdge re = getReverseComplementEdge(e);
+                            if (re != null) {
+                                edgesToRemove.add(re);
+                            }
                         }
                     }
                 }
@@ -200,7 +206,10 @@ public class Layout {
                     if (overlap > bestOverlap) {
                         edgesToRemove.add(bestEdge);
                         if (!strandSpecific) {
-                            edgesToRemove.add(getReverseComplementEdge(bestEdge));
+                            OverlapEdge re = getReverseComplementEdge(bestEdge);
+                            if (re != null) {
+                                edgesToRemove.add(re);
+                            }
                         }
                         
                         bestOverlap = overlap;
@@ -209,7 +218,10 @@ public class Layout {
                     else {
                         edgesToRemove.add(e);
                         if (!strandSpecific) {
-                            edgesToRemove.add(getReverseComplementEdge(e));
+                            OverlapEdge re = getReverseComplementEdge(e);
+                            if (re != null) {
+                                edgesToRemove.add(re);
+                            }
                         }
                     }
                 }
@@ -625,7 +637,7 @@ public class Layout {
         String backboneFastaPath = "";
         
         try {
-            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 10, 0.95f, 500);
+            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 3, 0.99f, 100);
             myLayout.writeBackboneSequences(backboneFastaPath);
         } catch (Exception ex) {
             ex.printStackTrace();
