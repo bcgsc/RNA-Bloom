@@ -5,9 +5,7 @@
 **RNA-Bloom** is a fast and memory-efficient *de novo* transcript sequence assembler. It is designed for the following sequencing data types:
 * paired-end bulk RNA-seq (strand-specific/agnostic)
 * paired-end single-cell RNA-seq (strand-specific/agnostic)
-* nanopore RNA-seq (cDNA/direct RNA)
-
-See [Quick Start](#quick-start-running) for example usage.
+* nanopore RNA-seq (PCR cDNA/direct cDNA/direct RNA)
 
 Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
@@ -19,26 +17,14 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 * [Java SE Runtime Environment (JRE) 8](http://www.oracle.com/technetwork/java/javase/downloads/jre8-downloads-2133155.html)
 
-Required for nanopore RNA-seq assembly:
+* External software used:
+| software                                    | short reads            | long reads             |
+| ------------------------------------------- | ---------------------- | ---------------------- |
+| [minimap2](https://github.com/lh3/minimap2) | required for `-nr`     | required               |
+| [Racon](https://github.com/isovic/racon)    | not used               | required               |
+| [ntCard](https://github.com/bcgsc/ntCard)   | required for `-ntcard` | required for `-ntcard` |
 
-* [minimap2](https://github.com/lh3/minimap2)
-* [Racon](https://github.com/isovic/racon)
-
-Optional:
-
-* [ntCard](https://github.com/bcgsc/ntCard)
-
-Check your Java version:
-```
-java -version
-```
-
-Example:
-```
-java version "1.8.0_101"
-Java(TM) SE Runtime Environment (build 1.8.0_101-b13)
-Java HotSpot(TM) 64-Bit Server VM (build 25.101-b13, mixed mode)
-```
+:warning: **These must be accessible from your `PATH`!**
 
 ## Installation :wrench:
 
@@ -49,27 +35,28 @@ tar -zxf rnabloom_vX.X.X.tar.gz
 ```
 3. RNA-Bloom is ready to use, ie. `java -jar /path/to/RNA-Bloom.jar ...`
 
-**There is nothing to compile/configure/build!** :thumbsup:
 
-## Quick Start :running:
 
-:warning: RNA-Bloom only supports paired-end short-read RNA-seq data (eg. Illumina, BGISEQ) and nanopore RNA-seq data (Oxford Nanopore Technologies). Input reads must be in either FASTQ or FASTA format and may be compressed with GZIP. 
+## Quick Start for Short Reads :running:
+
+:warning: Input reads must be in either FASTQ or FASTA format and may be compressed with GZIP. 
 
 ### assemble bulk RNA-seq data:
 ```
-java -jar RNA-Bloom.jar -left LEFT.fastq.gz -right RIGHT.fastq.gz -revcomp-right -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -left LEFT.fastq.gz -right RIGHT.fastq.gz -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
 
 ### assemble strand-specific bulk RNA-seq data:
 ```
-java -jar RNA-Bloom.jar -stranded -left LEFT.fastq.gz -right RIGHT.fastq.gz -revcomp-right -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -stranded -left LEFT.fastq.gz -right RIGHT.fastq.gz -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
 Note that dUTP protocols produce reads in the F2R1 orientation, where `/2` denotes left reads in forward orientation and `/1` denotes right reads in reverse orientation. In this case, please specify your reads paths as `-left reads_2.fastq -right reads_1.fastq`.
 
-### assemble single-cell RNA-seq data (Smart-seq2):
+### assemble single-cell RNA-seq data:
 ```
-java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
+RNA-Bloom was tested on Smart-seq2 and SMARTer datasets.
 
 #### file format for the `-pool` option:
 
@@ -87,6 +74,22 @@ cell2 /path/to/cell2/left.fastq.gz /path/to/cell2/right.fastq.gz
 cell3 /path/to/cell3/left.fastq.gz /path/to/cell3/right.fastq.gz
 ```
 
+### reference-guided assembly:
+```
+java -jar RNA-Bloom.jar -ref TRANSCRIPTS.fa ...
+```
+The `-ref` option specifies the reference transcriptome for guiding short-read assembly.
+
+### reduce redundancy in assembly:
+```
+java -jar RNA-Bloom.jar -nr ...
+```
+Reduce the number of redundant transcripts generated in short-read assembly. `minimap2` must be found in your `PATH`.
+
+
+
+## Quick Start for Nanopore Reads :running:
+
 ### assemble nanopore PCR cDNA sequencing data:
 ```
 java -jar RNA-Bloom.jar -long READS.fa -ntcard -t THREADS -outdir OUTDIR
@@ -103,14 +106,17 @@ java -jar RNA-Bloom.jar -long READS.fa -stranded -ntcard -t THREADS -outdir OUTD
 ```
 All `U`s are written as `T`s by default, but you may request `U`s instead of `T`s using the `-uracil` option.
 
+
+
+## General Settings
+
 ### set the Bloom filter sizes based on the maximum allowable false positive rate and the expected number of unique k-mers:
 ```
 java -jar RNA-Bloom.jar -fpr 0.05 -nk 28077715 ...
 ```
 The number of unique k-mers in your dataset can be estimated efficiently with [ntCard](https://github.com/bcgsc/ntCard).
 
-As an alternative to `-nk`, you can use the `-ntcard` option in RNA-Bloom if `ntcard` is already in your `PATH`, eg.
-
+As an alternative to `-nk`, you may use the `-ntcard` option to count k-mers (`ntcard` must be found in your `PATH`):
 ```
 java -jar RNA-Bloom.jar -fpr 0.05 -ntcard ...
 ```
@@ -147,6 +153,7 @@ java -Xmx1g -jar RNA-Bloom.jar ...
 This option does not need to be set larger than the total Bloom filter size.
 
 [Other JVM options](https://docs.oracle.com/cd/E37116_01/install.111210/e23737/configuring_jvm.htm#OUDIG00071) may also be used.
+
 
 
 ## Citing RNA-Bloom :scroll:
