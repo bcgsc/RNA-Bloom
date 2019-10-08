@@ -18,13 +18,14 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 * [Java SE Runtime Environment (JRE) 8](http://www.oracle.com/technetwork/java/javase/downloads/jre8-downloads-2133155.html)
 
 * External software used:
+
 | software                                    | short reads            | long reads             |
 | ------------------------------------------- | ---------------------- | ---------------------- |
 | [minimap2](https://github.com/lh3/minimap2) | required for `-nr`     | required               |
 | [Racon](https://github.com/isovic/racon)    | not used               | required               |
 | [ntCard](https://github.com/bcgsc/ntCard)   | required for `-ntcard` | required for `-ntcard` |
 
-:warning: **These must be accessible from your `PATH`!**
+:warning: These must be accessible from your `PATH`!
 
 ## Installation :wrench:
 
@@ -78,7 +79,7 @@ cell3 /path/to/cell3/left.fastq.gz /path/to/cell3/right.fastq.gz
 ```
 java -jar RNA-Bloom.jar -ref TRANSCRIPTS.fa ...
 ```
-The `-ref` option specifies the reference transcriptome for guiding short-read assembly.
+The `-ref` option specifies the reference transcriptome FASTA file for guiding short-read assembly.
 
 ### reduce redundancy in assembly:
 ```
