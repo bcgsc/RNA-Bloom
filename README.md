@@ -109,15 +109,15 @@ All `U`s are written as `T`s by default, but you may request `U`s instead of `T`
 
 
 
-## General Settings
+## General Settings :gear:
 
-### (A) set Bloom filter sizes based on the maximum allowed false positive rate and the expected number of unique k-mers:
+### (A) set Bloom filter sizes automatically:
 ```
 java -jar RNA-Bloom.jar -fpr 0.05 -nk 28077715 ...
 ```
-This sets the size of Bloom filters to have a max FPR of 5% for 28,077,715 unique k-mers.
+This sets the size of Bloom filters automatically to accommodate 28,077,715 unique k-mers for a max false positive rate (FPR) of 5%.
 
-As an alternative, you may use the `-ntcard` option to count k-mers:
+Instead of specifying the exact number of k-mers, you may use ntCard to count k-mers:
 ```
 java -jar RNA-Bloom.jar -fpr 0.05 -ntcard ...
 ```
@@ -129,7 +129,7 @@ As a rule of thumb, a lower FPR may result in a better assembly but requires mor
 ```
 java -jar RNA-Bloom.jar -mem 10 ...
 ```
-This sets the total size to 10 GB. If none of the above options (`-nk`, `-ntcard`, `-mem`) are used, then the total size is configured based on the size of input read files.
+This sets the total size to 10 GB. If neither `-nk`, `-ntcard`, or `-mem` are used, then the total size is configured based on the size of input read files.
 
 ### (C) stop at an intermediate stage:
 ```
@@ -153,9 +153,9 @@ java -jar RNA-Bloom.jar -help
 ```
 java -Xmx2g -jar RNA-Bloom.jar ...
 ```
-This limits the maximum Java heap to 2 GB. Note that `java` options has no effect on Bloom filter sizes.
+This limits the maximum Java heap to 2 GB with the `-Xmx` option. Note that `java` options has no effect on Bloom filter sizes.
 
-See documentation on [JVM options](https://docs.oracle.com/cd/E37116_01/install.111210/e23737/configuring_jvm.htm#OUDIG00071).
+See documentation for other [JVM options](https://docs.oracle.com/cd/E37116_01/install.111210/e23737/configuring_jvm.htm#OUDIG00071).
 
 
 
