@@ -95,17 +95,21 @@ To use the `-nr` option, `minimap2` must be found in your `PATH`.
 ```
 java -jar RNA-Bloom.jar -long READS.fa -ntcard -t THREADS -outdir OUTDIR
 ```
+Input reads are expected to be in a mix of both forward and reverse orientations.
 
 ### (B) assemble nanopore direct cDNA sequencing data:
 ```
 java -jar RNA-Bloom.jar -long READS.fa -stranded -revcomp-long -ntcard -t THREADS -outdir OUTDIR
 ```
+Input reads are expected to be only in the reverse orientation.
 
 ### (C) assemble nanopore direct RNA sequencing data:
 ```
 java -jar RNA-Bloom.jar -long READS.fa -stranded -ntcard -t THREADS -outdir OUTDIR
 ```
-All `U`s are written as `T`s by default, but you may request `U`s instead of `T`s using the `-uracil` option.
+Input reads are expected to be only in the forward orientation.
+
+By default, uracil bases (`U`) are written as `T`. Use the `-uracil` option to write `U` instead of `T` in the output assembly.
 
 
 
