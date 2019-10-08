@@ -22,7 +22,7 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 | software                                    | short reads            | long reads             |
 | ------------------------------------------- | ---------------------- | ---------------------- |
 | [minimap2](https://github.com/lh3/minimap2) | required for `-nr`     | required               |
-| [Racon](https://github.com/isovic/racon)    | not used               | required               |
+| [Racon](https://github.com/lbcb-sci/racon)  | not used               | required               |
 | [ntCard](https://github.com/bcgsc/ntCard)   | required for `-ntcard` | required for `-ntcard` |
 
 :warning: These must be accessible from your `PATH`!
@@ -42,18 +42,18 @@ tar -zxf rnabloom_vX.X.X.tar.gz
 
 :warning: Input reads must be in either FASTQ or FASTA format and may be compressed with GZIP. 
 
-### assemble bulk RNA-seq data:
+### A. assemble bulk RNA-seq data:
 ```
 java -jar RNA-Bloom.jar -left LEFT.fastq.gz -right RIGHT.fastq.gz -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
 
-### assemble strand-specific bulk RNA-seq data:
+### B. assemble strand-specific bulk RNA-seq data:
 ```
 java -jar RNA-Bloom.jar -stranded -left LEFT.fastq.gz -right RIGHT.fastq.gz -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
 Note that dUTP protocols produce reads in the F2R1 orientation, where `/2` denotes left reads in forward orientation and `/1` denotes right reads in reverse orientation. In this case, please specify your reads paths as `-left reads_2.fastq -right reads_1.fastq`.
 
-### assemble single-cell RNA-seq data:
+### C. assemble single-cell RNA-seq data:
 ```
 java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
@@ -75,33 +75,33 @@ cell2 /path/to/cell2/left.fastq.gz /path/to/cell2/right.fastq.gz
 cell3 /path/to/cell3/left.fastq.gz /path/to/cell3/right.fastq.gz
 ```
 
-### reference-guided assembly:
+### D. reference-guided assembly:
 ```
 java -jar RNA-Bloom.jar -ref TRANSCRIPTS.fa ...
 ```
 The `-ref` option specifies the reference transcriptome FASTA file for guiding short-read assembly.
 
-### reduce redundancy in assembly:
+### E. reduce redundancy of assembled transcripts:
 ```
 java -jar RNA-Bloom.jar -nr ...
 ```
-Reduce the number of redundant transcripts generated in short-read assembly. `minimap2` must be found in your `PATH`.
+To use this option, `minimap2` must be found in your `PATH`.
 
 
 
 ## Quick Start for Nanopore Reads :running:
 
-### assemble nanopore PCR cDNA sequencing data:
+### A. assemble nanopore PCR cDNA sequencing data:
 ```
 java -jar RNA-Bloom.jar -long READS.fa -ntcard -t THREADS -outdir OUTDIR
 ```
 
-### assemble nanopore direct cDNA sequencing data:
+### B. assemble nanopore direct cDNA sequencing data:
 ```
 java -jar RNA-Bloom.jar -long READS.fa -stranded -revcomp-long -ntcard -t THREADS -outdir OUTDIR
 ```
 
-### assemble nanopore direct RNA sequencing data:
+### C. assemble nanopore direct RNA sequencing data:
 ```
 java -jar RNA-Bloom.jar -long READS.fa -stranded -ntcard -t THREADS -outdir OUTDIR
 ```
@@ -111,25 +111,27 @@ All `U`s are written as `T`s by default, but you may request `U`s instead of `T`
 
 ## General Settings
 
-### set the Bloom filter sizes based on the maximum allowable false positive rate and the expected number of unique k-mers:
+### A. set Bloom filter sizes based on the maximum allowed false positive rate and the expected number of unique k-mers:
 ```
 java -jar RNA-Bloom.jar -fpr 0.05 -nk 28077715 ...
 ```
 The number of unique k-mers in your dataset can be estimated efficiently with [ntCard](https://github.com/bcgsc/ntCard).
 
-As an alternative to `-nk`, you may use the `-ntcard` option to count k-mers (`ntcard` must be found in your `PATH`):
+As an alternative, you may use the `-ntcard` option to count k-mers:
 ```
 java -jar RNA-Bloom.jar -fpr 0.05 -ntcard ...
 ```
+To use this option, `ntcard` must be found in your `PATH`.
+
 As a rule of thumb, a lower false positive rate may result in a better assembly but requires more memory for a larger Bloom filter.
 
-### set the total size of Bloom filters to 3GB:
+### B. set the total size of Bloom filters to `N` GB:
 ```
-java -jar RNA-Bloom.jar -mem 3 ...
+java -jar RNA-Bloom.jar -mem N ...
 ```
 Otherwise, it is adjusted automatically based on the size of input read files.
 
-### stop at an intermediate stage:
+### C. stop at intermediate stage `N`:
 ```
 java -jar RNA-Bloom.jar -stage N ...
 ```
@@ -142,16 +144,16 @@ java -jar RNA-Bloom.jar -stage N ...
 
 This is a very useful option if you only want to assemble fragments or correct long reads (ie. with `-stage 2`)!
 
-### list all available options in RNA-Bloom:
+### D. list all available options in RNA-Bloom:
 ```
 java -jar RNA-Bloom.jar -help
 ```
 
-### limit the size of Java heap to 1GB:
+### E. limit the size of Java heap:
 ```
-java -Xmx1g -jar RNA-Bloom.jar ...
+java -Xmx2g -jar RNA-Bloom.jar ...
 ```
-This option does not need to be set larger than the total Bloom filter size.
+This limits the maximum Java heap to 2GB. Note that `java` options has no effect on Bloom filter sizes.
 
 [Other JVM options](https://docs.oracle.com/cd/E37116_01/install.111210/e23737/configuring_jvm.htm#OUDIG00071) may also be used.
 
