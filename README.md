@@ -113,13 +113,13 @@ All `U`s are written as `T`s by default, but you may request `U`s instead of `T`
 
 ### (A) set Bloom filter sizes automatically:
 ```
-java -jar RNA-Bloom.jar -fpr 0.05 -nk 28077715 ...
+java -jar RNA-Bloom.jar -fpr 0.01 -nk 28077715 ...
 ```
-This sets the size of Bloom filters automatically to accommodate 28,077,715 unique k-mers for a max false positive rate (FPR) of 5%.
+This sets the size of Bloom filters automatically to accommodate 28,077,715 unique k-mers for a max false positive rate (FPR) of 1%.
 
 Instead of specifying the exact number of k-mers, you may use ntCard to count k-mers:
 ```
-java -jar RNA-Bloom.jar -fpr 0.05 -ntcard ...
+java -jar RNA-Bloom.jar -fpr 0.01 -ntcard ...
 ```
 To use the `-ntcard` option, `ntcard` must be found in your `PATH`.
 
