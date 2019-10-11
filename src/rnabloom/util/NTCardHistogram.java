@@ -26,6 +26,7 @@ import java.io.IOException;
  * @author kmnip
  */
 public class NTCardHistogram {
+    public long numSingletons = 0;
     public long numKmers = 0;
     public int covThreshold = 0;
     
@@ -45,6 +46,7 @@ public class NTCardHistogram {
                     long count = Long.parseLong(cols[1]);
                     if (lastCount <= 0) {
                         lastCount = count;
+                        numSingletons = count;
                     }
                     else if (3 * count > lastCount) {
                         covThreshold = Integer.parseInt(cols[0]) - 1;
