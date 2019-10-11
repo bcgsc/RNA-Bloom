@@ -17,6 +17,7 @@
 package rnabloom;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -46,7 +47,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -3941,13 +3941,13 @@ public class RNABloom {
         }
     }
         
-    private static NTCardHistogram getNTCardHistogram(int threads, int k, String histogramPathPrefix, String[] readPaths, boolean forceOverwrite) throws IOException, InterruptedException {
+    private static NTCardHistogram getNTCardHistogram(int threads, int k, String histogramPathPrefix, String readPathsFile, boolean forceOverwrite) throws IOException, InterruptedException {
         NTCardHistogram hist = null;
         String histogramPath = histogramPathPrefix + "_k" + k + ".hist";
         int exitVal = 0;
         
         if (forceOverwrite || !new File(histogramPath).isFile()) {
-            String cmd = "ntcard -t " + threads + " -k " + k + " -c 65535 -p " + histogramPathPrefix + " " + String.join(" ", readPaths);
+            String cmd = "ntcard -t " + threads + " -k " + k + " -c 65535 -p " + histogramPathPrefix + " @" + readPathsFile;
             Runtime rt = Runtime.getRuntime();
             System.out.println("Running command: `" + cmd + "`...");
             Process pr = rt.exec(cmd);
@@ -4690,35 +4690,47 @@ public class RNABloom {
             final boolean saveGraph = line.hasOption(optSaveBf.getOpt());
                         
             long expNumKmers = -1L;
+            NTCardHistogram hist = null;
             if (line.hasOption(optNtcard.getOpt())) {
                 if (!hasNtcard()) {
                     exitOnError("`ntcard` not found in your PATH!");
                 }
                 
                 System.out.println("\nK-mer counting with ntCard...");
+                timer.start();
+                 
+                String ntcard_reads_list_file = outdir + File.separator + name + ".ntcard.readslist.txt";
+                BufferedWriter writer = new BufferedWriter(new FileWriter(ntcard_reads_list_file, false));
+                
+                if (hasLeftReadFiles && leftReadPaths != null) {
+                    for (String p : leftReadPaths) {
+                        writer.write(p + '\n');
+                    }
+                }
+                
+                if (hasRightReadFiles && rightReadPaths != null) {
+                    for (String p : rightReadPaths) {
+                        writer.write(p + '\n');
+                    }
+                }
+                
+                if (hasLongReadFiles && longReadPaths != null) {
+                    for (String p : longReadPaths) {
+                        writer.write(p + '\n');
+                    }
+                }
+                
+                if (hasRefTranscriptFiles && refTranscriptPaths != null) {
+                    for (String p : refTranscriptPaths) {
+                        writer.write(p + '\n');
+                    }
+                }
+                
+                writer.close();
+                
                 String histogramPathPrefix = outdir + File.separator + name;
                 
-                timer.start();
-                                
-                Stream<String> readPaths = Stream.empty();
-                
-                if (hasLeftReadFiles) {
-                    readPaths = Stream.concat(readPaths, Arrays.stream(leftReadPaths));
-                }
-                
-                if (hasRightReadFiles) {
-                    readPaths = Stream.concat(readPaths, Arrays.stream(rightReadPaths));
-                }
-                
-                if (hasLongReadFiles) {
-                    readPaths = Stream.concat(readPaths, Arrays.stream(longReadPaths));
-                }
-                
-                if (hasRefTranscriptFiles) {
-                    readPaths = Stream.concat(readPaths, Arrays.stream(refTranscriptPaths));
-                }
-                
-                NTCardHistogram hist = getNTCardHistogram(numThreads, k, histogramPathPrefix, readPaths.toArray(String[]::new), forceOverwrite);
+                hist = getNTCardHistogram(numThreads, k, histogramPathPrefix, ntcard_reads_list_file, forceOverwrite);
                 if (hist == null) {
                     exitOnError("Error running ntCard!");
                 }
@@ -4752,8 +4764,14 @@ public class RNABloom {
                 dbgbfSize = BloomFilter.getExpectedSize(expNumKmers, maxFPR, dbgbfNumHash);
                 dbgGB = dbgbfSize / (float) NUM_BITS_1GB;
                 
-                cbfSize = CountingBloomFilter.getExpectedSize(expNumKmers, maxFPR, cbfNumHash);
-                cbfGB = cbfSize / (float) NUM_BYTES_1GB;
+                if (hist != null) {
+                    cbfSize = CountingBloomFilter.getExpectedSize(expNumKmers-hist.numSingletons, maxFPR, cbfNumHash);
+                    cbfGB = cbfSize / (float) NUM_BYTES_1GB;
+                }
+                else {
+                    cbfSize = CountingBloomFilter.getExpectedSize(expNumKmers, maxFPR, cbfNumHash);
+                    cbfGB = cbfSize / (float) NUM_BYTES_1GB;
+                }
                 
                 pkbfSize = PairedKeysBloomFilter.getExpectedSize(expNumKmers, maxFPR, pkbfNumHash);
                 pkbfGB = pkbfSize / (float) NUM_BITS_1GB;
