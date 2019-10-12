@@ -411,8 +411,12 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void add(final long[] hashVals) {
-        dbgbf.addCAS(hashVals);
-        cbf.increment(hashVals);
+//        dbgbf.addCAS(hashVals);
+//        cbf.increment(hashVals);
+        if (dbgbf.lookupThenAdd(hashVals)) {
+            // only increment counting Bloom filter if it was already in DBG Bloom filter
+            cbf.increment(hashVals);
+        }
     }
     
     public void addIfAbsent(final long[] hashVals) {
@@ -602,12 +606,19 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public float getCount(final long[] hashVals) {
+//        if (dbgbf.lookup(hashVals)) {
+//            return cbf.getCount(hashVals);
+//        }
+//        else {
+//            return 0;
+//        }
         if (dbgbf.lookup(hashVals)) {
-            return cbf.getCount(hashVals);
+            // +1 for the first kmer inserted into the DBG Bloom filter
+            return cbf.getCount(hashVals) + 1;
         }
         else {
             return 0;
-        }        
+        }
     }
 
     public float getDbgbfFPR() {
