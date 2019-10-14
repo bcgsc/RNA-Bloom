@@ -4246,7 +4246,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optPkbfMem);
 
-        final String optFprDefault = "0.05";
+        final String optFprDefault = "0.01";
         Option optFpr = Option.builder("fpr")
                                     .longOpt("fpr")
                                     .desc("maximum allowable false-positive rate of Bloom filters [" + optFprDefault + "]")
@@ -4586,7 +4586,7 @@ public class RNABloom {
                     rightReadFilesTotalBytes += new File(fq).length();
                 }
                 
-                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, 0.80f * Math.min(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
+                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, Math.max(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
             }
             else if (longReadPaths != null && longReadPaths.length > 0) {
                 checkInputFileFormat(longReadPaths);
@@ -4597,7 +4597,7 @@ public class RNABloom {
                     readFilesTotalBytes += new File(fq).length();
                 }
                 
-                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, 0.80f * readFilesTotalBytes) / NUM_BYTES_1GB))));
+                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
             }
             else {
                 if (leftReadPaths == null || leftReadPaths.length == 0) {
@@ -4625,7 +4625,7 @@ public class RNABloom {
                     rightReadFilesTotalBytes += new File(fq).length();
                 }
                 
-                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, 0.80f * Math.min(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
+                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, Math.max(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
             }
             
             final boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
@@ -4669,10 +4669,10 @@ public class RNABloom {
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), optBaseQualFragDefault));
                         
-            float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
-            float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8.5f)));
-            float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 6f / 8.5f)));
-            float pkbfGB = Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), Float.toString(maxBfMem * 0.5f / 8.5f)));
+            float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8f)));
+            float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8f)));
+            float cbfGB = Float.parseFloat(line.getOptionValue(optCbfMem.getOpt(), Float.toString(maxBfMem * 4f / 8f)));
+            float pkbfGB = Float.parseFloat(line.getOptionValue(optPkbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8f)));
                         
             long sbfSize = (long) (NUM_BITS_1GB * sbfGB);
             long dbgbfSize = (long) (NUM_BITS_1GB * dbgGB);
