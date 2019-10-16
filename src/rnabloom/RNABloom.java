@@ -4576,17 +4576,16 @@ public class RNABloom {
                 checkInputFileFormat(leftReadPaths);
                 checkInputFileFormat(rightReadPaths);
                 
-                double leftReadFilesTotalBytes = 0;
-                double rightReadFilesTotalBytes = 0;
+                double readFilesTotalBytes = 0;
 
                 for (String fq : leftReadPaths) {
-                    leftReadFilesTotalBytes += new File(fq).length();
+                    readFilesTotalBytes += new File(fq).length();
                 }
                 for (String fq : rightReadPaths) {
-                    rightReadFilesTotalBytes += new File(fq).length();
+                    readFilesTotalBytes += new File(fq).length();
                 }
                 
-                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, Math.max(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
+                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
             }
             else if (longReadPaths != null && longReadPaths.length > 0) {
                 checkInputFileFormat(longReadPaths);
@@ -4615,17 +4614,16 @@ public class RNABloom {
                 checkInputFileFormat(leftReadPaths);
                 checkInputFileFormat(rightReadPaths);
                 
-                double leftReadFilesTotalBytes = 0;
-                double rightReadFilesTotalBytes = 0;
+                double readFilesTotalBytes = 0;
 
                 for (String fq : leftReadPaths) {
-                    leftReadFilesTotalBytes += new File(fq).length();
+                    readFilesTotalBytes += new File(fq).length();
                 }
                 for (String fq : rightReadPaths) {
-                    rightReadFilesTotalBytes += new File(fq).length();
+                    readFilesTotalBytes += new File(fq).length();
                 }
                 
-                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, Math.max(leftReadFilesTotalBytes, rightReadFilesTotalBytes)) / NUM_BYTES_1GB))));
+                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
             }
             
             final boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
