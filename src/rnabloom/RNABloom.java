@@ -4328,11 +4328,11 @@ public class RNABloom {
                                     .build();
         options.addOption(optMinLength);  
         
-        Option optReduce = Option.builder("nr")
-                                    .desc("reduce redundancy in assembled transcripts [false]\n(Requires `minimap2` in PATH. Outputs sequences in 'transcripts.nr.fa')")
+        Option optNoReduce = Option.builder("norr")
+                                    .desc("skip redundancy reduction for assembled transcripts [false]\n(ie. do not generate 'transcripts.nr.fa')")
                                     .hasArg(false)
                                     .build();
-        options.addOption(optReduce);
+        options.addOption(optNoReduce);
         
         final String optOverlapDefault = "10";
         Option optOverlap = Option.builder("overlap")
@@ -4633,7 +4633,7 @@ public class RNABloom {
             final boolean revCompLong = line.hasOption(optRevCompLong.getOpt());
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             final boolean writeUracil = line.hasOption(optUracil.getOpt());
-            final boolean outputNrTxpts = line.hasOption(optReduce.getOpt());
+            final boolean outputNrTxpts = !line.hasOption(optNoReduce.getOpt());
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
 //            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final boolean useCompressedMinimizers = false;
