@@ -24,10 +24,13 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.TransitiveReduction;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
+import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.PafReader;
@@ -43,12 +46,14 @@ import static rnabloom.util.SeqUtils.stringToBytes;
  */
 public class Layout {
     
+    private final static Pattern CIGAR_OP_PATTERN = Pattern.compile("(\\d+)([MIDNSHPX=])");
     private DefaultDirectedGraph<String, OverlapEdge> graph;
     private String overlapPafPath;
     private String seqFastaPath;
     private boolean stranded;
     private int maxEdgeClip = 100;
     private float minAlnId = 0.50f;
+    private int maxIndelSize = 20;
     private int minOverlapMatches = 200;
     
     public Layout(String seqFile, String pafFile, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches) {
@@ -71,7 +76,44 @@ public class Layout {
             this.sinkEnd = sinkEnd;
         }
     }
+
+    private boolean hasAlignment(ExtendedPafRecord record) {
+        return record.cigar != null && record.nm >= 0;
+    }
+    
+    private boolean hasGoodAlignment(ExtendedPafRecord record) {
+        int numMatch = 0;
+        int numDel = 0;
+        int numIns = 0;
+                
+        Matcher m = CIGAR_OP_PATTERN.matcher(record.cigar);
+        while (m.find()) {
+            int opSize = Integer.parseInt(m.group(1));
+            char op = m.group(2).charAt(0);
+            switch (op) {
+                case 'M':
+                    numMatch += opSize;
+                    break;
+                case 'I':
+                    if (opSize > maxIndelSize) {
+                        return false;
+                    }
+                    numIns += opSize;
+                    break;
+                case 'D':
+                    if (opSize > maxIndelSize) {
+                        return false;
+                    }
+                    numDel += opSize;
+                    break;
+            }
+        }
         
+        float alnId = (numMatch - (record.nm - numDel - numIns))/(float)(numMatch + numDel + numIns);
+        
+        return alnId >= minAlnId;
+    }
+    
     private boolean isContainmentPafRecord(PafRecord record) {
         return record.numMatch / (float)(record.qEnd - record.qStart) >= minAlnId &&
             record.numMatch / (float)(record.tEnd - record.tStart) >= minAlnId &&
@@ -82,7 +124,7 @@ public class Layout {
     private boolean isStrandedContainmentPafRecord(PafRecord record) {
         return !record.reverseComplemented && isContainmentPafRecord(record);
     }
-    
+        
     private boolean isDovetailPafRecord(PafRecord r) {
         if (r.numMatch >= minOverlapMatches &&
             r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
@@ -631,10 +673,10 @@ public class Layout {
     }
     
     public static void main(String[] args) {
-        boolean stranded = false;
-        String seqFastaPath = "";
-        String overlapPafPath = "";
-        String backboneFastaPath = "";
+        boolean stranded = true;
+        String seqFastaPath = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/human_blood/SRR1957705/2019-10-16.k25/r.transcripts.fa";
+        String overlapPafPath = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/human_blood/SRR1957705/2019-10-16.k25/r.tmp_ava.paf.gz";
+        String backboneFastaPath = "/projects/btl_scratch/kmnip/sandbox/nr/nr.fa";
         
         try {
             Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 3, 0.99f, 100);
