@@ -28,11 +28,7 @@ public class PafRecord {
     public PafRecord() {
     }
     
-    public PafRecord(String[] cols) {
-        update(cols);
-    }
-
-    public final void update(String[] cols) {
+    public void update(String[] cols) {
         qName = cols[0];
         qLen = Integer.parseInt(cols[1]);
         qStart = Integer.parseInt(cols[2]);

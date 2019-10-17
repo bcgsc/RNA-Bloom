@@ -47,7 +47,9 @@ public class PafReader {
     }
     
     public PafRecord next() {
-        return new PafRecord(itr.next().trim().split("\t"));
+        PafRecord r = new PafRecord();
+        r.update(itr.next().trim().split("\t"));
+        return r;
     }
     
     public void next(PafRecord record) {
