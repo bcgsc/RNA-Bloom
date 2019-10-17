@@ -674,9 +674,9 @@ public class Layout {
     
     public static void main(String[] args) {
         boolean stranded = true;
-        String seqFastaPath = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/human_blood/SRR1957705/2019-10-16.k25/r.transcripts.fa";
-        String overlapPafPath = "/projects/btl2/kmnip/rna-bloom/tests/java_assemblies/human_blood/SRR1957705/2019-10-16.k25/r.tmp_ava.paf.gz";
-        String backboneFastaPath = "/projects/btl_scratch/kmnip/sandbox/nr/nr.fa";
+        String seqFastaPath = "";
+        String overlapPafPath = "";
+        String backboneFastaPath = "";
         
         try {
             Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 3, 0.99f, 100);
