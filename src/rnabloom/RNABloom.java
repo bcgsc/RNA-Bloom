@@ -4016,7 +4016,7 @@ public class RNABloom {
         options.addOption(optLongReads);
 
         Option optRefTranscripts = Option.builder("ref")
-                                    .desc("reference transcripts file(s)\n(Guides the assembly process.)")
+                                    .desc("reference transcripts file(s) for guiding the assembly process")
                                     .hasArgs()
                                     .argName("FILE")
                                     .build();
@@ -4061,7 +4061,7 @@ public class RNABloom {
         
         final String optPrefixDefault = "";
         Option optPrefix = Option.builder("prefix")
-                                    .desc("assembled transcript name prefix in FASTA header")
+                                    .desc("name prefix in FASTA header for assembled transcripts")
                                     .hasArg(true)
                                     .argName("STR")
                                     .build();
@@ -4069,7 +4069,7 @@ public class RNABloom {
         
         Option optUracil = Option.builder("u")
                                     .longOpt("uracil")
-                                    .desc("output uracils (U) in place of thymines (T) in final assembly FASTA [false]")
+                                    .desc("output uracils (U) in place of thymines (T) in assembled transcripts [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optUracil);
