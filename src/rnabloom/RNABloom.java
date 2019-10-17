@@ -4256,7 +4256,7 @@ public class RNABloom {
         options.addOption(optFpr);
         
         Option optSaveBf = Option.builder("savebf")
-                                    .desc("save graph from stage 1 (ie. Bloom filters) to disk [false]")
+                                    .desc("save graph (Bloom filters) from stage 1 to disk [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optSaveBf);  
@@ -4329,7 +4329,7 @@ public class RNABloom {
         options.addOption(optMinLength);  
         
         Option optNoReduce = Option.builder("norr")
-                                    .desc("skip redundancy reduction for assembled transcripts [false]\n(ie. do not generate 'transcripts.nr.fa')")
+                                    .desc("skip redundancy reduction for assembled transcripts [false]\n(will not create 'transcripts.nr.fa')")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNoReduce);
