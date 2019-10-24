@@ -445,15 +445,23 @@ public class Layout {
         System.out.println("          - unique:   " + NumberFormat.getInstance().format(longestSet.size()));
         System.out.println("          - dovetail: " + NumberFormat.getInstance().format(dovetailRecords.size()));
         
-        // add nodes for reads
-        for (String name : longestSet) {
-            graph.addVertex(name + "+");
-            graph.addVertex(name + "-");
-        }        
-        
-        // add edges for dovetails
+                
+        // construct overlap graph
+        HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
         for (PafRecord r : dovetailRecords) {
             if (longestSet.contains(r.qName) && longestSet.contains(r.tName)) {
+                if (!dovetailReadNames.contains(r.qName)) {
+                    graph.addVertex(r.qName + "+");
+                    graph.addVertex(r.qName + "-");
+                    dovetailReadNames.add(r.qName);
+                }
+                
+                if (!dovetailReadNames.contains(r.tName)) {
+                    graph.addVertex(r.tName + "+");
+                    graph.addVertex(r.tName + "-");
+                    dovetailReadNames.add(r.tName);
+                }
+                
                 if (r.reverseComplemented) {
                     if (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip) {
                         graph.addEdge(r.tName+"+", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
@@ -478,7 +486,7 @@ public class Layout {
         }
         
         TransitiveReduction.INSTANCE.reduce(graph);
-        resolveJunctions(longestSet, false);
+        resolveJunctions(dovetailReadNames, false);
         
         // extract longest read sequences
         HashMap<String, byte[]> longestReadSeqs = new HashMap<>(longestSet.size());
@@ -488,10 +496,10 @@ public class Layout {
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
-            if (longestSet.contains(name)) {
+            if (dovetailReadNames.contains(name)) {
                 longestReadSeqs.put(name, stringToBytes(nameSeq[1], lengths.get(name)));
             }
-            else if (!lengths.containsKey(name)) {
+            else if (!lengths.containsKey(name) || longestSet.contains(name)) {
                 // an orphan sequence with no overlaps with other sequences
                 fw.write(Integer.toString(++seqID), nameSeq[1]);
             }
@@ -499,8 +507,8 @@ public class Layout {
         fr.close();
         
         // layout unambiguous paths
-        HashSet<String> visitedReadNames = new HashSet<>();
-        for (String n : longestSet) {
+        HashSet<String> visitedReadNames = new HashSet<>(dovetailReadNames.size());
+        for (String n : dovetailReadNames) {
             if (!visitedReadNames.contains(n)) {
                 n += "+";
                 
@@ -593,16 +601,22 @@ public class Layout {
         
         System.out.println("          - unique:   " + NumberFormat.getInstance().format(longestSet.size()));
         System.out.println("          - dovetail: " + NumberFormat.getInstance().format(dovetailRecords.size()));
-        
-        // add nodes for reads
-        for (String name : longestSet) {
-            graph.addVertex(name + "+");
-        }        
-        
-        // add edges for dovetails
+                
+        // construct overlap graph
+        HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
         for (PafRecord r : dovetailRecords) {
             if (!r.reverseComplemented) {
                 if (longestSet.contains(r.qName) && longestSet.contains(r.tName)) {
+                    if (!dovetailReadNames.contains(r.qName)) {
+                        graph.addVertex(r.qName + "+");
+                        dovetailReadNames.add(r.qName);
+                    }
+                    
+                    if (!dovetailReadNames.contains(r.tName)) {
+                        graph.addVertex(r.tName + "+");
+                        dovetailReadNames.add(r.tName);
+                    }
+                    
                     if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
                         graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
                     }
@@ -614,21 +628,21 @@ public class Layout {
         }
         
         TransitiveReduction.INSTANCE.reduce(graph);
-        resolveJunctions(longestSet, true);
+        resolveJunctions(dovetailReadNames, true);
         
         // extract longest read sequences
-        HashMap<String, byte[]> longestReadSeqs = new HashMap<>(longestSet.size());
+        HashMap<String, byte[]> longestReadSeqs = new HashMap<>(dovetailReadNames.size());
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
         int seqID = 0;
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
-            if (longestSet.contains(name)) {
+            if (dovetailReadNames.contains(name)) {
                 String seq = nameSeq[1];
                 longestReadSeqs.put(name, stringToBytes(seq, seq.length()));
             }
-            else if (!lengths.containsKey(name)) {
+            else if (!lengths.containsKey(name) || longestSet.contains(name)) {
                 // an orphan sequence with no overlaps with other sequences
                 fw.write(Integer.toString(++seqID), nameSeq[1]);
             }
@@ -636,8 +650,8 @@ public class Layout {
         fr.close();
         
         // layout unambiguous paths
-        HashSet<String> visitedReadNames = new HashSet<>();
-        for (String n : longestSet) {
+        HashSet<String> visitedReadNames = new HashSet<>(dovetailReadNames.size());
+        for (String n : dovetailReadNames) {
             if (!visitedReadNames.contains(n)) {
                 n += "+";
                 
