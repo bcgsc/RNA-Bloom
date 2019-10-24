@@ -56,7 +56,7 @@ public class Layout {
     private int maxIndelSize = 20;
     private int minOverlapMatches = 200;
     
-    public Layout(String seqFile, String pafFile, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches) {
+    public Layout(String seqFile, String pafFile, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize) {
         this.graph = new DefaultDirectedGraph<>(OverlapEdge.class);
         this.overlapPafPath = pafFile;
         this.seqFastaPath = seqFile;
@@ -64,6 +64,7 @@ public class Layout {
         this.maxEdgeClip = maxEdgeClip;
         this.minAlnId = minAlnId;
         this.minOverlapMatches = minOverlapMatches;
+        this.maxIndelSize = maxIndelSize;
     }
     
     private class OverlapEdge extends DefaultEdge {
@@ -77,6 +78,11 @@ public class Layout {
         }
     }
 
+    private boolean hasGoodOverlap(PafRecord r) {
+        return r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
+               r.numMatch / (float)(r.tEnd - r.tStart) >= minAlnId;
+    }
+    
     private boolean hasAlignment(ExtendedPafRecord record) {
         return record.cigar != null && record.nm >= 0;
     }
@@ -114,21 +120,17 @@ public class Layout {
         return alnId >= minAlnId;
     }
     
-    private boolean isContainmentPafRecord(PafRecord record) {
-        return record.numMatch / (float)(record.qEnd - record.qStart) >= minAlnId &&
-            record.numMatch / (float)(record.tEnd - record.tStart) >= minAlnId &&
-            ((record.qStart <= maxEdgeClip && record.qLen - record.qEnd <= maxEdgeClip) ||
-            (record.tStart <= maxEdgeClip && record.tLen - record.tEnd <= maxEdgeClip));
+    private boolean isContainmentPafRecord(ExtendedPafRecord r) {
+        return ((r.qStart <= maxEdgeClip && r.qLen - r.qEnd <= maxEdgeClip) ||
+            (r.tStart <= maxEdgeClip && r.tLen - r.tEnd <= maxEdgeClip));
     }
     
-    private boolean isStrandedContainmentPafRecord(PafRecord record) {
-        return !record.reverseComplemented && isContainmentPafRecord(record);
+    private boolean isStrandedContainmentPafRecord(ExtendedPafRecord r) {
+        return !r.reverseComplemented && isContainmentPafRecord(r);
     }
         
-    private boolean isDovetailPafRecord(PafRecord r) {
-        if (r.numMatch >= minOverlapMatches &&
-            r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
-            r.numMatch / (float)(r.tEnd - r.tStart) >= minAlnId) {
+    private boolean isDovetailPafRecord(ExtendedPafRecord r) {
+        if (r.numMatch >= minOverlapMatches) {
 
             if (r.reverseComplemented) {
                 return (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip && r.qStart > r.tLen - r.tEnd) ||
@@ -144,13 +146,11 @@ public class Layout {
         return false;
     }
     
-    private boolean isStrandedDovetailPafRecord(PafRecord record) {
-        if (!record.reverseComplemented) {
-            if (record.numMatch >= minOverlapMatches &&
-                record.numMatch / (float)(record.qEnd - record.qStart) >= minAlnId &&
-                record.numMatch / (float)(record.tEnd - record.tStart) >= minAlnId &&
-                ((record.qEnd >= record.qLen - maxEdgeClip && record.tStart <= maxEdgeClip) ||
-                    (record.tEnd >= record.tLen - maxEdgeClip && record.qStart <= maxEdgeClip))) {
+    private boolean isStrandedDovetailPafRecord(ExtendedPafRecord r) {
+        if (!r.reverseComplemented) {
+            if (r.numMatch >= minOverlapMatches &&
+                ((r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) ||
+                    (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip))) {
                 return true;
             }
         }
@@ -393,41 +393,43 @@ public class Layout {
         // look for containment and dovetails
         PafReader reader = new PafReader(overlapPafPath);
         while (reader.hasNext()) {
-            PafRecord r = reader.next();
+            ExtendedPafRecord r = reader.next();
             
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
             
-            if (isContainmentPafRecord(r)) {
-                String shorter, longer;
-                int longerLen;
+            if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                if (isContainmentPafRecord(r)) {
+                    String shorter, longer;
+                    int longerLen;
 
-                if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
-                    shorter = r.tName;
-                    longer = r.qName;
-                    longerLen = r.qLen;
-                }
-                else {
-                    shorter = r.qName;
-                    longer = r.tName;
-                    longerLen = r.tLen;
-                }
+                    if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
+                        shorter = r.tName;
+                        longer = r.qName;
+                        longerLen = r.qLen;
+                    }
+                    else {
+                        shorter = r.qName;
+                        longer = r.tName;
+                        longerLen = r.tLen;
+                    }
 
-                if (longestAlts.containsKey(shorter)) {
-                    String alt = longestAlts.get(shorter);
-                    int altLen = lengths.get(alt);
-                    if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
+                    if (longestAlts.containsKey(shorter)) {
+                        String alt = longestAlts.get(shorter);
+                        int altLen = lengths.get(alt);
+                        if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
+                            longestAlts.put(shorter, longer);
+                        }
+                    }
+                    else {
                         longestAlts.put(shorter, longer);
                     }
                 }
-                else {
-                    longestAlts.put(shorter, longer);
+                else if (!longestAlts.containsKey(r.qName) &&
+                        !longestAlts.containsKey(r.tName) &&
+                        isDovetailPafRecord(r)) {
+                    dovetailRecords.add(r);
                 }
-            }
-            else if (!longestAlts.containsKey(r.qName) &&
-                    !longestAlts.containsKey(r.tName) &&
-                    isDovetailPafRecord(r)) {
-                dovetailRecords.add(r);
             }
         }
         reader.close();
@@ -443,9 +445,7 @@ public class Layout {
         }
         
         System.out.println("          - unique:   " + NumberFormat.getInstance().format(longestSet.size()));
-        System.out.println("          - dovetail: " + NumberFormat.getInstance().format(dovetailRecords.size()));
-        
-                
+                        
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
         for (PafRecord r : dovetailRecords) {
@@ -484,9 +484,14 @@ public class Layout {
                 }
             }
         }
+        System.out.println("          - dovetail: " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+        System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
         
         TransitiveReduction.INSTANCE.reduce(graph);
+        System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
+
         resolveJunctions(dovetailReadNames, false);
+        System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
         
         // extract longest read sequences
         HashMap<String, byte[]> longestReadSeqs = new HashMap<>(longestSet.size());
@@ -550,41 +555,43 @@ public class Layout {
         // look for containment and overlaps
         PafReader reader = new PafReader(overlapPafPath);
         while (reader.hasNext()) {
-            PafRecord r = reader.next();
+            ExtendedPafRecord r = reader.next();
             
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
             
-            if (isStrandedContainmentPafRecord(r)) {
-                String shorter, longer;
-                int longerLen;
-               
-                if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
-                    shorter = r.tName;
-                    longer = r.qName;
-                    longerLen = r.qLen;
-                } 
-                else {
-                    shorter = r.qName;
-                    longer = r.tName;
-                    longerLen = r.tLen;
-                }
+            if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                if (isStrandedContainmentPafRecord(r)) {
+                    String shorter, longer;
+                    int longerLen;
 
-                if (longestAlts.containsKey(shorter)) {
-                    String alt = longestAlts.get(shorter);
-                    int altLen = lengths.get(alt);
-                    if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
+                    if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
+                        shorter = r.tName;
+                        longer = r.qName;
+                        longerLen = r.qLen;
+                    } 
+                    else {
+                        shorter = r.qName;
+                        longer = r.tName;
+                        longerLen = r.tLen;
+                    }
+
+                    if (longestAlts.containsKey(shorter)) {
+                        String alt = longestAlts.get(shorter);
+                        int altLen = lengths.get(alt);
+                        if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
+                            longestAlts.put(shorter, longer);
+                        }
+                    }
+                    else {
                         longestAlts.put(shorter, longer);
                     }
                 }
-                else {
-                    longestAlts.put(shorter, longer);
+                else if (!longestAlts.containsKey(r.qName) &&
+                        !longestAlts.containsKey(r.tName) &&
+                        isStrandedDovetailPafRecord(r)) {
+                    dovetailRecords.add(r);
                 }
-            }
-            else if (!longestAlts.containsKey(r.qName) &&
-                    !longestAlts.containsKey(r.tName) &&
-                    isStrandedDovetailPafRecord(r)) {
-                dovetailRecords.add(r);
             }
         }
         reader.close();
@@ -600,7 +607,6 @@ public class Layout {
         }
         
         System.out.println("          - unique:   " + NumberFormat.getInstance().format(longestSet.size()));
-        System.out.println("          - dovetail: " + NumberFormat.getInstance().format(dovetailRecords.size()));
                 
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
@@ -627,8 +633,14 @@ public class Layout {
             }
         }
         
+        System.out.println("          - dovetail: " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+        System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
+        
         TransitiveReduction.INSTANCE.reduce(graph);
+        System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
+        
         resolveJunctions(dovetailReadNames, true);
+        System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
         
         // extract longest read sequences
         HashMap<String, byte[]> longestReadSeqs = new HashMap<>(dovetailReadNames.size());
@@ -693,7 +705,7 @@ public class Layout {
         String backboneFastaPath = "";
         
         try {
-            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 3, 0.99f, 100);
+            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 3, 0.99f, 100, 1);
             myLayout.writeBackboneSequences(backboneFastaPath);
         } catch (Exception ex) {
             ex.printStackTrace();

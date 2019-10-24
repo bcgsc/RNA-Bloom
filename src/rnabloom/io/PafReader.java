@@ -46,13 +46,13 @@ public class PafReader {
         return itr.hasNext();
     }
     
-    public PafRecord next() {
-        PafRecord r = new PafRecord();
+    public ExtendedPafRecord next() {
+        ExtendedPafRecord r = new ExtendedPafRecord();
         r.update(itr.next().trim().split("\t"));
         return r;
     }
     
-    public void next(PafRecord record) {
+    public void next(ExtendedPafRecord record) {
         String[] cols = itr.next().trim().split("\t");
         record.update(cols);
     }

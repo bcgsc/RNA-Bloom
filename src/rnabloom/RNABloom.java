@@ -2444,7 +2444,7 @@ public class RNABloom {
 
                 System.out.println("Assembling cluster `" + clusterID + "`...");
 
-                boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, concensusPath, numThreads, stranded, minimapOptions);
+                boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, concensusPath, numThreads, stranded, minimapOptions, maxIndelSize);
                 if (!ok) {
                     System.out.println("*** Error assembling cluster `" + clusterID + "`!!! ***");
                     errors.add(clusterID);
@@ -2504,7 +2504,7 @@ public class RNABloom {
         }
         
         System.out.println("Inter-cluster assembly...");
-        ok = overlapLayout(assembledLongReadsConcatenated, tmpPrefix, assembledLongReadsCombined, numThreads, stranded, "-r " + Integer.toString(2*maxIndelSize), k, percentIdentity, minTranscriptLength);
+        ok = overlapLayout(assembledLongReadsConcatenated, tmpPrefix, assembledLongReadsCombined, numThreads, stranded, "-r " + Integer.toString(2*maxIndelSize), k, percentIdentity, minTranscriptLength, maxIndelSize);
         
         return ok;
     }
@@ -3925,7 +3925,7 @@ public class RNABloom {
     }
     
     private boolean generateNonRedundantTranscripts(String inFasta, String tmpPrefix, String outFasta, int numThreads) throws IOException {
-        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), lookahead, 0.99f, getReadLength());
+        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), lookahead, 0.99f, getReadLength(), maxIndelSize);
     }
     
     private static boolean hasNtcard() {
