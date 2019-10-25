@@ -38,18 +38,27 @@ public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
         
         backingByteBuffer = new UnsafeByteBuffer(numBytes);
     }
+        
+    private static byte getBitMask(long i) {
+        return (byte) (1 << (int) (i % Byte.SIZE));
+    }
+    
+    private static long getByteBufferIndex(long i) {
+        return i / Byte.SIZE;
+    }
     
     @Override
     public void set(long index) {
-        backingByteBuffer.or(index / Byte.SIZE, (byte) (1 << (int) (index % Byte.SIZE)));
+        backingByteBuffer.or(getByteBufferIndex(index), getBitMask(index));
     }
     
     @Override
     public void setCAS(long index) {
-        long byteIndex = index / Byte.SIZE;
+        long byteIndex = getByteBufferIndex(index);
         byte expected = backingByteBuffer.get(byteIndex);
+        byte mask = getBitMask(index);
         while (true) {
-            byte b = backingByteBuffer.compareAndSwap(byteIndex, expected, (byte) (expected | (1 << (int) (index % Byte.SIZE))));
+            byte b = backingByteBuffer.compareAndSwap(byteIndex, expected, (byte) (expected | mask));
             if (b == expected) {
                 return;
             }
@@ -59,15 +68,12 @@ public class UnsafeBitBuffer extends AbstractLargeBitBuffer {
 
     @Override
     public boolean get(long index) {
-        return (backingByteBuffer.get(index / Byte.SIZE) & (1 << (int) (index % Byte.SIZE))) != 0;
+        return (backingByteBuffer.get(getByteBufferIndex(index)) & getBitMask(index)) != 0;
     }
 
     @Override
     public boolean getAndSet(long index) {
-        long byteBufferIndex = index / Byte.SIZE;
-        byte mask = (byte) (1 << (int) (index % Byte.SIZE));
-        
-        return backingByteBuffer.compareAndOr(byteBufferIndex, mask);
+        return backingByteBuffer.compareAndOr(getByteBufferIndex(index), getBitMask(index));
     }
     
     @Override
