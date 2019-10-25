@@ -421,7 +421,7 @@ public class BloomFilterDeBruijnGraph {
     
     public void addIfAbsent(final long[] hashVals) {
         if (!dbgbf.lookup(hashVals)) {
-            dbgbf.addCAS(hashVals);
+            dbgbf.add(hashVals);
             cbf.increment(hashVals);
         }
         else if (cbf.getCount(hashVals) == 0) {
@@ -436,7 +436,7 @@ public class BloomFilterDeBruijnGraph {
     }
     
     public void addDbgOnly(final long[] hashVals) {
-        dbgbf.addCAS(hashVals);
+        dbgbf.add(hashVals);
     }
     
     public void addCountOnly(final long[] hashVals) {
