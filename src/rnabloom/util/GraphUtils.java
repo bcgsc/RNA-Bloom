@@ -10377,7 +10377,7 @@ public final class GraphUtils {
                     if (t < numKmers-1) {
                         Kmer right = seqKmers.get(t);
                         int d = t-i;
-                        if (d <= maxGap && hasValidPath(graph, left, right, assembledKmers, d, d)) {
+                        if (d <= maxGap && getMaxCoveragePath(graph, left, right, d, lookahead, assembledKmers) != null) {
                             i = t;
                             continue;
                         }
@@ -10409,7 +10409,7 @@ public final class GraphUtils {
                     if (t > i) { 
                         Kmer left = seqKmers.get(t);
                         int d = j-t;
-                        if (d <= maxGap && hasValidPath(graph, left, right, assembledKmers, d, d)) {
+                        if (d <= maxGap && getMaxCoveragePath(graph, left, right, d, lookahead, assembledKmers) != null) {
                             j = t;
                             continue;
                         }
