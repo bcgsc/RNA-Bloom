@@ -398,37 +398,39 @@ public class Layout {
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
             
-            if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
-                if (isContainmentPafRecord(r)) {
-                    String shorter, longer;
-                    int longerLen;
+            if (!r.qName.equals(r.tName)) {
+                if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                    if (isContainmentPafRecord(r)) {
+                        String shorter, longer;
+                        int longerLen;
 
-                    if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
-                        shorter = r.tName;
-                        longer = r.qName;
-                        longerLen = r.qLen;
-                    }
-                    else {
-                        shorter = r.qName;
-                        longer = r.tName;
-                        longerLen = r.tLen;
-                    }
+                        if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
+                            shorter = r.tName;
+                            longer = r.qName;
+                            longerLen = r.qLen;
+                        }
+                        else {
+                            shorter = r.qName;
+                            longer = r.tName;
+                            longerLen = r.tLen;
+                        }
 
-                    if (longestAlts.containsKey(shorter)) {
-                        String alt = longestAlts.get(shorter);
-                        int altLen = lengths.get(alt);
-                        if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
+                        if (longestAlts.containsKey(shorter)) {
+                            String alt = longestAlts.get(shorter);
+                            int altLen = lengths.get(alt);
+                            if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
+                                longestAlts.put(shorter, longer);
+                            }
+                        }
+                        else {
                             longestAlts.put(shorter, longer);
                         }
                     }
-                    else {
-                        longestAlts.put(shorter, longer);
+                    else if (!longestAlts.containsKey(r.qName) &&
+                            !longestAlts.containsKey(r.tName) &&
+                            isDovetailPafRecord(r)) {
+                        dovetailRecords.add(r);
                     }
-                }
-                else if (!longestAlts.containsKey(r.qName) &&
-                        !longestAlts.containsKey(r.tName) &&
-                        isDovetailPafRecord(r)) {
-                    dovetailRecords.add(r);
                 }
             }
         }
@@ -556,41 +558,43 @@ public class Layout {
         PafReader reader = new PafReader(overlapPafPath);
         while (reader.hasNext()) {
             ExtendedPafRecord r = reader.next();
-            
+
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
-            
-            if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
-                if (isStrandedContainmentPafRecord(r)) {
-                    String shorter, longer;
-                    int longerLen;
 
-                    if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
-                        shorter = r.tName;
-                        longer = r.qName;
-                        longerLen = r.qLen;
-                    } 
-                    else {
-                        shorter = r.qName;
-                        longer = r.tName;
-                        longerLen = r.tLen;
-                    }
+            if (!r.qName.equals(r.tName)) {
+                if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                    if (isStrandedContainmentPafRecord(r)) {
+                        String shorter, longer;
+                        int longerLen;
 
-                    if (longestAlts.containsKey(shorter)) {
-                        String alt = longestAlts.get(shorter);
-                        int altLen = lengths.get(alt);
-                        if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
+                        if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
+                            shorter = r.tName;
+                            longer = r.qName;
+                            longerLen = r.qLen;
+                        } 
+                        else {
+                            shorter = r.qName;
+                            longer = r.tName;
+                            longerLen = r.tLen;
+                        }
+
+                        if (longestAlts.containsKey(shorter)) {
+                            String alt = longestAlts.get(shorter);
+                            int altLen = lengths.get(alt);
+                            if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
+                                longestAlts.put(shorter, longer);
+                            }
+                        }
+                        else {
                             longestAlts.put(shorter, longer);
                         }
                     }
-                    else {
-                        longestAlts.put(shorter, longer);
+                    else if (!longestAlts.containsKey(r.qName) &&
+                            !longestAlts.containsKey(r.tName) &&
+                            isStrandedDovetailPafRecord(r)) {
+                        dovetailRecords.add(r);
                     }
-                }
-                else if (!longestAlts.containsKey(r.qName) &&
-                        !longestAlts.containsKey(r.tName) &&
-                        isStrandedDovetailPafRecord(r)) {
-                    dovetailRecords.add(r);
                 }
             }
         }
