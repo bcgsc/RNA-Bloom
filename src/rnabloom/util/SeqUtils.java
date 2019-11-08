@@ -341,7 +341,23 @@ public final class SeqUtils {
             }
         }
     }
+
+    public static final boolean isHomopolymer(byte[] seq) {
+        int len = seq.length;
+        if (len == 0) {
+            return false;
+        }
         
+        byte b = seq[0];
+        for (int i=1; i<len; ++i) {
+            if (b != seq[i]) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
     private static final float LOW_COMPLEXITY_THRESHOLD = 0.95f;
     
     public static final boolean isLowComplexity2(byte[] bytes) {
@@ -757,6 +773,22 @@ public final class SeqUtils {
         }
         
         return b;
+    }
+    
+    public static final boolean isReverseComplement(byte[] seq1, byte[] seq2) {
+        int len = seq1.length;
+        
+        if (len == 0 || seq2.length != len) {
+            return false;
+        }
+        
+        for (int i=0; i<len; ++i) {
+            if (complement(seq1[i]) != seq2[len-1-i]) {
+                return false;
+            }
+        }
+        
+        return true;
     }
     
     public static final byte[] reverseComplement(byte[] seq) {
