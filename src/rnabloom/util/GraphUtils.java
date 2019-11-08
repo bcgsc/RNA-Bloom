@@ -931,7 +931,7 @@ public final class GraphUtils {
                                         float minKmerCov) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
-        int pkd = graph.getReadPairedKmerDistance();
+        //int pkd = graph.getReadPairedKmerDistance();
         
         HashSet<Kmer> leftKmersSet = new HashSet<>(leftKmers);
         HashSet<Kmer> rightKmersSet = new HashSet<>(rightKmers);
@@ -993,26 +993,15 @@ public final class GraphUtils {
 
                                 return fragmentKmers;
                             }
-                            else {
-                                if (pkd <= leftPath.size() && graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), best)) {
-                                    leftPath.add(best);
-                                    leftKmersSet.add(best);
-                                }
-                                else {
-                                    break;
-                                }
-                            }
                         }
                     }
+
+                    if (isHomopolymer(best.bytes) || leftKmersSet.contains(best)) {
+                        break;
+                    }
                     else {
-                        if (leftKmersSet.contains(best) &&
-                                !(pkd <= leftPath.size() && graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), best))) {
-                            break;
-                        }
-                        else {
-                            leftPath.add(best);
-                            leftKmersSet.add(best);
-                        }
+                        leftPath.add(best);
+                        leftKmersSet.add(best);
                     }
                 }
                 else {
@@ -1022,6 +1011,8 @@ public final class GraphUtils {
                         break;
                     }
 
+                    boolean atLoop = false;
+                    
                     for (Kmer current : e) {
                         if (rightKmersSet.contains(current)) {
                             if (current.equals(right)) {
@@ -1043,21 +1034,12 @@ public final class GraphUtils {
 
                                     return fragmentKmers;
                                 }
-                                else {
-                                    if (pkd <= leftPath.size() && graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), current)) {
-                                        leftPath.add(current);
-                                        leftKmersSet.add(current);
-                                    }
-                                    else {
-                                        maxSize = -1;
-                                        break;
-                                    }
-                                }
                             }
                         }
-                        else if (leftKmersSet.contains(current) &&
-                                !(pkd <= leftPath.size() && graph.lookupReadKmerPair(leftPath.get(leftPath.size()-pkd), current))) {
-                            return null;
+                        
+                        if (isHomopolymer(current.bytes) || leftKmersSet.contains(current)) {
+                            atLoop = true;
+                            break;
                         }
                         else {
                             leftPath.add(current);
@@ -1068,6 +1050,10 @@ public final class GraphUtils {
                                 leftCoverageThreshold = Math.max(c, minKmerCov);
                             }
                         }
+                    }
+                    
+                    if (atLoop) {
+                        break;
                     }
                 }
             }
@@ -1137,8 +1123,7 @@ public final class GraphUtils {
                         }
                     }
                     else {
-                        if (rightKmersSet.contains(best) &&
-                                !(pkd <= rightPath.size() && graph.lookupReadKmerPair(best, rightPath.get(rightPath.size()-pkd)))) {
+                        if (isHomopolymer(best.bytes) || rightKmersSet.contains(best)) {
                             return null;
                         }
                         else {
@@ -1171,8 +1156,7 @@ public final class GraphUtils {
 
                             return leftPath;
                         }
-                        else if (rightKmersSet.contains(current) &&
-                                !(pkd <= rightPath.size() && graph.lookupReadKmerPair(current, rightPath.get(rightPath.size()-pkd)))) {
+                        else if (isHomopolymer(current.bytes) || rightKmersSet.contains(current)) {
                             return null;
                         }
                         else {
@@ -10452,11 +10436,13 @@ public final class GraphUtils {
         int lastSeedIndex = maxSeedSearchDepth;
         
         for (int i=0; i<lastSeedIndex; i+=k) {
-            long rcHashVal = seqKmers.get(i).getReverseComplementHash();
+            Kmer seed = seqKmers.get(i);
+            long rcHashVal = seed.getReverseComplementHash();
             int rcIndex = -1;
             
             for (int j=i+1; j<numKmers; ++j) {
-                if (seqKmers.get(j).getHash() == rcHashVal) {
+                Kmer candidate = seqKmers.get(j);
+                if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
                     rcIndex = j;
                     break;
                 }
@@ -10498,11 +10484,13 @@ public final class GraphUtils {
         lastSeedIndex = numKmers-maxSeedSearchDepth;
         
         for (int i=numKmers-1; i>=lastSeedIndex; i-=k) {
-            long rcHashVal = seqKmers.get(i).getReverseComplementHash();
+            Kmer seed = seqKmers.get(i);
+            long rcHashVal = seed.getReverseComplementHash();
             int rcIndex = -1;
             
             for (int j=i-1; j>=0; --j) {
-                if (seqKmers.get(j).getHash() == rcHashVal) {
+                Kmer candidate = seqKmers.get(j);
+                if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
                     rcIndex = j;
                     break;
                 }
