@@ -1476,7 +1476,7 @@ public class RNABloom {
                     else {                        
                         ArrayList<Kmer> leftKmers = null;
                         ArrayList<Kmer> rightKmers = null;
-
+                        
                         // connect segments of each read
                         String left = getBestSegment(p.left, graph);
 
@@ -3925,7 +3925,7 @@ public class RNABloom {
     }
     
     private boolean generateNonRedundantTranscripts(String inFasta, String tmpPrefix, String outFasta, int numThreads) throws IOException {
-        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), lookahead, 0.99f, getReadLength(), maxIndelSize);
+        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), maxTipLength, 0.99f, getReadLength(), maxIndelSize);
     }
     
     private static boolean hasNtcard() {
