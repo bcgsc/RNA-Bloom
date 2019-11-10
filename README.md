@@ -44,16 +44,10 @@ tar -zxf rnabloom_vX.X.X.tar.gz
 
 ### (A) assemble bulk RNA-seq data:
 ```
-java -jar RNA-Bloom.jar -left LEFT.fastq.gz -right RIGHT.fastq.gz -revcomp-right -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
 
-### (B) assemble strand-specific bulk RNA-seq data:
-```
-java -jar RNA-Bloom.jar -stranded -left LEFT.fastq.gz -right RIGHT.fastq.gz -revcomp-right -ntcard -t THREADS -outdir OUTDIR
-```
-Note that dUTP protocols produce reads in the F2R1 orientation, where `/2` denotes left reads in forward orientation and `/1` denotes right reads in reverse orientation. In this case, please specify your reads paths as `-left reads_2.fastq -right reads_1.fastq`.
-
-### (C) assemble single-cell RNA-seq data:
+### (B) assemble single-cell RNA-seq data:
 ```
 java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
@@ -68,16 +62,32 @@ This text file is expected to have 3 columns, ie.
 | cell ID  | path of left reads | path of right reads |
 
 Columns are separated by space/tab characters, eg.
-
 ```
-cell1 /path/to/cell1/left.fastq.gz /path/to/cell1/right.fastq.gz
-cell2 /path/to/cell2/left.fastq.gz /path/to/cell2/right.fastq.gz
-cell3 /path/to/cell3/left.fastq.gz /path/to/cell3/right.fastq.gz
+cell1 /path/to/cell1/left.fastq /path/to/cell1/right.fastq
+cell2 /path/to/cell2/left.fastq /path/to/cell2/right.fastq
+cell3 /path/to/cell3/left.fastq /path/to/cell3/right.fastq
+```
+
+### (C) strand-specific assembly:
+```
+java -jar RNA-Bloom.jar -stranded ...
+```
+The `-stranded` option indicates that input reads are strand-specific.
+
+Strand-specific reads are typically in the F2R1 orientation, where `/2` denotes *left* reads in *forward* orientation and `/1` denotes *right* reads in *reverse* orientation.
+
+Configure the read file paths accordingly for bulk RNA-seq data:
+
+`-left /path/to/reads_2.fastq -right /path/to/reads_1.fastq`
+
+and for scRNA-seq data:
+```
+cell1 /path/to/cell1/reads_2.fastq /path/to/cell1/reads_1.fastq
 ```
 
 ### (D) reference-guided assembly:
 ```
-java -jar RNA-Bloom.jar -ref TRANSCRIPTS.fa ...
+java -jar RNA-Bloom.jar -ref TRANSCRIPTS.fasta ...
 ```
 The `-ref` option specifies the reference transcriptome FASTA file for guiding short-read assembly.
 
@@ -87,19 +97,19 @@ The `-ref` option specifies the reference transcriptome FASTA file for guiding s
 
 ### (A) assemble nanopore PCR cDNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -long READS.fa -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long READS.fasta -ntcard -t THREADS -outdir OUTDIR
 ```
 Input reads are expected to be in a mix of both forward and reverse orientations.
 
 ### (B) assemble nanopore direct cDNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -long READS.fa -stranded -revcomp-long -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long READS.fasta -stranded -revcomp-long -ntcard -t THREADS -outdir OUTDIR
 ```
 Input reads are expected to be only in the reverse orientation.
 
 ### (C) assemble nanopore direct RNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -long READS.fa -stranded -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long READS.fasta -stranded -ntcard -t THREADS -outdir OUTDIR
 ```
 Input reads are expected to be only in the forward orientation.
 
