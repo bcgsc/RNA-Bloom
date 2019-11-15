@@ -7209,7 +7209,7 @@ public final class GraphUtils {
                                             float minKmerCov) {
         final int k = graph.getK();
         final int numHash = graph.getMaxNumHash();
-        final int readPairedKmersDist = graph.getReadPairedKmerDistance();        
+        final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         final int numKmers = kmers.size();
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getSuccessors(k, numHash, graph);
@@ -7226,8 +7226,6 @@ public final class GraphUtils {
         float bestCov = 0;
         ArrayDeque<Kmer> bestExtension = null;
         int[] result = new int[2];
-        ArrayDeque<Kmer> maxCovExtension = null;
-        float maxCov = 0;
         
         for (Kmer candidate : candidates) {
             ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(candidate, graph, maxTipLen, readPairedKmersDist, minKmerCov);
@@ -7237,7 +7235,7 @@ public final class GraphUtils {
             
             int lastPartneredKmerIndex = result[1];
             
-            if (lastPartneredKmerIndex >= 0) {
+            if (lastPartneredKmerIndex >= 0 && result[0] > 0) {
                 float cov = getMedianKmerCoverage(e);
                 float score = Math.min(pathMinCov, cov) * result[0] / (lastPartneredKmerIndex+1);
 //                System.out.println(score + ": " + graph.assemble(e));
@@ -7254,60 +7252,45 @@ public final class GraphUtils {
                 }
             }
             else {
-                if (maxCovExtension == null) {
-                    maxCovExtension = e;
-                    maxCov = getMinimumKmerCoverage(e);
+                int gap = e.size();                
+                
+                if (gap >= readPairedKmersDist-1 && result[0] == 0) {
+                    continue;
                 }
-                else {
-                    float cov = getMinimumKmerCoverage(e);
-                    if (cov > maxCov) {
-                        maxCovExtension = e;
-                        maxCov = cov;
+                
+                // not enough supporting paired k-mers in first extension
+                
+                ArrayDeque<Kmer> nextCandidates = e.getLast().getSuccessors(k, numHash, graph);
+                
+                for (Kmer nextCandidate : nextCandidates) {
+                    ArrayDeque<Kmer> ne = naiveExtendRightNoBackChecks(nextCandidate, graph, maxTipLen, readPairedKmersDist-gap, minKmerCov);
+                    ne.addFirst(nextCandidate);
+                    Iterator<Kmer> itr = e.descendingIterator();
+                    while (itr.hasNext()) {
+                        ne.addFirst(itr.next());
+                    }
+                    
+                    countKmerPairsSE(kmers, ne, 0, graph, result);
+                    
+                    lastPartneredKmerIndex = result[1];
+                    if (lastPartneredKmerIndex >= 0 && result[0] > 0) {
+                        float cov = getMedianKmerCoverage(ne);
+                        float score = Math.min(pathMinCov, cov) * result[0] / (lastPartneredKmerIndex+1);
+
+                        if (score > bestScore || (score == bestScore && cov > bestCov)) {
+                            bestScore = score;
+                            bestCov = cov;
+                            bestExtension = ne;
+
+                            itr = ne.descendingIterator();
+                            for (int i=ne.size()-1; i>lastPartneredKmerIndex; --i) {
+                                itr.next();
+                                itr.remove();
+                            }
+                        }
                     }
                 }
             }
-//            else {
-//                int gap = e.size();
-//                ArrayDeque<Kmer> nextCandidates = e.getLast().getSuccessors(k, numHash, graph);
-//                
-//                float bestNextCov = 0;
-//                float bestNextScore = 0;
-//                ArrayDeque<Kmer> bestNextExtension = null;
-//                for (Kmer nextCandidate : nextCandidates) {
-//                    ArrayDeque<Kmer> ne = naiveExtendRight(nextCandidate, graph, maxTipLen, readPairedKmersDist-gap, minKmerCov);
-//                    ne.addFirst(nextCandidate);
-//                    
-//                    countKmerPairsSE(kmers, ne, gap, graph, result);
-//                    
-//                    float cov = getMedianKmerCoverage(e, ne);
-//                    int lastIndex = result[1];
-//                    if (lastIndex >= 0) {
-//                        float score = Math.min(pathMinCov, cov) * result[0] / (lastIndex+gap+1);
-//                        if (score > bestNextScore || (score == bestNextScore && cov > bestNextCov)) {
-//                            bestNextScore = score;
-//                            bestNextCov = cov;
-//                            bestNextExtension = ne;
-//
-//                            Iterator<Kmer> itr = ne.descendingIterator();
-//                            for (int i=ne.size()-1; i>lastIndex; --i) {
-//                                itr.next();
-//                                itr.remove();
-//                            }
-//                        }
-//                    }
-//                }
-//                
-//                if (bestNextScore > bestScore || (bestNextScore == bestScore && bestNextCov > bestCov)) {
-//                    bestScore = bestNextScore;
-//                    bestCov = bestNextCov;
-//                    e.addAll(bestNextExtension);
-//                    bestExtension = e;
-//                }
-//            }
-        }
-        
-        if (bestExtension == null) {
-            bestExtension = maxCovExtension;
         }
         
         return bestExtension;
@@ -7338,8 +7321,6 @@ public final class GraphUtils {
         float bestCov = 0;
         ArrayDeque<Kmer> bestExtension = null;
         int[] result = new int[2];
-        ArrayDeque<Kmer> maxCovExtension = null;
-        float maxCov = 0;
         
         for (Kmer candidate : candidates) {
             ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(candidate, graph, maxTipLen, readPairedKmersDist, minKmerCov);
@@ -7349,7 +7330,7 @@ public final class GraphUtils {
             
             int lastPartneredKmerIndex = result[1];
             
-            if (lastPartneredKmerIndex >= 0) {
+            if (lastPartneredKmerIndex >= 0 && result[0] > 0) {
                 float cov = getMedianKmerCoverage(e);
                 float score = Math.min(pathMinCov, cov) * result[0] / (lastPartneredKmerIndex+1);
                 if (score > bestScore || (score == bestScore && cov > bestCov)) {
@@ -7365,60 +7346,44 @@ public final class GraphUtils {
                 }
             }
             else {
-                if (maxCovExtension == null) {
-                    maxCovExtension = e;
-                    maxCov = getMinimumKmerCoverage(e);
+                int gap = e.size();
+                
+                if (gap >= readPairedKmersDist-1 && result[0] == 0) {
+                    continue;
                 }
-                else {
-                    float cov = getMinimumKmerCoverage(e);
-                    if (cov > maxCov) {
-                        maxCovExtension = e;
-                        maxCov = cov;
+
+                // not enough supporting paired k-mers in first extension
+                
+                ArrayDeque<Kmer> nextCandidates = e.getLast().getPredecessors(k, numHash, graph);
+                
+                for (Kmer nextCandidate : nextCandidates) {
+                    ArrayDeque<Kmer> ne = naiveExtendLeftNoBackChecks(nextCandidate, graph, maxTipLen, readPairedKmersDist-gap, minKmerCov);
+                    ne.addFirst(nextCandidate);
+                    Iterator<Kmer> itr = e.descendingIterator();
+                    while (itr.hasNext()) {
+                        ne.addFirst(itr.next());
+                    }
+                                        
+                    countKmerPairsReversedSE(ne, kmers, 0, graph, result);
+                    
+                    lastPartneredKmerIndex = result[1];
+                    if (lastPartneredKmerIndex >= 0 && result[0] > 0) {
+                        float cov = getMedianKmerCoverage(ne);
+                        float score = Math.min(pathMinCov, cov) * result[0] / (lastPartneredKmerIndex+1);
+                        if (score > bestScore || (score == bestScore && cov > bestCov)) {
+                            bestScore = score;
+                            bestCov = cov;
+                            bestExtension = ne;
+
+                            itr = ne.descendingIterator();
+                            for (int i=ne.size()-1; i>lastPartneredKmerIndex; --i) {
+                                itr.next();
+                                itr.remove();
+                            }
+                        }
                     }
                 }
             }
-//            else {
-//                int gap = e.size();
-//                ArrayDeque<Kmer> nextCandidates = e.getLast().getPredecessors(k, numHash, graph);
-//                
-//                float bestNextCov = 0;
-//                float bestNextScore = 0;
-//                ArrayDeque<Kmer> bestNextExtension = null;
-//                for (Kmer nextCandidate : nextCandidates) {
-//                    ArrayDeque<Kmer> ne = naiveExtendLeft(nextCandidate, graph, maxTipLen, readPairedKmersDist-gap, minKmerCov);
-//                    ne.addFirst(nextCandidate);
-//                    
-//                    countKmerPairsReversedSE(ne, kmers, gap, graph, result);
-//                    
-//                    float cov = getMedianKmerCoverage(e, ne);
-//                    int lastIndex = result[1];
-//                    if (lastIndex >= 0) {
-//                        float score = Math.min(pathMinCov, cov) * result[0] / (lastIndex+gap+1);
-//                        if (score > bestNextScore || (score == bestNextScore && cov > bestNextCov)) {
-//                            bestNextScore = score;
-//                            bestNextCov = cov;
-//                            bestNextExtension = ne;
-//
-//                            Iterator<Kmer> itr = ne.descendingIterator();
-//                            for (int i=ne.size()-1; i>lastIndex; --i) {
-//                                itr.next();
-//                                itr.remove();
-//                            }
-//                        }
-//                    }
-//                }
-//                
-//                if (bestNextScore > bestScore || (bestNextScore == bestScore && bestNextCov > bestCov)) {
-//                    bestScore = bestNextScore;
-//                    bestCov = bestNextCov;
-//                    e.addAll(bestNextExtension);
-//                    bestExtension = e;
-//                }
-//            }
-        }
-        
-        if (bestExtension == null) {
-            bestExtension = maxCovExtension;
         }
         
         return bestExtension;
