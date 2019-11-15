@@ -55,6 +55,7 @@ public class Layout {
     private float minAlnId = 0.50f;
     private int maxIndelSize = 20;
     private int minOverlapMatches = 200;
+    private boolean cutRevCompArtifact = false;
     
     public Layout(String seqFile, String pafFile, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize) {
         this.graph = new DefaultDirectedGraph<>(OverlapEdge.class);
@@ -65,6 +66,7 @@ public class Layout {
         this.minAlnId = minAlnId;
         this.minOverlapMatches = minOverlapMatches;
         this.maxIndelSize = maxIndelSize;
+        this.cutRevCompArtifact = cutRevCompArtifact;
     }
     
     private class OverlapEdge extends DefaultEdge {
@@ -118,6 +120,29 @@ public class Layout {
         float alnId = (numMatch - (record.nm - numDel - numIns))/(float)(numMatch + numDel + numIns);
         
         return alnId >= minAlnId;
+    }
+    
+    private boolean hasReverseComplementArtifact(ExtendedPafRecord r) {
+        if (r.qName.equals(r.tName) && r.reverseComplemented) {
+            if (r.qStart <= maxEdgeClip || r.qLen - r.qEnd <= maxEdgeClip) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    private int getReverseComplementArtifactCutIndex(ExtendedPafRecord r) {
+        if (r.qName.equals(r.tName) && r.reverseComplemented) {
+            if (r.qStart <= maxEdgeClip) {
+                return r.qEnd -1;
+            }
+            else if (r.qLen - r.qEnd <= maxEdgeClip) {
+                return r.tStart -1;
+            }
+        }
+        
+        return -1;
     }
     
     private boolean isContainmentPafRecord(ExtendedPafRecord r) {
@@ -561,7 +586,7 @@ public class Layout {
 
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
-
+                        
             if (!r.qName.equals(r.tName)) {
                 if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
                     if (isStrandedContainmentPafRecord(r)) {
