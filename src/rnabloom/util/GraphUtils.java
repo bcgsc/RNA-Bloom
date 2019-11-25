@@ -1037,7 +1037,7 @@ public final class GraphUtils {
                             }
                         }
                         
-                        if (isHomopolymer(current.bytes) || leftKmersSet.contains(current)) {
+                        if (isHomopolymer(current.bytes)) {
                             atLoop = true;
                             break;
                         }
@@ -1156,7 +1156,7 @@ public final class GraphUtils {
 
                             return leftPath;
                         }
-                        else if (isHomopolymer(current.bytes) || rightKmersSet.contains(current)) {
+                        else if (isHomopolymer(current.bytes)) {
                             return null;
                         }
                         else {
@@ -7578,12 +7578,13 @@ public final class GraphUtils {
         
         return bestExtension;
     }
-    
+        
     public static int[] extendPE(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph,
                                             int maxTipLength,
                                             float minKmerCov) {
         final int d = graph.getFragPairedKmerDistance();
+        final float multiplier = 0.1f;
         
         int origLen = kmers.size();
         
@@ -7592,11 +7593,20 @@ public final class GraphUtils {
         Collections.reverse(kmers);
         
         while (true) {
-            ArrayDeque<Kmer> e =  extendLeftPE(kmers, 
-                                            graph, 
-                                            maxTipLength,
-                                            minKmerCov);
+            float covThreshold = getMinimumKmerCoverage(kmers, Math.max(0, kmers.size()-d), kmers.size());
             
+            ArrayDeque<Kmer> e =  null;
+                
+            while (true) {
+                covThreshold = Math.max(minKmerCov, covThreshold * multiplier);
+                
+                e =  extendLeftPE(kmers, graph, maxTipLength, covThreshold);
+                
+                if ((e != null && !e.isEmpty()) || covThreshold == minKmerCov) {
+                    break;
+                }
+            }
+
             if (e == null || e.isEmpty()) {
                 break;
             }
@@ -7634,11 +7644,20 @@ public final class GraphUtils {
         Collections.reverse(kmers);
         
         while (true) {
-            ArrayDeque<Kmer> e =  extendRightPE(kmers, 
-                                            graph, 
-                                            maxTipLength,
-                                            minKmerCov);
+            float covThreshold = getMinimumKmerCoverage(kmers, Math.max(0, kmers.size()-d), kmers.size());
             
+            ArrayDeque<Kmer> e =  null;
+                
+            while (true) {
+                covThreshold = Math.max(minKmerCov, covThreshold * multiplier);
+                
+                e =  extendRightPE(kmers, graph, maxTipLength, covThreshold);
+                
+                if ((e != null && !e.isEmpty()) || covThreshold == minKmerCov) {
+                    break;
+                }
+            }
+
             if (e == null || e.isEmpty()) {
                 break;
             }
@@ -10396,7 +10415,146 @@ public final class GraphUtils {
         
         return false;
     }
+
+    public static ArrayList<Kmer> trimReverseComplementArtifact(ArrayList<Kmer> seqKmers,
+            int maxEdgeClip, int maxIndelSize, float minPercentIdentity, BloomFilterDeBruijnGraph graph) {
+        int k = graph.getK();
         
+        // search from left to right
+        int numKmers = seqKmers.size();
+        
+        int startIndex = -1;
+        int endIndex = -1;
+        for (int i=0; i<maxEdgeClip; ++i) {
+            Kmer seed = seqKmers.get(i);
+            long rcHashVal = seed.getReverseComplementHash();
+            for (int j=i+1; j<numKmers; ++j) {
+                Kmer candidate = seqKmers.get(j);
+                if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
+                    startIndex = i;
+                    endIndex = j;
+                    break;
+                }
+            }
+            
+            if (startIndex > 0) {
+                break;
+            }
+        }
+        
+        if (startIndex > 0) {
+            int cutIndex = startIndex+k;
+            for (int i=k; i<endIndex-startIndex; i+=k) {
+                Kmer seed = seqKmers.get(startIndex+i);
+                long rcHashVal = seed.getReverseComplementHash();
+                Kmer candidate = seqKmers.get(endIndex-i);
+                if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
+                    cutIndex = startIndex + i;
+                }
+                else {
+                    break;
+                }
+            }
+            
+            for (int i=cutIndex-startIndex; i<endIndex-startIndex; ++i) {
+                Kmer seed = seqKmers.get(startIndex+i);
+                long rcHashVal = seed.getReverseComplementHash();
+                Kmer candidate = seqKmers.get(endIndex-i);
+                if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
+                    cutIndex = startIndex + i;
+                }
+                else {
+                    break;
+                }
+            }
+            
+            cutIndex = Math.min(cutIndex, (startIndex + endIndex)/2);
+            
+            if (endIndex >= numKmers-maxEdgeClip) {
+                int cutLength = cutIndex - startIndex;
+                float leftMinCov = getMinimumKmerCoverage(seqKmers, cutIndex, cutIndex+k);
+                float rightMinCov = getMinimumKmerCoverage(seqKmers, numKmers-cutLength-k, numKmers-cutLength);
+                if (leftMinCov > rightMinCov) {
+                    seqKmers = new ArrayList<>(seqKmers.subList(0, numKmers-cutLength-k));
+                }
+                else {
+                    seqKmers = new ArrayList<>(seqKmers.subList(cutIndex+k, numKmers));
+                }
+            }
+            else {
+                seqKmers = new ArrayList<>(seqKmers.subList(cutIndex+k, numKmers));
+            }
+        }
+        
+        // search from right to left
+        numKmers = seqKmers.size();
+        
+        startIndex = -1;
+        endIndex = -1;
+        for (int i=numKmers-1; i>=numKmers-1-maxEdgeClip; --i) {
+            Kmer seed = seqKmers.get(i);
+            long rcHashVal = seed.getReverseComplementHash();
+            for (int j=i-1; j>=0; --j) {
+                Kmer candidate = seqKmers.get(j);
+                if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
+                    startIndex = i;
+                    endIndex = j;
+                    break;
+                }
+            }
+            
+            if (startIndex > 0) {
+                break;
+            }
+        }
+        
+        if (startIndex > 0) {
+            int cutIndex = startIndex-k;
+            for (int i=k; i<startIndex-endIndex; i+=k) {
+                Kmer seed = seqKmers.get(startIndex-i);
+                long rcHashVal = seed.getReverseComplementHash();
+                Kmer candidate = seqKmers.get(endIndex+i);
+                if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
+                    cutIndex = startIndex - i;
+                }
+                else {
+                    break;
+                }
+            }
+            
+            for (int i=startIndex-cutIndex; i<startIndex-endIndex; ++i) {
+                Kmer seed = seqKmers.get(startIndex-i);
+                long rcHashVal = seed.getReverseComplementHash();
+                Kmer candidate = seqKmers.get(endIndex+i);
+                if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
+                    cutIndex = startIndex - i;
+                }
+                else {
+                    break;
+                }
+            }
+            
+            cutIndex = Math.max(cutIndex, (startIndex + endIndex)/2);
+            
+            if (endIndex < maxEdgeClip) {
+                int cutLength = startIndex - cutIndex;
+                float leftMinCov = getMinimumKmerCoverage(seqKmers, cutLength, cutLength+k);
+                float rightMinCov = getMinimumKmerCoverage(seqKmers, cutIndex-k, cutIndex);
+                if (leftMinCov > rightMinCov) {
+                    seqKmers = new ArrayList<>(seqKmers.subList(0, cutIndex-k));
+                }
+                else {
+                    seqKmers = new ArrayList<>(seqKmers.subList(cutLength+k, numKmers));
+                }
+            }
+            else {
+                seqKmers = new ArrayList<>(seqKmers.subList(0, cutIndex-k));
+            }
+        }
+        
+        return seqKmers;
+    }
+    
     public static ArrayList<Kmer> trimHairpinBySequenceMatching(ArrayList<Kmer> seqKmers, int k, float minPercentIdentity, BloomFilterDeBruijnGraph graph) {
         int numKmers = seqKmers.size();
         int halfNumKmers = numKmers/2;
