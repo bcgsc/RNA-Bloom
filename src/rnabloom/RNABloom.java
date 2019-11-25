@@ -1572,6 +1572,8 @@ public class RNABloom {
                         }
 
                         // check for read consistency if fragment is long enough
+                        int preExtensionFragLen = -1;
+                        
                         if (fragmentKmers != null) {
                             if (graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
                                 ArrayDeque<int[]> ranges = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
@@ -1586,15 +1588,17 @@ public class RNABloom {
                                 //fragmentKmers = trimHairpinBySequenceMatching(fragmentKmers, k, percentIdentity, graph);
                             }
                             
-                            if (fragmentKmers != null && extendFragments) {
-                                fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength, minKmerCov);
+                            if (fragmentKmers != null) {
+                                preExtensionFragLen = fragmentKmers.size() + k - 1;
+                                
+                                if (extendFragments) {
+                                    fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength, minKmerCov);
+                                }
                             }
                         }
 
                         if (fragmentKmers != null) {
-                            int fragLength = fragmentKmers.size() + k - 1;
-
-                            if (fragLength >= k + lookahead) {
+                            if (fragmentKmers.size() + k - 1 >= k + lookahead) {
                                 boolean hasComplexKmer = false;
 
                                 float minCov = Float.MAX_VALUE;
@@ -1620,7 +1624,7 @@ public class RNABloom {
                                        right = "";
                                     }
 
-                                    outList.put(new Fragment(left, right, fragmentKmers, fragLength, minCov, false));
+                                    outList.put(new Fragment(left, right, fragmentKmers, preExtensionFragLen, minCov, false));
                                 }
                             }
                         }
