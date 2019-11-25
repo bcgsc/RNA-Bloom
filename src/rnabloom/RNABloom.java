@@ -1213,14 +1213,18 @@ public class RNABloom {
                                             String fragInfo = debug ? fragment : "";
                                             
                                             if (!keepArtifact) {
-                                                if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
-                                                    txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
-                                                    transcripts.put(new Transcript(fragInfo, txptKmers));
-                                                }
+                                                txptKmers = trimReverseComplementArtifact(txptKmers, maxTipLength, maxIndelSize, percentIdentity, graph);
                                             }
-                                            else {
+                                            
+//                                            if (!keepArtifact) {
+//                                                if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
+//                                                    txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
+//                                                    transcripts.put(new Transcript(fragInfo, txptKmers));
+//                                                }
+//                                            }
+//                                            else {
                                                 transcripts.put(new Transcript(fragInfo, txptKmers));
-                                            }     
+//                                            }     
                                         }
                                     }
                                 }
@@ -1569,20 +1573,21 @@ public class RNABloom {
 
                         // check for read consistency if fragment is long enough
                         if (fragmentKmers != null) {
-                            if (extendFragments) {
-                                fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength, minKmerCov);
-                            }
-
-                            if (trimArtifact) {
-                                fragmentKmers = trimHairpinBySequenceMatching(fragmentKmers, k, percentIdentity, graph);
-                            }
-
                             if (graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
                                 ArrayDeque<int[]> ranges = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
 
                                 if (ranges.size() != 1) {
                                     fragmentKmers = null;
                                 }
+                            }
+                            
+                            if (fragmentKmers != null && trimArtifact) {
+                                fragmentKmers = trimReverseComplementArtifact(fragmentKmers, maxTipLength, maxIndelSize, percentIdentity, graph);
+                                //fragmentKmers = trimHairpinBySequenceMatching(fragmentKmers, k, percentIdentity, graph);
+                            }
+                            
+                            if (fragmentKmers != null && extendFragments) {
+                                fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength, minKmerCov);
                             }
                         }
 
@@ -3925,7 +3930,7 @@ public class RNABloom {
     }
     
     private boolean generateNonRedundantTranscripts(String inFasta, String tmpPrefix, String outFasta, int numThreads) throws IOException {
-        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), maxTipLength, 0.99f, getReadLength(), maxIndelSize);
+        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, Math.min(2*k, getReadLength()), maxIndelSize);
     }
     
     private static boolean hasNtcard() {
