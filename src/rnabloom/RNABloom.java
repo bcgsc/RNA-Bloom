@@ -1581,6 +1581,17 @@ public class RNABloom {
                                 if (ranges.size() != 1) {
                                     fragmentKmers = null;
                                 }
+                                else {
+                                    int[] range = ranges.peek();
+                                    if (range[0] >= leftKmers.size() || range[1] < fragmentKmers.size() - rightKmers.size()) {
+                                        // fragment is a spurious connection between left and right reads
+                                        fragmentKmers = null;
+                                    }
+                                    else if (range[0] > 0 || range[1] < fragmentKmers.size()) {
+                                        // trim the fragment
+                                        fragmentKmers = new ArrayList<>(fragmentKmers.subList(range[0], range[1]));
+                                    }
+                                }
                             }
                             
                             if (fragmentKmers != null && trimArtifact) {
@@ -1592,7 +1603,25 @@ public class RNABloom {
                                 preExtensionFragLen = fragmentKmers.size() + k - 1;
                                 
                                 if (extendFragments) {
-                                    fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength, minKmerCov);
+                                    ArrayList<Kmer> extendedFragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength, minKmerCov);
+                                    
+                                    if (extendedFragmentKmers.size() != preExtensionFragLen) {
+                                        // fragment was extended; check consistency with reads
+                                        ArrayDeque<int[]> ranges = breakWithReadPairedKmers(extendedFragmentKmers, graph, lookahead);
+                                        
+                                        if (ranges.size() == 1) {
+                                            // there is one consistent section in the extended fragment
+                                            int[] range = ranges.peek();
+                                            if (range[0] > 0 || range[1] < extendedFragmentKmers.size()) {
+                                                // trim extended fragment
+                                                fragmentKmers = new ArrayList<>(extendedFragmentKmers.subList(range[0], range[1]));
+                                            }
+                                            else {
+                                                // trimming not needed; replace original fragment with extended fragment
+                                                fragmentKmers = extendedFragmentKmers;
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -3064,13 +3093,15 @@ public class RNABloom {
                         else {
                             ++readPairsConnected;
 
-                            if (frag.length >= shortestFragmentLengthAllowed && frag.minCov > 0) {
+                            int fragLen = frag.kmers.size()+ k - 1; // not using frag.length because it is the original length and frag may be extended
+                            
+                            if (fragLen >= shortestFragmentLengthAllowed && frag.minCov > 0) {
                                 ArrayList<Kmer> fragKmers = frag.kmers;
 
                                 if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                                     graph.addPairedKmers(fragKmers);
 
-                                    if (frag.length >= longFragmentLengthThreshold) {
+                                    if (fragLen >= longFragmentLengthThreshold) {
                                         for (Kmer kmer : fragKmers) {
                                             screeningBf.add(kmer.getHash());
                                         }
