@@ -4000,7 +4000,7 @@ public class RNABloom {
     }
     
     private boolean generateNonRedundantTranscripts(String inFasta, String tmpPrefix, String outFasta, int numThreads, boolean removeArtifacts) throws IOException {
-        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, Math.min(2*k, getReadLength()), maxIndelSize, removeArtifacts);
+        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, 2*k, maxIndelSize, removeArtifacts);
     }
     
     private static boolean hasNtcard() {
