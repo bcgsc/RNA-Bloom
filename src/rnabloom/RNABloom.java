@@ -3883,7 +3883,6 @@ public class RNABloom {
         }
         fout.close();
 
-        System.out.println("Inter-cell assembly...");
         return overlapLayout(transcriptsConcatenated, tmpPrefix, transcriptsCombined, numThreads,
                 stranded, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, 2*k,
                 maxIndelSize, removeArtifacts);
@@ -5086,7 +5085,7 @@ public class RNABloom {
                     
                     String txptFileExt = outputNrTxpts ? ".nr" + FASTA_EXT : FASTA_EXT;
 
-                    System.out.println("Merging assembled transcripts from all cells...");
+                    System.out.println("Merging transcripts from all samples...");
                     timer = new MyTimer();
                     timer.start();
                     
