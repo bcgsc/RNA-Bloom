@@ -3854,6 +3854,41 @@ public class RNABloom {
         }
     }
     
+    private static boolean combineTranscripts(String outdir, String assemblyName, String[] sampleNames, String txptFileExt,
+            boolean writeUracil, String txptNamePrefix, int numThreads, boolean stranded, int maxIndelSize, int maxTipLength,
+            int k, float percentIdentity, boolean removeArtifacts) throws IOException {
+        
+        String transcriptsConcatenated = outdir + File.separator + "all_transcripts" + FASTA_EXT;
+        String tmpPrefix = outdir + File.separator + "all_transcripts_overlap";
+        String transcriptsCombined = outdir + File.separator + assemblyName + ".transcripts" + FASTA_EXT;
+
+        // combine assembly files
+        FastaWriter fout = new FastaWriter(transcriptsConcatenated, false);
+        FastaReader fin;
+        for (String sampleName : sampleNames) {
+            String clusterAssemblyPath = outdir + File.separator + sampleName + File.separator + sampleName + ".transcripts" + txptFileExt;
+            fin = new FastaReader(clusterAssemblyPath);
+            while(fin.hasNext()) {
+                String[] nameCommentSeq = fin.nextWithComment();
+                //String comment = nameCommentSeq[1];
+                String seq = nameCommentSeq[2];
+
+                if (writeUracil) {
+                    seq = seq.replace('T', 'U');
+                }
+
+                fout.write(txptNamePrefix + sampleName + "_" + nameCommentSeq[0], seq);
+            }
+            fin.close();
+        }
+        fout.close();
+
+        System.out.println("Inter-cell assembly...");
+        return overlapLayout(transcriptsConcatenated, tmpPrefix, transcriptsCombined, numThreads,
+                stranded, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, 2*k,
+                maxIndelSize, removeArtifacts);
+    }
+    
     private static void assembleTranscripts(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, String txptNamePrefix, boolean strandSpecific,
             long sbfSize, int sbfNumHash, long pkbfSize, int pkbfNumHash, int numThreads, boolean noFragDBG,
@@ -3864,8 +3899,8 @@ public class RNABloom {
             String[] refTranscriptFile) throws IOException, InterruptedException {
         
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
-        final String transcriptsFasta = outdir + File.separator + name + ".transcripts.fa";
-        final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short.fa";
+        final String transcriptsFasta = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
+        final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
                 
         if (forceOverwrite || !txptsDoneStamp.exists()) {
             MyTimer timer = new MyTimer();
@@ -3941,7 +3976,7 @@ public class RNABloom {
             
             if (forceOverwrite || !nrTxptsDoneStamp.exists()) {
                 String tmpPrefix = outdir + File.separator + name + ".tmp";
-                String nrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr.fa";
+                String nrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr" + FASTA_EXT;
                 
                 Files.deleteIfExists(FileSystems.getDefault().getPath(nrTranscriptsFasta));
                 
@@ -5046,6 +5081,27 @@ public class RNABloom {
                     System.out.print("\n");
                 }
                 
+                if (outputNrTxpts) {
+                    // combine assembly files
+                    
+                    String txptFileExt = outputNrTxpts ? ".nr" + FASTA_EXT : FASTA_EXT;
+
+                    System.out.println("Merging assembled transcripts from all cells...");
+                    timer = new MyTimer();
+                    timer.start();
+                    
+                    boolean ok = combineTranscripts(outdir, name, sampleNames, txptFileExt, writeUracil,
+                                    txptNamePrefix, numThreads, strandSpecific, maxIndelSize,
+                                    maxTipLen, k, percentIdentity, !keepArtifact);
+
+                    if (ok) {
+                        System.out.println("Merging completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                    }
+                    else {
+                        exitOnError("Error during assembly merging!");
+                    }
+                }
+                
                 System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));                
                 
                 touch(txptsDoneStamp);
@@ -5122,7 +5178,7 @@ public class RNABloom {
                 stageTimer.start();
                 
                 final String assembledLongReadsDirectory = outdir + File.separator + name + ".longreads.assembly";
-                final String assembledLongReadsCombinedFile = outdir + File.separator + name + ".transcripts.fa";
+                final String assembledLongReadsCombinedFile = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
                 if (forceOverwrite || !longReadsAssembledStamp.exists()) {
                     assembler.destroyAllBf();
                                         
