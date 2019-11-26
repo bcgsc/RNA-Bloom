@@ -57,7 +57,7 @@ public class Layout {
     private int minOverlapMatches = 200;
     private boolean cutRevCompArtifact = false;
     
-    public Layout(String seqFile, String pafFile, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize) {
+    public Layout(String seqFile, String pafFile, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact) {
         this.graph = new DefaultDirectedGraph<>(OverlapEdge.class);
         this.overlapPafPath = pafFile;
         this.seqFastaPath = seqFile;
@@ -135,10 +135,24 @@ public class Layout {
     private int getReverseComplementArtifactCutIndex(ExtendedPafRecord r) {
         if (r.qName.equals(r.tName) && r.reverseComplemented) {
             if (r.qStart <= maxEdgeClip) {
-                return r.qEnd -1;
+                // left edge has reverse complement
+                if (r.qStart == r.tStart && r.qEnd == r.tEnd) {
+                    // palindrome
+                    return r.qStart + (r.qEnd - r.qStart)/2;
+                }
+                else {
+                    return r.qEnd -1;
+                }
             }
             else if (r.qLen - r.qEnd <= maxEdgeClip) {
-                return r.tStart -1;
+                // right edge has reverse complement
+                if (r.qStart == r.tStart && r.qEnd == r.tEnd) {
+                    // palindrome
+                    return r.qStart + (r.qEnd - r.qStart)/2;
+                }
+                else {
+                    return r.tStart -1;
+                }
             }
         }
         
@@ -414,6 +428,7 @@ public class Layout {
         HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
         HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
         ArrayDeque<PafRecord> dovetailRecords = new ArrayDeque<>();
+        HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id -> cut index
                
         // look for containment and dovetails
         PafReader reader = new PafReader(overlapPafPath);
@@ -423,7 +438,15 @@ public class Layout {
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
             
-            if (!r.qName.equals(r.tName)) {
+            if (r.qName.equals(r.tName)) {
+                if (cutRevCompArtifact && 
+                        hasReverseComplementArtifact(r) && 
+                        hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                    int cutIndex = getReverseComplementArtifactCutIndex(r);
+                    artifactCutIndexes.put(r.qName, cutIndex);
+                }
+            }
+            else {
                 if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
                     if (isContainmentPafRecord(r)) {
                         String shorter, longer;
@@ -462,6 +485,7 @@ public class Layout {
         reader.close();
         
         System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
+        System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
         
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
@@ -470,13 +494,14 @@ public class Layout {
                 longestSet.add(name);
             }
         }
-        
-        System.out.println("          - unique:   " + NumberFormat.getInstance().format(longestSet.size()));
+                
+        System.out.println("         - unique:    " + NumberFormat.getInstance().format(longestSet.size()));
                         
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
         for (PafRecord r : dovetailRecords) {
-            if (longestSet.contains(r.qName) && longestSet.contains(r.tName)) {
+            if ((!cutRevCompArtifact || (!artifactCutIndexes.containsKey(r.qName) && !artifactCutIndexes.containsKey(r.tName))) &&
+                    longestSet.contains(r.qName) && longestSet.contains(r.tName)) {
                 if (!dovetailReadNames.contains(r.qName)) {
                     graph.addVertex(r.qName + "+");
                     graph.addVertex(r.qName + "-");
@@ -511,7 +536,7 @@ public class Layout {
                 }
             }
         }
-        System.out.println("          - dovetail: " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+        System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
         System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
         
         TransitiveReduction.INSTANCE.reduce(graph);
@@ -533,7 +558,19 @@ public class Layout {
             }
             else if (!lengths.containsKey(name) || longestSet.contains(name)) {
                 // an orphan sequence with no overlaps with other sequences
-                fw.write(Integer.toString(++seqID), nameSeq[1]);
+                if (cutRevCompArtifact && artifactCutIndexes.containsKey(name)) {
+                    int halfLen = nameSeq[1].length()/2;
+                    int cutIndex = artifactCutIndexes.get(name);
+                    if (cutIndex < halfLen) {
+                        fw.write(Integer.toString(++seqID), nameSeq[1].substring(cutIndex+1));
+                    }
+                    else {
+                        fw.write(Integer.toString(++seqID), nameSeq[1].substring(0, cutIndex));
+                    }
+                }
+                else {
+                    fw.write(Integer.toString(++seqID), nameSeq[1]);
+                }
             }
         }
         fr.close();
@@ -578,6 +615,7 @@ public class Layout {
         HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
         HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
         ArrayDeque<PafRecord> dovetailRecords = new ArrayDeque<>();
+        HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id -> cut index
         
         // look for containment and overlaps
         PafReader reader = new PafReader(overlapPafPath);
@@ -586,8 +624,16 @@ public class Layout {
 
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
-                        
-            if (!r.qName.equals(r.tName)) {
+            
+            if (r.qName.equals(r.tName)) {
+                if (cutRevCompArtifact && 
+                        hasReverseComplementArtifact(r) && 
+                        hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                    int cutIndex = getReverseComplementArtifactCutIndex(r);
+                    artifactCutIndexes.put(r.qName, cutIndex);
+                }
+            }
+            else {
                 if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
                     if (isStrandedContainmentPafRecord(r)) {
                         String shorter, longer;
@@ -626,6 +672,7 @@ public class Layout {
         reader.close();
         
         System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
+        System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
         
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
@@ -635,13 +682,14 @@ public class Layout {
             }
         }
         
-        System.out.println("          - unique:   " + NumberFormat.getInstance().format(longestSet.size()));
+        System.out.println("         - unique:    " + NumberFormat.getInstance().format(longestSet.size()));
                 
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
         for (PafRecord r : dovetailRecords) {
             if (!r.reverseComplemented) {
-                if (longestSet.contains(r.qName) && longestSet.contains(r.tName)) {
+                if ((!cutRevCompArtifact || (!artifactCutIndexes.containsKey(r.qName) && !artifactCutIndexes.containsKey(r.tName))) &&
+                        longestSet.contains(r.qName) && longestSet.contains(r.tName)) {
                     if (!dovetailReadNames.contains(r.qName)) {
                         graph.addVertex(r.qName + "+");
                         dovetailReadNames.add(r.qName);
@@ -662,7 +710,7 @@ public class Layout {
             }
         }
         
-        System.out.println("          - dovetail: " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+        System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
         System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
         
         TransitiveReduction.INSTANCE.reduce(graph);
@@ -685,7 +733,19 @@ public class Layout {
             }
             else if (!lengths.containsKey(name) || longestSet.contains(name)) {
                 // an orphan sequence with no overlaps with other sequences
-                fw.write(Integer.toString(++seqID), nameSeq[1]);
+                if (cutRevCompArtifact && artifactCutIndexes.containsKey(name)) {
+                    int halfLen = nameSeq[1].length()/2;
+                    int cutIndex = artifactCutIndexes.get(name);
+                    if (cutIndex < halfLen) {
+                        fw.write(Integer.toString(++seqID), nameSeq[1].substring(cutIndex+1));
+                    }
+                    else {
+                        fw.write(Integer.toString(++seqID), nameSeq[1].substring(0, cutIndex));
+                    }
+                }
+                else {
+                    fw.write(Integer.toString(++seqID), nameSeq[1]);
+                }
             }
         }
         fr.close();
@@ -728,13 +788,13 @@ public class Layout {
     }
     
     public static void main(String[] args) {
-        boolean stranded = true;
+        boolean stranded = false;
         String seqFastaPath = "";
         String overlapPafPath = "";
         String backboneFastaPath = "";
         
         try {
-            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 3, 0.99f, 100, 1);
+            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 3, 0.90f, 100, 1, true);
             myLayout.writeBackboneSequences(backboneFastaPath);
         } catch (Exception ex) {
             ex.printStackTrace();

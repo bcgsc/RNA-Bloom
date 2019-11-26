@@ -2456,7 +2456,8 @@ public class RNABloom {
                                     int minKmerCov,
                                     String txptNamePrefix,
                                     boolean stranded,
-                                    int minTranscriptLength) throws IOException {
+                                    int minTranscriptLength,
+                                    boolean removeArtifacts) throws IOException {
         
         ArrayList<Integer> clusterIDs = new ArrayList<>();
         
@@ -2482,7 +2483,7 @@ public class RNABloom {
 
                 System.out.println("Assembling cluster `" + clusterID + "`...");
 
-                boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, concensusPath, numThreads, stranded, minimapOptions, maxIndelSize);
+                boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, concensusPath, numThreads, stranded, minimapOptions, maxIndelSize, removeArtifacts);
                 if (!ok) {
                     System.out.println("*** Error assembling cluster `" + clusterID + "`!!! ***");
                     errors.add(clusterID);
@@ -2542,7 +2543,7 @@ public class RNABloom {
         }
         
         System.out.println("Inter-cluster assembly...");
-        ok = overlapLayout(assembledLongReadsConcatenated, tmpPrefix, assembledLongReadsCombined, numThreads, stranded, "-r " + Integer.toString(2*maxIndelSize), k, percentIdentity, minTranscriptLength, maxIndelSize);
+        ok = overlapLayout(assembledLongReadsConcatenated, tmpPrefix, assembledLongReadsCombined, numThreads, stranded, "-r " + Integer.toString(2*maxIndelSize), k, percentIdentity, minTranscriptLength, maxIndelSize, removeArtifacts);
         
         return ok;
     }
@@ -3796,7 +3797,7 @@ public class RNABloom {
             String assembledLongReadsCombined,
             int numThreads, boolean forceOverwrite,
             boolean writeUracil, String minimapOptions, int minKmerCov, String txptNamePrefix, 
-            boolean stranded, int minTranscriptLength) throws IOException {
+            boolean stranded, int minTranscriptLength, boolean removeArtifacts) throws IOException {
         
         File outdir = new File(assembledLongReadsDirectory);
         if (outdir.exists()) {
@@ -3811,7 +3812,7 @@ public class RNABloom {
         }
         
         return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined,
-                numThreads, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, stranded, minTranscriptLength);
+                numThreads, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, stranded, minTranscriptLength, removeArtifacts);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -3948,7 +3949,7 @@ public class RNABloom {
                 MyTimer timer = new MyTimer();
                 timer.start();
 
-                boolean ok = assembler.generateNonRedundantTranscripts(transcriptsFasta, tmpPrefix, nrTranscriptsFasta, numThreads);
+                boolean ok = assembler.generateNonRedundantTranscripts(transcriptsFasta, tmpPrefix, nrTranscriptsFasta, numThreads, !keepArtifact);
 
                 if (ok) {
                     System.out.println("Redundancy reduced in " + MyTimer.hmsFormat(timer.elapsedMillis()));
@@ -3964,8 +3965,8 @@ public class RNABloom {
         }
     }
     
-    private boolean generateNonRedundantTranscripts(String inFasta, String tmpPrefix, String outFasta, int numThreads) throws IOException {
-        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, Math.min(2*k, getReadLength()), maxIndelSize);
+    private boolean generateNonRedundantTranscripts(String inFasta, String tmpPrefix, String outFasta, int numThreads, boolean removeArtifacts) throws IOException {
+        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, Math.min(2*k, getReadLength()), maxIndelSize, removeArtifacts);
     }
     
     private static boolean hasNtcard() {
@@ -5127,7 +5128,7 @@ public class RNABloom {
                                         
                     boolean ok = assembleLongReads(assembler,
                             clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombinedFile,
-                            numThreads, forceOverwrite, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, strandSpecific, minTranscriptLength);
+                            numThreads, forceOverwrite, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, strandSpecific, minTranscriptLength, !keepArtifact);
                     
                     if (ok) {
                         touch(longReadsAssembledStamp);
