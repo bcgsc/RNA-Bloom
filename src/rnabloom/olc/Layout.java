@@ -117,7 +117,7 @@ public class Layout {
             }
         }
         
-        float alnId = (numMatch - (record.nm - numDel - numIns))/(float)(numMatch + numDel + numIns);
+        float alnId = (numMatch - record.nm)/(float)(numMatch + numDel + numIns);
         
         return alnId >= minAlnId;
     }
@@ -788,13 +788,13 @@ public class Layout {
     }
     
     public static void main(String[] args) {
-        boolean stranded = false;
+        boolean stranded = true;
         String seqFastaPath = "";
         String overlapPafPath = "";
         String backboneFastaPath = "";
         
         try {
-            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 3, 0.90f, 100, 1, true);
+            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 100, 0.40f, 100, 10, true);
             myLayout.writeBackboneSequences(backboneFastaPath);
         } catch (Exception ex) {
             ex.printStackTrace();
