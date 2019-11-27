@@ -4727,7 +4727,7 @@ public class RNABloom {
             String defaultK = hasLongReadFiles ? "17" : optKmerSizeDefault;
             final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), defaultK));
             
-            String defaultPercentIdentity = hasLongReadFiles ? "0.8" : optPercentIdentityDefault;
+            String defaultPercentIdentity = hasLongReadFiles ? "0.7" : optPercentIdentityDefault;
             final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), defaultPercentIdentity));
             
             String defaultMaxIndelSize = hasLongReadFiles ? "10" : optIndelSizeDefault;

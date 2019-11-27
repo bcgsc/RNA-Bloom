@@ -297,7 +297,7 @@ public class OverlapLayoutConcensus {
         
         if (nonEmptyPafFile) {
             // lay out backbones
-            if (!layout(readsPath, avaPaf, backbonesFa, stranded, 100, 0.5f, 200, maxIndelSize, cutRevCompArtifact)) {
+            if (!layout(readsPath, avaPaf, backbonesFa, stranded, 100, 0.4f, 200, maxIndelSize, cutRevCompArtifact)) {
                 return false;
             }
         }
