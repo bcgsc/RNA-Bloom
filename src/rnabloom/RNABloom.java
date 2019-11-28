@@ -2729,17 +2729,20 @@ public class RNABloom {
         private final int minKmerCov;
         private final int minNumSolidKmers;
         private final boolean reverseComplement;
+        private boolean trimArtifact = false;
+        private long numArtifacts = 0;
 
         public LongReadCorrectionWorker(ArrayBlockingQueue<String[]> inputQueue,
                                         ArrayBlockingQueue<Sequence> outputQueue,
                                         int maxErrCorrItr, int minKmerCov, int minNumSolidKmers,
-                                        boolean reverseComplement) {
+                                        boolean reverseComplement, boolean trimArtifact) {
             this.inputQueue = inputQueue;
             this.outputQueue = outputQueue;
             this.maxErrCorrItr = maxErrCorrItr;
             this.minKmerCov = minKmerCov;
             this.minNumSolidKmers = minNumSolidKmers;
             this.reverseComplement = reverseComplement;
+            this.trimArtifact = trimArtifact;
         }
         
         @Override
@@ -2752,7 +2755,7 @@ public class RNABloom {
                     }
                     
                     String seq = reverseComplement ? reverseComplement(nameSeqPair[1]) : nameSeqPair[1];
-                   
+                    
                     ArrayList<Kmer> kmers = graph.getKmers(seq);
                     
                     ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
@@ -2765,8 +2768,17 @@ public class RNABloom {
                                                                         minKmerCov,
                                                                         minNumSolidKmers,
                                                                         true);
-                    
+                                        
                     if (correctedKmers != null && !correctedKmers.isEmpty()) {
+                        if (trimArtifact) {
+                            ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
+                                                graph, strandSpecific, 150, maxIndelSize, percentIdentity, maxCovGradient);
+                            if (trimmed.size() < correctedKmers.size()) {
+                                ++numArtifacts;
+                                correctedKmers = trimmed;
+                            }
+                        }
+                        
                         float cov = getMinMedianKmerCoverage(correctedKmers, 200);
                         seq = graph.assemble(correctedKmers);
                         outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov));
@@ -2803,7 +2815,8 @@ public class RNABloom {
                                                 int numThreads,
                                                 int maxSampleSize,
                                                 int minSeqLen,
-                                                boolean reverseComplement) throws InterruptedException, IOException, Exception {
+                                                boolean reverseComplement,
+                                                boolean trimArtifact) throws InterruptedException, IOException, Exception {
         long numReads = 0;
         
         MyExecutorService service = new MyExecutorService(numThreads+1, numThreads+1);
@@ -2817,7 +2830,7 @@ public class RNABloom {
         int minNumSolidKmers = 100;
         
         for (int i=0; i<numCorrectionWorkers; ++i) {
-            LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov, minNumSolidKmers, reverseComplement);
+            LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov, minNumSolidKmers, reverseComplement, trimArtifact);
             correctionWorkers[i] = worker;
             service.submit(worker);
         }
@@ -2843,10 +2856,12 @@ public class RNABloom {
             throw writerWorker.getExceptionCaught();
         }
         
+        long numArtifacts = 0;
         for (LongReadCorrectionWorker worker : correctionWorkers) {
             if (!worker.isSucessful()) {
                 throw worker.getExceptionCaught();
             }
+            numArtifacts += worker.numArtifacts;
         }
         
         assert inputQueue.isEmpty() && outputQueue.isEmpty();
@@ -2854,8 +2869,12 @@ public class RNABloom {
         System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
         long numCorrected = writerWorker.getNumCorrected();
         long numDiscarded = numReads - numCorrected;
-        System.out.println("\tCorrected: " + NumberFormat.getInstance().format(numCorrected) + "(" + numCorrected * 100f/numReads + "%)");
+        System.out.println("\tKept:      " + NumberFormat.getInstance().format(numCorrected) + "(" + numCorrected * 100f/numReads + "%)");
         System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "(" + numDiscarded * 100f/numReads + "%)");
+        
+        if (numArtifacts > 0) { 
+            System.out.println("\tArtifacts: " + NumberFormat.getInstance().format(numArtifacts) + "(" + numArtifacts * 100f/numReads + "%)");
+        }
     }
     
     public String polishSequence(String seq, int maxErrCorrItr, int minKmerCov, int minNumSolidKmers) {
@@ -3754,7 +3773,7 @@ public class RNABloom {
     
     private static void correctLongReads(RNABloom assembler, 
             String[] readFastxPaths, String[][] correctedLongReadFileNames, 
-            int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, boolean reverseComplement) throws InterruptedException, IOException, Exception {
+            int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, boolean reverseComplement, boolean trimArtifact) throws InterruptedException, IOException, Exception {
         
         /* set up the file writers */
         final int numCovStrata = COVERAGE_ORDER.length;
@@ -3766,7 +3785,7 @@ public class RNABloom {
             }
         }
         
-        assembler.correctLongReadsMultithreaded(readFastxPaths, writers, minKmerCov, maxErrCorrItr, numThreads, sampleSize, minSeqLen, reverseComplement);
+        assembler.correctLongReadsMultithreaded(readFastxPaths, writers, minKmerCov, maxErrCorrItr, numThreads, sampleSize, minSeqLen, reverseComplement, trimArtifact);
         
         for (int i=0; i<writers.length; ++i) {
             for (int j=0; j<writers[i].length; ++j) {
@@ -5141,7 +5160,7 @@ public class RNABloom {
                     correctLongReads(assembler,
                             longReadPaths, correctedLongReadFileNames,
                             maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength,
-                            revCompLong);
+                            revCompLong, !keepArtifact);
                     
                     touch(longReadsCorrectedStamp);
                 }

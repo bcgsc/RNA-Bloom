@@ -3023,7 +3023,7 @@ public final class GraphUtils {
                     }
                 }
             }
-                        
+            
             return testKmers;
         }
         
@@ -3046,11 +3046,7 @@ public final class GraphUtils {
             if (kmer.count >= threshold) {
                 int end = Math.min(i+lookahead, numKmers);
                 if (areKmerCoverageAboveThreshold(kmers, i+1, end, threshold)) {
-                    if (isLowComplexity2(kmer.bytes)) {
-                        // skip the bases in this kmer entirely
-                        i += k-1;
-                    }
-                    else if (end+window > numKmers || (float)getNumKmersAboveCoverageThreshold(kmers, end, end+window, threshold)/(float)window > windowThreshold) {
+                    if (end+window > numKmers || (float)getNumKmersAboveCoverageThreshold(kmers, end, end+window, threshold)/(float)window > windowThreshold) {
                         headIndex = i;
                         break;
                     }
@@ -3063,11 +3059,7 @@ public final class GraphUtils {
             if (kmer.count >= threshold) {
                 int start = Math.max(0, i-lookahead);
                 if (areKmerCoverageAboveThreshold(kmers, start, i, threshold)) {
-                    if (isLowComplexity2(kmer.bytes)) {
-                        // skip the bases in this kmer entirely
-                        i -= k-1;
-                    }
-                    else if (start-window < 0 || (float)getNumKmersAboveCoverageThreshold(kmers, start-window, start, threshold)/(float)window > windowThreshold) {
+                    if (start-window < 0 || (float)getNumKmersAboveCoverageThreshold(kmers, start-window, start, threshold)/(float)window > windowThreshold) {
                         tailIndex = i+1;
                         break;
                     }
@@ -10416,6 +10408,162 @@ public final class GraphUtils {
         return false;
     }
 
+    public static ArrayList<Kmer> trimReverseComplementArtifact(ArrayList<Kmer> seqKmers,
+            BloomFilterDeBruijnGraph graph, boolean stranded,
+            int maxEdgeClip, int maxIndelSize, float minPercentIdentity, float maxCovGradient) {
+        
+        int minMatchLen = 2*graph.getK();
+        int numKmers = seqKmers.size();
+        
+        // scan from left to right
+        int anchorStartIndex = -1;
+        int anchorEndIndex = -1;
+        int partnerStartIndex = -1;
+        int partnerEndIndex = -1;
+        int anchorStopIndex = Math.min(numKmers, maxEdgeClip);
+        for (int i=0; i<anchorStopIndex; ++i) {
+            Kmer seed = seqKmers.get(i);
+            long rcHashVal = seed.getReverseComplementHash();
+            for (int j=i+1; j<numKmers; ++j) {
+                Kmer candidate = seqKmers.get(j);
+                if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
+                    anchorStartIndex = i;
+                    anchorEndIndex = i;
+                    partnerStartIndex = j;
+                    partnerEndIndex = j;
+                    break;
+                }
+            }
+            
+            if (anchorStartIndex > 0) {
+                break;
+            }
+        }
+        
+        if (anchorStartIndex > 0) {
+            int midPointIndex = (anchorStartIndex + partnerStartIndex)/2;
+            for (int i=anchorEndIndex+1; i<midPointIndex; ++i) {
+                Kmer seed = seqKmers.get(i);
+                long rcHashVal = seed.getReverseComplementHash();
+
+                for (int j=partnerStartIndex-1; j>=midPointIndex; --j) {
+                    Kmer candidate = seqKmers.get(j);
+                    if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
+                        anchorEndIndex = i;
+                        partnerStartIndex = j;
+                        break;
+                    }
+                }
+            }
+
+            if (anchorStartIndex > 0 && anchorEndIndex-anchorStartIndex >= minMatchLen && partnerEndIndex-partnerStartIndex >= minMatchLen) {
+                ++anchorEndIndex;
+                ++partnerEndIndex;
+
+                if (stranded) {
+                    float anchorCov = getMedianKmerCoverage(seqKmers, anchorStartIndex, anchorEndIndex);
+                    float middleCov = anchorEndIndex < partnerStartIndex ? getMedianKmerCoverage(seqKmers, anchorEndIndex, partnerStartIndex) : 0;
+                    float partnerCov = getMedianKmerCoverage(seqKmers, partnerStartIndex, partnerEndIndex);
+
+                    if (anchorCov < partnerCov) {
+                        if (middleCov >= anchorCov && middleCov >= partnerCov * maxCovGradient) {
+                            return new ArrayList<>(seqKmers.subList(anchorEndIndex, numKmers));
+                        }
+                        else {
+                            return new ArrayList<>(seqKmers.subList(partnerStartIndex, numKmers));
+                        }
+                    }
+                    else {
+                        if (middleCov > partnerCov && middleCov >= anchorCov * maxCovGradient) {
+                            return new ArrayList<>(seqKmers.subList(0, partnerStartIndex));
+                        }
+                        else {
+                            return new ArrayList<>(seqKmers.subList(0, anchorEndIndex));
+                        }
+                    }
+                }
+                else {
+                    return new ArrayList<>(seqKmers.subList(anchorEndIndex,partnerStartIndex));
+                }
+            }
+        }
+        
+        // scan from right to left
+        anchorStartIndex = -1;
+        anchorEndIndex = -1;
+        partnerStartIndex = -1;
+        partnerEndIndex = -1;
+        anchorStopIndex = Math.max(0, numKmers-maxEdgeClip);
+        for (int i=numKmers-1; i>=anchorStopIndex; --i) {
+            Kmer seed = seqKmers.get(i);
+            long rcHashVal = seed.getReverseComplementHash();
+            for (int j=i-1; j>=0; --j) {
+                Kmer candidate = seqKmers.get(j);
+                if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
+                    anchorStartIndex = i;
+                    anchorEndIndex = i;
+                    partnerStartIndex = j;
+                    partnerEndIndex = j;
+                    break;
+                }
+            }
+            
+            if (anchorStartIndex > 0) {
+                break;
+            }
+        }
+        
+        if (anchorStartIndex > 0) {
+            int midPointIndex = (anchorStartIndex + partnerStartIndex)/2;
+            for (int i=anchorStartIndex-1; i>midPointIndex; --i) {
+                Kmer seed = seqKmers.get(i);
+                long rcHashVal = seed.getReverseComplementHash();
+
+                for (int j=partnerEndIndex+1; j<=midPointIndex; ++j) {
+                    Kmer candidate = seqKmers.get(j);
+                    if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
+                        anchorStartIndex = i;
+                        partnerEndIndex = j;
+                        break;
+                    }
+                }
+            }
+
+            if (anchorStartIndex > 0 && anchorEndIndex-anchorStartIndex >= minMatchLen && partnerEndIndex-partnerStartIndex >= minMatchLen) {
+                ++anchorEndIndex;
+                ++partnerEndIndex;
+
+                if (stranded) {
+                    float partnerCov = getMedianKmerCoverage(seqKmers, partnerStartIndex, partnerEndIndex);
+                    float middleCov = partnerEndIndex < anchorStartIndex ? getMedianKmerCoverage(seqKmers, partnerEndIndex, anchorStartIndex) : 0;
+                    float anchorCov = getMedianKmerCoverage(seqKmers, anchorStartIndex, anchorEndIndex);
+
+                    if (partnerCov > anchorCov) {
+                        if (middleCov > anchorCov && middleCov >= partnerCov * maxCovGradient) {
+                            return new ArrayList<>(seqKmers.subList(0, anchorStartIndex));
+                        }
+                        else {
+                            return new ArrayList<>(seqKmers.subList(0, partnerEndIndex));
+                        }
+                    }
+                    else {
+                        if (middleCov > partnerCov && middleCov >= anchorCov * maxCovGradient) {
+                            return new ArrayList<>(seqKmers.subList(partnerEndIndex, numKmers));
+                        }
+                        else {
+                            return new ArrayList<>(seqKmers.subList(anchorStartIndex, numKmers));
+                        }
+                    }
+                }
+                else {
+                    return new ArrayList<>(seqKmers.subList(partnerEndIndex,anchorStartIndex));
+                }
+            }
+        }
+        
+        return seqKmers;
+    }
+    
     public static ArrayList<Kmer> trimReverseComplementArtifact(ArrayList<Kmer> seqKmers,
             int maxEdgeClip, int maxIndelSize, float minPercentIdentity, BloomFilterDeBruijnGraph graph) {
         int k = graph.getK();
