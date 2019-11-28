@@ -767,7 +767,9 @@ public class RNABloom {
     
     public boolean withinMaxFPR(float fpr) {
         float maxFPR = fpr * 1.5f;
-        return graph.getDbgbfFPR() <= maxFPR && graph.getCbfFPR() <= maxFPR && graph.getRpkbfFPR() <= maxFPR;
+        return (graph.getDbgbf() == null || graph.getDbgbfFPR() <= maxFPR) && 
+                (graph.getCbf() == null || graph.getCbfFPR() <= maxFPR) && 
+                (graph.getRpkbf() == null || graph.getRpkbfFPR() <= maxFPR);
     }
     
     public long[] getOptimalBloomFilterSizes(float maxFPR) {
@@ -4057,6 +4059,23 @@ public class RNABloom {
         return hist;
     }
     
+    private static void printBloomFilterMemoryInfo(float dbgGB, float cbfGB, float pkbfGB, float sbfGB) {
+        System.out.println(  "\nBloom filters          Memory (GB)");
+        System.out.println(    "====================================");
+        if (dbgGB > 0)
+            System.out.println("de Bruijn graph:       " + dbgGB);
+        if (cbfGB > 0)
+            System.out.println("k-mer counting:        " + cbfGB);
+        if (pkbfGB > 0) {
+            System.out.println("paired k-mers (reads): " + pkbfGB);
+            System.out.println("paired k-mers (frags): " + pkbfGB);
+        }
+        if (sbfGB > 0)
+            System.out.println("screening:             " + sbfGB);
+        System.out.println(    "====================================");
+        System.out.println(    "Total:                 " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
+    }
+    
     private static final String STAMP_STARTED = "STARTED";
     private static final String STAMP_DBG_DONE = "DBG.DONE";
     private static final String STAMP_FRAGMENTS_DONE = "FRAGMENTS.DONE";
@@ -4780,6 +4799,7 @@ public class RNABloom {
             
             final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), optFprDefault));
             final boolean saveGraph = line.hasOption(optSaveBf.getOpt());
+            boolean storeReadPairedKmers = hasLeftReadFiles || hasRightReadFiles || hasRefTranscriptFiles;
                         
             long expNumKmers = -1L;
             NTCardHistogram hist = null;
@@ -4899,18 +4919,17 @@ public class RNABloom {
             final boolean extendFragments = line.hasOption(optExtend.getOpt());
             final int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), optMinKmerPairsDefault));
             final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), optPrefixDefault);
-            
 
-            System.out.println("\nBloom filters         Memory (GB)");
-            System.out.println("====================================");
-            System.out.println("de Bruijn graph:       " + dbgGB);
-            System.out.println("k-mer counting:        " + cbfGB);
-            System.out.println("paired k-mers (reads): " + pkbfGB);
-            System.out.println("paired k-mers (frags): " + pkbfGB);
-            System.out.println("screening:             " + sbfGB);
-            System.out.println("====================================");
-            System.out.println("Total:                 " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
+            if (!storeReadPairedKmers) {
+                pkbfGB = 0;
+            }
             
+            if (hasLongReadFiles) {
+                sbfGB = 0;
+            }
+            
+            printBloomFilterMemoryInfo(dbgGB, cbfGB, pkbfGB, sbfGB);
+                        
             RNABloom assembler = new RNABloom(k, qDBG, qFrag, debug);
             assembler.setParams(strandSpecific, maxTipLen, lookahead, maxCovGradient, maxIndelSize, percentIdentity, minNumKmerPairs, minPolyATail);
 
@@ -4966,13 +4985,15 @@ public class RNABloom {
                        
                 System.out.println("\n> Stage 1: Construct graph from reads (k=" + k + ")");
                 timer.start();
-                
+                                
                 assembler.initializeGraph(strandSpecific, 
                         dbgbfSize, cbfSize, pkbfSize, 
-                        dbgbfNumHash, cbfNumHash, pkbfNumHash, false, true);
-                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                        dbgbfNumHash, cbfNumHash, pkbfNumHash, false, storeReadPairedKmers);
                 
-                boolean storeReadPairedKmers = forwardFilesList.size() > 0 || backwardFilesList.size() > 0 || hasRefTranscriptFiles;
+                if (!hasLongReadFiles) {
+                    assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                }
+                
                 assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, refFilesList, strandSpecific, revCompLong, numThreads, false, storeReadPairedKmers);
                 
                 if (!assembler.withinMaxFPR(maxFPR)) {
@@ -4994,21 +5015,23 @@ public class RNABloom {
                     pkbfGB = pkbfSize / (float) NUM_BITS_1GB;
                     sbfGB = sbfSize / (float) NUM_BITS_1GB;
                     
-                    System.out.println("Bloom filters          Memory (GB)");
-                    System.out.println("====================================");
-                    System.out.println("de Bruijn graph:       " + dbgGB);
-                    System.out.println("k-mer counting:        " + cbfGB);
-                    System.out.println("paired k-mers (reads): " + pkbfGB);
-                    System.out.println("paired k-mers (frags): " + pkbfGB);
-                    System.out.println("screening:             " + sbfGB);
-                    System.out.println("====================================");
-                    System.out.println("Total:                 " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
+                    if (!storeReadPairedKmers) {
+                        pkbfGB = 0;
+                    }
+
+                    if (hasLongReadFiles) {
+                        sbfGB = 0;
+                    }
+
+                    printBloomFilterMemoryInfo(dbgGB, cbfGB, pkbfGB, sbfGB);
                     
                     assembler.initializeGraph(strandSpecific, 
                             dbgbfSize, cbfSize, pkbfSize, 
-                            dbgbfNumHash, cbfNumHash, pkbfNumHash, false, true);
+                            dbgbfNumHash, cbfNumHash, pkbfNumHash, false, storeReadPairedKmers);
                     
-                    assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                    if (!hasLongReadFiles) {
+                        assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                    }
                     
                     System.out.println("Repopulate graph ...");
                     
