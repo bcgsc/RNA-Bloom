@@ -4650,7 +4650,7 @@ public final class GraphUtils {
                         hasComplexKmer = true;
                     }
                 }
-
+                
                 if (!hasComplexKmer) {
                     return null;
                 }

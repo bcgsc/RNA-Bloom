@@ -3997,14 +3997,16 @@ public class RNABloom {
             if (forceOverwrite || !nrTxptsDoneStamp.exists()) {
                 String tmpPrefix = outdir + File.separator + name + ".tmp";
                 String nrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr" + FASTA_EXT;
+                String shortNrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr.short" + FASTA_EXT;
                 
                 Files.deleteIfExists(FileSystems.getDefault().getPath(nrTranscriptsFasta));
                 
                 System.out.println("Reducing redundancy in assembled transcripts...");
                 MyTimer timer = new MyTimer();
                 timer.start();
-
-                boolean ok = assembler.generateNonRedundantTranscripts(transcriptsFasta, tmpPrefix, nrTranscriptsFasta, numThreads, !keepArtifact);
+                
+                boolean ok = assembler.generateNonRedundantTranscripts(transcriptsFasta, shortTranscriptsFasta,
+                        tmpPrefix, nrTranscriptsFasta, shortNrTranscriptsFasta, numThreads, !keepArtifact, minTranscriptLength);
 
                 if (ok) {
                     System.out.println("Redundancy reduced in " + MyTimer.hmsFormat(timer.elapsedMillis()));
@@ -4020,8 +4022,58 @@ public class RNABloom {
         }
     }
     
-    private boolean generateNonRedundantTranscripts(String inFasta, String tmpPrefix, String outFasta, int numThreads, boolean removeArtifacts) throws IOException {
-        return overlapLayout(inFasta, tmpPrefix, outFasta, numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, 2*k, maxIndelSize, removeArtifacts);
+    private boolean generateNonRedundantTranscripts(String inLongFastas, String inShortFasta,
+            String tmpPrefix, String outLongFasta, String outShortFasta,
+            int numThreads, boolean removeArtifacts, int txptLengthThreshold) throws IOException {
+        String transcriptsConcatenated = tmpPrefix + "_ava_cat" + FASTA_EXT;
+        String transcriptsReduced = tmpPrefix + "_ava_cat_nr" + FASTA_EXT;
+
+        // combine assembly files
+        FastaWriter fout = new FastaWriter(transcriptsConcatenated, false);
+        
+        FastaReader fin = new FastaReader(inLongFastas);
+        while(fin.hasNext()) {
+            String[] nameCommentSeq = fin.nextWithComment();
+            //String comment = nameCommentSeq[1];
+            String seq = nameCommentSeq[2];
+            fout.write(nameCommentSeq[0], seq);
+        }
+        fin.close();
+        
+        fin = new FastaReader(inShortFasta);
+        while(fin.hasNext()) {
+            String[] nameCommentSeq = fin.nextWithComment();
+            //String comment = nameCommentSeq[1];
+            String seq = nameCommentSeq[2];
+            fout.write(nameCommentSeq[0], seq);
+        }
+        fin.close();
+        
+        fout.close();
+        
+        boolean ok = overlapLayout(transcriptsConcatenated, tmpPrefix, transcriptsReduced, 
+                numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize),
+                maxTipLength, percentIdentity, 2*k, maxIndelSize, removeArtifacts);
+        
+        fin = new FastaReader(transcriptsReduced);
+        FastaWriter foutLong = new FastaWriter(outLongFasta, false);
+        FastaWriter foutShort = new FastaWriter(outShortFasta, false);
+        while(fin.hasNext()) {
+            String[] nameCommentSeq = fin.nextWithComment();
+            String seq = nameCommentSeq[2];
+            
+            if (seq.length() >= txptLengthThreshold) {
+                foutLong.write(nameCommentSeq[0], seq);
+            }
+            else {
+                foutShort.write(nameCommentSeq[0], seq);
+            }
+        }
+        foutLong.close();
+        foutShort.close();
+        fin.close();
+        
+        return ok;
     }
     
     private static boolean hasNtcard() {
