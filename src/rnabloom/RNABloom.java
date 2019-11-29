@@ -2257,7 +2257,7 @@ public class RNABloom {
             }
             reader.close();
             
-            new File(path).delete();
+            Files.deleteIfExists(FileSystems.getDefault().getPath(path));
         }
         writer.close();
     }
@@ -3875,20 +3875,65 @@ public class RNABloom {
         }
     }
     
-    private static boolean combineTranscripts(String outdir, String assemblyName, String[] sampleNames, String txptFileExt,
-            boolean writeUracil, String txptNamePrefix, int numThreads, boolean stranded, int maxIndelSize, int maxTipLength,
-            int k, float percentIdentity, boolean removeArtifacts) throws IOException {
+    private static void splitFastaByLength(String inFasta, String outLongFasta, String outShortFasta, int lengthThreshold) throws IOException {
+        FastaReader fin = new FastaReader(inFasta);
+        FastaWriter foutLong = new FastaWriter(outLongFasta, false);
+        FastaWriter foutShort = new FastaWriter(outShortFasta, false);
+        while(fin.hasNext()) {
+            String[] nameCommentSeq = fin.nextWithComment();
+            
+            String header = nameCommentSeq[0];
+            if (!nameCommentSeq[1].isEmpty()) {
+                header += " " + nameCommentSeq[1];
+            }
+            
+            String seq = nameCommentSeq[2];
+            
+            if (seq.length() >= lengthThreshold) {
+                foutLong.write(header, seq);
+            }
+            else {
+                foutShort.write(header, seq);
+            }
+        }
+        foutLong.close();
+        foutShort.close();
+        fin.close();
+    }
+    
+    private static boolean mergePooledAssemblies(String outdir, String assemblyName, String[] sampleNames,
+            String txptFileExt, String shortTxptFileExt, String txptNamePrefix,
+            int k, int numThreads, boolean stranded, int maxIndelSize, int maxTipLength,
+            float percentIdentity, boolean removeArtifacts, int txptLengthThreshold, boolean writeUracil) throws IOException {
         
-        String transcriptsConcatenated = outdir + File.separator + "all_transcripts" + FASTA_EXT;
+        String concatenatedFasta = outdir + File.separator + "all_transcripts" + FASTA_EXT;
+        String reducedFasta = outdir + File.separator + "all_transcripts_nr" + FASTA_EXT;
         String tmpPrefix = outdir + File.separator + "all_transcripts_overlap";
-        String transcriptsCombined = outdir + File.separator + assemblyName + ".transcripts" + FASTA_EXT;
+        String outLongFasta = outdir + File.separator + assemblyName + ".transcripts" + FASTA_EXT;
+        String outShortFasta = outdir + File.separator + assemblyName + ".transcripts.short" + FASTA_EXT;
 
         // combine assembly files
-        FastaWriter fout = new FastaWriter(transcriptsConcatenated, false);
+        FastaWriter fout = new FastaWriter(concatenatedFasta, false);
         FastaReader fin;
         for (String sampleName : sampleNames) {
-            String clusterAssemblyPath = outdir + File.separator + sampleName + File.separator + sampleName + ".transcripts" + txptFileExt;
-            fin = new FastaReader(clusterAssemblyPath);
+            String longTxptsPath = outdir + File.separator + sampleName + File.separator + sampleName + ".transcripts" + txptFileExt;
+            String shortTxptsPath = outdir + File.separator + sampleName + File.separator + sampleName + ".transcripts" + shortTxptFileExt;
+            
+            fin = new FastaReader(longTxptsPath);
+            while(fin.hasNext()) {
+                String[] nameCommentSeq = fin.nextWithComment();
+                //String comment = nameCommentSeq[1];
+                String seq = nameCommentSeq[2];
+
+                if (writeUracil) {
+                    seq = seq.replace('T', 'U');
+                }
+
+                fout.write(txptNamePrefix + sampleName + "_" + nameCommentSeq[0], seq);
+            }
+            fin.close();
+            
+            fin = new FastaReader(shortTxptsPath);
             while(fin.hasNext()) {
                 String[] nameCommentSeq = fin.nextWithComment();
                 //String comment = nameCommentSeq[1];
@@ -3904,9 +3949,16 @@ public class RNABloom {
         }
         fout.close();
 
-        return overlapLayout(transcriptsConcatenated, tmpPrefix, transcriptsCombined, numThreads,
-                stranded, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, 2*k,
-                maxIndelSize, removeArtifacts);
+        boolean ok = overlapLayout(concatenatedFasta, tmpPrefix, reducedFasta, numThreads,
+                        stranded, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, 2*k,
+                        maxIndelSize, removeArtifacts);
+        
+        splitFastaByLength(reducedFasta, outLongFasta, outShortFasta, txptLengthThreshold);
+        
+        Files.deleteIfExists(FileSystems.getDefault().getPath(concatenatedFasta));
+        Files.deleteIfExists(FileSystems.getDefault().getPath(reducedFasta));
+        
+        return ok;
     }
     
     private static void assembleTranscripts(RNABloom assembler, boolean forceOverwrite,
@@ -3951,15 +4003,9 @@ public class RNABloom {
                 }
             }
 
-            File transcriptsFile = new File(transcriptsFasta);
-            if (transcriptsFile.exists()) {
-                transcriptsFile.delete();
-            }
             
-            File shortTranscriptsFile = new File(shortTranscriptsFasta);
-            if (shortTranscriptsFile.exists()) {
-                shortTranscriptsFile.delete();
-            }
+            Files.deleteIfExists(FileSystems.getDefault().getPath(transcriptsFasta));
+            Files.deleteIfExists(FileSystems.getDefault().getPath(shortTranscriptsFasta));
 
             System.out.println("Assembling transcripts...");
             timer.start();
@@ -4025,11 +4071,12 @@ public class RNABloom {
     private boolean generateNonRedundantTranscripts(String inLongFastas, String inShortFasta,
             String tmpPrefix, String outLongFasta, String outShortFasta,
             int numThreads, boolean removeArtifacts, int txptLengthThreshold) throws IOException {
-        String transcriptsConcatenated = tmpPrefix + "_ava_cat" + FASTA_EXT;
-        String transcriptsReduced = tmpPrefix + "_ava_cat_nr" + FASTA_EXT;
+        
+        String concatenatedFasta = tmpPrefix + "_ava_cat" + FASTA_EXT;
+        String reducedFasta = tmpPrefix + "_ava_cat_nr" + FASTA_EXT;
 
         // combine assembly files
-        FastaWriter fout = new FastaWriter(transcriptsConcatenated, false);
+        FastaWriter fout = new FastaWriter(concatenatedFasta, false);
         
         FastaReader fin = new FastaReader(inLongFastas);
         while(fin.hasNext()) {
@@ -4051,27 +4098,14 @@ public class RNABloom {
         
         fout.close();
         
-        boolean ok = overlapLayout(transcriptsConcatenated, tmpPrefix, transcriptsReduced, 
-                numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize),
-                maxTipLength, percentIdentity, 2*k, maxIndelSize, removeArtifacts);
+        boolean ok = overlapLayout(concatenatedFasta, tmpPrefix, reducedFasta, 
+                        numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize),
+                        maxTipLength, percentIdentity, 2*k, maxIndelSize, removeArtifacts);
         
-        fin = new FastaReader(transcriptsReduced);
-        FastaWriter foutLong = new FastaWriter(outLongFasta, false);
-        FastaWriter foutShort = new FastaWriter(outShortFasta, false);
-        while(fin.hasNext()) {
-            String[] nameCommentSeq = fin.nextWithComment();
-            String seq = nameCommentSeq[2];
-            
-            if (seq.length() >= txptLengthThreshold) {
-                foutLong.write(nameCommentSeq[0], seq);
-            }
-            else {
-                foutShort.write(nameCommentSeq[0], seq);
-            }
-        }
-        foutLong.close();
-        foutShort.close();
-        fin.close();
+        splitFastaByLength(reducedFasta, outLongFasta, outShortFasta, txptLengthThreshold);
+        
+        Files.deleteIfExists(FileSystems.getDefault().getPath(concatenatedFasta));
+        Files.deleteIfExists(FileSystems.getDefault().getPath(reducedFasta));
         
         return ok;
     }
@@ -5178,15 +5212,17 @@ public class RNABloom {
                     // combine assembly files
                     
                     String txptFileExt = outputNrTxpts ? ".nr" + FASTA_EXT : FASTA_EXT;
+                    String shortTxptFileExt = outputNrTxpts ? ".nr.short" + FASTA_EXT : FASTA_EXT;
 
                     System.out.println("Merging transcripts from all samples...");
                     timer = new MyTimer();
                     timer.start();
                     
-                    boolean ok = combineTranscripts(outdir, name, sampleNames, txptFileExt, writeUracil,
-                                    txptNamePrefix, numThreads, strandSpecific, maxIndelSize,
-                                    maxTipLen, k, percentIdentity, !keepArtifact);
-
+                    boolean ok = mergePooledAssemblies(outdir, name, sampleNames, 
+                                    txptFileExt, shortTxptFileExt, txptNamePrefix,
+                                    k, numThreads, strandSpecific, maxIndelSize,
+                                    maxTipLen, percentIdentity, !keepArtifact, minTranscriptLength, writeUracil);
+                                        
                     if (ok) {
                         System.out.println("Merging completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
                     }
@@ -5225,10 +5261,7 @@ public class RNABloom {
                     /* set up the file writers */
                     for (String[] row : correctedLongReadFileNames) {
                         for (String fasta : row) {
-                            File correctedLongReadsFastaPath = new File(fasta);
-                            if (correctedLongReadsFastaPath.exists()) {
-                                correctedLongReadsFastaPath.delete();
-                            }
+                            Files.deleteIfExists(FileSystems.getDefault().getPath(fasta));
                         }
                     }
                     
