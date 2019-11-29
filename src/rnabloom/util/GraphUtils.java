@@ -4608,13 +4608,13 @@ public final class GraphUtils {
                     int end = rightLen - (overlappedSeqLength - leftLen) - k + 1;
 
                     for (int i=0; i<end; ++i) {
-                        if (!graph.isLowComplexity(rightKmers.get(i))) {
+                        if (!isHomopolymer(rightKmers.get(i).bytes)) {
                             // Require at least one complex kmers in the overlap
                             hasComplexKmer = true;
                             break;
                         }
                     }
-
+                    
                     if (!hasComplexKmer) {
                         return null;
                     }
@@ -4645,13 +4645,13 @@ public final class GraphUtils {
                         return null;
                     }
                     
-                    if (!hasComplexKmer && !graph.isLowComplexity(kmer)) {
+                    if (!hasComplexKmer && !isHomopolymer(kmer.bytes)) {
                         // Require at least one complex kmers in the overlap
                         hasComplexKmer = true;
                     }
                 }
                 
-                if (!hasComplexKmer) {
+                if (!spanningKmers.isEmpty() && !hasComplexKmer) {
                     return null;
                 }
                 
