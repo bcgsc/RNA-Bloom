@@ -7390,12 +7390,13 @@ public final class GraphUtils {
         final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         final int fragPairedKmersDist = graph.getFragPairedKmerDistance();        
         final int numKmers = kmers.size();
+        final int maxExtensionLength = fragPairedKmersDist - 2; // -1 for candidate k-mer; -1 for partner kmer on current sequence
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getSuccessors(k, numHash, graph);
         
         if (candidates.size() == 1) {
             Kmer c = candidates.peek();
-            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(c, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(c, graph, maxTipLen, maxExtensionLength, minKmerCov);
             e.addFirst(c);
             return e;
         }
@@ -7407,7 +7408,7 @@ public final class GraphUtils {
         int[] result = new int[3];
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(candidate, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(candidate, graph, maxTipLen, maxExtensionLength, minKmerCov);
             e.addFirst(candidate);
             
             countKmerPairsPE(kmers, e, 0, graph, result);
@@ -7443,7 +7444,7 @@ public final class GraphUtils {
                 ArrayDeque<Kmer> nextCandidates = e.getLast().getSuccessors(k, numHash, graph);
                 
                 for (Kmer nextCandidate : nextCandidates) {
-                    ArrayDeque<Kmer> ne = naiveExtendRightNoBackChecks(nextCandidate, graph, maxTipLen, fragPairedKmersDist-gap, minKmerCov);
+                    ArrayDeque<Kmer> ne = naiveExtendRightNoBackChecks(nextCandidate, graph, maxTipLen, maxExtensionLength-gap, minKmerCov);
                     ne.addFirst(nextCandidate);
                     Iterator<Kmer> itr = e.descendingIterator();
                     while (itr.hasNext()) {
@@ -7487,12 +7488,13 @@ public final class GraphUtils {
         final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         final int fragPairedKmersDist = graph.getFragPairedKmerDistance();
         final int numKmers = kmers.size();
+        final int maxExtensionLength = fragPairedKmersDist - 2; // -1 for candidate k-mer; -1 for partner kmer on current sequence
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getPredecessors(k, numHash, graph);
         
         if (candidates.size() == 1) {
             Kmer c = candidates.peek();
-            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(c, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(c, graph, maxTipLen, maxExtensionLength, minKmerCov);
             e.addFirst(c);
             return e;
         }
@@ -7504,7 +7506,7 @@ public final class GraphUtils {
         int[] result = new int[3];
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(candidate, graph, maxTipLen, fragPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(candidate, graph, maxTipLen, maxExtensionLength, minKmerCov);
             e.addFirst(candidate);
             
             countKmerPairsReversedPE(e, kmers, 0, graph, result);
@@ -7539,7 +7541,7 @@ public final class GraphUtils {
                 ArrayDeque<Kmer> nextCandidates = e.getLast().getPredecessors(k, numHash, graph);
                 
                 for (Kmer nextCandidate : nextCandidates) {
-                    ArrayDeque<Kmer> ne = naiveExtendLeftNoBackChecks(nextCandidate, graph, maxTipLen, fragPairedKmersDist-gap, minKmerCov);
+                    ArrayDeque<Kmer> ne = naiveExtendLeftNoBackChecks(nextCandidate, graph, maxTipLen, maxExtensionLength-gap, minKmerCov);
                     ne.addFirst(nextCandidate);
                     Iterator<Kmer> itr = e.descendingIterator();
                     while (itr.hasNext()) {
@@ -7624,7 +7626,20 @@ public final class GraphUtils {
             }
             
             if (used) {                
-                break;
+                if (kmers.size() < d) {
+                    break;
+                }
+                else {
+                    Kmer lMate = e.getLast();
+                    int lastLMateIndex= kmers.lastIndexOf(lMate);
+                    int lastRMateIndex = lastLMateIndex - d;
+                    int rMateIndex = kmers.size()-1-d+e.size();
+                    if (lastLMateIndex >= 0 && lastRMateIndex >= 0 && rMateIndex >= 0) {
+                        if (kmers.get(lastRMateIndex).equals(kmers.get(rMateIndex))) {
+                            break;
+                        }
+                    }
+                }
             }
             
             kmers.addAll(e);
@@ -7674,7 +7689,20 @@ public final class GraphUtils {
             }
             
             if (used) {
-                break;
+                if (kmers.size() < d) {
+                    break;
+                }
+                else {
+                    Kmer rMate = e.getLast();
+                    int lastRMateIndex= kmers.lastIndexOf(rMate);
+                    int lastLMateIndex = lastRMateIndex - d;
+                    int lMateIndex = kmers.size()-1-d+e.size();
+                    if (lastRMateIndex >= 0 && lastLMateIndex >= 0 && lMateIndex >= 0) {
+                        if (kmers.get(lastLMateIndex).equals(kmers.get(lMateIndex))) {
+                            break;
+                        }
+                    }
+                }
             }
             
             kmers.addAll(e);
