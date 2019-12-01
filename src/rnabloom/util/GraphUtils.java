@@ -7572,7 +7572,45 @@ public final class GraphUtils {
         
         return bestExtension;
     }
+
+    private static boolean hasDuplicatedKmerPair(ArrayList<Kmer> kmers, Kmer cursor, int d, int mateIndex) {
+        if (mateIndex >= 0) {
+            Kmer mate = kmers.get(mateIndex);
+
+            int cursor2Index = kmers.lastIndexOf(cursor);
+            if (cursor2Index >= 0) {
+                int mate2Index = cursor2Index - d;
+
+                if (mate2Index >= 0) {
+                    if (mate.equals(kmers.get(mate2Index))) {
+                        return true;
+                    }
+
+                    int cursor1Index = kmers.indexOf(cursor);
+                    if (cursor1Index != cursor2Index) {
+                        int mate1Index = cursor1Index - d;
+
+                        if (mate1Index >= 0 && mate.equals(kmers.get(mate1Index))) {
+                            return true;
+                        }
+
+                        for (int i=cursor1Index+1; i<cursor2Index; ++i) {
+                            Kmer candidate = kmers.get(i);
+                            if (cursor.equals(candidate)) {
+                                int i2 = i - d;
+                                if (i2 >= 0 && mate.equals(kmers.get(i2))) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         
+        return false;
+    }
+    
     public static int[] extendPE(ArrayList<Kmer> kmers, 
                                             BloomFilterDeBruijnGraph graph,
                                             int maxTipLength,
@@ -7625,47 +7663,8 @@ public final class GraphUtils {
                 }
             }
             
-            if (used) {                
-                if (kmers.size() < d) {
-                    break;
-                }
-                else {
-                    Kmer cursor = e.getLast();
-                    int mateIndex = kmers.size()-1-d+e.size();
-                    if (mateIndex >= 0) {
-                        Kmer mate = kmers.get(mateIndex);
-                        
-                        int cursor2Index = kmers.lastIndexOf(cursor);
-                        if (cursor2Index >= 0) {
-                            int mate2Index = cursor2Index - d;
-
-                            if (mate2Index >= 0) {
-                                if (mate.equals(kmers.get(mate2Index))) {
-                                    break;
-                                }
-
-                                int cursor1Index = kmers.indexOf(cursor);
-                                if (cursor1Index != cursor2Index) {
-                                    int mate1Index = cursor1Index - d;
-                                    
-                                    if (mate1Index >= 0 && mate.equals(kmers.get(mate1Index))) {
-                                        break;
-                                    }
-
-                                    for (int i=cursor1Index+1; i<cursor2Index; ++i) {
-                                        Kmer candidate = kmers.get(i);
-                                        if (cursor.equals(candidate)) {
-                                            int i2 = i - d;
-                                            if (i2 >= 0 && mate.equals(kmers.get(i2))) {
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            if (used && (kmers.size() < d || hasDuplicatedKmerPair(kmers, e.getLast(), d, kmers.size()-1-d+e.size()))) {
+                break;
             }
             
             kmers.addAll(e);
@@ -7714,47 +7713,8 @@ public final class GraphUtils {
                 }
             }
             
-            if (used) {
-                if (kmers.size() < d) {
-                    break;
-                }
-                else {
-                    Kmer cursor = e.getLast();
-                    int mateIndex = kmers.size()-1-d+e.size();
-                    if (mateIndex >= 0) {
-                        Kmer mate = kmers.get(mateIndex);
-                        
-                        int cursor2Index = kmers.lastIndexOf(cursor);
-                        if (cursor2Index >= 0) {
-                            int mate2Index = cursor2Index - d;
-
-                            if (mate2Index >= 0) {
-                                if (mate.equals(kmers.get(mate2Index))) {
-                                    break;
-                                }
-
-                                int cursor1Index = kmers.indexOf(cursor);
-                                if (cursor1Index != cursor2Index) {
-                                    int mate1Index = cursor1Index - d;
-                                    
-                                    if (mate1Index >= 0 && mate.equals(kmers.get(mate1Index))) {
-                                        break;
-                                    }
-
-                                    for (int i=cursor1Index+1; i<cursor2Index; ++i) {
-                                        Kmer candidate = kmers.get(i);
-                                        if (cursor.equals(candidate)) {
-                                            int i2 = i - d;
-                                            if (i2 >= 0 && mate.equals(kmers.get(i2))) {
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            if (used && (kmers.size() < d || hasDuplicatedKmerPair(kmers, e.getLast(), d, kmers.size()-1-d+e.size()))) {
+                break;
             }
             
             kmers.addAll(e);
