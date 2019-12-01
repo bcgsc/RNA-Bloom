@@ -7630,13 +7630,39 @@ public final class GraphUtils {
                     break;
                 }
                 else {
-                    Kmer lMate = e.getLast();
-                    int lastLMateIndex= kmers.lastIndexOf(lMate);
-                    int lastRMateIndex = lastLMateIndex - d;
-                    int rMateIndex = kmers.size()-1-d+e.size();
-                    if (lastLMateIndex >= 0 && lastRMateIndex >= 0 && rMateIndex >= 0) {
-                        if (kmers.get(lastRMateIndex).equals(kmers.get(rMateIndex))) {
-                            break;
+                    Kmer cursor = e.getLast();
+                    int mateIndex = kmers.size()-1-d+e.size();
+                    if (mateIndex >= 0) {
+                        Kmer mate = kmers.get(mateIndex);
+                        
+                        int cursor2Index = kmers.lastIndexOf(cursor);
+                        if (cursor2Index >= 0) {
+                            int mate2Index = cursor2Index - d;
+
+                            if (mate2Index >= 0) {
+                                if (mate.equals(kmers.get(mate2Index))) {
+                                    break;
+                                }
+
+                                int cursor1Index = kmers.indexOf(cursor);
+                                if (cursor1Index != cursor2Index) {
+                                    int mate1Index = cursor1Index - d;
+                                    
+                                    if (mate1Index >= 0 && mate.equals(kmers.get(mate1Index))) {
+                                        break;
+                                    }
+
+                                    for (int i=cursor1Index+1; i<cursor2Index; ++i) {
+                                        Kmer candidate = kmers.get(i);
+                                        if (cursor.equals(candidate)) {
+                                            int i2 = i - d;
+                                            if (i2 >= 0 && mate.equals(kmers.get(i2))) {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -7693,13 +7719,39 @@ public final class GraphUtils {
                     break;
                 }
                 else {
-                    Kmer rMate = e.getLast();
-                    int lastRMateIndex= kmers.lastIndexOf(rMate);
-                    int lastLMateIndex = lastRMateIndex - d;
-                    int lMateIndex = kmers.size()-1-d+e.size();
-                    if (lastRMateIndex >= 0 && lastLMateIndex >= 0 && lMateIndex >= 0) {
-                        if (kmers.get(lastLMateIndex).equals(kmers.get(lMateIndex))) {
-                            break;
+                    Kmer cursor = e.getLast();
+                    int mateIndex = kmers.size()-1-d+e.size();
+                    if (mateIndex >= 0) {
+                        Kmer mate = kmers.get(mateIndex);
+                        
+                        int cursor2Index = kmers.lastIndexOf(cursor);
+                        if (cursor2Index >= 0) {
+                            int mate2Index = cursor2Index - d;
+
+                            if (mate2Index >= 0) {
+                                if (mate.equals(kmers.get(mate2Index))) {
+                                    break;
+                                }
+
+                                int cursor1Index = kmers.indexOf(cursor);
+                                if (cursor1Index != cursor2Index) {
+                                    int mate1Index = cursor1Index - d;
+                                    
+                                    if (mate1Index >= 0 && mate.equals(kmers.get(mate1Index))) {
+                                        break;
+                                    }
+
+                                    for (int i=cursor1Index+1; i<cursor2Index; ++i) {
+                                        Kmer candidate = kmers.get(i);
+                                        if (cursor.equals(candidate)) {
+                                            int i2 = i - d;
+                                            if (i2 >= 0 && mate.equals(kmers.get(i2))) {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
