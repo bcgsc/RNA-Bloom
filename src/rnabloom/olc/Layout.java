@@ -38,6 +38,8 @@ import rnabloom.io.PafRecord;
 import static rnabloom.util.SeqUtils.bytesToString;
 import static rnabloom.util.SeqUtils.reverseComplement;
 import static rnabloom.util.SeqUtils.stringToBytes;
+import static rnabloom.util.SeqUtils.bytesToString;
+import static rnabloom.util.SeqUtils.reverseComplement;
 
 
 /**

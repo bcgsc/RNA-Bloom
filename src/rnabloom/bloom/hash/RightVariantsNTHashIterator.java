@@ -35,11 +35,11 @@ public class RightVariantsNTHashIterator {
         this.hVals = new long[numHash];
     }
     
-    public void start(final long fHashVal, final char charOut) {
+    public void start(final long fHashVal, final byte charOut) {
         tmpVal = fHashVal ^ msTab[charOut][0];
     }
     
-    public void next(final char charIn) {
+    public void next(final byte charIn) {
         NTM64(tmpVal ^ msTab[charIn][0], hVals, k, numHash);
     }
 }

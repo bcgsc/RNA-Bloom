@@ -37,12 +37,12 @@ public final class SeqUtils {
     private final static int CHAR_T_INT = (int) 'T';
     private final static int CHAR_U_INT = (int) 'U';
     
-    private final static int CHAR_A_BYTE = (byte) 'A';
-    private final static int CHAR_C_BYTE = (byte) 'C';
-    private final static int CHAR_G_BYTE = (byte) 'G';
-    private final static int CHAR_T_BYTE = (byte) 'T';
-    private final static int CHAR_U_BYTE = (byte) 'U';
-    public final static byte[] NUCLEOTIDE_BYTES = new byte[] {CHAR_A_BYTE, CHAR_C_BYTE, CHAR_G_BYTE, CHAR_T_BYTE};
+    private final static byte CHAR_A_BYTE = (byte) 'A';
+    private final static byte CHAR_C_BYTE = (byte) 'C';
+    private final static byte CHAR_G_BYTE = (byte) 'G';
+    private final static byte CHAR_T_BYTE = (byte) 'T';
+    private final static byte CHAR_U_BYTE = (byte) 'U';
+    public final static byte[] NUCLEOTIDES_BYTES = new byte[] {CHAR_A_BYTE, CHAR_C_BYTE, CHAR_G_BYTE, CHAR_T_BYTE};
     
     public static final char GAP_CHAR = 'N';
     
@@ -51,6 +51,10 @@ public final class SeqUtils {
     public final static char[] C_ALT_NUCLEOTIDES = new char[] {'A','G','T'};
     public final static char[] G_ALT_NUCLEOTIDES = new char[] {'A','C','T'};
     public final static char[] T_ALT_NUCLEOTIDES = new char[] {'A','C','G'};
+    public final static byte[] A_ALT_NUCLEOTIDES_BYTES = new byte[] {CHAR_C_BYTE,CHAR_G_BYTE,CHAR_T_BYTE};
+    public final static byte[] C_ALT_NUCLEOTIDES_BYTES = new byte[] {CHAR_A_BYTE,CHAR_G_BYTE,CHAR_T_BYTE};
+    public final static byte[] G_ALT_NUCLEOTIDES_BYTES = new byte[] {CHAR_A_BYTE,CHAR_C_BYTE,CHAR_T_BYTE};
+    public final static byte[] T_ALT_NUCLEOTIDES_BYTES = new byte[] {CHAR_A_BYTE,CHAR_C_BYTE,CHAR_G_BYTE};
     
     public static final byte[] stringToBytes(String seq, int len) {
         byte[] arr = new byte[len];
@@ -118,20 +122,20 @@ public final class SeqUtils {
         return b;
     }
     
-    public static final char[] getAltNucleotides(byte c) {
+    public static final byte[] getAltNucleotides(byte c) {
         switch (c) {
             case CHAR_A_BYTE:
-                return A_ALT_NUCLEOTIDES;
+                return A_ALT_NUCLEOTIDES_BYTES;
             case CHAR_C_BYTE:
-                return C_ALT_NUCLEOTIDES;
+                return C_ALT_NUCLEOTIDES_BYTES;
             case CHAR_G_BYTE:
-                return G_ALT_NUCLEOTIDES;
+                return G_ALT_NUCLEOTIDES_BYTES;
             case CHAR_T_BYTE:
-                return T_ALT_NUCLEOTIDES;
+                return T_ALT_NUCLEOTIDES_BYTES;
             case CHAR_U_BYTE:
-                return T_ALT_NUCLEOTIDES;
+                return T_ALT_NUCLEOTIDES_BYTES;
             default:
-                return NUCLEOTIDES;
+                return NUCLEOTIDES_BYTES;
         }
     }
     

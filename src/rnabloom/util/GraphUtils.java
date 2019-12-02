@@ -9585,8 +9585,9 @@ public final class GraphUtils {
         
         ArrayDeque<Kmer> neighbors = new ArrayDeque<>(4);
         kmer.getSuccessors(k, numHash, graph, neighbors, minKmerCov);
-        Kmer best;
         while (!neighbors.isEmpty()) {
+            Kmer best;
+            
             if (neighbors.size() == 1) {
                 best = neighbors.pop();
             }
@@ -9763,8 +9764,9 @@ public final class GraphUtils {
         
         ArrayDeque<Kmer> neighbors = new ArrayDeque<>(4);
         kmer.getPredecessors(k, numHash, graph, neighbors, minKmerCov);
-        Kmer best;
         while (!neighbors.isEmpty()) {
+            Kmer best;
+                    
             if (neighbors.size() == 1) {
                 best = neighbors.pop();
             }

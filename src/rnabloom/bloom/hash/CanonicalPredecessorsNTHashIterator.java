@@ -19,7 +19,7 @@ package rnabloom.bloom.hash;
 import static rnabloom.bloom.hash.NTHash.NTM64;
 import static rnabloom.bloom.hash.NTHash.cpOff;
 import static rnabloom.bloom.hash.NTHash.msTab;
-import static rnabloom.util.SeqUtils.NUCLEOTIDES;
+import static rnabloom.util.SeqUtils.NUCLEOTIDES_BYTES;
 
 /**
  *
@@ -36,6 +36,7 @@ public class CanonicalPredecessorsNTHashIterator {
     
     public CanonicalPredecessorsNTHashIterator(final int k, final int numHash) {
         this.k = k;
+        this.kMinus1Mod64 =(k-1)%64;
         this.numHash = numHash;
         this.hVals = new long[numHash];
     }
@@ -44,21 +45,21 @@ public class CanonicalPredecessorsNTHashIterator {
         return i < 3;
     }
     
-    public void start(final long fHashVal, final long rHashVal, final char charOut) {
+    public void start(final long fHashVal, final long rHashVal, final byte charOut) {
         tmpValF = Long.rotateRight(fHashVal, 1) ^ msTab[charOut][63];
         tmpValR = Long.rotateLeft(rHashVal, 1) ^ msTab[charOut&cpOff][k%64];
         i = -1;
     }
     
     public void next() {
-        char charIn = NUCLEOTIDES[++i];
-        fHashVal = tmpValF ^ msTab[charIn][(k-1)%64];
+        byte charIn = NUCLEOTIDES_BYTES[++i];
+        fHashVal = tmpValF ^ msTab[charIn][kMinus1Mod64];
         rHashVal = tmpValR ^ msTab[charIn&cpOff][0];
         
         NTM64(Math.min(fHashVal, rHashVal), hVals, k, numHash);
     }
     
-    public char currentChar() {
-        return NUCLEOTIDES[i];
+    public byte currentChar() {
+        return NUCLEOTIDES_BYTES[i];
     }
 }

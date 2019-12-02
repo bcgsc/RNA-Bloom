@@ -26,6 +26,7 @@ import static rnabloom.bloom.hash.NTHash.msTab;
  */
 public class CanonicalLeftVariantsNTHashIterator {
     protected int k;
+    protected int kMinus1Mod64;
     protected long tmpValF, tmpValR;
     public long fHashVal, rHashVal;
     protected int numHash;
@@ -33,17 +34,18 @@ public class CanonicalLeftVariantsNTHashIterator {
     
     public CanonicalLeftVariantsNTHashIterator(final int k, final int numHash) {
         this.k = k;
+        this.kMinus1Mod64 = (k-1)%64;
         this.numHash = numHash;
         this.hVals = new long[numHash];
     }
     
-    public void start(final long fHashVal, final long rHashVal, final char charOut) {
-        tmpValF = fHashVal ^ msTab[charOut][(k-1)%64];
+    public void start(final long fHashVal, final long rHashVal, final byte charOut) {
+        tmpValF = fHashVal ^ msTab[charOut][kMinus1Mod64];
         tmpValR = rHashVal ^ msTab[charOut&cpOff][0];
     }
     
-    public void next(final char charIn) {        
-        fHashVal = tmpValF ^ msTab[charIn][(k-1)%64];
+    public void next(final byte charIn) {        
+        fHashVal = tmpValF ^ msTab[charIn][kMinus1Mod64];
         rHashVal = tmpValR ^ msTab[charIn&cpOff][0];
         
         NTM64(Math.min(fHashVal, rHashVal), hVals, k, numHash);

@@ -19,6 +19,7 @@ package rnabloom.util;
 import java.util.ArrayList;
 import java.util.Collections;
 import static rnabloom.util.SeqUtils.countN;
+import static rnabloom.util.SeqUtils.countN;
 
 /**
  *
