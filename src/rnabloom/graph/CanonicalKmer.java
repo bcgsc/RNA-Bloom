@@ -28,6 +28,7 @@ import static rnabloom.util.SeqUtils.getAltNucleotides;
 import static rnabloom.util.SeqUtils.shiftLeft;
 import static rnabloom.util.SeqUtils.shiftRight;
 import static rnabloom.util.SeqUtils.stringToBytes;
+import static rnabloom.util.SeqUtils.getAltNucleotides;
 
 /**
  *
@@ -100,7 +101,7 @@ public class CanonicalKmer extends Kmer {
     @Override
     public boolean hasPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
         CanonicalPredecessorsNTHashIterator itr = new CanonicalPredecessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, rHashVal, bytes[k-1]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -116,7 +117,7 @@ public class CanonicalKmer extends Kmer {
     @Override
     public boolean hasSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
         CanonicalSuccessorsNTHashIterator itr = new CanonicalSuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, rHashVal, (char) bytes[0]);
+        itr.start(fHashVal, rHashVal, bytes[0]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -134,7 +135,7 @@ public class CanonicalKmer extends Kmer {
         int result = 0;
         
         CanonicalPredecessorsNTHashIterator itr = new CanonicalPredecessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, rHashVal, bytes[k-1]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -154,7 +155,7 @@ public class CanonicalKmer extends Kmer {
         int result = 0;
 
         CanonicalSuccessorsNTHashIterator itr = new CanonicalSuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, rHashVal, (char) bytes[0]);
+        itr.start(fHashVal, rHashVal, bytes[0]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -174,7 +175,7 @@ public class CanonicalKmer extends Kmer {
         int result = 0;
         
         CanonicalPredecessorsNTHashIterator itr = new CanonicalPredecessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, rHashVal, bytes[k-1]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -192,7 +193,7 @@ public class CanonicalKmer extends Kmer {
         int result = 0;
 
         CanonicalSuccessorsNTHashIterator itr = new CanonicalSuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, rHashVal, (char) bytes[0]);
+        itr.start(fHashVal, rHashVal, bytes[0]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -223,16 +224,15 @@ public class CanonicalKmer extends Kmer {
     public void getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result, float minKmerCov) {
   
         CanonicalPredecessorsNTHashIterator itr = new CanonicalPredecessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, rHashVal, bytes[k-1]);
         long[] hVals = itr.hVals;
         
-        float myCount;
         while (itr.hasNext()) {
             itr.next();
-            myCount = graph.getCount(hVals);
+            float myCount = graph.getCount(hVals);
             if (myCount >= minKmerCov) {
                 byte[] myBytes = shiftRight(this.bytes, k);
-                myBytes[0] = (byte) itr.currentChar();
+                myBytes[0] = itr.currentChar();
                 result.add(new CanonicalKmer(myBytes, myCount, itr.fHashVal, itr.rHashVal));
             }
         }
@@ -256,16 +256,15 @@ public class CanonicalKmer extends Kmer {
     public void getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result, float minKmerCov) {
         
         CanonicalSuccessorsNTHashIterator itr = new CanonicalSuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, rHashVal, (char) bytes[0]);
+        itr.start(fHashVal, rHashVal, bytes[0]);
         long[] hVals = itr.hVals;
         
-        float myCount;
         while (itr.hasNext()) {
             itr.next();
-            myCount = graph.getCount(hVals);
+            float myCount = graph.getCount(hVals);
             if (myCount >= minKmerCov) {
                 byte[] myBytes = shiftLeft(this.bytes, k);
-                myBytes[k-1] = (byte) itr.currentChar();
+                myBytes[k-1] = itr.currentChar();
                 result.add(new CanonicalKmer(myBytes, myCount, itr.fHashVal, itr.rHashVal));
             }
         }
@@ -276,17 +275,16 @@ public class CanonicalKmer extends Kmer {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
                        
         CanonicalPredecessorsNTHashIterator itr = new CanonicalPredecessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, rHashVal, bytes[k-1]);
         long[] hVals = itr.hVals;
         
-        float myCount;
         while (itr.hasNext()) {
             itr.next();
             if (bf.lookup(hVals)) {
-                myCount = graph.getCount(hVals);
+                float myCount = graph.getCount(hVals);
                 if (myCount > 0) {
                     byte[] myBytes = shiftRight(this.bytes, k);
-                    myBytes[0] = (byte) itr.currentChar();
+                    myBytes[0] = itr.currentChar();
                     result.add(new CanonicalKmer(myBytes, myCount, itr.fHashVal, itr.rHashVal));
                 }
             }
@@ -300,17 +298,16 @@ public class CanonicalKmer extends Kmer {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
 
         CanonicalSuccessorsNTHashIterator itr = new CanonicalSuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, rHashVal, (char) bytes[0]);
+        itr.start(fHashVal, rHashVal, bytes[0]);
         long[] hVals = itr.hVals;
         
-        float myCount;
         while (itr.hasNext()) {
             itr.next();
             if (bf.lookup(hVals)) {
-                myCount = graph.getCount(hVals);
+                float myCount = graph.getCount(hVals);
                 if (myCount > 0) {
                     byte[] myBytes = shiftLeft(this.bytes, k);
-                    myBytes[k-1] = (byte) itr.currentChar();
+                    myBytes[k-1] = itr.currentChar();
                     result.add(new CanonicalKmer(myBytes, myCount, itr.fHashVal, itr.rHashVal));
                 }
             }
@@ -329,18 +326,16 @@ public class CanonicalKmer extends Kmer {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         CanonicalLeftVariantsNTHashIterator itr = new CanonicalLeftVariantsNTHashIterator(k, numHash);
-        char charOut = (char) bytes[0];
+        byte charOut = bytes[0];
         itr.start(fHashVal, rHashVal, charOut);
         long[] hVals = itr.hVals;
         
-        byte[] myBytes;
-        float myCount;
-        for (char charIn : getAltNucleotides(charOut)) {
+        for (byte charIn : getAltNucleotides(charOut)) {
             itr.next(charIn);
-            myCount = graph.getCount(hVals);
+            float myCount = graph.getCount(hVals);
             if (myCount >= minKmerCov) {
-                myBytes = Arrays.copyOf(bytes, k);
-                myBytes[0] = (byte) charIn;
+                byte[] myBytes = Arrays.copyOf(bytes, k);
+                myBytes[0] = charIn;
                 result.add(new CanonicalKmer(myBytes, myCount, itr.fHashVal, itr.rHashVal));
             }
         }
@@ -359,18 +354,17 @@ public class CanonicalKmer extends Kmer {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         CanonicalRightVariantsNTHashIterator itr = new CanonicalRightVariantsNTHashIterator(k, numHash);
-        char charOut = (char) bytes[k-1];
+        int kMinus1 = k-1;
+        byte charOut = bytes[kMinus1];
         itr.start(fHashVal, rHashVal, charOut);
         long[] hVals = itr.hVals;
         
-        byte[] myBytes;
-        float myCount;
-        for (char charIn : getAltNucleotides(charOut)) {
+        for (byte charIn : getAltNucleotides(charOut)) {
             itr.next(charIn);
-            myCount = graph.getCount(hVals);
+            float myCount = graph.getCount(hVals);
             if (myCount >= minKmerCov) {
-                myBytes = Arrays.copyOf(bytes, k);
-                myBytes[k-1] = (byte) charIn;
+                byte[] myBytes = Arrays.copyOf(bytes, k);
+                myBytes[kMinus1] = charIn;
                 result.add(new CanonicalKmer(myBytes, myCount, itr.fHashVal, itr.rHashVal));
             }
         }
@@ -382,7 +376,7 @@ public class CanonicalKmer extends Kmer {
     public boolean hasDepthRight(int k, int numHash, BloomFilterDeBruijnGraph graph, int depth) {
         ArrayDeque<CanonicalSuccessorsNTHashIterator> stack = new ArrayDeque<>(depth);
         CanonicalSuccessorsNTHashIterator itr = new CanonicalSuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, rHashVal, (char) bytes[0]);
+        itr.start(fHashVal, rHashVal, bytes[0]);
         stack.add(itr);
         
         byte[] extension = new byte[depth];
@@ -396,15 +390,15 @@ public class CanonicalKmer extends Kmer {
             
             if (itr.hasNext()) {
                 itr.next();
-                extension[extensionLength-1] = (byte) itr.currentChar();
+                extension[extensionLength-1] = itr.currentChar();
                 
                 CanonicalSuccessorsNTHashIterator nextItr = new CanonicalSuccessorsNTHashIterator(k, numHash);
                 
                 if (extensionLength < k) {
-                    nextItr.start(itr.fHashVal, itr.rHashVal, (char) bytes[extensionLength]);
+                    nextItr.start(itr.fHashVal, itr.rHashVal, bytes[extensionLength]);
                 }
                 else {
-                    nextItr.start(itr.fHashVal, itr.rHashVal, (char) extension[extensionLength-k]);
+                    nextItr.start(itr.fHashVal, itr.rHashVal, extension[extensionLength-k]);
                 }
                 
                 stack.addLast(nextItr);
@@ -424,7 +418,7 @@ public class CanonicalKmer extends Kmer {
         ArrayDeque<CanonicalPredecessorsNTHashIterator> stack = new ArrayDeque<>(depth);
         CanonicalPredecessorsNTHashIterator itr = new CanonicalPredecessorsNTHashIterator(k, numHash);
         
-        itr.start(fHashVal, rHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, rHashVal, bytes[k-1]);
         stack.add(itr);
         
         byte[] extension = new byte[depth];
@@ -438,15 +432,15 @@ public class CanonicalKmer extends Kmer {
             
             if (itr.hasNext()) {
                 itr.next();
-                extension[extensionLength-1] = (byte) itr.currentChar();
+                extension[extensionLength-1] = itr.currentChar();
                 
                 CanonicalPredecessorsNTHashIterator nextItr = new CanonicalPredecessorsNTHashIterator(k, numHash);
                 
                 if (extensionLength < k) {
-                    nextItr.start(itr.fHashVal, itr.rHashVal, (char) bytes[k-1-extensionLength]);
+                    nextItr.start(itr.fHashVal, itr.rHashVal, bytes[k-1-extensionLength]);
                 }
                 else {
-                    nextItr.start(itr.fHashVal, itr.rHashVal, (char) extension[extensionLength-k]);
+                    nextItr.start(itr.fHashVal, itr.rHashVal, extension[extensionLength-k]);
                 }
                 
                 stack.addLast(nextItr);

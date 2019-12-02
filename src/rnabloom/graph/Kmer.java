@@ -30,6 +30,9 @@ import static rnabloom.util.SeqUtils.stringToBytes;
 import static rnabloom.util.SeqUtils.shiftLeft;
 import static rnabloom.util.SeqUtils.shiftRight;
 import static rnabloom.util.SeqUtils.getAltNucleotides;
+import static rnabloom.bloom.hash.NTHash.NTP64RC;
+import static rnabloom.util.SeqUtils.bytesToString;
+import static rnabloom.util.SeqUtils.getAltNucleotides;
 
 /**
  *
@@ -93,7 +96,7 @@ public class Kmer {
     
     public boolean hasPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
         PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, bytes[k-1]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -108,7 +111,7 @@ public class Kmer {
     
     public boolean hasSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph) {
         SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, (char) bytes[0]);
+        itr.start(fHashVal, bytes[0]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -125,7 +128,7 @@ public class Kmer {
         int result = 0;
         
         PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, bytes[k-1]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -144,7 +147,7 @@ public class Kmer {
         int result = 0;
 
         SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, (char) bytes[0]);
+        itr.start(fHashVal, bytes[0]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -163,7 +166,7 @@ public class Kmer {
         int result = 0;
         
         PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, bytes[k-1]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -180,7 +183,7 @@ public class Kmer {
         int result = 0;
 
         SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, (char) bytes[0]);
+        itr.start(fHashVal, bytes[0]);
         long[] hVals = itr.hVals;
         
         while (itr.hasNext()) {
@@ -208,16 +211,15 @@ public class Kmer {
     public void getPredecessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result, float minKmerCov) {
   
         PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, bytes[k-1]);
         long[] hVals = itr.hVals;
         
-        float myCount;
         while (itr.hasNext()) {
             itr.next();
-            myCount = graph.getCount(hVals);
+            float myCount = graph.getCount(hVals);
             if (myCount >= minKmerCov) {
                 byte[] myBytes = shiftRight(this.bytes, k);
-                myBytes[0] = (byte) itr.currentChar();
+                myBytes[0] = itr.currentChar();
                 result.add(new Kmer(myBytes, myCount, hVals[0]));
             }
         }
@@ -238,16 +240,15 @@ public class Kmer {
     public void getSuccessors(int k, int numHash, BloomFilterDeBruijnGraph graph, ArrayDeque<Kmer> result, float minKmerCov) {
         
         SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, (char) bytes[0]);
+        itr.start(fHashVal, bytes[0]);
         long[] hVals = itr.hVals;
         
-        float myCount;
         while (itr.hasNext()) {
             itr.next();
-            myCount = graph.getCount(hVals);
+            float myCount = graph.getCount(hVals);
             if (myCount >= minKmerCov) {
                 byte[] myBytes = shiftLeft(this.bytes, k);
-                myBytes[k-1] = (byte) itr.currentChar();
+                myBytes[k-1] = itr.currentChar();
                 result.add(new Kmer(myBytes, myCount, hVals[0]));
             }
         }
@@ -257,17 +258,16 @@ public class Kmer {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
                        
         PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, bytes[k-1]);
         long[] hVals = itr.hVals;
-        
-        float myCount;
+
         while (itr.hasNext()) {
             itr.next();
             if (bf.lookup(hVals)) {
-                myCount = graph.getCount(hVals);
+                float myCount = graph.getCount(hVals);
                 if (myCount > 0) {
                     byte[] myBytes = shiftRight(this.bytes, k);
-                    myBytes[0] = (byte) itr.currentChar();
+                    myBytes[0] = itr.currentChar();
                     result.add(new Kmer(myBytes, myCount, hVals[0]));
                 }
             }
@@ -280,17 +280,16 @@ public class Kmer {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
 
         SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, (char) bytes[0]);
+        itr.start(fHashVal, bytes[0]);
         long[] hVals = itr.hVals;
         
-        float myCount;
         while (itr.hasNext()) {
             itr.next();
             if (bf.lookup(hVals)) {
-                myCount = graph.getCount(hVals);
+                float myCount = graph.getCount(hVals);
                 if (myCount > 0) {
                     byte[] myBytes = shiftLeft(this.bytes, k);
-                    myBytes[k-1] = (byte) itr.currentChar();
+                    myBytes[k-1] = itr.currentChar();
                     result.add(new Kmer(myBytes, myCount, hVals[0]));
                 }
             }
@@ -307,18 +306,16 @@ public class Kmer {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         LeftVariantsNTHashIterator itr = new LeftVariantsNTHashIterator(k, numHash);
-        char charOut = (char) bytes[0];
+        byte charOut = bytes[0];
         itr.start(fHashVal, charOut);
         long[] hVals = itr.hVals;
         
-        byte[] myBytes;
-        float myCount;
-        for (char charIn : getAltNucleotides(charOut)) {
+        for (byte charIn : getAltNucleotides(charOut)) {
             itr.next(charIn);
-            myCount = graph.getCount(hVals);
+            float myCount = graph.getCount(hVals);
             if (myCount >= minKmerCov) {
-                myBytes = Arrays.copyOf(bytes, k);
-                myBytes[0] = (byte) charIn;
+                byte[] myBytes = Arrays.copyOf(bytes, k);
+                myBytes[0] = charIn;
                 result.add(new Kmer(myBytes, myCount, hVals[0]));
             }
         }
@@ -334,18 +331,16 @@ public class Kmer {
         ArrayDeque<Kmer> result = new ArrayDeque<>(4);
         
         RightVariantsNTHashIterator itr = new RightVariantsNTHashIterator(k, numHash);
-        char charOut = (char) bytes[k-1];
+        byte charOut = bytes[k-1];
         itr.start(fHashVal, charOut);
         long[] hVals = itr.hVals;
         
-        byte[] myBytes;
-        float myCount;
-        for (char charIn : getAltNucleotides(charOut)) {
+        for (byte charIn : getAltNucleotides(charOut)) {
             itr.next(charIn);
-            myCount = graph.getCount(hVals);
+            float myCount = graph.getCount(hVals);
             if (myCount >= minKmerCov) {
-                myBytes = Arrays.copyOf(bytes, k);
-                myBytes[k-1] = (byte) charIn;
+                byte[] myBytes = Arrays.copyOf(bytes, k);
+                myBytes[k-1] = charIn;
                 result.add(new Kmer(myBytes, myCount, hVals[0]));
             }
         }
@@ -356,7 +351,7 @@ public class Kmer {
     public boolean hasDepthRight(int k, int numHash, BloomFilterDeBruijnGraph graph, int depth) {
         ArrayDeque<SuccessorsNTHashIterator> stack = new ArrayDeque<>(depth);
         SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
-        itr.start(fHashVal, (char) bytes[0]);
+        itr.start(fHashVal, bytes[0]);
         stack.add(itr);
         
         byte[] extension = new byte[depth];
@@ -370,15 +365,15 @@ public class Kmer {
             
             if (itr.hasNext()) {
                 itr.next();
-                extension[extensionLength-1] = (byte) itr.currentChar();
+                extension[extensionLength-1] = itr.currentChar();
                 
                 SuccessorsNTHashIterator nextItr = new SuccessorsNTHashIterator(k, numHash);
                 
                 if (extensionLength < k) {
-                    nextItr.start(itr.hVals[0], (char) bytes[extensionLength]);
+                    nextItr.start(itr.hVals[0], bytes[extensionLength]);
                 }
                 else {
-                    nextItr.start(itr.hVals[0], (char) extension[extensionLength-k]);
+                    nextItr.start(itr.hVals[0], extension[extensionLength-k]);
                 }
                 
                 stack.addLast(nextItr);
@@ -397,7 +392,7 @@ public class Kmer {
         ArrayDeque<PredecessorsNTHashIterator> stack = new ArrayDeque<>(depth);
         PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
         
-        itr.start(fHashVal, (char) bytes[k-1]);
+        itr.start(fHashVal, bytes[k-1]);
         stack.add(itr);
         
         byte[] extension = new byte[depth];
@@ -411,15 +406,15 @@ public class Kmer {
             
             if (itr.hasNext()) {
                 itr.next();
-                extension[extensionLength-1] = (byte) itr.currentChar();
+                extension[extensionLength-1] = itr.currentChar();
                 
                 PredecessorsNTHashIterator nextItr = new PredecessorsNTHashIterator(k, numHash);
                 
                 if (extensionLength < k) {
-                    nextItr.start(itr.hVals[0], (char) bytes[k-1-extensionLength]);
+                    nextItr.start(itr.hVals[0], bytes[k-1-extensionLength]);
                 }
                 else {
-                    nextItr.start(itr.hVals[0], (char) extension[extensionLength-k]);
+                    nextItr.start(itr.hVals[0], extension[extensionLength-k]);
                 }
                 
                 stack.addLast(nextItr);
