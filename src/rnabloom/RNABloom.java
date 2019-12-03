@@ -5214,9 +5214,9 @@ public class RNABloom {
                     String txptFileExt = outputNrTxpts ? ".nr" + FASTA_EXT : FASTA_EXT;
                     String shortTxptFileExt = outputNrTxpts ? ".nr.short" + FASTA_EXT : FASTA_EXT;
 
-                    System.out.println("Merging transcripts from all samples...");
-                    timer = new MyTimer();
-                    timer.start();
+                    System.out.println(">> Merging transcripts from all samples...");
+                    MyTimer mergeTimer = new MyTimer();
+                    mergeTimer.start();
                     
                     boolean ok = mergePooledAssemblies(outdir, name, sampleNames, 
                                     txptFileExt, shortTxptFileExt, txptNamePrefix,
@@ -5224,7 +5224,7 @@ public class RNABloom {
                                     maxTipLen, percentIdentity, !keepArtifact, minTranscriptLength, writeUracil);
                                         
                     if (ok) {
-                        System.out.println("Merging completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                        System.out.println(">> Merging completed in " + MyTimer.hmsFormat(mergeTimer.elapsedMillis()));
                     }
                     else {
                         exitOnError("Error during assembly merging!");
