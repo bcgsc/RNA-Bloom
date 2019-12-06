@@ -433,6 +433,47 @@ public final class SeqUtils {
         return false;
     }
     
+    public static final boolean isRepeat(byte[] bytes) {
+        final float repeatThreshold = 0.9f;
+        final int length = bytes.length;
+        
+         // homopolymer runs
+        final int t1 = Math.round(length * repeatThreshold);
+        byte[] nf1 = new byte[4];
+        for (int i=0; i<length; ++i) {
+            int n = nucleotideArrayIndex(bytes[i]);
+            if (++nf1[n] >= t1)
+                return true;
+        }
+        
+        // di-nucleotide repeat
+        final int t2 = Math.round(length/2 * repeatThreshold);
+        for (int start=0; start<2; ++start) {
+            byte[][] nf2 = new byte[4][4];
+            for (int i=start; i<length-1; i+=2) {
+                int n1 = nucleotideArrayIndex(bytes[i]);
+                int n2 = nucleotideArrayIndex(bytes[i+1]);
+                if (++nf2[n1][n2] >= t2)
+                    return true;
+            }
+        }
+        
+        // tri-nucleotide repeat
+        final int t3 = Math.round(length/3 * repeatThreshold);
+        for (int start=0; start<3; ++start) {
+            byte[][][] nf3 = new byte[4][4][4];
+            for (int i=start; i<length-2; i+=3) {
+                int n1 = nucleotideArrayIndex(bytes[i]);
+                int n2 = nucleotideArrayIndex(bytes[i+1]);
+                int n3 = nucleotideArrayIndex(bytes[i+2]);
+                if (++nf3[n1][n2][n3] >= t3)
+                    return true;
+            }
+        }
+        
+        return false;
+    }
+    
     public static final boolean isLowComplexity2(String seq) {
         byte nf1[]     = new byte[4];
         byte nf2[][]   = new byte[4][4];
@@ -1134,10 +1175,10 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        String seq1 = "CTTAGAGCACACCACAGTGGAAGAAGTTATCTCGGGCCAGCTGAGCAAGGAAGAAGTACCTGTAGATGTAGACCGAGGCAAACACAAGGCCCATGAGCAATACAACCATGCCCATGGACAGGTAGCACACGCCCCCCTCGCCACCGCTCCCGGAAAGGAGGCTCCGTGGGCGGCGTGTGCTACCTGTCCATGGGCATGGTTGTATTGCTCATGGGCCTTGTGTTTGCCTCGGTCTACATCTACAGGTACTTCTTCCTTGCTCAGCTGGCCCGAGATAACTTCTTCCACTGTGGTGTGCTCTAAGAAGACTCCCTGTCCTCCCAGATCCGGACTCGCCTGGAGCTGGAAGAGGATGTGAAGATCTATCTTGAGGAGAACTATGAACGTATTAATGTCCCTGTGCCCCAGTTTGGTGGTGGGGACCCTGCAGACATCATCCATGACTTCCAGCGGGGTCTCACTGCCTACCACGACATCTCCCTAGACAAGTGCTACGTCATCGAGCTCAACACCACCATCGTGCTACCCCCACGAAACTTCTGGGAGCTCCTCATGAACGTGAAGAGAGGGACCTACCTCCCACAGACGTACATCATCCAGGAGGAGATGGTGGTGACAGAGCATGTCCGCGACAAGGAGGCTCTGGGTTCCTTCATCTACCACCTGTGCAACGGGAAGGACACCTACCGGCTGCGGCGCCGGTCTACCCGGAGGCGGATCAACAAACGTGGGGGCAAGAACTGCAACGCCATCCGCCACTTCGAGAATACATTTGTGGTGGAGACGCTCATCTGTGGGGTGGTGTGAGGCCTTCCCTCCAGGCTCACCCCTGCCCTGTTCTTTCTCCTTCTGGCCTCTCTCTGGCCCTCCTCCTCCCTTTGCTTAGCTTGTACCTTGGGCACTTTTCCATAGATGTGACATGTCTCACCTATCCTTCCCAGACCGCCCTCCTCCCTGTACCAGGGCTGTGATCTCTCGGGGCCTCTGCCTCTGCTGATCTTTCAGGTGGGAGGTGGGAGGGGACAGTCGCCCAAGATGGTTTCTCTAACTCATTATTTTAAGTCATCTCCCCAGTGGCTGGGCCAAGGGGAAGGACTAAAGGGAGGGGCTGGACATATGGAAGCCTGGGGCAGGGGCAGGGGCGTGGTGGGATTTGGCATGAGGCTCACAAACAGCCCCCACACTTGGGGAAGCCCTGAAAGACTTTTTTCCTTGCATAGCACACTTCCCCTGTCCTCCTGGTTCTTAGGCCTGGGTGTGGACTAAGGATAGGGAAATGTGTCCTGGGTTGGACCCATCAGAGCACAAGAGAAGGTGGCTATCCTGGGGTCTTCCCAGGACTCCTGTCAGTGCCTTCAGCCCACCAGCAGGAGCCTGGAGTTAGAGGGTGGGATGAGTCTGCCAAGCACAATTGTCCTCTGAGTGGAACCAAAGAAATGAAGAGCCGGGCCGCCCTGGCCTGGCGCCTGGGAACACAGGGGCAGGTGGGTATAGAAGTCACCGGCTGTGAGCTGCAGGCCCTGGGCAGTGGATAGAACCCATGCCTTCCTACACATCTGGGCTACTGTGAATGATGGAAGCGGGAGGGAGAGCCACCTGGTACTTTCGTCCCTGCCTCCTCTTCCGTTCTGGATCTTTCCCCTCTGTCCAGGGGCGTGTGATGTTTTTTCCTGCATGTTTTTACTGATGTTCGTGCTGGCTGCCCTCAGCCCTGAGTCTGGGAGAGGCTTTGGTGCCTCGGGTCAGACTTGGGTGCTCCATGGTAGTGGAGCCCTTAAATGCTTTGTATATTTTCTCTATTAGAT";
-        String seq2 = cutHairPinLoop(seq1, 25, 0.9f);
-        System.out.println(seq2);
+        String homopolymer = "TTTTTTTTTTTTTTTTTTTTTGGG";
+        String dimers      = "ACACACACACACACACACACAGGG";
         
-        System.out.flush();
+        System.out.println(isRepeat(stringToBytes(homopolymer, homopolymer.length())));
+        System.out.println(isRepeat(stringToBytes(dimers, dimers.length())));
     }
 }
