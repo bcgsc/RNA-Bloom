@@ -3845,7 +3845,7 @@ public final class GraphUtils {
     }
     
     public static ArrayDeque<int[]> breakWithReadPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph, int numPairsRequired, int rangeStart, int rangeEnd) {
-        /**@TODO*/
+        int interlockDistance = 0;
         
         ArrayDeque<int[]> segments = new ArrayDeque<>();
         
@@ -3864,7 +3864,7 @@ public final class GraphUtils {
 
                     end = i+d;
                 }
-                else if (start >= 0 && i > end) {
+                else if (start >= 0 && i >= end-interlockDistance) {
                     segments.add(new int[]{start,end+1});
                     
                     start = -1;
@@ -3889,7 +3889,7 @@ public final class GraphUtils {
                     }
                 }
                 else {
-                    if (start >= 0 && i > end) {
+                    if (start >= 0 && i >= end-interlockDistance) {
                         segments.add(new int[]{start,end+1});
 
                         start = -1;
@@ -3909,7 +3909,7 @@ public final class GraphUtils {
     }
     
     public static ArrayDeque<int[]> breakWithReadPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph, int numPairsRequired) {
-        /**@TODO*/
+        int interlockDistance = 0;
         
         ArrayDeque<int[]> segments = new ArrayDeque<>();
         
@@ -3928,7 +3928,7 @@ public final class GraphUtils {
 
                     end = i+d;
                 }
-                else if (start >= 0 && i > end) {
+                else if (start >= 0 && i >= end-interlockDistance) {
                     segments.add(new int[]{start,end+1});
                     
                     start = -1;
@@ -3953,7 +3953,7 @@ public final class GraphUtils {
                     }
                 }
                 else {
-                    if (start >= 0 && i > end) {
+                    if (start >= 0 && i >= end-interlockDistance) {
                         segments.add(new int[]{start,end+1});
 
                         start = -1;
@@ -3973,6 +3973,8 @@ public final class GraphUtils {
     }
     
     public static ArrayDeque<int[]> breakWithFragPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph, int numPairsRequired) {
+        int interlockDistance = 0;
+        
         ArrayDeque<int[]> segments = new ArrayDeque<>();
         
         int d = graph.getFragPairedKmerDistance();
@@ -3990,7 +3992,7 @@ public final class GraphUtils {
 
                     end = i+d;
                 }
-                else if (start >= 0 && i > end) {
+                else if (start >= 0 && i >= end-interlockDistance) {
                     segments.add(new int[]{start, end+1});
 
                     start = -1;
@@ -4015,7 +4017,7 @@ public final class GraphUtils {
                     }
                 }
                 else {
-                    if (start >= 0 && i > end) {
+                    if (start >= 0 && i >= end-interlockDistance) {
                         segments.add(new int[]{start, end+1});
 
                         start = -1;
@@ -4035,7 +4037,7 @@ public final class GraphUtils {
     }
     
     public static ArrayDeque<int[]> breakWithFragPairedKmers(ArrayList<Kmer> kmers, BloomFilterDeBruijnGraph graph) {
-        /**@TODO Adjust how much paired kmers should interlock*/
+        int interlockDistance = 0;
         
         ArrayDeque<int[]> segments = new ArrayDeque<>();
         
@@ -4053,7 +4055,7 @@ public final class GraphUtils {
                 
                 end = i+d;
             }
-            else if (start >= 0 && i >= end) {
+            else if (start >= 0 && i >= end-interlockDistance) {
                 segments.add(new int[]{start, end+1});
                 
                 start = -1;
