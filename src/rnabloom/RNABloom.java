@@ -1639,7 +1639,7 @@ public class RNABloom {
                                     }
 
                                     if (!hasComplexKmer) {
-                                        if (!graph.isLowComplexity(kmer)) {
+                                        if (!graph.isRepeatKmer(kmer)) {
                                             hasComplexKmer = true;
                                         }
                                     }
@@ -1671,7 +1671,7 @@ public class RNABloom {
                                         minCov = kmer.count;
                                     }
 
-                                    if (!hasComplexLeftKmer && !graph.isLowComplexity(kmer)) {
+                                    if (!hasComplexLeftKmer && !graph.isRepeatKmer(kmer)) {
                                         hasComplexLeftKmer = true;
                                     }
                                 }
@@ -1685,7 +1685,7 @@ public class RNABloom {
                                         minCov = kmer.count;
                                     }
 
-                                    if (!hasComplexRightKmer && !graph.isLowComplexity(kmer)) {
+                                    if (!hasComplexRightKmer && !graph.isRepeatKmer(kmer)) {
                                         hasComplexRightKmer = true;
                                     }
                                 }

@@ -7392,7 +7392,7 @@ public final class GraphUtils {
         final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         final int fragPairedKmersDist = graph.getFragPairedKmerDistance();        
         final int numKmers = kmers.size();
-        final int maxExtensionLength = fragPairedKmersDist - 2; // -1 for candidate k-mer; -1 for partner kmer on current sequence
+        int maxExtensionLength = fragPairedKmersDist - 2; // -1 for candidate k-mer; -1 for partner kmer on current sequence
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getSuccessors(k, numHash, graph);
         
@@ -7403,6 +7403,15 @@ public final class GraphUtils {
             return e;
         }
     
+        for (int i=numKmers-1; i>=0; --i) {
+            if (graph.isRepeatKmer(kmers.get(i))) {
+                --maxExtensionLength;
+            }
+            else {
+               break;
+            }
+        }
+        
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);        
         float bestScore = 0;
         float bestCov = 0;
@@ -7490,7 +7499,7 @@ public final class GraphUtils {
         final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         final int fragPairedKmersDist = graph.getFragPairedKmerDistance();
         final int numKmers = kmers.size();
-        final int maxExtensionLength = fragPairedKmersDist - 2; // -1 for candidate k-mer; -1 for partner kmer on current sequence
+        int maxExtensionLength = fragPairedKmersDist - 2; // -1 for candidate k-mer; -1 for partner kmer on current sequence
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getPredecessors(k, numHash, graph);
         
@@ -7499,6 +7508,15 @@ public final class GraphUtils {
             ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(c, graph, maxTipLen, maxExtensionLength, minKmerCov);
             e.addFirst(c);
             return e;
+        }
+        
+        for (int i=numKmers-1; i>=0; --i) {
+            if (graph.isRepeatKmer(kmers.get(i))) {
+                --maxExtensionLength;
+            }
+            else {
+               break;
+            }
         }
         
         final float pathMinCov = getMinimumKmerCoverage(kmers, Math.max(numKmers - fragPairedKmersDist, 0), numKmers);

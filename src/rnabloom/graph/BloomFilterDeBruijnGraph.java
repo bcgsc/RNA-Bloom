@@ -404,6 +404,10 @@ public class BloomFilterDeBruijnGraph {
         return isLowComplexity2(kmer.bytes);
     }
     
+    public boolean isRepeatKmer(Kmer kmer) {
+        return isRepeat(kmer.bytes);
+    }
+    
     public void add(String kmer) {
         final long[] hashVals = new long[dbgbfCbfMaxNumHash];
         hashFunction.getHashValues(kmer, dbgbfCbfMaxNumHash, hashVals);
