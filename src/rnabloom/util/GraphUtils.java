@@ -10635,7 +10635,8 @@ public final class GraphUtils {
         
         int startIndex = -1;
         int endIndex = -1;
-        for (int i=0; i<maxEdgeClip; ++i) {
+        int indexToStop = Math.min(maxEdgeClip, numKmers);
+        for (int i=0; i<indexToStop; ++i) {
             Kmer seed = seqKmers.get(i);
             long rcHashVal = seed.getReverseComplementHash();
             for (int j=i+1; j<numKmers; ++j) {
