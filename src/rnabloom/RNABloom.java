@@ -64,8 +64,10 @@ import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
 import rnabloom.bloom.hash.ReverseComplementPairedNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer;
+import rnabloom.io.FastaFilteredSequenceIterator;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
+import rnabloom.io.FastqFilteredSequenceIterator;
 import rnabloom.io.FastxFilePair;
 import rnabloom.io.PairedReadSegments;
 import rnabloom.io.FastqReader;
@@ -1095,7 +1097,7 @@ public class RNABloom {
         private boolean extendBranchFreeFragmentsOnly = false;
         private boolean keepArtifact = false;
         private boolean keepChimera = false;
-        private boolean reqFragKmersConsistency = false;
+        private boolean haveFragKmers = false;
         private final float minKmerCov;
         
         public TranscriptAssemblyWorker(ArrayBlockingQueue<String> fragments,
@@ -1104,14 +1106,14 @@ public class RNABloom {
                                         boolean extendBranchFreeFragmentsOnly,
                                         boolean keepArtifact,
                                         boolean keepChimera,
-                                        boolean reqFragKmersConsistency,
+                                        boolean haveFragKmers,
                                         float minKmerCov) {
             this.fragments = fragments;
             this.transcripts = transcripts;
             this.extendBranchFreeFragmentsOnly = extendBranchFreeFragmentsOnly;
             this.keepArtifact = keepArtifact;
             this.keepChimera = keepChimera;
-            this.reqFragKmersConsistency = reqFragKmersConsistency;
+            this.haveFragKmers = haveFragKmers;
             this.minKmerCov = minKmerCov;
         }
 
@@ -1153,11 +1155,18 @@ public class RNABloom {
                                  (keepChimera || !isChimera(kmers, graph, screeningBf, lookahead)) &&
                                  (keepBluntEndArtifact || !isBluntEndArtifact(kmers, graph, screeningBf, maxEdgeClipLength)) ) {
                                 
-                                int[] originalFragRange = extendPE(kmers, graph, maxTipLength, minKmerCov);
+                                int[] originalFragRange;
+                                
+                                if (haveFragKmers) {
+                                    originalFragRange = extendPE(kmers, graph, maxTipLength, minKmerCov);
+                                }
+                                else {
+                                    originalFragRange = extendSE(kmers, graph, maxTipLength, minKmerCov);
+                                }
 
                                 int[] currentRange = new int[]{0, kmers.size()};
                                 
-                                if (reqFragKmersConsistency) {
+                                if (haveFragKmers) {
                                     if (kmers.size() >= fragKmersDist) {
                                         ArrayDeque<int[]> ranges = breakWithFragPairedKmers(kmers, graph, lookahead);
                                         int numFragSegs = ranges.size();
@@ -3293,7 +3302,7 @@ public class RNABloom {
             Files.deleteIfExists(sys.getPath(unconnectedPolyaSingletonsFasta));
         }
     }
-    
+        
     public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastqPairs, 
                                                 FragmentPaths fragPaths,
                                                 int bound,
@@ -3483,6 +3492,89 @@ public class RNABloom {
         return numFragmentsParsed;
     }
 
+    public void assembleSingleEndReads(String[] readPaths,
+                                    boolean reverseComplement,
+                                    String outFasta,
+                                    String outFastaShort,
+                                    int numThreads,
+                                    int minTranscriptLength,
+                                    boolean keepArtifact,
+                                    boolean keepChimera,
+                                    String txptNamePrefix,
+                                    float minKmerCov,
+                                    boolean writeUracil) throws IOException, InterruptedException {
+
+        //boolean assemblePolya = minPolyATailLengthRequired > 0;
+        /*@TODO support prioritized assembly of polya reads */
+        
+        boolean includeNaiveExtensions = true;
+        boolean extendBranchFreeFragmentsOnly = false;
+
+        FastaWriter fout = new FastaWriter(outFasta, false);
+        FastaWriter foutShort = new FastaWriter(outFastaShort, false);
+        TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, maxTipLength, writeUracil);
+        
+        ArrayBlockingQueue<String> readsQueue = new ArrayBlockingQueue<>(numThreads*2);
+        ArrayBlockingQueue<Transcript> transcriptsQueue = new ArrayBlockingQueue<>(numThreads*2);
+        
+        TranscriptAssemblyWorker[] workers = new TranscriptAssemblyWorker[numThreads];
+        Thread[] threads = new Thread[numThreads];
+        for (int i=0; i<numThreads; ++i) {
+            workers[i] = new TranscriptAssemblyWorker(readsQueue, transcriptsQueue, includeNaiveExtensions, extendBranchFreeFragmentsOnly, keepArtifact, keepChimera, false, minKmerCov);
+            threads[i] = new Thread(workers[i]);
+            threads[i].start();
+        }
+        
+        TranscriptWriterWorker writerWorker = new TranscriptWriterWorker(transcriptsQueue, writer);
+        Thread writerThread = new Thread(writerWorker);
+        writerThread.start();
+        
+        ArrayList<String> fastaPaths = new ArrayList<>();
+        ArrayList<String> fastqPaths = new ArrayList<>();
+        for (String p : readPaths) {
+            if (FastaReader.isCorrectFormat(p)) {
+                fastaPaths.add(p);
+            }
+            else if (FastqReader.isCorrectFormat(p)) {
+                fastqPaths.add(p);
+            }
+        }
+        
+        if (!fastaPaths.isEmpty()) {
+            String[] paths = new String[fastaPaths.size()];
+            fastaPaths.toArray(paths);
+            FastaFilteredSequenceIterator rin = new FastaFilteredSequenceIterator(paths, seqPattern, reverseComplement);
+
+            while (rin.hasNext()) {
+                readsQueue.put(rin.next());
+            }
+        }
+        
+        if (!fastqPaths.isEmpty()) {
+            String[] paths = new String[fastqPaths.size()];
+            fastqPaths.toArray(paths);
+            FastqFilteredSequenceIterator rin = new FastqFilteredSequenceIterator(paths, seqPattern, qualPatternFrag, reverseComplement);
+
+            while (rin.hasNext()) {
+                readsQueue.put(rin.next());
+            }
+        }
+        
+        for (TranscriptAssemblyWorker w : workers) {
+            w.stopWhenEmpty();
+        }
+
+        for (Thread t : threads) {
+            t.join();
+        }
+
+        writerWorker.stopWhenEmpty();
+        writerThread.join();
+        
+        fout.close();
+        foutShort.close();
+    }
+    
     public void assembleTranscriptsMultiThreaded(FragmentPaths fragPaths,
                                                 String outFasta,
                                                 String outFastaShort,
@@ -4798,30 +4890,36 @@ public class RNABloom {
                 maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
             }
             else {
+                double readFilesTotalBytes = 0;
+                
                 if (leftReadPaths == null || leftReadPaths.length == 0) {
                     exitOnError("Please specify left read files!");
                 }
 
-                if (rightReadPaths == null || rightReadPaths.length == 0) {
-                    exitOnError("Please specify right read files!");
-                }
+//                if (rightReadPaths == null || rightReadPaths.length == 0) {
+//                    exitOnError("Please specify right read files!");
+//                }
 
-                if (leftReadPaths.length != rightReadPaths.length) {
+                if (leftReadPaths != null && rightReadPaths != null &&
+                        leftReadPaths.length > 0 && rightReadPaths.length > 0 &&
+                        leftReadPaths.length != rightReadPaths.length) {
                     exitOnError("Read files are not paired properly!");
                 }
                 
                 checkInputFileFormat(leftReadPaths);
-                checkInputFileFormat(rightReadPaths);
                 
-                double readFilesTotalBytes = 0;
-
-                for (String fq : leftReadPaths) {
-                    readFilesTotalBytes += new File(fq).length();
-                }
-                for (String fq : rightReadPaths) {
-                    readFilesTotalBytes += new File(fq).length();
+                for (String p : leftReadPaths) {
+                    readFilesTotalBytes += new File(p).length();
                 }
                 
+                if (rightReadPaths != null && rightReadPaths.length > 0) {
+                    checkInputFileFormat(rightReadPaths);
+                    
+                    for (String p : rightReadPaths) {
+                        readFilesTotalBytes += new File(p).length();
+                    }
+                }
+                                
                 maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
             }
             
@@ -5325,6 +5423,32 @@ public class RNABloom {
 //                }
                 
                 System.out.println("> Stage 4 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+            }
+            else if (hasLeftReadFiles && !hasRightReadFiles) {
+                // Note: no stage 2
+                
+                System.out.println("\n> Stage 3: Assemble transcripts for \"" + name + "\"");
+                MyTimer stageTimer = new MyTimer();
+                stageTimer.start();
+                
+                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                
+                final String transcriptsFasta = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
+                final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
+                
+                assembler.assembleSingleEndReads(leftReadPaths,
+                                    revCompLeft,
+                                    transcriptsFasta,
+                                    shortTranscriptsFasta,
+                                    numThreads,
+                                    minTranscriptLength,
+                                    keepArtifact,
+                                    keepChimera,
+                                    txptNamePrefix,
+                                    minKmerCov,
+                                    writeUracil);
+                
+                System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }
             else {
                 FastxFilePair[] fqPairs = new FastxFilePair[leftReadPaths.length];
