@@ -7205,12 +7205,13 @@ public final class GraphUtils {
         final int numHash = graph.getMaxNumHash();
         final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         final int numKmers = kmers.size();
+        int maxExtensionLength = readPairedKmersDist - 2; // -1 for candidate k-mer; -1 for partner kmer on current sequence
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getSuccessors(k, numHash, graph);
         
         if (candidates.size() == 1) {
             Kmer c = candidates.peek();
-            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(c, graph, maxTipLen, readPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(c, graph, maxTipLen, maxExtensionLength, minKmerCov);
             e.addFirst(c);
             return e;
         }
@@ -7222,7 +7223,7 @@ public final class GraphUtils {
         int[] result = new int[2];
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(candidate, graph, maxTipLen, readPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendRightNoBackChecks(candidate, graph, maxTipLen, maxExtensionLength, minKmerCov);
             e.addFirst(candidate);
             
             countKmerPairsSE(kmers, e, 0, graph, result);
@@ -7300,12 +7301,13 @@ public final class GraphUtils {
         final int numHash = graph.getMaxNumHash();
         final int readPairedKmersDist = graph.getReadPairedKmerDistance();
         final int numKmers = kmers.size();
+        int maxExtensionLength = readPairedKmersDist - 2; // -1 for candidate k-mer; -1 for partner kmer on current sequence
         
         ArrayDeque<Kmer> candidates = kmers.get(numKmers-1).getPredecessors(k, numHash, graph);
         
         if (candidates.size() == 1) {
             Kmer c = candidates.peek();
-            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(c, graph, maxTipLen, readPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(c, graph, maxTipLen, maxExtensionLength, minKmerCov);
             e.addFirst(c);
             return e;
         }
@@ -7317,7 +7319,7 @@ public final class GraphUtils {
         int[] result = new int[2];
         
         for (Kmer candidate : candidates) {
-            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(candidate, graph, maxTipLen, readPairedKmersDist, minKmerCov);
+            ArrayDeque<Kmer> e = naiveExtendLeftNoBackChecks(candidate, graph, maxTipLen, maxExtensionLength, minKmerCov);
             e.addFirst(candidate);
             
             countKmerPairsReversedSE(e, kmers, 0, graph, result);
@@ -7629,6 +7631,119 @@ public final class GraphUtils {
         }
         
         return false;
+    }
+    
+    public static int[] extendSE(ArrayList<Kmer> kmers, 
+                                            BloomFilterDeBruijnGraph graph,
+                                            int maxTipLength,
+                                            float minKmerCov) {
+        final int d = graph.getReadPairedKmerDistance();
+        final float multiplier = 0.1f;
+        
+        int origLen = kmers.size();
+        
+        HashSet<Kmer> usedKmers = new HashSet<>(kmers);
+
+        Collections.reverse(kmers);
+        
+        while (true) {
+            float covThreshold = getMinimumKmerCoverage(kmers, Math.max(0, kmers.size()-d), kmers.size());
+            
+            ArrayDeque<Kmer> e =  null;
+                
+            while (true) {
+                covThreshold = Math.max(minKmerCov, covThreshold * multiplier);
+                
+                e =  extendLeftSE(kmers, graph, maxTipLength, covThreshold);
+                
+                if ((e != null && !e.isEmpty()) || covThreshold == minKmerCov) {
+                    break;
+                }
+            }
+
+            if (e == null || e.isEmpty()) {
+                break;
+            }
+            
+            Iterator<Kmer> itr = e.iterator();
+            boolean used = true;
+            
+            while (itr.hasNext() && used) {
+                Kmer kmer = itr.next();
+                
+                if (!usedKmers.contains(kmer)) {
+                    used = false;
+                }
+            }
+            
+            int endIndex = Math.max(0, kmers.size()-d+e.size());
+            for (int i=kmers.size()-1; i>=endIndex && used; --i) {
+                Kmer kmer = kmers.get(i);
+                
+                if (!usedKmers.contains(kmer)) {
+                    used = false;
+                }
+            }
+            
+            if (used && (kmers.size() < d || hasDuplicatedKmerPair(kmers, e.getLast(), d, kmers.size()-1-d+e.size()))) {
+                break;
+            }
+            
+            kmers.addAll(e);
+            usedKmers.addAll(e);
+        }
+        
+        int leftExtLen = kmers.size() - origLen;
+        
+        Collections.reverse(kmers);
+        
+        while (true) {
+            float covThreshold = getMinimumKmerCoverage(kmers, Math.max(0, kmers.size()-d), kmers.size());
+            
+            ArrayDeque<Kmer> e =  null;
+                
+            while (true) {
+                covThreshold = Math.max(minKmerCov, covThreshold * multiplier);
+                
+                e =  extendRightSE(kmers, graph, maxTipLength, covThreshold);
+                
+                if ((e != null && !e.isEmpty()) || covThreshold == minKmerCov) {
+                    break;
+                }
+            }
+
+            if (e == null || e.isEmpty()) {
+                break;
+            }
+            
+            Iterator<Kmer> itr = e.iterator();
+            boolean used = true;
+            while (itr.hasNext() && used) {
+                Kmer kmer = itr.next();
+                
+                if (!usedKmers.contains(kmer)) {
+                    used = false;
+                }
+            }
+            
+            int endIndex = Math.max(0, kmers.size()-d+e.size());
+            for (int i=kmers.size()-1; i>=endIndex && used; --i) {
+                Kmer kmer = kmers.get(i);
+                
+                if (!usedKmers.contains(kmer)) {
+                    used = false;
+                }
+            }
+            
+            if (used && (kmers.size() < d || hasDuplicatedKmerPair(kmers, e.getLast(), d, kmers.size()-1-d+e.size()))) {
+                break;
+            }
+            
+            kmers.addAll(e);
+            usedKmers.addAll(e);
+        }
+                
+        return new int[]{leftExtLen, leftExtLen + origLen};
     }
     
     public static int[] extendPE(ArrayList<Kmer> kmers, 
