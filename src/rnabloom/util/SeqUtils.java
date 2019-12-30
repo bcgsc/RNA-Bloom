@@ -1077,6 +1077,50 @@ public final class SeqUtils {
         return sb.toString();
     }
 
+    public static String longestSeq(String seq, Pattern seqPattern) {
+        // filter sequence by keeping only ACGT characters
+        Matcher m = seqPattern.matcher(seq);
+        
+        int longestStartPos = -1;
+        int longestEndPos = -1;
+        int longestLen = 0;
+        while (m.find()) {
+            int startPos = m.start();
+            int endPos = m.end();
+            int len = endPos - startPos;
+
+            if (len > longestLen) {
+                longestLen = len;
+                longestStartPos = startPos;
+                longestEndPos = endPos;
+            }
+        }
+        
+        return seq.substring(longestStartPos, longestEndPos).toUpperCase();
+    }
+    
+    public static String longestSeq(String seq, String qual, Pattern seqPattern, Pattern qualPattern) {
+        // filter sequence by keeping only ACGT characters
+        Matcher m = qualPattern.matcher(qual);
+        
+        int longestStartPos = -1;
+        int longestEndPos = -1;
+        int longestLen = 0;
+        while (m.find()) {
+            int startPos = m.start();
+            int endPos = m.end();
+            int len = endPos - startPos;
+
+            if (len > longestLen) {
+                longestLen = len;
+                longestStartPos = startPos;
+                longestEndPos = endPos;
+            }
+        }
+        
+        return longestSeq(seq.substring(longestStartPos, longestEndPos), seqPattern);
+    }
+    
     public static ArrayList<String> filterFasta(String seq, Pattern seqPattern) {
 
         // filter sequence by keeping only ACGT characters
