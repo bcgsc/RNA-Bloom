@@ -5306,6 +5306,7 @@ public class RNABloom {
                     System.out.print("\n");
                 }
                 
+                /*
                 if (outputNrTxpts) {
                     // combine assembly files
                     
@@ -5328,6 +5329,7 @@ public class RNABloom {
                         exitOnError("Error during assembly merging!");
                     }
                 }
+                */
                 
                 System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));                
                 
