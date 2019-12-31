@@ -26,8 +26,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jgrapht.Graph;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.TransitiveReduction;
+import org.jgrapht.alg.connectivity.BiconnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import rnabloom.io.ExtendedPafRecord;
@@ -35,8 +37,6 @@ import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
-import static rnabloom.util.SeqUtils.bytesToString;
-import static rnabloom.util.SeqUtils.reverseComplement;
 import static rnabloom.util.SeqUtils.stringToBytes;
 import static rnabloom.util.SeqUtils.bytesToString;
 import static rnabloom.util.SeqUtils.reverseComplement;
@@ -231,6 +231,43 @@ public class Layout {
         String source = graph.getEdgeSource(e);
         String sink = graph.getEdgeTarget(e);
         return graph.getEdge(getReverseComplementID(sink), getReverseComplementID(source));
+    }
+    
+    private int reduceTransitively() {
+        int numEdgesRemoved = 0;
+        
+        BiconnectivityInspector<String, OverlapEdge> bci = new BiconnectivityInspector<>(graph);
+        
+        // Perform transitive reduction on each connected component; 
+        // this routine should use less memory than reducing the entire graph.
+        for (Graph<String, OverlapEdge> cc : bci.getConnectedComponents()) {
+            Set<OverlapEdge> edges = cc.edgeSet();
+            if (!edges.isEmpty()) {
+                edges = new HashSet<>(edges);
+
+                // create directed graph for the connected component
+                DefaultDirectedGraph<String, OverlapEdge> g = new DefaultDirectedGraph<>(OverlapEdge.class);
+                for (OverlapEdge e : edges) {
+                    String source = graph.getEdgeSource(e);
+                    String target = graph.getEdgeTarget(e);
+                    g.addVertex(source);
+                    g.addVertex(target);
+                    g.addEdge(source, target, e);
+                }
+
+                TransitiveReduction.INSTANCE.reduce(g);
+
+                Set<OverlapEdge> reducedGraphEdges = g.edgeSet();
+
+                if (edges.size() > reducedGraphEdges.size()) {
+                    edges.removeAll(reducedGraphEdges);
+                    numEdgesRemoved += edges.size();
+                    graph.removeAllEdges(edges);
+                }
+            }
+        }
+        
+        return numEdgesRemoved;
     }
     
     private void resolveJunctions(HashSet<String> names, boolean strandSpecific) {
@@ -541,7 +578,8 @@ public class Layout {
         System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
         System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
         
-        TransitiveReduction.INSTANCE.reduce(graph);
+        //TransitiveReduction.INSTANCE.reduce(graph);
+        reduceTransitively();
         System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
 
         resolveJunctions(dovetailReadNames, false);
@@ -715,7 +753,8 @@ public class Layout {
         System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
         System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
         
-        TransitiveReduction.INSTANCE.reduce(graph);
+        //TransitiveReduction.INSTANCE.reduce(graph);
+        reduceTransitively();
         System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
         
         resolveJunctions(dovetailReadNames, true);
