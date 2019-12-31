@@ -10818,7 +10818,8 @@ public final class GraphUtils {
         
         startIndex = -1;
         endIndex = -1;
-        for (int i=numKmers-1; i>=numKmers-1-maxEdgeClip; --i) {
+        indexToStop = Math.max(0, numKmers-1-maxEdgeClip);
+        for (int i=numKmers-1; i>=indexToStop; --i) {
             Kmer seed = seqKmers.get(i);
             long rcHashVal = seed.getReverseComplementHash();
             for (int j=i-1; j>=0; --j) {
