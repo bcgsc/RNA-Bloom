@@ -4487,6 +4487,7 @@ public final class GraphUtils {
                         
                         if (min > bestCov) {
                             best = seg;
+                            bestCov = min;
                         }
                     }
                 }
