@@ -1493,7 +1493,8 @@ public class RNABloom {
                         ArrayList<Kmer> rightKmers = null;
                         
                         // connect segments of each read
-                        String left = getBestSegment(p.left, graph);
+                        //String left = getBestSegment(p.left, graph);
+                        String left = connect(p.left, graph, lookahead);
 
                         if (left.length() >= this.leftReadLengthThreshold) {
                             if (!isLowComplexity2(left)) {
@@ -1506,7 +1507,8 @@ public class RNABloom {
                             }
                         }
 
-                        String right = getBestSegment(p.right, graph);
+                        //String right = getBestSegment(p.right, graph);
+                        String right = connect(p.right, graph, lookahead);
 
                         if (right.length() >= this.rightReadLengthThreshold) {
                             if (!isLowComplexity2(right)) {
