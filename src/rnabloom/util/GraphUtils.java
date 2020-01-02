@@ -10749,8 +10749,8 @@ public final class GraphUtils {
         // search from left to right
         int numKmers = seqKmers.size();
         
-        int startIndex = -1;
-        int endIndex = -1;
+        int leftIndex = -1;
+        int rightIndex = -1;
         int indexToStop = Math.min(maxEdgeClip, numKmers);
         for (int i=0; i<indexToStop; ++i) {
             Kmer seed = seqKmers.get(i);
@@ -10758,66 +10758,66 @@ public final class GraphUtils {
             for (int j=i+1; j<numKmers; ++j) {
                 Kmer candidate = seqKmers.get(j);
                 if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
-                    startIndex = i;
-                    endIndex = j;
+                    leftIndex = i;
+                    rightIndex = j;
                     break;
                 }
             }
             
-            if (startIndex > 0) {
+            if (leftIndex > 0) {
                 break;
             }
         }
         
-        if (startIndex > 0) {
-            int cutIndex = startIndex+k;
-            for (int i=k; i<endIndex-startIndex; i+=k) {
-                Kmer seed = seqKmers.get(startIndex+i);
+        if (leftIndex > 0 && rightIndex-leftIndex >= k) {
+            int cutIndex = leftIndex+1;
+            for (int i=k; i<rightIndex-leftIndex; i+=k) {
+                Kmer seed = seqKmers.get(leftIndex+i);
                 long rcHashVal = seed.getReverseComplementHash();
-                Kmer candidate = seqKmers.get(endIndex-i);
+                Kmer candidate = seqKmers.get(rightIndex-i);
                 if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
-                    cutIndex = startIndex + i;
+                    cutIndex = leftIndex + i;
                 }
                 else {
                     break;
                 }
             }
             
-            for (int i=cutIndex-startIndex; i<endIndex-startIndex; ++i) {
-                Kmer seed = seqKmers.get(startIndex+i);
+            for (int i=cutIndex-leftIndex; i<rightIndex-leftIndex; ++i) {
+                Kmer seed = seqKmers.get(leftIndex+i);
                 long rcHashVal = seed.getReverseComplementHash();
-                Kmer candidate = seqKmers.get(endIndex-i);
+                Kmer candidate = seqKmers.get(rightIndex-i);
                 if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
-                    cutIndex = startIndex + i;
+                    cutIndex = leftIndex + i;
                 }
                 else {
                     break;
                 }
             }
             
-            cutIndex = Math.min(cutIndex, (startIndex + endIndex)/2);
+            cutIndex = Math.min(cutIndex, (leftIndex + rightIndex)/2);
             
-            if (endIndex >= numKmers-maxEdgeClip) {
-                int cutLength = cutIndex - startIndex;
-                float leftMinCov = getMinimumKmerCoverage(seqKmers, cutIndex, cutIndex+k);
-                float rightMinCov = getMinimumKmerCoverage(seqKmers, numKmers-cutLength-k, numKmers-cutLength);
+            if (rightIndex >= numKmers-maxEdgeClip) {
+                int cutLength = cutIndex - leftIndex;
+                float leftMinCov = getMinimumKmerCoverage(seqKmers, cutIndex, Math.min(numKmers, cutIndex+k));
+                float rightMinCov = getMinimumKmerCoverage(seqKmers, Math.max(0, numKmers-cutLength-k), numKmers-cutLength);
                 if (leftMinCov > rightMinCov) {
-                    seqKmers = new ArrayList<>(seqKmers.subList(0, numKmers-cutLength-k));
+                    seqKmers = new ArrayList<>(seqKmers.subList(0, Math.max(1, numKmers-cutLength-k)));
                 }
                 else {
-                    seqKmers = new ArrayList<>(seqKmers.subList(cutIndex+k, numKmers));
+                    seqKmers = new ArrayList<>(seqKmers.subList(cutIndex, numKmers));
                 }
             }
             else {
-                seqKmers = new ArrayList<>(seqKmers.subList(cutIndex+k, numKmers));
+                seqKmers = new ArrayList<>(seqKmers.subList(Math.min(numKmers-1, cutIndex+k), numKmers));
             }
         }
         
         // search from right to left
         numKmers = seqKmers.size();
         
-        startIndex = -1;
-        endIndex = -1;
+        leftIndex = -1;
+        rightIndex = -1;
         indexToStop = Math.max(0, numKmers-1-maxEdgeClip);
         for (int i=numKmers-1; i>=indexToStop; --i) {
             Kmer seed = seqKmers.get(i);
@@ -10825,58 +10825,58 @@ public final class GraphUtils {
             for (int j=i-1; j>=0; --j) {
                 Kmer candidate = seqKmers.get(j);
                 if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
-                    startIndex = i;
-                    endIndex = j;
+                    rightIndex = i;
+                    leftIndex = j;
                     break;
                 }
             }
             
-            if (startIndex > 0) {
+            if (rightIndex > 0) {
                 break;
             }
         }
         
-        if (startIndex > 0) {
-            int cutIndex = startIndex-k;
-            for (int i=k; i<startIndex-endIndex; i+=k) {
-                Kmer seed = seqKmers.get(startIndex-i);
+        if (rightIndex > 0 && rightIndex-leftIndex >= k) {
+            int cutIndex = rightIndex-1;
+            for (int i=k; i<rightIndex-leftIndex; i+=k) {
+                Kmer seed = seqKmers.get(rightIndex-i);
                 long rcHashVal = seed.getReverseComplementHash();
-                Kmer candidate = seqKmers.get(endIndex+i);
+                Kmer candidate = seqKmers.get(leftIndex+i);
                 if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
-                    cutIndex = startIndex - i;
+                    cutIndex = rightIndex - i;
                 }
                 else {
                     break;
                 }
             }
             
-            for (int i=startIndex-cutIndex; i<startIndex-endIndex; ++i) {
-                Kmer seed = seqKmers.get(startIndex-i);
+            for (int i=rightIndex-cutIndex; i<rightIndex-leftIndex; ++i) {
+                Kmer seed = seqKmers.get(rightIndex-i);
                 long rcHashVal = seed.getReverseComplementHash();
-                Kmer candidate = seqKmers.get(endIndex+i);
+                Kmer candidate = seqKmers.get(leftIndex+i);
                 if (candidate.getHash() == rcHashVal && isReverseComplement(seed.bytes, candidate.bytes)) {
-                    cutIndex = startIndex - i;
+                    cutIndex = rightIndex - i;
                 }
                 else {
                     break;
                 }
             }
             
-            cutIndex = Math.max(cutIndex, (startIndex + endIndex)/2);
+            cutIndex = Math.max(cutIndex, (rightIndex + leftIndex)/2);
             
-            if (endIndex < maxEdgeClip) {
-                int cutLength = startIndex - cutIndex;
-                float leftMinCov = getMinimumKmerCoverage(seqKmers, cutLength, cutLength+k);
-                float rightMinCov = getMinimumKmerCoverage(seqKmers, cutIndex-k, cutIndex);
+            if (leftIndex < maxEdgeClip) {
+                int cutLength = rightIndex - cutIndex;
+                float leftMinCov = getMinimumKmerCoverage(seqKmers, cutLength, Math.min(cutLength+k, numKmers));
+                float rightMinCov = getMinimumKmerCoverage(seqKmers, Math.max(0, cutIndex-k), cutIndex);
                 if (leftMinCov > rightMinCov) {
-                    seqKmers = new ArrayList<>(seqKmers.subList(0, cutIndex-k));
+                    seqKmers = new ArrayList<>(seqKmers.subList(0, Math.max(1, cutIndex-k)));
                 }
                 else {
-                    seqKmers = new ArrayList<>(seqKmers.subList(cutLength+k, numKmers));
+                    seqKmers = new ArrayList<>(seqKmers.subList(Math.max(cutLength+k, numKmers-1), numKmers));
                 }
             }
             else {
-                seqKmers = new ArrayList<>(seqKmers.subList(0, cutIndex-k));
+                seqKmers = new ArrayList<>(seqKmers.subList(0, Math.max(1, cutIndex-k)));
             }
         }
         
