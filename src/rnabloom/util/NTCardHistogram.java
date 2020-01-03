@@ -27,7 +27,7 @@ import java.io.IOException;
  */
 public class NTCardHistogram {
     public long numSingletons = 0;
-    public long numKmers = 0;
+    public long numUniqueKmers = 0;
     public int covThreshold = 0;
     
     public NTCardHistogram(String path) throws FileNotFoundException, IOException {
@@ -39,7 +39,7 @@ public class NTCardHistogram {
             if (line.length() > 0) {
                 String[] cols = line.split("\t");
                 if (cols[0].equals("F0")) {
-                    numKmers = Long.parseLong(cols[1]); 
+                    numUniqueKmers = Long.parseLong(cols[1]); 
                     f0Found = true;
                 }
                 else if (f0Found) {

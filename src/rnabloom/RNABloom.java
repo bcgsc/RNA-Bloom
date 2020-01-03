@@ -4216,7 +4216,52 @@ public class RNABloom {
             return false;
         }
     }
+    
+    private static int[] getKmerSizes(String str) {
+        /*  eg.
+                25
+                25,26,27
+                25-27
+                25-50:5
+                25,26,27,30-55:5
+        */
+
+        HashSet<Integer> kSet = new HashSet<>();
+
+        for (String kStr : str.split(",")) {
+            String[] rangeStepStr = kStr.split(":");
+
+            String[] rangeStr = rangeStepStr[0].split("-");
+            int start = Integer.parseInt(rangeStr[0]);
+            kSet.add(start);
+            
+            if (rangeStr.length > 1) {
+                int end = Integer.parseInt(rangeStr[1]);
+                
+                int step = 1;
+                if (rangeStepStr.length > 1) {
+                    step = Integer.parseInt(rangeStepStr[1]);
+                }
+                
+                for (int i=start+step; i<end; i+=step) {
+                    kSet.add(i);
+                }
+                
+                kSet.add(end);
+            }
+        }
         
+        int[] kArr = new int[kSet.size()];
+        int i = 0;
+        for (int k : kSet) {
+            kArr[i++] = k;
+        }
+        
+        Arrays.sort(kArr);
+        
+        return kArr;
+    }
+    
     private static NTCardHistogram getNTCardHistogram(int threads, int k, String histogramPathPrefix, String readPathsFile, boolean forceOverwrite) throws IOException, InterruptedException {
         NTCardHistogram hist = null;
         String histogramPath = histogramPathPrefix + "_k" + k + ".hist";
@@ -4947,10 +4992,7 @@ public class RNABloom {
             if (hasLongReadFiles && !hasRacon()) {
                 exitOnError("`racon` not found in PATH!");
             }
-            
-            String defaultK = hasLongReadFiles ? "17" : optKmerSizeDefault;
-            final int k = Integer.parseInt(line.getOptionValue(optKmerSize.getOpt(), defaultK));
-            
+                        
             String defaultPercentIdentity = hasLongReadFiles ? "0.7" : optPercentIdentityDefault;
             final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), defaultPercentIdentity));
             
@@ -4986,10 +5028,31 @@ public class RNABloom {
             final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), optFprDefault));
             final boolean saveGraph = line.hasOption(optSaveBf.getOpt());
             boolean storeReadPairedKmers = hasLeftReadFiles || hasRightReadFiles || hasRefTranscriptFiles;
-                        
+            
+            boolean useNTCard = line.hasOption(optNtcard.getOpt());
+            
+            String defaultK = hasLongReadFiles ? "17" : optKmerSizeDefault;
+            String kArg = line.getOptionValue(optKmerSize.getOpt(), defaultK);
+            int k = Integer.parseInt(defaultK);
+            int[] kmerSizes = getKmerSizes(kArg);
+            switch (kmerSizes.length) {
+                case 0:
+                    exitOnError("Invalid k-mer size: " + kArg);
+                    break;
+                case 1:
+                    k = kmerSizes[0];
+                    break;
+                default:
+                    if (!useNTCard) {
+                        System.out.println("\nTurning on option `-ntcard` to find optimal k in " + kArg);
+                        useNTCard = true;
+                    }
+                    break;
+            }
+            
             long expNumKmers = -1L;
             NTCardHistogram hist = null;
-            if (line.hasOption(optNtcard.getOpt())) {
+            if (useNTCard) {
                 if (!hasNtcard()) {
                     exitOnError("`ntcard` not found in your PATH!");
                 }
@@ -5027,15 +5090,30 @@ public class RNABloom {
                 writer.close();
                 
                 String histogramPathPrefix = outdir + File.separator + name;
-                
-                hist = getNTCardHistogram(numThreads, k, histogramPathPrefix, ntcard_reads_list_file, forceOverwrite);
-                if (hist == null) {
-                    exitOnError("Error running ntCard!");
+                                
+                for (int tmpK : kmerSizes) {                    
+                    NTCardHistogram tmpHist = getNTCardHistogram(numThreads, tmpK, histogramPathPrefix, ntcard_reads_list_file, forceOverwrite);
+                    if (tmpHist == null) {
+                        exitOnError("Error running ntCard!");
+                    }
+                    else if (tmpHist.numUniqueKmers > expNumKmers) {
+                        hist = tmpHist;
+                        k = tmpK;
+                        expNumKmers = tmpHist.numUniqueKmers;
+                    }
+                    
+                    System.out.println("Unique k-mers (k=" + tmpK + "): " + NumberFormat.getInstance().format(tmpHist.numUniqueKmers));
+                    
+                    if (tmpHist.numUniqueKmers < expNumKmers) {
+                        // optimal k is found
+                        break;
+                    }
                 }
                 
-                expNumKmers = hist.numKmers;
-                System.out.println("Number of unique k-mers: " + NumberFormat.getInstance().format(expNumKmers));
-
+                if (kmerSizes.length > 1) {
+                    System.out.println("Setting k to " + k);
+                }
+                
                 if (hasLongReadFiles) {
                     if (!line.hasOption(optMinKmerCov.getOpt())) {
                         minKmerCov = hist.covThreshold;
