@@ -91,7 +91,7 @@ public class FastqPairReader implements FastxPairReader {
             throw new FileFormatException("Inconsistent record names: \"" + frLeft.name + "\" and \"" + frRight.name + "\"");
         }
 
-        p.left = filterFastq(frLeft, qualPattern, seqPattern);
+        p.left = filterFastq(frLeft, seqPattern, qualPattern);
         
 //        int numBasesTrimmed = frLeft.seq.length();
 //        p.originalLeftLength = numBasesTrimmed;
@@ -100,7 +100,7 @@ public class FastqPairReader implements FastxPairReader {
 //        }
 //        p.numLeftBasesTrimmed = numBasesTrimmed;
         
-        p.right = filterFastq(frRight, qualPattern, seqPattern);
+        p.right = filterFastq(frRight, seqPattern, qualPattern);
         
 //        numBasesTrimmed = frRight.seq.length();
 //        p.originalRightLength = numBasesTrimmed;

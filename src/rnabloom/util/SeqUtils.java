@@ -1204,11 +1204,11 @@ public final class SeqUtils {
         return result;
     }
     
-    public static ArrayList<String> filterFastq(FastqRecord fq, Pattern qualPattern, Pattern seqPattern) {
-        return filterFastq(fq.seq, fq.qual, qualPattern, seqPattern);
+    public static ArrayList<String> filterFastq(FastqRecord fq, Pattern seqPattern, Pattern qualPattern) {
+        return filterFastq(fq.seq, fq.qual, seqPattern, qualPattern);
     }
     
-    public static ArrayList<String> filterFastq(String seq, String qual, Pattern qualPattern, Pattern seqPattern) {
+    public static ArrayList<String> filterFastq(String seq, String qual, Pattern seqPattern, Pattern qualPattern) {
         // filter sequence by quality
         Matcher m = qualPattern.matcher(qual);
         StringBuilder qualFilteredSeq = new StringBuilder(seq.length());
@@ -1270,10 +1270,6 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        String homopolymer = "TTTTTTTTTTTTTTTTTTTTTGGG";
-        String dimers      = "ACACACACACACACACACACAGGG";
-        
-        System.out.println(isRepeat(stringToBytes(homopolymer, homopolymer.length())));
-        System.out.println(isRepeat(stringToBytes(dimers, dimers.length())));
+
     }
 }
