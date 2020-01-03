@@ -1124,7 +1124,7 @@ public final class SeqUtils {
         
         int longestStartPos = -1;
         int longestEndPos = -1;
-        int longestLen = 0;
+        int longestLen = -1;
         while (m.find()) {
             int startPos = m.start();
             int endPos = m.end();
@@ -1137,6 +1137,10 @@ public final class SeqUtils {
             }
         }
         
+        if (longestStartPos < 0 || longestEndPos < 0 || longestLen < 0) {
+            return "";
+        }
+        
         return seq.substring(longestStartPos, longestEndPos).toUpperCase();
     }
     
@@ -1146,7 +1150,7 @@ public final class SeqUtils {
         
         int longestStartPos = -1;
         int longestEndPos = -1;
-        int longestLen = 0;
+        int longestLen = -1;
         while (m.find()) {
             int startPos = m.start();
             int endPos = m.end();
@@ -1157,6 +1161,10 @@ public final class SeqUtils {
                 longestStartPos = startPos;
                 longestEndPos = endPos;
             }
+        }
+        
+        if (longestStartPos < 0 || longestEndPos < 0 || longestLen < 0) {
+            return "";
         }
         
         return longestSeq(seq.substring(longestStartPos, longestEndPos), seqPattern);
