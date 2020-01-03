@@ -6,8 +6,11 @@
 package rnabloom.io;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
+import static rnabloom.util.SeqUtils.filterFastq;
 import static rnabloom.util.SeqUtils.longestSeq;
 import static rnabloom.util.SeqUtils.reverseComplement;
 
@@ -86,5 +89,36 @@ public class FastqFilteredSequenceIterator {
         }
     }
     
-    
+    public ArrayList<String> nextSegments() throws FileFormatException, IOException {
+        try {
+            reader.nextWithoutName(record);
+            
+            ArrayList<String> segments = filterFastq(record, seqPattern, qualPattern);
+
+            if (reverseComplement) {
+                int numRightSegments = segments.size();
+
+                if (numRightSegments > 1) {
+                    Collections.reverse(segments);
+                }
+
+                for (int i=0; i<numRightSegments; ++i) {
+                    segments.set(i, reverseComplement(segments.get(i)));
+                }
+            }
+
+            return segments;
+        }
+        catch (NoSuchElementException e) {
+            reader.close();
+            
+            if (++fileCursor >= fastqPaths.length) {
+                throw new NoSuchElementException();
+            }
+            
+            setReader(fastqPaths[fileCursor]);
+            
+            return this.nextSegments();
+        }
+    }
 }

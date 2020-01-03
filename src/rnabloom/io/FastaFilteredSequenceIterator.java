@@ -6,8 +6,11 @@
 package rnabloom.io;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
+import static rnabloom.util.SeqUtils.filterFasta;
 import static rnabloom.util.SeqUtils.longestSeq;
 import static rnabloom.util.SeqUtils.reverseComplement;
 
@@ -78,6 +81,37 @@ public class FastaFilteredSequenceIterator {
             setReader(fastaPaths[fileCursor]);
             
             return this.next();
+        }
+    }
+    
+    public ArrayList<String> nextSegments() throws FileFormatException, IOException {
+        try {
+            ArrayList<String> segments = filterFasta(reader.next(), seqPattern);
+
+            if (reverseComplement) {
+                int numRightSegments = segments.size();
+
+                if (numRightSegments > 1) {
+                    Collections.reverse(segments);
+                }
+
+                for (int i=0; i<numRightSegments; ++i) {
+                    segments.set(i, reverseComplement(segments.get(i)));
+                }
+            }
+
+            return segments;
+        }
+        catch (NoSuchElementException e) {
+            reader.close();
+            
+            if (++fileCursor >= fastaPaths.length) {
+                throw new NoSuchElementException();
+            }
+            
+            setReader(fastaPaths[fileCursor]);
+            
+            return this.nextSegments();
         }
     }
 }
