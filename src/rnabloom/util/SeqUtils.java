@@ -1197,10 +1197,12 @@ public final class SeqUtils {
     }
     
     public static ArrayList<String> filterFastq(FastqRecord fq, Pattern qualPattern, Pattern seqPattern) {
-
+        return filterFastq(fq.seq, fq.qual, qualPattern, seqPattern);
+    }
+    
+    public static ArrayList<String> filterFastq(String seq, String qual, Pattern qualPattern, Pattern seqPattern) {
         // filter sequence by quality
-        String seq = fq.seq;
-        Matcher m = qualPattern.matcher(fq.qual);
+        Matcher m = qualPattern.matcher(qual);
         StringBuilder qualFilteredSeq = new StringBuilder(seq.length());
         
         int startPos;
