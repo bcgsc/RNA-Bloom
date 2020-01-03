@@ -3509,6 +3509,8 @@ public class RNABloom {
         //boolean assemblePolya = minPolyATailLengthRequired > 0;
         /*@TODO support prioritized assembly of polya reads */
         
+        long numReadsParsed = 0;
+        
         boolean includeNaiveExtensions = true;
         boolean extendBranchFreeFragmentsOnly = false;
 
@@ -3548,7 +3550,14 @@ public class RNABloom {
             FastaFilteredSequenceIterator rin = new FastaFilteredSequenceIterator(paths, seqPattern, reverseComplement);
 
             while (rin.hasNext()) {
-                readsQueue.put(rin.next());
+                ++numReadsParsed;
+                ArrayList<String> segments = rin.nextSegments();
+                if (!segments.isEmpty()) {
+                    String seq = connect(segments, graph, lookahead);
+                    if (seq.length() >= k) {
+                        readsQueue.put(seq);
+                    }
+                }
             }
         }
         
@@ -3558,7 +3567,14 @@ public class RNABloom {
             FastqFilteredSequenceIterator rin = new FastqFilteredSequenceIterator(paths, seqPattern, qualPatternFrag, reverseComplement);
 
             while (rin.hasNext()) {
-                readsQueue.put(rin.next());
+                ++numReadsParsed;
+                ArrayList<String> segments = rin.nextSegments();
+                if (!segments.isEmpty()) {
+                    String seq = connect(segments, graph, lookahead);
+                    if (seq.length() >= k) {
+                        readsQueue.put(seq);
+                    }
+                }
             }
         }
         
@@ -3575,6 +3591,8 @@ public class RNABloom {
         
         fout.close();
         foutShort.close();
+        
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numReadsParsed) + " reads.");
     }
     
     public void assembleTranscriptsMultiThreaded(FragmentPaths fragPaths,
@@ -5537,6 +5555,8 @@ public class RNABloom {
                                     txptNamePrefix,
                                     minKmerCov,
                                     writeUracil);
+                
+                touch(txptsDoneStamp);
                 
                 System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }
