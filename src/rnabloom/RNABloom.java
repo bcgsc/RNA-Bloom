@@ -1497,7 +1497,7 @@ public class RNABloom {
                         String left = connect(p.left, graph, lookahead);
 
                         if (left.length() >= this.leftReadLengthThreshold) {
-                            if (!isRepeat(left)) {
+                            if (!isLowComplexity2(left)) {
                                 if (minKmerCov > 1) {
                                     leftKmers = graph.getKmers(left, minKmerCov);
                                 }
@@ -1511,7 +1511,7 @@ public class RNABloom {
                         String right = connect(p.right, graph, lookahead);
 
                         if (right.length() >= this.rightReadLengthThreshold) {
-                            if (!isRepeat(right)) {
+                            if (!isLowComplexity2(right)) {
                                 if (minKmerCov > 1) {
                                     rightKmers = graph.getKmers(right, minKmerCov);
                                 }
