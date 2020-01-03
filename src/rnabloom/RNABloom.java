@@ -4229,20 +4229,20 @@ public class RNABloom {
         HashSet<Integer> kSet = new HashSet<>();
 
         for (String kStr : str.split(",")) {
-            String[] rangeStepStr = kStr.split(":");
+            String[] rangeStepStr = kStr.split(":", 2);
 
-            String[] rangeStr = rangeStepStr[0].split("-");
-            int start = Integer.parseInt(rangeStr[0]);
+            int step = 1;
+            if (rangeStepStr.length > 1) {
+                step = Integer.parseInt(rangeStepStr[1].trim());
+            }
+            
+            String[] rangeStr = rangeStepStr[0].split("-", 2);
+            int start = Integer.parseInt(rangeStr[0].trim());
             kSet.add(start);
             
             if (rangeStr.length > 1) {
-                int end = Integer.parseInt(rangeStr[1]);
-                
-                int step = 1;
-                if (rangeStepStr.length > 1) {
-                    step = Integer.parseInt(rangeStepStr[1]);
-                }
-                
+                int end = Integer.parseInt(rangeStr[1].trim());
+                                
                 for (int i=start+step; i<end; i+=step) {
                     kSet.add(i);
                 }
@@ -5034,7 +5034,15 @@ public class RNABloom {
             String defaultK = hasLongReadFiles ? "17" : optKmerSizeDefault;
             String kArg = line.getOptionValue(optKmerSize.getOpt(), defaultK);
             int k = Integer.parseInt(defaultK);
-            int[] kmerSizes = getKmerSizes(kArg);
+            
+            int[] kmerSizes = null;
+            try {
+                kmerSizes = getKmerSizes(kArg);
+            }
+            catch(NumberFormatException e) {
+                exitOnError("Invalid k-mer size: " + kArg);
+            }
+            
             switch (kmerSizes.length) {
                 case 0:
                     exitOnError("Invalid k-mer size: " + kArg);
