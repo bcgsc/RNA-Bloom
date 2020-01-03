@@ -4073,7 +4073,82 @@ public class RNABloom {
         return ok;
     }
     
-    private static void assembleTranscripts(RNABloom assembler, boolean forceOverwrite,
+    private static void assembleTranscriptsNR(RNABloom assembler, String outdir, String name, boolean forceOverwrite,
+            int numThreads, boolean keepArtifact, int minTranscriptLength) throws IOException {
+        
+        final File nrTxptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
+
+        if (forceOverwrite || !nrTxptsDoneStamp.exists()) {
+            String tmpPrefix = outdir + File.separator + name + ".tmp";
+            String transcriptsFasta = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
+            String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
+            String nrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr" + FASTA_EXT;
+            String shortNrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr.short" + FASTA_EXT;
+
+            Files.deleteIfExists(FileSystems.getDefault().getPath(nrTranscriptsFasta));
+
+            System.out.println("Reducing redundancy in assembled transcripts...");
+            MyTimer timer = new MyTimer();
+            timer.start();
+
+            boolean ok = assembler.generateNonRedundantTranscripts(transcriptsFasta, shortTranscriptsFasta,
+                    tmpPrefix, nrTranscriptsFasta, shortNrTranscriptsFasta, numThreads, !keepArtifact, minTranscriptLength);
+
+            if (ok) {
+                System.out.println("Redundancy reduced in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                touch(nrTxptsDoneStamp);
+            }
+            else {
+                exitOnError("Error during redundancy reduction!");
+            }
+        }
+        else {
+            System.out.println("WARNING: Redundancy reduction had completed previously for \"" + name + "\"!");
+        } 
+    }
+    
+    private static void assembleTranscriptsSE(RNABloom assembler, boolean forceOverwrite,
+            String outdir, String name, String txptNamePrefix,
+            long sbfSize, int sbfNumHash, int numThreads, 
+            String[] readPaths, boolean reverseComplement,
+            int minTranscriptLength, boolean keepArtifact, boolean keepChimera,
+            float minKmerCov, boolean reduceRedundancy, boolean writeUracil) throws IOException, InterruptedException {
+
+        final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
+        final String transcriptsFasta = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
+        final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
+        
+        if (forceOverwrite || !txptsDoneStamp.exists()) {
+            MyTimer timer = new MyTimer();
+                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                                
+                assembler.assembleSingleEndReads(readPaths,
+                                    reverseComplement,
+                                    transcriptsFasta,
+                                    shortTranscriptsFasta,
+                                    numThreads,
+                                    minTranscriptLength,
+                                    keepArtifact,
+                                    keepChimera,
+                                    txptNamePrefix,
+                                    minKmerCov,
+                                    writeUracil);
+            System.out.println("Transcripts assembled in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+
+            touch(txptsDoneStamp);
+
+            System.out.println("Assembled transcripts at `" + transcriptsFasta + "`");
+        }
+        else {
+            System.out.println("WARNING: Transcripts were already assembled for \"" + name + "\"!");
+        }
+        
+        if (reduceRedundancy) {
+            assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, minTranscriptLength);
+        }
+    }
+    
+    private static void assembleTranscriptsPE(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, String txptNamePrefix, boolean strandSpecific,
             long sbfSize, int sbfNumHash, long pkbfSize, int pkbfNumHash, int numThreads, boolean noFragDBG,
             int sampleSize, int minTranscriptLength, boolean keepArtifact, boolean keepChimera, 
@@ -4150,33 +4225,7 @@ public class RNABloom {
         }
                 
         if (reduceRedundancy) {
-            final File nrTxptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
-            
-            if (forceOverwrite || !nrTxptsDoneStamp.exists()) {
-                String tmpPrefix = outdir + File.separator + name + ".tmp";
-                String nrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr" + FASTA_EXT;
-                String shortNrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr.short" + FASTA_EXT;
-                
-                Files.deleteIfExists(FileSystems.getDefault().getPath(nrTranscriptsFasta));
-                
-                System.out.println("Reducing redundancy in assembled transcripts...");
-                MyTimer timer = new MyTimer();
-                timer.start();
-                
-                boolean ok = assembler.generateNonRedundantTranscripts(transcriptsFasta, shortTranscriptsFasta,
-                        tmpPrefix, nrTranscriptsFasta, shortNrTranscriptsFasta, numThreads, !keepArtifact, minTranscriptLength);
-
-                if (ok) {
-                    System.out.println("Redundancy reduced in " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                    touch(nrTxptsDoneStamp);
-                }
-                else {
-                    exitOnError("Error during redundancy reduction!");
-                }
-            }
-            else {
-                System.out.println("WARNING: Redundancy reduction had completed previously for \"" + name + "\"!");
-            }                
+            assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, minTranscriptLength);
         }
     }
     
@@ -5401,7 +5450,7 @@ public class RNABloom {
                     
                     String sampleOutdir = outdir + File.separator + sampleName;
                     
-                    assembleTranscripts(assembler, forceOverwrite,
+                    assembleTranscriptsPE(assembler, forceOverwrite,
                                     sampleOutdir, sampleName, txptNamePrefix, strandSpecific,
                                     sbfSize, sbfNumHash, pkbfSize, pkbfNumHash, numThreads, noFragDBG,
                                     sampleSize, minTranscriptLength, keepArtifact, keepChimera,
@@ -5539,24 +5588,13 @@ public class RNABloom {
                 MyTimer stageTimer = new MyTimer();
                 stageTimer.start();
                 
-                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-                
-                final String transcriptsFasta = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
-                final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
-                
-                assembler.assembleSingleEndReads(leftReadPaths,
-                                    revCompLeft,
-                                    transcriptsFasta,
-                                    shortTranscriptsFasta,
-                                    numThreads,
-                                    minTranscriptLength,
-                                    keepArtifact,
-                                    keepChimera,
-                                    txptNamePrefix,
+                assembleTranscriptsSE(assembler, forceOverwrite,
+                                    outdir, name, txptNamePrefix,
+                                    sbfSize, sbfNumHash, numThreads, 
+                                    leftReadPaths, revCompLeft,
+                                    minTranscriptLength, keepArtifact, keepChimera,
                                     minKmerCov,
-                                    writeUracil);
-                
-                touch(txptsDoneStamp);
+                                    outputNrTxpts, writeUracil);
                 
                 System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }
@@ -5585,7 +5623,7 @@ public class RNABloom {
                 System.out.println("\n> Stage 3: Assemble transcripts for \"" + name + "\"");
                 stageTimer.start();
                                 
-                assembleTranscripts(assembler, forceOverwrite,
+                assembleTranscriptsPE(assembler, forceOverwrite,
                                 outdir, name, txptNamePrefix, strandSpecific,
                                 sbfSize, sbfNumHash, pkbfSize, pkbfNumHash, numThreads, noFragDBG,
                                 sampleSize, minTranscriptLength, keepArtifact, keepChimera,
