@@ -130,6 +130,10 @@ public class PairedKeysBloomFilter {
 //        }
 //    }
     
+    public void add(final long hashValPair) {
+        add(hashFunction.getHashValues(hashValPair, numHash));
+    }
+    
     public void add(final long[] hashValsPair) {
         for (int h=0; h<numHash; ++h) {
             bitArrayPair.set(getIndex(hashValsPair[h]));

@@ -439,6 +439,10 @@ public class BloomFilterDeBruijnGraph {
         }
     }
     
+    public void addDbgOnly(final long hashVal) {
+        dbgbf.add(hashVal);
+    }
+    
     public void addDbgOnly(final long[] hashVals) {
         dbgbf.add(hashVals);
     }
@@ -493,6 +497,22 @@ public class BloomFilterDeBruijnGraph {
                 pkbf.add(left.getHash(),
                         right.getHash(),
                         left.getKmerPairHashValue(right));
+            }
+        }
+    }
+    
+    public void addReadPairedKmers(ArrayList<Kmer> kmers) {
+        Kmer left, right;
+        
+        // add paired kmers
+        final int upperBound = kmers.size() - readPairedKmersDistance;
+        
+        if (upperBound > 0) {
+            for (int i=0; i<upperBound; ++i) {
+                left = kmers.get(i);
+                right = kmers.get(i+readPairedKmersDistance);
+
+                rpkbf.add(left.getKmerPairHashValue(right));
             }
         }
     }
@@ -1234,20 +1254,20 @@ public class BloomFilterDeBruijnGraph {
 //        return minCount;
 //    }
         
-//    public boolean isValidSeq(String seq) {
-//        NTHashIterator itr = getHashIterator();
-//        itr.start(seq);
-//        long[] hVals = itr.hVals;
-//        
-//        while (itr.hasNext()) {
-//            itr.next();
-//            if (!dbgbf.lookup(hVals)) {
-//                return false;
-//            }
-//        }
-//                
-//        return true;
-//    }
+    public boolean isValidSeq(String seq) {
+        NTHashIterator itr = getHashIterator();
+        itr.start(seq);
+        long[] hVals = itr.hVals;
+        
+        while (itr.hasNext()) {
+            itr.next();
+            if (!dbgbf.lookup(hVals)) {
+                return false;
+            }
+        }
+                
+        return true;
+    }
     
     public NTHashIterator getHashIterator() {
         return hashFunction.getHashIterator(this.dbgbfCbfMaxNumHash);

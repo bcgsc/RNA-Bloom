@@ -4636,8 +4636,9 @@ public final class GraphUtils {
             }
             else {
                 // The overlap is smaller than k
-                                
+                boolean spanningKmersNotValid = false;
                 boolean hasComplexKmer = false;
+                boolean addReadKmers = false;
                 int start = leftLen - k + 1;
                 int end = overlappedSeqLength - (rightLen - k + 1);
 
@@ -4645,12 +4646,61 @@ public final class GraphUtils {
                 for (Kmer kmer : spanningKmers) {
                     if (kmer.count < minKmerCov) {
                         // the overlap is not a valid path in the graph
-                        return null;
+                        spanningKmersNotValid = true;
+                        break;
                     }
                     
                     if (!hasComplexKmer && !isHomopolymer(kmer.bytes)) {
                         // Require at least one complex kmers in the overlap
                         hasComplexKmer = true;
+                    }
+                }
+                
+                if (spanningKmersNotValid) {
+                    // check whether kmers at edges of left and right reads have count = 1
+                    int numBasesOverlapped = leftLen + rightLen - overlappedSeqLength;
+                    boolean singletonInLeftRead = false;
+                    boolean singeltonInRightRead = false;
+                    int tmp = Math.min(numBasesOverlapped, rightKmers.size());
+                    for (int i=0; i<tmp; ++i) {
+                        if (rightKmers.get(i).count == 1) {
+                            singeltonInRightRead = true;
+                            break;
+                        }
+                    }
+                    
+                    if (singeltonInRightRead) {
+                        int numLeftKmers = leftKmers.size();
+                        for (int i=Math.max(0, numLeftKmers-numBasesOverlapped); i<numLeftKmers; ++i) {
+                            if (leftKmers.get(i).count == 1) {
+                                singletonInLeftRead = true;
+                                break;
+                            }
+                        }
+                        
+                        if (singletonInLeftRead && !isRepeat(right.substring(0, numBasesOverlapped))) {
+                            // add the missing kmers
+                            for (Kmer kmer : spanningKmers) {
+                                if (kmer.count == 0) {
+                                    graph.addDbgOnly(kmer.getHash());
+                                    kmer.count = 1;
+                                }
+                                
+                                if (!hasComplexKmer && !isHomopolymer(kmer.bytes)) {
+                                    // Require at least one complex kmers in the overlap
+                                    hasComplexKmer = true;
+                                }
+                            }
+                            
+                            // add the missing read paired kmers
+                            addReadKmers = true;
+                        } 
+                        else {
+                            return null;
+                        }
+                    }
+                    else {
+                        return null;
                     }
                 }
                 
@@ -4662,6 +4712,11 @@ public final class GraphUtils {
                 overlappedKmers.addAll(leftKmers);
                 overlappedKmers.addAll(spanningKmers);
                 overlappedKmers.addAll(rightKmers);
+                
+                if (addReadKmers) {
+                    correctMismatches(overlappedKmers, graph, 2, minKmerCov);
+                    graph.addReadPairedKmers(overlappedKmers);
+                }
                 
                 return overlappedKmers;
             }
