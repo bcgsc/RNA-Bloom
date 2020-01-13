@@ -4835,6 +4835,12 @@ public class RNABloom {
                                     .hasArg(false)
                                     .build();
         options.addOption(optNoReduce);
+
+        Option optMergePool = Option.builder("mergepool")
+                                    .desc("merge pooled assemblies [false]\n(Requires `-pool`; overrides `-norr`)")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optMergePool);
         
         final String optOverlapDefault = "10";
         Option optOverlap = Option.builder("overlap")
@@ -4989,6 +4995,14 @@ public class RNABloom {
             File longReadsClusteredStamp = new File(outdir + File.separator + STAMP_LONG_READS_CLUSTERED);
             File longReadsAssembledStamp = new File(outdir + File.separator + STAMP_LONG_READS_ASSEMBLED);
             
+            boolean dbgDone = forceOverwrite ? false : dbgDoneStamp.exists();
+            boolean fragmentsDone = forceOverwrite ? false : fragsDoneStamp.exists();
+            boolean txptsDone = forceOverwrite ? false : txptsDoneStamp.exists();
+            boolean txptsNrDone = forceOverwrite ? false : txptsNrDoneStamp.exists();
+            boolean longReadsCorrected = forceOverwrite ? false : longReadsCorrectedStamp.exists();
+            boolean longReadsClustered = forceOverwrite ? false : longReadsClusteredStamp.exists();
+            boolean longReadsAssembled = forceOverwrite ? false : longReadsAssembledStamp.exists();
+            
             if (forceOverwrite) {
                 if (startedStamp.exists()) {
                     startedStamp.delete();
@@ -5139,7 +5153,8 @@ public class RNABloom {
             final boolean revCompLong = line.hasOption(optRevCompLong.getOpt());
             final boolean strandSpecific = line.hasOption(optStranded.getOpt());
             final boolean writeUracil = line.hasOption(optUracil.getOpt());
-            final boolean outputNrTxpts = !line.hasOption(optNoReduce.getOpt());
+            final boolean mergePool = line.hasOption(optMergePool.getOpt());
+            final boolean outputNrTxpts = mergePool ? true : !line.hasOption(optNoReduce.getOpt());
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
 //            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final boolean useCompressedMinimizers = false;
@@ -5149,12 +5164,16 @@ public class RNABloom {
             boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
             boolean hasRefTranscriptFiles = refTranscriptPaths != null && refTranscriptPaths.length > 0;
             
-            if ((hasLongReadFiles || outputNrTxpts) && !hasMinimap2()) {
+            if ((hasLongReadFiles || outputNrTxpts || mergePool) && !hasMinimap2()) {
                 exitOnError("`minimap2` not found in PATH!");
             }
 
             if (hasLongReadFiles && !hasRacon()) {
                 exitOnError("`racon` not found in PATH!");
+            }
+            
+            if (mergePool && !pooledGraphMode) {
+                exitOnError("`-mergepool` option requires `-pool` to be used!");
             }
                         
             String defaultPercentIdentity = hasLongReadFiles ? "0.7" : optPercentIdentityDefault;
@@ -5372,122 +5391,125 @@ public class RNABloom {
             FileWriter writer = new FileWriter(startedStamp, false);
             writer.write(String.join(" ", args));
             writer.close();
-                        
-            if (!forceOverwrite && dbgDoneStamp.exists()) {
-                System.out.println("WARNING: Graph was already constructed (k=" + k + ")!");
+            
+            if (endstage >= 1 &&
+                    ((!txptsDone && !hasLongReadFiles) ||
+                    (!fragmentsDone && hasLeftReadFiles && hasRightReadFiles) || 
+                    (hasLongReadFiles && !longReadsCorrected))) {
                 
-                if (endstage == 1) {
-                    System.exit(0);
-                }
-                
-                boolean fragmentsDone = fragsDoneStamp.exists();
-                
-                if (!fragmentsDone || (outputNrTxpts && !txptsNrDoneStamp.exists()) || !txptsDoneStamp.exists()) {
-                    System.out.println("Loading graph from file `" + graphFile + "`...");
-                    assembler.restoreGraph(new File(graphFile), noFragDBG || !fragmentsDone || (outputNrTxpts && !txptsNrDoneStamp.exists()));
-                }
-            }
-            else {                
-                ArrayList<String> forwardFilesList = new ArrayList<>();
-                ArrayList<String> backwardFilesList = new ArrayList<>();
-                ArrayList<String> longFilesList = new ArrayList<>();
-                ArrayList<String> refFilesList = new ArrayList<>();
-                
-                if (hasLeftReadFiles) {
-                    if (revCompLeft) {
-                        backwardFilesList.addAll(Arrays.asList(leftReadPaths));
-                    }
-                    else {
-                        forwardFilesList.addAll(Arrays.asList(leftReadPaths));
-                    }
-                }
-                
-                if (hasRightReadFiles) {
-                    if (revCompRight) {
-                        backwardFilesList.addAll(Arrays.asList(rightReadPaths));
-                    }
-                    else {
-                        forwardFilesList.addAll(Arrays.asList(rightReadPaths));
-                    }
-                }
-                
-                if (hasLongReadFiles) {
-                    longFilesList.addAll(Arrays.asList(longReadPaths));
-                }
-                
-                if (hasRefTranscriptFiles) {
-                    refFilesList.addAll(Arrays.asList(refTranscriptPaths));
-                }
-                       
-                System.out.println("\n> Stage 1: Construct graph from reads (k=" + k + ")");
-                timer.start();
-                                
-                assembler.initializeGraph(strandSpecific, 
-                        dbgbfSize, cbfSize, pkbfSize, 
-                        dbgbfNumHash, cbfNumHash, pkbfNumHash, false, storeReadPairedKmers);
-                
-                if (!hasLongReadFiles) {
-                    assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-                }
-                
-                assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, refFilesList, strandSpecific, revCompLong, numThreads, false, storeReadPairedKmers);
-                
-                if (!assembler.withinMaxFPR(maxFPR)) {
-                    System.out.println("WARNING: Bloom filter FPR is higher than the maximum allowed FPR (" + maxFPR*100 +"%)!");
-                    
-                    System.out.println("Adjusting Bloom filter sizes...");
+                if (dbgDone) {
+                    System.out.println("WARNING: Graph was already constructed (k=" + k + ")!");
 
-                    long[] suggestedSizes = assembler.getOptimalBloomFilterSizes(maxFPR);
+                    if (endstage == 1) {
+                        System.exit(0);
+                    }
 
-                    assembler.destroyAllBf();
-                    
-                    dbgbfSize = suggestedSizes[1];
-                    cbfSize = suggestedSizes[2];
-                    pkbfSize = suggestedSizes[3];
-                    sbfSize = suggestedSizes[0];
+                    if (!fragmentsDone || (outputNrTxpts && !txptsNrDone) || !txptsDone) {
+                        System.out.println("Loading graph from file `" + graphFile + "`...");
+                        assembler.restoreGraph(new File(graphFile), noFragDBG || !fragmentsDone || (outputNrTxpts && !txptsNrDone));
+                    }
+                }
+                else {                
+                    ArrayList<String> forwardFilesList = new ArrayList<>();
+                    ArrayList<String> backwardFilesList = new ArrayList<>();
+                    ArrayList<String> longFilesList = new ArrayList<>();
+                    ArrayList<String> refFilesList = new ArrayList<>();
 
-                    dbgGB = dbgbfSize / (float) NUM_BITS_1GB;
-                    cbfGB = cbfSize / (float) NUM_BYTES_1GB;
-                    pkbfGB = pkbfSize / (float) NUM_BITS_1GB;
-                    sbfGB = sbfSize / (float) NUM_BITS_1GB;
-                    
-                    if (!storeReadPairedKmers) {
-                        pkbfGB = 0;
+                    if (hasLeftReadFiles) {
+                        if (revCompLeft) {
+                            backwardFilesList.addAll(Arrays.asList(leftReadPaths));
+                        }
+                        else {
+                            forwardFilesList.addAll(Arrays.asList(leftReadPaths));
+                        }
+                    }
+
+                    if (hasRightReadFiles) {
+                        if (revCompRight) {
+                            backwardFilesList.addAll(Arrays.asList(rightReadPaths));
+                        }
+                        else {
+                            forwardFilesList.addAll(Arrays.asList(rightReadPaths));
+                        }
                     }
 
                     if (hasLongReadFiles) {
-                        sbfGB = 0;
+                        longFilesList.addAll(Arrays.asList(longReadPaths));
                     }
 
-                    printBloomFilterMemoryInfo(dbgGB, cbfGB, pkbfGB, sbfGB);
-                    
+                    if (hasRefTranscriptFiles) {
+                        refFilesList.addAll(Arrays.asList(refTranscriptPaths));
+                    }
+
+                    System.out.println("\n> Stage 1: Construct graph from reads (k=" + k + ")");
+                    timer.start();
+
                     assembler.initializeGraph(strandSpecific, 
                             dbgbfSize, cbfSize, pkbfSize, 
                             dbgbfNumHash, cbfNumHash, pkbfNumHash, false, storeReadPairedKmers);
-                    
+
                     if (!hasLongReadFiles) {
                         assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                     }
-                    
-                    System.out.println("Repopulate graph ...");
-                    
+
                     assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, refFilesList, strandSpecific, revCompLong, numThreads, false, storeReadPairedKmers);
-                }    
-                
-                if (saveGraph) {
-                    System.out.println("Saving graph to disk `" + graphFile + "`...");
-                    assembler.saveGraph(new File(graphFile));
-                    touch(dbgDoneStamp);
+
+                    if (!assembler.withinMaxFPR(maxFPR)) {
+                        System.out.println("WARNING: Bloom filter FPR is higher than the maximum allowed FPR (" + maxFPR*100 +"%)!");
+
+                        System.out.println("Adjusting Bloom filter sizes...");
+
+                        long[] suggestedSizes = assembler.getOptimalBloomFilterSizes(maxFPR);
+
+                        assembler.destroyAllBf();
+
+                        dbgbfSize = suggestedSizes[1];
+                        cbfSize = suggestedSizes[2];
+                        pkbfSize = suggestedSizes[3];
+                        sbfSize = suggestedSizes[0];
+
+                        dbgGB = dbgbfSize / (float) NUM_BITS_1GB;
+                        cbfGB = cbfSize / (float) NUM_BYTES_1GB;
+                        pkbfGB = pkbfSize / (float) NUM_BITS_1GB;
+                        sbfGB = sbfSize / (float) NUM_BITS_1GB;
+
+                        if (!storeReadPairedKmers) {
+                            pkbfGB = 0;
+                        }
+
+                        if (hasLongReadFiles) {
+                            sbfGB = 0;
+                        }
+
+                        printBloomFilterMemoryInfo(dbgGB, cbfGB, pkbfGB, sbfGB);
+
+                        assembler.initializeGraph(strandSpecific, 
+                                dbgbfSize, cbfSize, pkbfSize, 
+                                dbgbfNumHash, cbfNumHash, pkbfNumHash, false, storeReadPairedKmers);
+
+                        if (!hasLongReadFiles) {
+                            assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                        }
+
+                        System.out.println("Repopulate graph ...");
+
+                        assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, refFilesList, strandSpecific, revCompLong, numThreads, false, storeReadPairedKmers);
+                    }    
+
+                    if (saveGraph) {
+                        System.out.println("Saving graph to disk `" + graphFile + "`...");
+                        assembler.saveGraph(new File(graphFile));
+                        touch(dbgDoneStamp);
+                    }
+
+                    System.out.println("> Stage 1 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+
+                    if (endstage <= 1) {
+                        System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+                        System.exit(0);
+                    }
                 }
-                
-                System.out.println("> Stage 1 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                
-                if (endstage <= 1) {
-                    System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
-                    System.exit(0);
-                }
-            }
-                        
+            }           
 
             if (pooledGraphMode) {
                 // assemble fragments for each sample
@@ -5558,30 +5580,36 @@ public class RNABloom {
                     System.out.print("\n");
                 }
                 
-                /*
-                if (outputNrTxpts) {
+                if (mergePool) {
                     // combine assembly files
                     
-                    String txptFileExt = outputNrTxpts ? ".nr" + FASTA_EXT : FASTA_EXT;
-                    String shortTxptFileExt = outputNrTxpts ? ".nr.short" + FASTA_EXT : FASTA_EXT;
-
                     System.out.println(">> Merging transcripts from all samples...");
-                    MyTimer mergeTimer = new MyTimer();
-                    mergeTimer.start();
+                    String txptFileExt = ".nr" + FASTA_EXT;
+                    String shortTxptFileExt = ".nr.short" + FASTA_EXT;
                     
-                    boolean ok = mergePooledAssemblies(outdir, name, sampleNames, 
-                                    txptFileExt, shortTxptFileExt, txptNamePrefix,
-                                    k, numThreads, strandSpecific, maxIndelSize,
-                                    maxTipLen, percentIdentity, !keepArtifact, minTranscriptLength, writeUracil);
-                                        
-                    if (ok) {
-                        System.out.println(">> Merging completed in " + MyTimer.hmsFormat(mergeTimer.elapsedMillis()));
+                    if (txptsNrDone) {
+                        System.out.println("WARNING: Assemblies were already merged!");
                     }
                     else {
-                        exitOnError("Error during assembly merging!");
+                        MyTimer mergeTimer = new MyTimer();
+                        mergeTimer.start();
+                        
+                        boolean ok = mergePooledAssemblies(outdir, name, sampleNames, 
+                                        txptFileExt, shortTxptFileExt, txptNamePrefix,
+                                        k, numThreads, strandSpecific, maxIndelSize,
+                                        maxTipLen, percentIdentity, !keepArtifact, minTranscriptLength, writeUracil);
+                        
+                        if (ok) {
+                            System.out.println("Merged assembly at `" + outdir + File.separator + name + txptFileExt + "`");
+                            System.out.println(">> Merging completed in " + MyTimer.hmsFormat(mergeTimer.elapsedMillis()));
+                        }
+                        else {
+                            exitOnError("Error during assembly merging!");
+                        }
                     }
+                    
+                    touch(txptsNrDoneStamp);
                 }
-                */
                 
                 System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));                
                 
@@ -5609,7 +5637,7 @@ public class RNABloom {
                 MyTimer stageTimer = new MyTimer();
                 stageTimer.start();
                 
-                if (forceOverwrite || !longReadsCorrectedStamp.exists()) {
+                if (!longReadsCorrected) {
                     /* set up the file writers */
                     for (String[] row : correctedLongReadFileNames) {
                         for (String fasta : row) {
@@ -5637,7 +5665,7 @@ public class RNABloom {
                 System.out.println("\n> Stage 3: Cluster long reads for \"" + name + "\"");
                 stageTimer.start();
                 
-                if (forceOverwrite || !longReadsClusteredStamp.exists()) {                    
+                if (!longReadsClustered) {
                     clusterLongReads(assembler,
                             correctedLongReadFileNames, clusteredLongReadsDirectory,
                             sketchSize, numThreads, minKmerCov, useCompressedMinimizers);
@@ -5657,7 +5685,7 @@ public class RNABloom {
                 
                 final String assembledLongReadsDirectory = outdir + File.separator + name + ".longreads.assembly";
                 final String assembledLongReadsCombinedFile = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
-                if (forceOverwrite || !longReadsAssembledStamp.exists()) {
+                if (!longReadsAssembled) {
                     assembler.destroyAllBf();
                                         
                     boolean ok = assembleLongReads(assembler,
