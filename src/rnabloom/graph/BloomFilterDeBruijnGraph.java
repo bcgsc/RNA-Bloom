@@ -1277,8 +1277,8 @@ public class BloomFilterDeBruijnGraph {
         return hashFunction.getHashIterator(numHash);
     }
     
-    public PairedNTHashIterator getPairedHashIterator() {
-        return hashFunction.getPairedHashIterator(this.pkbfNumHash, this.fragmentPairedKmersDistance);
+    public PairedNTHashIterator getPairedHashIterator(int d) {
+        return hashFunction.getPairedHashIterator(this.pkbfNumHash, d);
     }
         
     public ArrayList<Kmer> getKmers(String seq) {                
