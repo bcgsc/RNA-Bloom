@@ -10927,7 +10927,7 @@ public final class GraphUtils {
                     seqKmers = new ArrayList<>(seqKmers.subList(0, Math.max(1, cutIndex-k)));
                 }
                 else {
-                    seqKmers = new ArrayList<>(seqKmers.subList(Math.max(cutLength+k, numKmers-1), numKmers));
+                    seqKmers = new ArrayList<>(seqKmers.subList(Math.min(cutLength+k, numKmers-1), numKmers));
                 }
             }
             else {
