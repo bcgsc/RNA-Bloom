@@ -5600,7 +5600,7 @@ public class RNABloom {
                                         maxTipLen, percentIdentity, !keepArtifact, minTranscriptLength, writeUracil);
                         
                         if (ok) {
-                            System.out.println("Merged assembly at `" + outdir + File.separator + name + txptFileExt + "`");
+                            System.out.println("Merged assembly at `" + outdir + File.separator + name + ".transcripts.fa`");
                             System.out.println(">> Merging completed in " + MyTimer.hmsFormat(mergeTimer.elapsedMillis()));
                         }
                         else {
