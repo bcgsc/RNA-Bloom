@@ -257,7 +257,11 @@ public class RNABloom {
 
         covFPR = graph.getCbfFPR();
         System.out.println("Counting Bloom filter FPR:           " + covFPR * 100 + " %");
-        System.out.println("Read paired k-mers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
+        
+        PairedKeysBloomFilter rpkbf = graph.getRpkbf();
+        if (rpkbf != null) {
+            System.out.println("Read paired k-mers Bloom filter FPR: " + rpkbf.getFPR() * 100 + " %");
+        }
     }
     
     public boolean isGraphInitialized() {
@@ -2393,12 +2397,13 @@ public class RNABloom {
             int sketchSize, int numThreads, float minCoverage, boolean useCompressedMinimizers) throws IOException, InterruptedException {
 
         final int minimizerWindowSize = k;
+        int numSeq = 0;
         
         int maxQueueSize = 100;
         ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
         
         ArrayList<long[]> targetSketches = new ArrayList<>();
-        ArrayList<Integer> targetSketchesAltIDs = new ArrayList<>();
+        ArrayList<ArrayDeque<String>> targetSketchesSeqIDs = new ArrayList<>();
         ArrayDeque<Integer> targetSketchesNullIndexes = new ArrayDeque<>();
         NTHashIterator itr = graph.getHashIterator();
         
@@ -2430,6 +2435,7 @@ public class RNABloom {
 //                        continue;
 //                    }                    
 
+                    ++numSeq;
                     int bestTargetSketchID = -1;
                     
                     if (targetSketches.isEmpty()) {
@@ -2437,8 +2443,12 @@ public class RNABloom {
                                         getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
                                         getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
                         targetSketches.add(sketch);
-                        targetSketchesAltIDs.add(-1);
+                        
                         bestTargetSketchID = 0;
+                        
+                        ArrayDeque<String> seqIDs = new ArrayDeque<>();
+                        seqIDs.add(name);
+                        targetSketchesSeqIDs.add(seqIDs);
                     }
                     else {
                         float minSketchOverlapProportion = (float)sortedHashVals.length / (float)numKmers;
@@ -2495,65 +2505,92 @@ public class RNABloom {
                             
                             if (targetSketchesNullIndexes.isEmpty()) {
                                 targetSketches.add(sketch);
-                                targetSketchesAltIDs.add(-1);
-                                bestTargetSketchID = targetSketches.size()-1;
+                                
+                                ArrayDeque<String> seqIDs = new ArrayDeque<>();
+                                seqIDs.add(name);
+                                targetSketchesSeqIDs.add(seqIDs);
                             }
                             else {
                                 bestTargetSketchID = targetSketchesNullIndexes.poll();
                                 targetSketches.set(bestTargetSketchID, sketch);
-                                targetSketchesAltIDs.set(bestTargetSketchID, -1);
+                                
+                                ArrayDeque<String> seqIDs = new ArrayDeque<>();
+                                seqIDs.add(name);
+                                targetSketchesSeqIDs.set(bestTargetSketchID, seqIDs);
                             }
                         }
                         else {                            
                             if (c > 0 && !overlapSketchIdSet.isEmpty()) {
                                 // combine overlapping clusters
-                                                                
-                                // combine FASTA files
-//                                System.out.println("Combining " + overlapSketchIdSet.size() + " clusters into cluster " +  bestTargetSketchID);
-                                int newTargetAltID = aggregateClusterFastas(bestTargetSketchID, overlapSketchIdSet, targetSketchesAltIDs, clusteredLongReadsDirectory);
-                                targetSketchesAltIDs.set(bestTargetSketchID, newTargetAltID);
-                                
+                                ArrayDeque<String> seqIDs = targetSketchesSeqIDs.get(bestTargetSketchID);
                                 
                                 ArrayDeque<long[]> sketches = new ArrayDeque<>();
+                                
                                 // add the sketch of the best target
                                 sketches.add(targetSketches.get(bestTargetSketchID));
                                 
                                 // add the sketches of other targets
                                 for (int i : overlapSketchIdSet) {
-                                    sketches.add(targetSketches.get(i));
+                                    sketches.add(targetSketches.get(i));                                    
                                     targetSketches.set(i, null);
                                     targetSketchesNullIndexes.add(i);
-                                    targetSketchesAltIDs.set(i, -1);
+                                    
+                                    seqIDs.addAll(targetSketchesSeqIDs.get(i));
+                                    targetSketchesSeqIDs.set(i, null);
                                 }
                                 
                                 long[] newSketch = combineSketches(sketches);
                                 targetSketches.set(bestTargetSketchID, newSketch);
+                                
+                                seqIDs.add(name);
+                                targetSketchesSeqIDs.set(bestTargetSketchID, seqIDs);
                             }
                         }
                     }
-                    
-                    /** add sequence to target cluster*/
-                    String path = clusteredLongReadsDirectory + File.separator + bestTargetSketchID + FASTA_EXT;
-                    FastaWriter writer = new FastaWriter(path, true);
-                    writer.write(name, seq);
-                    writer.close();
                 }
                 
                 fr.close();
             }
         }
         
-        //merge alt FASTA files
-        System.out.println("Merging alternate cluster FASTAs ...");
-        int targetSketchesSize = targetSketches.size();
-        for (int i=0; i<targetSketchesSize; ++i) {
-            int altID = targetSketchesAltIDs.get(i);
-            if (altID >= 0) {
-                mergeClusterFastas(i, altID, clusteredLongReadsDirectory);
+        HashMap<String, Integer> seqNameToClusterNameMap = new HashMap<>(numSeq);
+        int clusterID = 0;
+        for (ArrayDeque<String> seqIDs : targetSketchesSeqIDs) {
+            if (seqIDs != null) {
+                for (String id : seqIDs) {
+                    seqNameToClusterNameMap.put(id, clusterID);
+                }
+                
+                ++clusterID;
             }
         }
-        
-        System.out.println("Reads are clustered in " + (targetSketches.size() - targetSketchesNullIndexes.size()) + " groups.");
+
+        System.out.println("Reads are clustered in " + clusterID + " groups.");        
+        System.out.println("Writing clustered reads to files ...");
+        // skip l=0 because their lengths are too short to have a sketch
+        for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
+            for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
+                
+                String readFile = correctedLongReadFileNames[c][l];
+                FastaReader fr = new FastaReader(readFile);
+                
+                while (fr.hasNext()) {
+                    String[] nameSeqPair = fr.nextWithName();
+                    String name = nameSeqPair[0];
+                    String seq = nameSeqPair[1];
+                    
+                    Integer id = seqNameToClusterNameMap.get(name);
+                    if (id != null) {
+                        String path = clusteredLongReadsDirectory + File.separator + id.toString() + FASTA_EXT;
+                        FastaWriter writer = new FastaWriter(path, true);
+                        writer.write(name, seq);
+                        writer.close();
+                    }
+                }
+                
+                fr.close();
+            }
+        }
     }
     
     public boolean assembleLongReads(String clusteredLongReadsDirectory, 
@@ -2879,14 +2916,14 @@ public class RNABloom {
                                                                         true);
                                         
                     if (correctedKmers != null && !correctedKmers.isEmpty()) {
-                        if (trimArtifact) {
-                            ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
-                                                graph, strandSpecific, 150, maxIndelSize, percentIdentity, maxCovGradient);
-                            if (trimmed.size() < correctedKmers.size()) {
-                                ++numArtifacts;
-                                correctedKmers = trimmed;
-                            }
-                        }
+//                        if (trimArtifact) {
+//                            ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
+//                                                graph, strandSpecific, 150, maxIndelSize, percentIdentity, maxCovGradient);
+//                            if (trimmed.size() < correctedKmers.size()) {
+//                                ++numArtifacts;
+//                                correctedKmers = trimmed;
+//                            }
+//                        }
                         
                         float cov = getMinMedianKmerCoverage(correctedKmers, 200);
                         seq = graph.assemble(correctedKmers);
@@ -5395,7 +5432,7 @@ public class RNABloom {
             if (endstage >= 1 &&
                     ((!txptsDone && !hasLongReadFiles) ||
                     (!fragmentsDone && hasLeftReadFiles && hasRightReadFiles) || 
-                    (hasLongReadFiles && !longReadsCorrected))) {
+                    (hasLongReadFiles && (!longReadsCorrected || !longReadsClustered)))) {
                 
                 if (dbgDone) {
                     System.out.println("WARNING: Graph was already constructed (k=" + k + ")!");
@@ -5637,7 +5674,10 @@ public class RNABloom {
                 MyTimer stageTimer = new MyTimer();
                 stageTimer.start();
                 
-                if (!longReadsCorrected) {
+                if (longReadsCorrected) {
+                    System.out.println("WARNING: Reads were already corrected!");
+                }
+                else {
                     /* set up the file writers */
                     for (String[] row : correctedLongReadFileNames) {
                         for (String fasta : row) {
@@ -5665,7 +5705,10 @@ public class RNABloom {
                 System.out.println("\n> Stage 3: Cluster long reads for \"" + name + "\"");
                 stageTimer.start();
                 
-                if (!longReadsClustered) {
+                if (longReadsClustered) {
+                    System.out.println("WARNING: Reads were already clustered!");
+                }
+                else {
                     clusterLongReads(assembler,
                             correctedLongReadFileNames, clusteredLongReadsDirectory,
                             sketchSize, numThreads, minKmerCov, useCompressedMinimizers);
@@ -5683,11 +5726,14 @@ public class RNABloom {
                 System.out.println("\n> Stage 4: Assemble long reads for \"" + name + "\"");
                 stageTimer.start();
                 
-                final String assembledLongReadsDirectory = outdir + File.separator + name + ".longreads.assembly";
-                final String assembledLongReadsCombinedFile = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
-                if (!longReadsAssembled) {
+                if (longReadsAssembled) {
+                    System.out.println("WARNING: Reads were already assembled!");
+                }
+                else {
                     assembler.destroyAllBf();
-                                        
+                
+                    final String assembledLongReadsDirectory = outdir + File.separator + name + ".longreads.assembly";
+                    final String assembledLongReadsCombinedFile = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
                     boolean ok = assembleLongReads(assembler,
                             clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombinedFile,
                             numThreads, forceOverwrite, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, strandSpecific, minTranscriptLength, !keepArtifact);
