@@ -1,3 +1,5 @@
+[![Release](https://img.shields.io/github/v/release/bcgsc/RNA-Bloom?include_prereleases)](https://github.com/bcgsc/RNA-Bloom/releases)
+
 <p align="center">
   <img src="rnabloom_logo.png" alt="RNA-Bloom's logo"/>
 </p>
