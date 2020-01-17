@@ -2569,7 +2569,7 @@ public class RNABloom {
         
         System.out.println(NumberFormat.getInstance().format(numSeq) + " reads were assigned to " + NumberFormat.getInstance().format(clusterID) + " clusters.");
         
-        System.out.println("Writing clustered reads to files ...");
+        System.out.println("Writing clustered reads to files...");
         // skip l=0 because their lengths are too short to have a sketch
         for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
             for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
@@ -5531,7 +5531,7 @@ public class RNABloom {
                             assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                         }
 
-                        System.out.println("Repopulate graph ...");
+                        System.out.println("Repopulate graph...");
 
                         assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, refFilesList, strandSpecific, revCompLong, numThreads, false, storeReadPairedKmers);
                     }    
