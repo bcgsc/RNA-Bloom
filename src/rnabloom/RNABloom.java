@@ -2521,11 +2521,12 @@ public class RNABloom {
                                 targetSketchesSeqIDs.set(bestTargetSketchID, seqIDs);
                             }
                         }
-                        else {                            
-                            if (c > 0 && !overlapSketchIdSet.isEmpty()) {
+                        else {
+                            ArrayDeque<String> seqIDs = targetSketchesSeqIDs.get(bestTargetSketchID);
+                            seqIDs.add(name);
+                            
+                            if (!overlapSketchIdSet.isEmpty()) {
                                 // combine overlapping clusters
-                                ArrayDeque<String> seqIDs = targetSketchesSeqIDs.get(bestTargetSketchID);
-                                
                                 ArrayDeque<long[]> sketches = new ArrayDeque<>();
                                 
                                 // add the sketch of the best target
@@ -2543,9 +2544,6 @@ public class RNABloom {
                                 
                                 long[] newSketch = combineSketches(sketches);
                                 targetSketches.set(bestTargetSketchID, newSketch);
-                                
-                                seqIDs.add(name);
-                                targetSketchesSeqIDs.set(bestTargetSketchID, seqIDs);
                             }
                         }
                     }
