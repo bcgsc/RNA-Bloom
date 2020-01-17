@@ -2398,6 +2398,7 @@ public class RNABloom {
 
         final int minimizerWindowSize = k;
         int numSeq = 0;
+        int numDiscarded = 0;
         
         int maxQueueSize = 100;
         ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
@@ -2427,6 +2428,7 @@ public class RNABloom {
                     
                     if (sortedHashVals.length < sketchSize) {
                         // not enough good kmers
+                        ++numDiscarded;
                         continue;
                     }
                     
@@ -2553,6 +2555,8 @@ public class RNABloom {
             }
         }
         
+        System.out.println(NumberFormat.getInstance().format(numDiscarded) + " reads were discarded.");
+        
         HashMap<String, Integer> seqNameToClusterNameMap = new HashMap<>(numSeq);
         int clusterID = 0;
         for (ArrayDeque<String> seqIDs : targetSketchesSeqIDs) {
@@ -2564,8 +2568,9 @@ public class RNABloom {
                 ++clusterID;
             }
         }
-
-        System.out.println("Reads are clustered in " + clusterID + " groups.");        
+        
+        System.out.println(NumberFormat.getInstance().format(numSeq) + " reads were assigned to " + NumberFormat.getInstance().format(clusterID) + " clusters.");
+        
         System.out.println("Writing clustered reads to files ...");
         // skip l=0 because their lengths are too short to have a sketch
         for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
