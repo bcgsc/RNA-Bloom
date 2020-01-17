@@ -38,6 +38,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.TreeSet;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -2269,20 +2271,20 @@ public class RNABloom {
     }
     
     public class ContainmentCalculator implements Runnable {
-        private final long[] queryHashVals;
+        private final TreeSet<Long> queryHashVals;
         private final ArrayBlockingQueue<Integer> sketchIDsQueue;
         private int bestOverlap = -1;
         private float bestOverlapProportion = -1;
         private int bestTargetIndex = -1;
-        private final ArrayList<long[]> targetSketches;
+        private final ArrayList<TreeSet<Long>> targetSketches;
         private boolean terminateWhenInputExhausts = false;
         private boolean successful = false;
         private Exception exception = null;
         private int minSketchOverlap = -1;
         private float minSketchOverlapProportion = -1;
-        private ArrayDeque<Integer> overlappingSketchIndexes = new ArrayDeque<>();
+        private LinkedList<Integer> overlappingSketchIndexes = new LinkedList<>();
         
-        public ContainmentCalculator(long[] queryHashVals, ArrayList<long[]> targetSketches, 
+        public ContainmentCalculator(TreeSet<Long> queryHashVals, ArrayList<TreeSet<Long>> targetSketches, 
                                     ArrayBlockingQueue<Integer> sketchIDsQueue,
                                     int minSketchOverlap,
                                     float minSketchOverlapProportion) {
@@ -2303,9 +2305,9 @@ public class RNABloom {
                         continue;
                     }
                     
-                    long[] sketch = targetSketches.get(sketchID);
+                    TreeSet<Long> sketch = targetSketches.get(sketchID);
                     int overlap = getNumIntersection(queryHashVals, sketch);
-                    float overlapProportion = Math.max((float)overlap / (float)sketch.length, (float)overlap / (float)queryHashVals.length);
+                    float overlapProportion = Math.max((float)overlap / (float)sketch.size(), (float)overlap / (float)queryHashVals.size());
 
                     if (overlapProportion >= minSketchOverlapProportion || overlap >= minSketchOverlap) {
                         if (bestTargetIndex < 0) {
@@ -2338,7 +2340,7 @@ public class RNABloom {
             return bestOverlap;
         }
         
-        public ArrayDeque<Integer> getOverlappingSketchIndexes() {
+        public LinkedList<Integer> getOverlappingSketchIndexes() {
             return overlappingSketchIndexes;
         }
         
@@ -2403,9 +2405,9 @@ public class RNABloom {
         int maxQueueSize = 100;
         ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
         
-        ArrayList<long[]> targetSketches = new ArrayList<>();
-        ArrayList<ArrayDeque<String>> targetSketchesSeqIDs = new ArrayList<>();
-        ArrayDeque<Integer> targetSketchesNullIndexes = new ArrayDeque<>();
+        ArrayList<TreeSet<Long>> targetSketches = new ArrayList<>();
+        ArrayList<LinkedList<String>> targetSketchesSeqIDs = new ArrayList<>();
+        LinkedList<Integer> targetSketchesNullIndexes = new LinkedList<>();
         NTHashIterator itr = graph.getHashIterator();
         
         // skip l=0 because their lengths are too short to have a sketch
@@ -2422,11 +2424,11 @@ public class RNABloom {
                     String seq = nameSeqPair[1];
                     
                     int numKmers = getNumKmers(seq, k);
-                    long[] sortedHashVals = useCompressedMinimizers ? 
-                                            getAscendingHashValuesWithCompressedHomoPolymers(seq, itr, k) : 
-                                            getAscendingHashValues(seq, itr, graph, numKmers, minCoverage);
+                    TreeSet<Long> sortedHashVals = useCompressedMinimizers ? 
+                                            getHashValuesSetWithCompressedHomoPolymers(seq, itr, k) : 
+                                            getHashValuesSet(seq, itr, graph, numKmers, minCoverage);
                     
-                    if (sortedHashVals.length < sketchSize) {
+                    if (sortedHashVals.size() < sketchSize) {
                         // not enough good kmers
                         ++numDiscarded;
                         continue;
@@ -2441,20 +2443,20 @@ public class RNABloom {
                     int bestTargetSketchID = -1;
                     
                     if (targetSketches.isEmpty()) {
-                        long[] sketch = useCompressedMinimizers ?
-                                        getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
-                                        getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
+                        TreeSet<Long> sketch = useCompressedMinimizers ?
+                                        getMinimizersSetWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
+                                        getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
                         targetSketches.add(sketch);
                         
                         bestTargetSketchID = 0;
                         
-                        ArrayDeque<String> seqIDs = new ArrayDeque<>();
+                        LinkedList<String> seqIDs = new LinkedList<>();
                         seqIDs.add(name);
                         targetSketchesSeqIDs.add(seqIDs);
                     }
                     else {
-                        float minSketchOverlapProportion = (float)sortedHashVals.length / (float)numKmers;
-                        int minSketchOverlap = Math.max(1, (int) Math.floor(minSketchOverlapProportion * (sortedHashVals.length-minimizerWindowSize+1)/minimizerWindowSize));
+                        float minSketchOverlapProportion = (float)sortedHashVals.size() / (float)numKmers;
+                        int minSketchOverlap = Math.max(1, (int) Math.floor(minSketchOverlapProportion * (sortedHashVals.size()-minimizerWindowSize+1)/minimizerWindowSize));
                         
                         /** start thread pool*/
                         MyExecutorService service = new MyExecutorService(numThreads, numThreads);
@@ -2480,18 +2482,18 @@ public class RNABloom {
                         service.terminate();
                         
                         float bestIntersectionSize = -1;
-                        HashSet<Integer> overlapSketchIdSet = new HashSet<>();
+                        LinkedList<Integer> overlapSketchIDs = new LinkedList<>();
                         for (ContainmentCalculator worker : workers) {
                             float mc = worker.getMaxIntersection();
                             if (mc > 0) {
-                                ArrayDeque<Integer> overlaps = worker.getOverlappingSketchIndexes();
+                                LinkedList<Integer> overlaps = worker.getOverlappingSketchIndexes();
                                 if (!overlaps.isEmpty()) {
-                                    overlapSketchIdSet.addAll(overlaps);
+                                    overlapSketchIDs.addAll(overlaps);
                                 }
                                 
                                 if (mc > bestIntersectionSize) {
                                     if (bestTargetSketchID >= 0) {
-                                        overlapSketchIdSet.add(bestTargetSketchID);
+                                        overlapSketchIDs.add(bestTargetSketchID);
                                     }
                                     bestIntersectionSize = mc;
                                     bestTargetSketchID = worker.getBestTargetIndex();
@@ -2501,14 +2503,14 @@ public class RNABloom {
                         
                         if (bestIntersectionSize <= 0) {
                             // start a new cluster
-                            long[] sketch = useCompressedMinimizers ?
-                                            getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
-                                            getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
+                            TreeSet<Long> sketch = useCompressedMinimizers ?
+                                            getMinimizersSetWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
+                                            getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
                             
                             if (targetSketchesNullIndexes.isEmpty()) {
                                 targetSketches.add(sketch);
                                 
-                                ArrayDeque<String> seqIDs = new ArrayDeque<>();
+                                LinkedList<String> seqIDs = new LinkedList<>();
                                 seqIDs.add(name);
                                 targetSketchesSeqIDs.add(seqIDs);
                             }
@@ -2516,34 +2518,29 @@ public class RNABloom {
                                 bestTargetSketchID = targetSketchesNullIndexes.poll();
                                 targetSketches.set(bestTargetSketchID, sketch);
                                 
-                                ArrayDeque<String> seqIDs = new ArrayDeque<>();
+                                LinkedList<String> seqIDs = new LinkedList<>();
                                 seqIDs.add(name);
                                 targetSketchesSeqIDs.set(bestTargetSketchID, seqIDs);
                             }
                         }
                         else {
-                            ArrayDeque<String> seqIDs = targetSketchesSeqIDs.get(bestTargetSketchID);
+                            LinkedList<String> seqIDs = targetSketchesSeqIDs.get(bestTargetSketchID);
                             seqIDs.add(name);
                             
-                            if (!overlapSketchIdSet.isEmpty()) {
+                            if (!overlapSketchIDs.isEmpty()) {
                                 // combine overlapping clusters
-                                ArrayDeque<long[]> sketches = new ArrayDeque<>();
                                 
-                                // add the sketch of the best target
-                                sketches.add(targetSketches.get(bestTargetSketchID));
+                                TreeSet<Long> newSketch = targetSketches.get(bestTargetSketchID);
                                 
                                 // add the sketches of other targets
-                                for (int i : overlapSketchIdSet) {
-                                    sketches.add(targetSketches.get(i));                                    
+                                for (int i : overlapSketchIDs) {
+                                    newSketch.addAll(targetSketches.get(i));
                                     targetSketches.set(i, null);
                                     targetSketchesNullIndexes.add(i);
                                     
                                     seqIDs.addAll(targetSketchesSeqIDs.get(i));
                                     targetSketchesSeqIDs.set(i, null);
                                 }
-                                
-                                long[] newSketch = combineSketches(sketches);
-                                targetSketches.set(bestTargetSketchID, newSketch);
                             }
                         }
                     }
@@ -2557,7 +2554,7 @@ public class RNABloom {
         
         HashMap<String, Integer> seqNameToClusterNameMap = new HashMap<>(numSeq);
         int clusterID = 0;
-        for (ArrayDeque<String> seqIDs : targetSketchesSeqIDs) {
+        for (LinkedList<String> seqIDs : targetSketchesSeqIDs) {
             if (seqIDs != null) {
                 for (String id : seqIDs) {
                     seqNameToClusterNameMap.put(id, clusterID);
