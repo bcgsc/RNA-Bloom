@@ -163,6 +163,10 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         return getCount(hashVals);
     }
     
+    public float getCount(long hashVal) {
+        return getCount(hashFunction.getHashValues(hashVal, numHash));
+    }
+    
     public float getCount(final long[] hashVals) {
         // find the smallest count
         byte min = counts.get(getIndex(hashVals[0]));

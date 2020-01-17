@@ -629,13 +629,17 @@ public class BloomFilterDeBruijnGraph {
         return getCount(hashVals);
     }
     
+    public float getCount(final long hashVal) {
+        if (dbgbf.lookup(hashVal)) {
+            // +1 for the first kmer inserted into the DBG Bloom filter
+            return cbf.getCount(hashVal) + 1;
+        }
+        else {
+            return 0;
+        }
+    }
+    
     public float getCount(final long[] hashVals) {
-//        if (dbgbf.lookup(hashVals)) {
-//            return cbf.getCount(hashVals);
-//        }
-//        else {
-//            return 0;
-//        }
         if (dbgbf.lookup(hashVals)) {
             // +1 for the first kmer inserted into the DBG Bloom filter
             return cbf.getCount(hashVals) + 1;
