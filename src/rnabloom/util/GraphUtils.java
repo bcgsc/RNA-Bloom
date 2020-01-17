@@ -2585,58 +2585,101 @@ public final class GraphUtils {
         String chpSeq = compressHomoPolymers(seq);
         return getMinimizers(chpSeq, getNumKmers(chpSeq, k), itr, windowSize);
     }
+
+    public static TreeSet<Long> getMinimizersSetWithCompressedHomoPolymers(String seq, int k, NTHashIterator itr, int windowSize) {
+        String chpSeq = compressHomoPolymers(seq);
+        return getMinimizersSet(chpSeq, getNumKmers(chpSeq, k), itr, windowSize);
+    }
     
-    public static long[] getMinimizers(String seq, int numKmers, NTHashIterator itr, int windowSize) {
-        long[] hashes = new long[numKmers];
-        itr.start(seq);
-        long[] hvals = itr.hVals;
-        for (int i=0; i<numKmers; ++i) {
-            itr.next();
-            hashes[i] = hvals[0];
+    public static long[] getMinimizers(String seq, int numKmers, NTHashIterator itr, int windowSize) {        
+        TreeSet<Long> minimizers = getMinimizersSet(seq, numKmers, itr, windowSize);
+        
+        long[] minimizersArr = new long[minimizers.size()];
+        int i=0;
+        for (Long m : minimizers) {
+            minimizersArr[i++] = m;
         }
         
+        return minimizersArr;
+    }
+    
+    public static TreeSet<Long> getMinimizersSet(String seq, int numKmers, NTHashIterator itr, int windowSize) {
+        itr.start(seq);
+        long[] hvals = itr.hVals;
+
         if (numKmers <= windowSize) {
-            long minimizer = hashes[0];
-            for(int i=1; i<numKmers; ++i) {
-                long h = hashes[i];
+            long minimizer = hvals[0];
+            while(itr.hasNext()) {
+                itr.next();
+                long h = hvals[0];
                 if (h < minimizer) {
                     minimizer = h;
                 }
             }
             
-            return new long[]{minimizer};
+            TreeSet<Long> set = new TreeSet<>();
+            set.add(minimizer);
+            return set;
         }
         
-        HashSet<Long> minimizers = new HashSet<>();
-        int numWindows = numKmers - windowSize + 1;
-        long previousMinimizer = 0;
-        int previousMinimizerPos = -1;
-        for (int w=0; w<numWindows; ++w) {
-            if (previousMinimizerPos >= w) {
-                int pos = w+windowSize-1;
-                long h = hashes[pos];
-                if (h < previousMinimizer) {
-                    previousMinimizer = h;
-                    previousMinimizerPos = pos;
-                    minimizers.add(h);
-                }
+        TreeSet<Long> minimizers = new TreeSet<>();
+        
+        // find minimizer in the first window
+        ArrayDeque<Long> window = new ArrayDeque<>(windowSize);
+        
+        itr.next();
+        long minimizer = hvals[0];
+        int minmizerWindowPos = 0;
+        window.add(minimizer);
+        
+        for (int i=1; i<windowSize; ++i) {
+            itr.next();
+            long h = hvals[0];
+            window.add(h);
+            
+            if (h < minimizer) {
+                minimizer = h;
+                minmizerWindowPos = i;
             }
-            else {
-                long minimizer = hashes[w];
-                int minimizerPos = w;
-                for (int i=1; i<windowSize; ++i) {
-                    int pos = w+i;
-                    long h = hashes[pos];
+        }
+        minimizers.add(minimizer);
+        
+        // find minimizers as window shifts
+        while (itr.hasNext()) {
+            window.removeFirst();
+            
+            itr.next();
+            long h = hvals[0];
+            window.add(h);
+            
+            if (--minmizerWindowPos < 0) {
+                Iterator<Long> wItr = window.iterator();
+                
+                minimizer = wItr.next();
+                minmizerWindowPos = 0;
+                
+                for(int i=1; i<windowSize; ++i) {
+                    h = wItr.next();
                     if (h < minimizer) {
                         minimizer = h;
-                        minimizerPos = pos;
+                        minmizerWindowPos = i;
                     }
                 }
-                previousMinimizer = minimizer;
-                previousMinimizerPos = minimizerPos;
+                
+                minimizers.add(minimizer);
+            }
+            else if (h < minimizer) {
+                minimizer = h;
+                minmizerWindowPos = windowSize-1;
                 minimizers.add(minimizer);
             }
         }
+        
+        return minimizers;
+    }
+    
+    public static long[] getMinimizers(String seq, int numKmers, NTHashIterator itr, int windowSize, BloomFilterDeBruijnGraph graph, float minCoverage) {        
+        TreeSet<Long> minimizers = getMinimizersSet(seq, numKmers, itr, windowSize, graph, minCoverage);
         
         long[] minimizersArr = new long[minimizers.size()];
         int i=0;
@@ -2644,99 +2687,144 @@ public final class GraphUtils {
             minimizersArr[i++] = m;
         }
         
-        Arrays.sort(minimizersArr);
-        
         return minimizersArr;
     }
     
-    public static long[] getMinimizers(String seq, int numKmers, NTHashIterator itr, int windowSize, BloomFilterDeBruijnGraph graph, float minCoverage) {        
-        long[] hashes = new long[numKmers];
-        float[] covs = new float[numKmers];
-        
+    public static TreeSet<Long> getMinimizersSet(String seq, int numKmers, NTHashIterator itr, int windowSize, BloomFilterDeBruijnGraph graph, float minCoverage) {        
         itr.start(seq);
         long[] hvals = itr.hVals;
-        for (int i=0; i<numKmers; ++i) {
-            itr.next();
-            hashes[i] = hvals[0];
-            covs[i] = graph.getCount(hvals);
-        }
-        
+
         if (numKmers <= windowSize) {
-            long minimizer = hashes[0];
-            int minimizerPos = -1;
-            for(int i=0; i<numKmers; ++i) {
-                long h = hashes[i];
-                if ((minimizerPos < 0 || h < minimizer) && covs[i] >= minCoverage) {
-                    minimizer = h;
-                    minimizerPos = i;
+            long minimizer = hvals[0];
+            boolean hasMinimizer = graph.getCount(hvals) >= minCoverage;
+            
+            while(itr.hasNext()) {
+                itr.next();
+                long h = hvals[0];
+                
+                if (!hasMinimizer) {
+                    if (graph.getCount(hvals) >= minCoverage) {
+                        minimizer = h;
+                        hasMinimizer = true;
+                    }
+                }
+                else if (h < minimizer) {
+                    if (graph.getCount(hvals) >= minCoverage) {
+                        minimizer = h;
+                    }
                 }
             }
             
-            if (minimizerPos >= 0) {
-                return new long[]{minimizer};
+            TreeSet<Long> set = new TreeSet<>();
+            if (hasMinimizer) {
+                set.add(minimizer);
             }
-            else {
-                return new long[]{};
+            return set;
+        }
+        
+        TreeSet<Long> minimizers = new TreeSet<>();
+        ArrayDeque<Long> window = new ArrayDeque<>(windowSize);
+        ArrayDeque<Float> covWindow = new ArrayDeque<>(windowSize);
+        
+        // find minimizer in the first window
+        itr.next();
+        int minimizerWindowPos = 0;
+        long minimizer = hvals[0];
+        window.add(minimizer);
+        float c = graph.getCount(hvals);
+        covWindow.add(c);
+        boolean hasMinimizer = c >= minCoverage;
+        
+        for (int i=1; i<windowSize; ++i) {
+            itr.next();
+            
+            long h = hvals[0];
+            window.add(h);
+            
+            c = graph.getCount(hvals);
+            covWindow.add(c);
+            
+            if (c >= minCoverage) {
+                if (!hasMinimizer) {
+                    minimizer = h;
+                    minimizerWindowPos = i;
+                    hasMinimizer = true;
+                }
+                else if (h < minimizer) {
+                    minimizer = h;
+                    minimizerWindowPos = i;
+                }
             }
         }
         
-        HashSet<Long> minimizers = new HashSet<>();
-        int numWindows = numKmers - windowSize + 1;
-        long previousMinimizer = 0;
-        int previousMinimizerPos = -1;
-        for (int w=0; w<numWindows; ++w) {
-            if (previousMinimizerPos >= w) {
-                int pos = w+windowSize-1;
-                long h = hashes[pos];
-                if (h < previousMinimizer && covs[pos] >= minCoverage) {
-                    previousMinimizer = h;
-                    previousMinimizerPos = pos;
-                    minimizers.add(h);
+        if (hasMinimizer) {
+            minimizers.add(minimizer);
+        }
+        
+        // find minimizers as window shifts
+        while (itr.hasNext()) {
+            window.removeFirst();
+            covWindow.removeFirst();
+            --minimizerWindowPos;
+            
+            itr.next();
+            
+            long h = hvals[0];
+            window.add(h);
+            
+            c = graph.getCount(hvals);
+            covWindow.add(c);
+            
+            if (c >= minCoverage) {
+                if (!hasMinimizer) {
+                    minimizer = h;
+                    minimizerWindowPos = windowSize-1;
+                    minimizers.add(minimizer);
+                    hasMinimizer = true;
                 }
-            }
-            else {
-                long minimizer = 0;
-                int minimizerPos = -1;
-                for (int i=0; i<windowSize; ++i) {
-                    int pos = w+i;
-                    long h = hashes[pos];
-                    if ((minimizerPos < 0 || h < minimizer) && covs[pos] >= minCoverage) {
-                        minimizer = h;
-                        minimizerPos = pos;
+                else if (minimizerWindowPos < 0) {
+                    Iterator<Long> wItr = window.iterator();
+                    Iterator<Float> cItr = covWindow.iterator();
+                    
+                    minimizerWindowPos = 0;
+                    minimizer = wItr.next();
+                    c = cItr.next();
+                    hasMinimizer = c >= minCoverage;
+                    
+                    for(int i=1; i<windowSize; ++i) {
+                        h = wItr.next();
+                        c = cItr.next();
+                        
+                        if (c >= minCoverage) {
+                            if (!hasMinimizer) {
+                                minimizer = h;
+                                minimizerWindowPos = i;
+                                hasMinimizer = true;
+                            }
+                            else if (h < minimizer) {
+                                minimizer = h;
+                                minimizerWindowPos = i;
+                            }
+                        }
+                    }
+                    
+                    if (hasMinimizer) {
+                        minimizers.add(minimizer);
                     }
                 }
-                
-                if (minimizerPos >= 0) {
-                    previousMinimizer = minimizer;
-                    previousMinimizerPos = minimizerPos;
+                else if (h < minimizer) {
+                    minimizer = h;
+                    minimizerWindowPos = windowSize-1;
                     minimizers.add(minimizer);
                 }
             }
         }
         
-        long[] minimizersArr = new long[minimizers.size()];
-        int i=0;
-        for (Long m : minimizers) {
-            minimizersArr[i++] = m;
-        }
-        
-        Arrays.sort(minimizersArr);
-        
-        return minimizersArr;
+        return minimizers;
     }
     
     public static long[] getAscendingHashValuesWithCompressedHomoPolymers(String seq, NTHashIterator itr, int k) {
-        seq = compressHomoPolymers(seq);
-        int numKmers = getNumKmers(seq, k);
-        
-        HashSet<Long> hashValSet = new HashSet<>(numKmers);
-        
-        itr.start(seq);
-        long[] hVals = itr.hVals;
-        for (int i=0; i<numKmers; ++i) {
-            itr.next();
-            hashValSet.add(hVals[0]);
-        }
+        TreeSet<Long> hashValSet = getHashValuesSetWithCompressedHomoPolymers(seq, itr, k);
         
         int numVals = hashValSet.size();
         long[] result = new long[numVals];
@@ -2745,13 +2833,40 @@ public final class GraphUtils {
             result[i++] = h;
         }
         
-        Arrays.sort(result);
+        return result;
+    }
+ 
+    public static TreeSet<Long> getHashValuesSetWithCompressedHomoPolymers(String seq, NTHashIterator itr, int k) {
+        seq = compressHomoPolymers(seq);
+        int numKmers = getNumKmers(seq, k);
+        
+        TreeSet<Long> hashValSet = new TreeSet<>();
+        
+        itr.start(seq);
+        long[] hVals = itr.hVals;
+        for (int i=0; i<numKmers; ++i) {
+            itr.next();
+            hashValSet.add(hVals[0]);
+        }
+        
+        return hashValSet;
+    }
+    
+    public static long[] getAscendingHashValues(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
+        TreeSet<Long> hashValSet = getHashValuesSet(seq, itr, graph, numKmers, minCoverage);
+        
+        int numVals = hashValSet.size();
+        long[] result = new long[numVals];
+        int i=0;
+        for (Long h : hashValSet) {
+            result[i++] = h;
+        }
         
         return result;
     }
     
-    public static long[] getAscendingHashValues(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
-        HashSet<Long> hashValSet = new HashSet<>(numKmers);
+    public static TreeSet<Long> getHashValuesSet(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
+        TreeSet<Long> hashValSet = new TreeSet<>();
         
         itr.start(seq);
         long[] hVals = itr.hVals;
@@ -2762,16 +2877,7 @@ public final class GraphUtils {
             }
         }
         
-        int numVals = hashValSet.size();
-        long[] result = new long[numVals];
-        int i=0;
-        for (Long h : hashValSet) {
-            result[i++] = h;
-        }
-        
-        Arrays.sort(result);
-        
-        return result;
+        return hashValSet;
     }
     
     public static long[] combineSketches(long[]... sketches) {
@@ -2789,12 +2895,10 @@ public final class GraphUtils {
             result[i++] = h;
         }
         
-//        Arrays.sort(result);
-        
         return result;
     }
     
-    public static long[] combineSketches(ArrayDeque<long[]> sketches) {
+    public static long[] combineSketches(Collection<long[]> sketches) {
         TreeSet<Long> hashValSet = new TreeSet<>();
         for (long[] sketch : sketches) {
             for (long val : sketch) {
@@ -2808,8 +2912,6 @@ public final class GraphUtils {
         for (Long h : hashValSet) {
             result[i++] = h;
         }
-        
-//        Arrays.sort(result);
         
         return result;
     }
@@ -2846,6 +2948,57 @@ public final class GraphUtils {
                     else if (hash1 < hash2) {
                         break;
                     }
+                }
+            }
+        }
+        
+        return intersectionSize;
+    }
+    
+    public static int getNumIntersection(TreeSet<Long> sketch1, TreeSet<Long> sketch2) {
+        Iterator<Long> itr1 = sketch1.iterator();
+        Iterator<Long> itr2 = sketch2.iterator();
+        int intersectionSize = 0;
+        
+        if (!itr1.hasNext() || !itr2.hasNext()) {
+            return 0;
+        }
+        
+        long hash1 = itr1.next();
+        long hash2 = itr2.next();
+        
+        while (true) {
+            if (hash1 == hash2) {
+                ++intersectionSize;
+                
+                if (itr1.hasNext()) {
+                    hash1 = itr1.next();
+                }
+                else {
+                    break;
+                }
+                
+                if (itr2.hasNext()) {
+                    hash2 = itr2.next();
+                }
+                else {
+                    break;
+                }
+            }
+            else if (hash1 > hash2) {
+                if (itr2.hasNext()) {
+                    hash2 = itr2.next();
+                }
+                else {
+                    break;
+                }
+            }
+            else if (hash1 < hash2) {
+                if (itr1.hasNext()) {
+                    hash1 = itr1.next();
+                }
+                else {
+                    break;
                 }
             }
         }
