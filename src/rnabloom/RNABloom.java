@@ -2916,18 +2916,20 @@ public class RNABloom {
                                                                         true);
                                         
                     if (correctedKmers != null && !correctedKmers.isEmpty()) {
-//                        if (trimArtifact) {
-//                            ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
-//                                                graph, strandSpecific, 150, maxIndelSize, percentIdentity, maxCovGradient);
-//                            if (trimmed.size() < correctedKmers.size()) {
-//                                ++numArtifacts;
-//                                correctedKmers = trimmed;
-//                            }
-//                        }
+                        if (trimArtifact) {
+                            ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
+                                                graph, strandSpecific, 150, maxIndelSize, percentIdentity, maxCovGradient);
+                            if (!trimmed.isEmpty() && trimmed.size() < correctedKmers.size()) {
+                                ++numArtifacts;
+                                correctedKmers = trimmed;
+                            }
+                        }
                         
-                        float cov = getMinMedianKmerCoverage(correctedKmers, 200);
-                        seq = graph.assemble(correctedKmers);
-                        outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov));
+                        if (!correctedKmers.isEmpty()) {
+                            float cov = getMinMedianKmerCoverage(correctedKmers, 200);
+                            seq = graph.assemble(correctedKmers);
+                            outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov));
+                        }
                     }
                 } catch (Exception ex) {
                     System.out.println(ex.getMessage());
