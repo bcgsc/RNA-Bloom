@@ -2282,7 +2282,7 @@ public class RNABloom {
         private Exception exception = null;
         private int minSketchOverlap = -1;
         private float minSketchOverlapProportion = -1;
-        private LinkedList<Integer> overlappingSketchIndexes = new LinkedList<>();
+        private ArrayDeque<Integer> overlappingSketchIndexes = new ArrayDeque<>();
         
         public ContainmentCalculator(TreeSet<Long> queryHashVals, ArrayList<TreeSet<Long>> targetSketches, 
                                     ArrayBlockingQueue<Integer> sketchIDsQueue,
@@ -2340,7 +2340,7 @@ public class RNABloom {
             return bestOverlap;
         }
         
-        public LinkedList<Integer> getOverlappingSketchIndexes() {
+        public ArrayDeque<Integer> getOverlappingSketchIndexes() {
             return overlappingSketchIndexes;
         }
         
@@ -2406,8 +2406,8 @@ public class RNABloom {
         ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
         
         ArrayList<TreeSet<Long>> targetSketches = new ArrayList<>();
-        ArrayList<LinkedList<String>> targetSketchesSeqIDs = new ArrayList<>();
-        LinkedList<Integer> targetSketchesNullIndexes = new LinkedList<>();
+        ArrayList<ArrayDeque<String>> targetSketchesSeqIDs = new ArrayList<>();
+        ArrayDeque<Integer> targetSketchesNullIndexes = new ArrayDeque<>();
         NTHashIterator itr = graph.getHashIterator();
         
         // skip l=0 because their lengths are too short to have a sketch
@@ -2450,7 +2450,7 @@ public class RNABloom {
                         
                         bestTargetSketchID = 0;
                         
-                        LinkedList<String> seqIDs = new LinkedList<>();
+                        ArrayDeque<String> seqIDs = new ArrayDeque<>();
                         seqIDs.add(name);
                         targetSketchesSeqIDs.add(seqIDs);
                     }
@@ -2482,11 +2482,11 @@ public class RNABloom {
                         service.terminate();
                         
                         float bestIntersectionSize = -1;
-                        LinkedList<Integer> overlapSketchIDs = new LinkedList<>();
+                        ArrayDeque<Integer> overlapSketchIDs = new ArrayDeque<>();
                         for (ContainmentCalculator worker : workers) {
                             float mc = worker.getMaxIntersection();
                             if (mc > 0) {
-                                LinkedList<Integer> overlaps = worker.getOverlappingSketchIndexes();
+                                ArrayDeque<Integer> overlaps = worker.getOverlappingSketchIndexes();
                                 if (!overlaps.isEmpty()) {
                                     overlapSketchIDs.addAll(overlaps);
                                 }
@@ -2510,7 +2510,7 @@ public class RNABloom {
                             if (targetSketchesNullIndexes.isEmpty()) {
                                 targetSketches.add(sketch);
                                 
-                                LinkedList<String> seqIDs = new LinkedList<>();
+                                ArrayDeque<String> seqIDs = new ArrayDeque<>();
                                 seqIDs.add(name);
                                 targetSketchesSeqIDs.add(seqIDs);
                             }
@@ -2518,13 +2518,13 @@ public class RNABloom {
                                 bestTargetSketchID = targetSketchesNullIndexes.poll();
                                 targetSketches.set(bestTargetSketchID, sketch);
                                 
-                                LinkedList<String> seqIDs = new LinkedList<>();
+                                ArrayDeque<String> seqIDs = new ArrayDeque<>();
                                 seqIDs.add(name);
                                 targetSketchesSeqIDs.set(bestTargetSketchID, seqIDs);
                             }
                         }
                         else {
-                            LinkedList<String> seqIDs = targetSketchesSeqIDs.get(bestTargetSketchID);
+                            ArrayDeque<String> seqIDs = targetSketchesSeqIDs.get(bestTargetSketchID);
                             seqIDs.add(name);
                             
                             if (!overlapSketchIDs.isEmpty()) {
@@ -2554,7 +2554,7 @@ public class RNABloom {
         
         HashMap<String, Integer> seqNameToClusterNameMap = new HashMap<>(numSeq);
         int clusterID = 0;
-        for (LinkedList<String> seqIDs : targetSketchesSeqIDs) {
+        for (ArrayDeque<String> seqIDs : targetSketchesSeqIDs) {
             if (seqIDs != null) {
                 for (String id : seqIDs) {
                     seqNameToClusterNameMap.put(id, clusterID);
