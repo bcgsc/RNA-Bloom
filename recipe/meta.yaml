@@ -1,11 +1,13 @@
+{% set name = "rnabloom" %}
 {% set version = "1.2.1" %}
 
 package:
-  name: rnabloom
-  version: '{{ version }}'
+  name: {{ name|lower }}
+  version: {{ version }}
 
 source:
-  url: https://github.com/bcgsc/RNA-Bloom/releases/download/v{{ version }}/rnabloom_v1.2.1.tar.gz
+  url: https://github.com/bcgsc/RNA-Bloom/releases/download/v{{ version }}/{{ name }}_v{{ version }}.tar.gz
+  sha256: d82df5fcbbf2bbc98de0182e52b3915691211178fc6d885e74ed18524e289709
 
 build:
   noarch: generic
@@ -21,7 +23,7 @@ test:
 
 about:
   home: https://github.com/bcgsc/RNA-Bloom
-  license: GPLv3
+  license: GPL-3.0
   license_family: GPL
    license_file: LICENSE
   summary: Java tool for RNA-seq assembly
