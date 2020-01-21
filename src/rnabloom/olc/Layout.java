@@ -575,15 +575,23 @@ public class Layout {
                 }
             }
         }
-        System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
-        System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
         
-        //TransitiveReduction.INSTANCE.reduce(graph);
-        reduceTransitively();
-        System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
-
-        resolveJunctions(dovetailReadNames, false);
-        System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(graph.edgeSet().size()));
+        System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+        
+        int numEdges = graph.edgeSet().size();
+        if (numEdges > 2) {
+            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+            
+            reduceTransitively();
+            numEdges = graph.edgeSet().size();
+            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+        }
+        
+        if (numEdges > 1) {
+            resolveJunctions(dovetailReadNames, false);
+            numEdges = graph.edgeSet().size();
+            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+        }
         
         // extract longest read sequences
         HashMap<String, byte[]> longestReadSeqs = new HashMap<>(longestSet.size());
