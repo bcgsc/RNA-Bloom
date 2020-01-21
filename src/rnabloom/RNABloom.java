@@ -302,7 +302,9 @@ public class RNABloom {
     }
 
     public void destroyAllBf() {
-        graph.destroy();
+        if (graph != null) {
+            graph.destroy();
+        }
         
         if (screeningBf != null) {
             screeningBf.destroy();
@@ -2399,7 +2401,7 @@ public class RNABloom {
             int sketchSize, int numThreads, float minCoverage, boolean useCompressedMinimizers) throws IOException, InterruptedException {
 
         final int minimizerWindowSize = k;
-        int numSeq = 0;
+        int totalNumSeq = 0;
         int numDiscarded = 0;
         
         int maxQueueSize = 100;
@@ -2412,6 +2414,9 @@ public class RNABloom {
         
         // skip l=0 because their lengths are too short to have a sketch
         for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
+//            double sumOverlapProportions = 0;
+//            int numSeq = 0;
+            
             for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
                 
                 String readFile = correctedLongReadFileNames[c][l];
@@ -2439,7 +2444,7 @@ public class RNABloom {
 //                        continue;
 //                    }                    
 
-                    ++numSeq;
+                    ++totalNumSeq;
                     int bestTargetSketchID = -1;
                     
                     if (targetSketches.isEmpty()) {
@@ -2481,10 +2486,10 @@ public class RNABloom {
                         
                         service.terminate();
                         
-                        float bestIntersectionSize = -1;
+                        int bestIntersectionSize = -1;
                         ArrayDeque<Integer> overlapSketchIDs = new ArrayDeque<>();
                         for (ContainmentCalculator worker : workers) {
-                            float mc = worker.getMaxIntersection();
+                            int mc = worker.getMaxIntersection();
                             if (mc > 0) {
                                 ArrayDeque<Integer> overlaps = worker.getOverlappingSketchIndexes();
                                 if (!overlaps.isEmpty()) {
@@ -2524,6 +2529,9 @@ public class RNABloom {
                             }
                         }
                         else {
+//                            ++numSeq;
+//                            sumOverlapProportions += (double)bestIntersectionSize/(double)targetSketches.get(bestTargetSketchID).size();
+                            
                             ArrayDeque<String> seqIDs = targetSketchesSeqIDs.get(bestTargetSketchID);
                             seqIDs.add(name);
                             
@@ -2541,6 +2549,11 @@ public class RNABloom {
                                     seqIDs.addAll(targetSketchesSeqIDs.get(i));
                                     targetSketchesSeqIDs.set(i, null);
                                 }
+                                
+                                TreeSet<Long> sketch = useCompressedMinimizers ?
+                                                getMinimizersSetWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
+                                                getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
+                                newSketch.addAll(sketch);
                             }
                         }
                     }
@@ -2548,11 +2561,57 @@ public class RNABloom {
                 
                 fr.close();
             }
+            
+            /*
+            if (numSeq > 0) {
+                int numSketches = targetSketches.size();
+                double averageOverlapProportions = sumOverlapProportions/numSeq;
+                System.out.println("avg. overlap: " + averageOverlapProportions);
+                System.out.println("sketches: " + numSketches);
+
+                int numOverlaps = 0;
+                for (int i=0; i<numSketches; ++i) {
+                    TreeSet<Long> qSketch = targetSketches.get(i);
+                    if (qSketch != null) {
+                        double qSketchSize = qSketch.size();
+                        ArrayDeque<Integer> overlappingSketchIDs = new ArrayDeque<>();
+
+                        for (int j=i+1; j<numSketches; ++j) {
+                            TreeSet<Long> tSketch = targetSketches.get(j);
+                            if (tSketch != null) {
+                                int overlap = getNumIntersection(qSketch, tSketch);
+                                if ((double)overlap/qSketchSize >= averageOverlapProportions ||
+                                        (double)overlap/(double)tSketch.size() >= averageOverlapProportions) {
+                                    overlappingSketchIDs.add(j);
+                                }
+                            }
+                        }
+
+                        if (!overlappingSketchIDs.isEmpty()) {
+                            numOverlaps += overlappingSketchIDs.size();
+
+                            ArrayDeque<String> seqIDs = targetSketchesSeqIDs.get(i);
+
+                            // merge sketches
+                            for (int sid : overlappingSketchIDs) {
+                                qSketch.addAll(targetSketches.get(sid));
+                                targetSketches.set(sid, null);
+                                targetSketchesNullIndexes.add(sid);
+
+                                seqIDs.addAll(targetSketchesSeqIDs.get(sid));
+                                targetSketchesSeqIDs.set(sid, null);
+                            }
+                        }
+                    }
+                }
+                System.out.println("sketch overlaps: " +  numOverlaps);
+            }
+            */
         }
         
         System.out.println(NumberFormat.getInstance().format(numDiscarded) + " reads were discarded.");
         
-        HashMap<String, Integer> seqNameToClusterNameMap = new HashMap<>(numSeq);
+        HashMap<String, Integer> seqNameToClusterNameMap = new HashMap<>(totalNumSeq);
         int clusterID = 0;
         for (ArrayDeque<String> seqIDs : targetSketchesSeqIDs) {
             if (seqIDs != null) {
@@ -2564,7 +2623,7 @@ public class RNABloom {
             }
         }
         
-        System.out.println(NumberFormat.getInstance().format(numSeq) + " reads were assigned to " + NumberFormat.getInstance().format(clusterID) + " clusters.");
+        System.out.println(NumberFormat.getInstance().format(totalNumSeq) + " reads were assigned to " + NumberFormat.getInstance().format(clusterID) + " clusters.");
         
         System.out.println("Writing clustered reads to files...");
         // skip l=0 because their lengths are too short to have a sketch
