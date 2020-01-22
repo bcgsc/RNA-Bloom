@@ -19,16 +19,16 @@ requirements:
 
 test:
   commands:
-    - "bash -c 'rnabloom --version'"
+    - rnabloom --version > /dev/null
 
 about:
   home: https://github.com/bcgsc/RNA-Bloom
-  license: GPL-3.0
-  license_family: GPL
+  license: GNU General Public License, version 3
+  license_family: GPL3
   license_file: LICENSE
   summary: Java tool for RNA-seq assembly
   description: >- 
-    RNA-Bloom is a lightweight transcriptome assembly tool for short-reads and
+    RNA-Bloom is a lightweight transcriptome assembly tool for short reads and
     nanopore reads.
   dev_url: https://github.com/bcgsc/RNA-Bloom
   doc_url: https://github.com/bcgsc/RNA-Bloom/blob/master/README.md
