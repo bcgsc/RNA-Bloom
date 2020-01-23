@@ -81,6 +81,7 @@ import static rnabloom.olc.OverlapLayoutConcensus.hasMinimap2;
 import static rnabloom.olc.OverlapLayoutConcensus.hasRacon;
 import static rnabloom.olc.OverlapLayoutConcensus.overlapLayout;
 import static rnabloom.olc.OverlapLayoutConcensus.overlapLayoutConcensus;
+import rnabloom.util.BitSequence;
 import rnabloom.util.GraphUtils;
 import static rnabloom.util.GraphUtils.*;
 import rnabloom.util.NTCardHistogram;
@@ -139,6 +140,7 @@ public class RNABloom {
     private final static String STRATUM_E5 = "e5";
     private final static String[] STRATA = new String[]{STRATUM_01, STRATUM_E0, STRATUM_E1, STRATUM_E2, STRATUM_E3, STRATUM_E4, STRATUM_E5};
     private final static String[] COVERAGE_ORDER = {STRATUM_E0, STRATUM_E1, STRATUM_E2, STRATUM_E3, STRATUM_E4, STRATUM_E5};
+    private final static int[] COVERAGE_ORDER_VALUES = new int[]{1,10,100,1000,10000,10000};
     
     private static boolean isValidStratumName(String name) {
         switch (name) {
@@ -2401,14 +2403,13 @@ public class RNABloom {
             int sketchSize, int numThreads, float minCoverage, boolean useCompressedMinimizers) throws IOException, InterruptedException {
 
         final int minimizerWindowSize = k;
-        int totalNumSeq = 0;
         int numDiscarded = 0;
         
         int maxQueueSize = 100;
         ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
         
         ArrayList<TreeSet<Long>> targetSketches = new ArrayList<>();
-        ArrayList<ArrayDeque<String>> targetSketchesSeqIDs = new ArrayList<>();
+        ArrayList<ArrayDeque<BitSequence>> targetSequences = new ArrayList<>();
         ArrayDeque<Integer> targetSketchesNullIndexes = new ArrayDeque<>();
         NTHashIterator itr = graph.getHashIterator();
         
@@ -2416,7 +2417,8 @@ public class RNABloom {
         for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
 //            double sumOverlapProportions = 0;
 //            int numSeq = 0;
-            
+            float covThreshold = Math.max(minCoverage, COVERAGE_ORDER_VALUES[c]);
+
             for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
                 
                 String readFile = correctedLongReadFileNames[c][l];
@@ -2431,7 +2433,7 @@ public class RNABloom {
                     int numKmers = getNumKmers(seq, k);
                     TreeSet<Long> sortedHashVals = useCompressedMinimizers ? 
                                             getHashValuesSetWithCompressedHomoPolymers(seq, itr, k) : 
-                                            getHashValuesSet(seq, itr, graph, numKmers, minCoverage);
+                                            getHashValuesSet(seq, itr, graph, numKmers, covThreshold);
                     
                     if (sortedHashVals.size() < sketchSize) {
                         // not enough good kmers
@@ -2444,30 +2446,30 @@ public class RNABloom {
 //                        continue;
 //                    }                    
 
-                    ++totalNumSeq;
                     int bestTargetSketchID = -1;
                     
                     if (targetSketches.isEmpty()) {
                         TreeSet<Long> sketch = useCompressedMinimizers ?
                                         getMinimizersSetWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
-                                        getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
+                                        getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
                         targetSketches.add(sketch);
                         
                         bestTargetSketchID = 0;
                         
-                        ArrayDeque<String> seqIDs = new ArrayDeque<>();
-                        seqIDs.add(name);
-                        targetSketchesSeqIDs.add(seqIDs);
+                        ArrayDeque<BitSequence> seqs = new ArrayDeque<>();
+                        seqs.add(new BitSequence(seq));
+                        targetSequences.add(seqs);
                     }
                     else {
                         float minSketchOverlapProportion = (float)sortedHashVals.size() / (float)numKmers;
                         int minSketchOverlap = Math.max(1, (int) Math.floor(minSketchOverlapProportion * (sortedHashVals.size()-minimizerWindowSize+1)/minimizerWindowSize));
                         
                         /** start thread pool*/
-                        MyExecutorService service = new MyExecutorService(numThreads, numThreads);
+                        int numWorkers = Math.min(numThreads, targetSketches.size());
+                        MyExecutorService service = new MyExecutorService(numWorkers, numWorkers);
                         
-                        ContainmentCalculator[] workers = new ContainmentCalculator[numThreads];
-                        for (int i=0; i<numThreads; ++i) {
+                        ContainmentCalculator[] workers = new ContainmentCalculator[numWorkers];
+                        for (int i=0; i<numWorkers; ++i) {
                             ContainmentCalculator worker = new ContainmentCalculator(sortedHashVals, targetSketches, sketchIndexQueue, minSketchOverlap, minSketchOverlapProportion);
                             workers[i] = worker;
                             service.submit(worker);
@@ -2510,30 +2512,30 @@ public class RNABloom {
                             // start a new cluster
                             TreeSet<Long> sketch = useCompressedMinimizers ?
                                             getMinimizersSetWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
-                                            getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
+                                            getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
                             
                             if (targetSketchesNullIndexes.isEmpty()) {
                                 targetSketches.add(sketch);
                                 
-                                ArrayDeque<String> seqIDs = new ArrayDeque<>();
-                                seqIDs.add(name);
-                                targetSketchesSeqIDs.add(seqIDs);
+                                ArrayDeque<BitSequence> seqs = new ArrayDeque<>();
+                                seqs.add(new BitSequence(seq));
+                                targetSequences.add(seqs);
                             }
                             else {
                                 bestTargetSketchID = targetSketchesNullIndexes.poll();
                                 targetSketches.set(bestTargetSketchID, sketch);
                                 
-                                ArrayDeque<String> seqIDs = new ArrayDeque<>();
-                                seqIDs.add(name);
-                                targetSketchesSeqIDs.set(bestTargetSketchID, seqIDs);
+                                ArrayDeque<BitSequence> seqs = new ArrayDeque<>();
+                                seqs.add(new BitSequence(seq));
+                                targetSequences.set(bestTargetSketchID, seqs);
                             }
                         }
                         else {
 //                            ++numSeq;
 //                            sumOverlapProportions += (double)bestIntersectionSize/(double)targetSketches.get(bestTargetSketchID).size();
                             
-                            ArrayDeque<String> seqIDs = targetSketchesSeqIDs.get(bestTargetSketchID);
-                            seqIDs.add(name);
+                            ArrayDeque<BitSequence> seqs = targetSequences.get(bestTargetSketchID);
+                            seqs.add(new BitSequence(seq));
                             
                             if (!overlapSketchIDs.isEmpty()) {
                                 // combine overlapping clusters
@@ -2546,13 +2548,13 @@ public class RNABloom {
                                     targetSketches.set(i, null);
                                     targetSketchesNullIndexes.add(i);
                                     
-                                    seqIDs.addAll(targetSketchesSeqIDs.get(i));
-                                    targetSketchesSeqIDs.set(i, null);
+                                    seqs.addAll(targetSequences.get(i));
+                                    targetSequences.set(i, null);
                                 }
                                 
                                 TreeSet<Long> sketch = useCompressedMinimizers ?
                                                 getMinimizersSetWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
-                                                getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, minCoverage);
+                                                getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
                                 newSketch.addAll(sketch);
                             }
                         }
@@ -2611,45 +2613,24 @@ public class RNABloom {
         
         System.out.println(NumberFormat.getInstance().format(numDiscarded) + " reads were discarded.");
         
-        HashMap<String, Integer> seqNameToClusterNameMap = new HashMap<>(totalNumSeq);
+        System.out.println("Writing clustered reads to files...");
         int clusterID = 0;
-        for (ArrayDeque<String> seqIDs : targetSketchesSeqIDs) {
-            if (seqIDs != null) {
-                for (String id : seqIDs) {
-                    seqNameToClusterNameMap.put(id, clusterID);
+        long seqID = 0;
+        for (ArrayDeque<BitSequence> seqs : targetSequences) {
+            if (seqs != null) {
+                FastaWriter writer = new FastaWriter(clusteredLongReadsDirectory + File.separator + clusterID + FASTA_EXT, true);
+                
+                for (BitSequence b : seqs) {
+                    writer.write("r" + Long.toString(seqID++), b.toString());
                 }
+                
+                writer.close();
                 
                 ++clusterID;
             }
         }
         
-        System.out.println(NumberFormat.getInstance().format(totalNumSeq) + " reads were assigned to " + NumberFormat.getInstance().format(clusterID) + " clusters.");
-        
-        System.out.println("Writing clustered reads to files...");
-        // skip l=0 because their lengths are too short to have a sketch
-        for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
-            for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
-                
-                String readFile = correctedLongReadFileNames[c][l];
-                FastaReader fr = new FastaReader(readFile);
-                
-                while (fr.hasNext()) {
-                    String[] nameSeqPair = fr.nextWithName();
-                    String name = nameSeqPair[0];
-                    String seq = nameSeqPair[1];
-                    
-                    Integer id = seqNameToClusterNameMap.get(name);
-                    if (id != null) {
-                        String path = clusteredLongReadsDirectory + File.separator + id.toString() + FASTA_EXT;
-                        FastaWriter writer = new FastaWriter(path, true);
-                        writer.write(name, seq);
-                        writer.close();
-                    }
-                }
-                
-                fr.close();
-            }
-        }
+        System.out.println(NumberFormat.getInstance().format(seqID) + " reads were assigned to " + NumberFormat.getInstance().format(clusterID) + " clusters.");
     }
     
     public boolean assembleLongReads(String clusteredLongReadsDirectory, 

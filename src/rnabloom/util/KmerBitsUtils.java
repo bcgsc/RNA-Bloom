@@ -16,7 +16,6 @@
  */
 package rnabloom.util;
 
-import java.util.Arrays;
 import java.util.BitSet;
 
 /**
@@ -65,21 +64,27 @@ public class KmerBitsUtils {
                     // 11
                     bits.set(2*i, 2*i + 2);
                     break;
+                case 'U':
+                    // 11
+                    bits.set(2*i, 2*i + 2);
+                    break;
             }
         }
         
         return bits;
     }
     
-    public static String bitsToSeq(BitSet bits, int strLen) {
+    public static String bitsToSeq(BitSet bits, int strLen, boolean useUracil) {
         int numBits = strLen*2;
         StringBuilder sb = new StringBuilder(strLen);
+        
+        char utBase = useUracil ? 'U' : 'T';
         
         for (int i=0; i<numBits; ++i) {
             if (bits.get(i)) {
                 if (bits.get(++i)) {
                     // 11
-                    sb.append('T');
+                    sb.append(utBase);
                 }
                 else {
                     // 10
@@ -391,7 +396,7 @@ public class KmerBitsUtils {
         
         BitSet bits = seqToBits(seq);
         
-        String seq2 = bitsToSeq(bits, len);
+        String seq2 = bitsToSeq(bits, len, false);
         
         System.out.println(seq + "\n" + seq2);
         System.out.println(seq.equals(seq2));

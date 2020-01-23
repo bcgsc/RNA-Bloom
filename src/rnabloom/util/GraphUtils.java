@@ -20,14 +20,12 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.TreeSet;
@@ -38,8 +36,6 @@ import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
-import static rnabloom.util.KmerBitsUtils.bitsToSeq;
-import static rnabloom.util.KmerBitsUtils.seqToBits;
 import static rnabloom.util.SeqUtils.*;
 
 /**
@@ -658,26 +654,6 @@ public final class GraphUtils {
         
         return true;
     }
-
-    private static class Sequence implements Comparable<Object> {
-        int length;
-        BitSet bits;
-        
-        public Sequence(String seq) {
-            this.length = seq.length();
-            this.bits = seqToBits(seq);
-        }
-        
-        @Override
-        public String toString() {
-            return bitsToSeq(this.bits, this.length);
-        }
-        
-        @Override
-        public int compareTo(Object other) {
-            return ((Sequence) other).length - this.length;
-        }
-    }
     
     public static int reduceRedundancy(final String inFasta,
                                         final String outFasta,
@@ -687,13 +663,13 @@ public final class GraphUtils {
                                         final int maxIndelSize,
                                         final int maxTipLength,
                                         final float percentIdentity) throws IOException {
-        ArrayList<Sequence> seqs = new ArrayList<>();
+        ArrayList<BitSequence> seqs = new ArrayList<>();
         
         // read entire FASTA and store all sequences
         FastaReader fr = new FastaReader(inFasta);
         try {
             while (true) {
-                seqs.add(new Sequence(fr.next()));
+                seqs.add(new BitSequence(fr.next()));
             }
         }
         catch (NoSuchElementException e) {
@@ -707,7 +683,7 @@ public final class GraphUtils {
         // remove redundant sequences
         int cid = 0;
         FastaWriter fw = new FastaWriter(outFasta, false);
-        for (Sequence s : seqs) {
+        for (BitSequence s : seqs) {
             int len = s.length;
             
             String seq = s.toString();
