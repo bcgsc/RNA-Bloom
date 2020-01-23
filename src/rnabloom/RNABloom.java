@@ -2426,9 +2426,7 @@ public class RNABloom {
                 System.out.println("Parsing file `" + readFile + "`...");
                 
                 while (fr.hasNext()) {
-                    String[] nameSeqPair = fr.nextWithName();
-                    String name = nameSeqPair[0];
-                    String seq = nameSeqPair[1];
+                    String seq = fr.next();
                     
                     int numKmers = getNumKmers(seq, k);
                     TreeSet<Long> sortedHashVals = useCompressedMinimizers ? 
