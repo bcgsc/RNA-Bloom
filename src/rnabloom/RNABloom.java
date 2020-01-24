@@ -2275,12 +2275,12 @@ public class RNABloom {
     }
     
     public class ContainmentCalculator implements Runnable {
-        private final TreeSet<Long> queryHashVals;
+        private final long[] queryHashVals;
         private final ArrayBlockingQueue<Integer> sketchIDsQueue;
         private int bestOverlap = -1;
         private float bestOverlapProportion = -1;
         private int bestTargetIndex = -1;
-        private final ArrayList<TreeSet<Long>> targetSketches;
+        private final ArrayList<long[]> targetSketches;
         private boolean terminateWhenInputExhausts = false;
         private boolean successful = false;
         private Exception exception = null;
@@ -2288,7 +2288,7 @@ public class RNABloom {
         private float minSketchOverlapProportion = -1;
         private ArrayDeque<Integer> overlappingSketchIndexes = new ArrayDeque<>();
         
-        public ContainmentCalculator(TreeSet<Long> queryHashVals, ArrayList<TreeSet<Long>> targetSketches, 
+        public ContainmentCalculator(long[] queryHashVals, ArrayList<long[]> targetSketches, 
                                     ArrayBlockingQueue<Integer> sketchIDsQueue,
                                     int minSketchOverlap,
                                     float minSketchOverlapProportion) {
@@ -2309,9 +2309,9 @@ public class RNABloom {
                         continue;
                     }
                     
-                    TreeSet<Long> sketch = targetSketches.get(sketchID);
+                    long[] sketch = targetSketches.get(sketchID);
                     int overlap = getNumIntersection(queryHashVals, sketch);
-                    float overlapProportion = Math.max((float)overlap / (float)sketch.size(), (float)overlap / (float)queryHashVals.size());
+                    float overlapProportion = Math.max((float)overlap / (float)sketch.length, (float)overlap / (float)queryHashVals.length);
 
                     if (overlapProportion >= minSketchOverlapProportion || overlap >= minSketchOverlap) {
                         if (bestTargetIndex < 0) {
@@ -2408,7 +2408,7 @@ public class RNABloom {
         int maxQueueSize = 100;
         ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
         
-        ArrayList<TreeSet<Long>> targetSketches = new ArrayList<>();
+        ArrayList<long[]> targetSketches = new ArrayList<>();
         ArrayList<ArrayDeque<BitSequence>> targetSequences = new ArrayList<>();
         ArrayDeque<Integer> targetSketchesNullIndexes = new ArrayDeque<>();
         NTHashIterator itr = graph.getHashIterator();
@@ -2429,11 +2429,11 @@ public class RNABloom {
                     String seq = fr.next();
                     
                     int numKmers = getNumKmers(seq, k);
-                    TreeSet<Long> sortedHashVals = useCompressedMinimizers ? 
-                                            getHashValuesSetWithCompressedHomoPolymers(seq, itr, k) : 
-                                            getHashValuesSet(seq, itr, graph, numKmers, covThreshold);
+                    long[] sortedHashVals = useCompressedMinimizers ? 
+                                            getAscendingHashValuesWithCompressedHomoPolymers(seq, itr, k) : 
+                                            getAscendingHashValues(seq, itr, graph, numKmers, covThreshold);
                     
-                    if (sortedHashVals.size() < sketchSize) {
+                    if (sortedHashVals.length < sketchSize) {
                         // not enough good kmers
                         ++numDiscarded;
                         continue;
@@ -2447,9 +2447,9 @@ public class RNABloom {
                     int bestTargetSketchID = -1;
                     
                     if (targetSketches.isEmpty()) {
-                        TreeSet<Long> sketch = useCompressedMinimizers ?
-                                        getMinimizersSetWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
-                                        getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
+                        long[] sketch = useCompressedMinimizers ?
+                                        getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
+                                        getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
                         targetSketches.add(sketch);
                         
                         bestTargetSketchID = 0;
@@ -2459,8 +2459,8 @@ public class RNABloom {
                         targetSequences.add(seqs);
                     }
                     else {
-                        float minSketchOverlapProportion = (float)sortedHashVals.size() / (float)numKmers;
-                        int minSketchOverlap = Math.max(1, (int) Math.floor(minSketchOverlapProportion * (sortedHashVals.size()-minimizerWindowSize+1)/minimizerWindowSize));
+                        float minSketchOverlapProportion = (float)sortedHashVals.length / (float)numKmers;
+                        int minSketchOverlap = Math.max(1, (int) Math.floor(minSketchOverlapProportion * (sortedHashVals.length-minimizerWindowSize+1)/minimizerWindowSize));
                         
                         /** start thread pool*/
                         int numWorkers = Math.min(numThreads, targetSketches.size());
@@ -2508,9 +2508,9 @@ public class RNABloom {
                         
                         if (bestIntersectionSize <= 0) {
                             // start a new cluster
-                            TreeSet<Long> sketch = useCompressedMinimizers ?
-                                            getMinimizersSetWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
-                                            getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
+                            long[] sketch = useCompressedMinimizers ?
+                                            getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
+                                            getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
                             
                             if (targetSketchesNullIndexes.isEmpty()) {
                                 targetSketches.add(sketch);
@@ -2538,11 +2538,12 @@ public class RNABloom {
                             if (!overlapSketchIDs.isEmpty()) {
                                 // combine overlapping clusters
                                 
-                                TreeSet<Long> newSketch = targetSketches.get(bestTargetSketchID);
+                                ArrayDeque<long[]> overlappingSketches = new ArrayDeque<>();
+                                overlappingSketches.add(targetSketches.get(bestTargetSketchID));
                                 
                                 // add the sketches of other targets
                                 for (int i : overlapSketchIDs) {
-                                    newSketch.addAll(targetSketches.get(i));
+                                    overlappingSketches.add(targetSketches.get(i));
                                     targetSketches.set(i, null);
                                     targetSketchesNullIndexes.add(i);
                                     
@@ -2550,10 +2551,12 @@ public class RNABloom {
                                     targetSequences.set(i, null);
                                 }
                                 
-                                TreeSet<Long> sketch = useCompressedMinimizers ?
-                                                getMinimizersSetWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
-                                                getMinimizersSet(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
-                                newSketch.addAll(sketch);
+                                long[] sketch = useCompressedMinimizers ?
+                                                getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
+                                                getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
+                                overlappingSketches.add(sketch);
+                                
+                                targetSketches.set(bestTargetSketchID, combineSketches(overlappingSketches));
                             }
                         }
                     }

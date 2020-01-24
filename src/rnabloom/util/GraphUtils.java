@@ -2562,13 +2562,13 @@ public final class GraphUtils {
         return getMinimizers(chpSeq, getNumKmers(chpSeq, k), itr, windowSize);
     }
 
-    public static TreeSet<Long> getMinimizersSetWithCompressedHomoPolymers(String seq, int k, NTHashIterator itr, int windowSize) {
+    public static HashSet<Long> getMinimizersSetWithCompressedHomoPolymers(String seq, int k, NTHashIterator itr, int windowSize) {
         String chpSeq = compressHomoPolymers(seq);
         return getMinimizersSet(chpSeq, getNumKmers(chpSeq, k), itr, windowSize);
     }
     
     public static long[] getMinimizers(String seq, int numKmers, NTHashIterator itr, int windowSize) {        
-        TreeSet<Long> minimizers = getMinimizersSet(seq, numKmers, itr, windowSize);
+        HashSet<Long> minimizers = getMinimizersSet(seq, numKmers, itr, windowSize);
         
         long[] minimizersArr = new long[minimizers.size()];
         int i=0;
@@ -2576,10 +2576,12 @@ public final class GraphUtils {
             minimizersArr[i++] = m;
         }
         
+        Arrays.sort(minimizersArr);
+        
         return minimizersArr;
     }
     
-    public static TreeSet<Long> getMinimizersSet(String seq, int numKmers, NTHashIterator itr, int windowSize) {
+    public static HashSet<Long> getMinimizersSet(String seq, int numKmers, NTHashIterator itr, int windowSize) {
         itr.start(seq);
         long[] hvals = itr.hVals;
 
@@ -2593,12 +2595,12 @@ public final class GraphUtils {
                 }
             }
             
-            TreeSet<Long> set = new TreeSet<>();
+            HashSet<Long> set = new HashSet<>();
             set.add(minimizer);
             return set;
         }
         
-        TreeSet<Long> minimizers = new TreeSet<>();
+        HashSet<Long> minimizers = new HashSet<>();
         
         // find minimizer in the first window
         ArrayDeque<Long> window = new ArrayDeque<>(windowSize);
@@ -2655,7 +2657,7 @@ public final class GraphUtils {
     }
     
     public static long[] getMinimizers(String seq, int numKmers, NTHashIterator itr, int windowSize, BloomFilterDeBruijnGraph graph, float minCoverage) {        
-        TreeSet<Long> minimizers = getMinimizersSet(seq, numKmers, itr, windowSize, graph, minCoverage);
+        HashSet<Long> minimizers = getMinimizersSet(seq, numKmers, itr, windowSize, graph, minCoverage);
         
         long[] minimizersArr = new long[minimizers.size()];
         int i=0;
@@ -2663,10 +2665,12 @@ public final class GraphUtils {
             minimizersArr[i++] = m;
         }
         
+        Arrays.sort(minimizersArr);
+        
         return minimizersArr;
     }
     
-    public static TreeSet<Long> getMinimizersSet(String seq, int numKmers, NTHashIterator itr, int windowSize, BloomFilterDeBruijnGraph graph, float minCoverage) {        
+    public static HashSet<Long> getMinimizersSet(String seq, int numKmers, NTHashIterator itr, int windowSize, BloomFilterDeBruijnGraph graph, float minCoverage) {        
         itr.start(seq);
         long[] hvals = itr.hVals;
 
@@ -2691,14 +2695,14 @@ public final class GraphUtils {
                 }
             }
             
-            TreeSet<Long> set = new TreeSet<>();
+            HashSet<Long> set = new HashSet<>();
             if (hasMinimizer) {
                 set.add(minimizer);
             }
             return set;
         }
         
-        TreeSet<Long> minimizers = new TreeSet<>();
+        HashSet<Long> minimizers = new HashSet<>();
         ArrayDeque<Long> window = new ArrayDeque<>(windowSize);
         ArrayDeque<Float> covWindow = new ArrayDeque<>(windowSize);
         
@@ -2800,7 +2804,7 @@ public final class GraphUtils {
     }
     
     public static long[] getAscendingHashValuesWithCompressedHomoPolymers(String seq, NTHashIterator itr, int k) {
-        TreeSet<Long> hashValSet = getHashValuesSetWithCompressedHomoPolymers(seq, itr, k);
+        HashSet<Long> hashValSet = getHashValuesSetWithCompressedHomoPolymers(seq, itr, k);
         
         int numVals = hashValSet.size();
         long[] result = new long[numVals];
@@ -2809,14 +2813,16 @@ public final class GraphUtils {
             result[i++] = h;
         }
         
+        Arrays.sort(result);
+        
         return result;
     }
  
-    public static TreeSet<Long> getHashValuesSetWithCompressedHomoPolymers(String seq, NTHashIterator itr, int k) {
+    public static HashSet<Long> getHashValuesSetWithCompressedHomoPolymers(String seq, NTHashIterator itr, int k) {
         seq = compressHomoPolymers(seq);
         int numKmers = getNumKmers(seq, k);
         
-        TreeSet<Long> hashValSet = new TreeSet<>();
+        HashSet<Long> hashValSet = new HashSet<>();
         
         itr.start(seq);
         long[] hVals = itr.hVals;
@@ -2829,7 +2835,7 @@ public final class GraphUtils {
     }
     
     public static long[] getAscendingHashValues(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
-        TreeSet<Long> hashValSet = getHashValuesSet(seq, itr, graph, numKmers, minCoverage);
+        HashSet<Long> hashValSet = getHashValuesSet(seq, itr, graph, numKmers, minCoverage);
         
         int numVals = hashValSet.size();
         long[] result = new long[numVals];
@@ -2838,11 +2844,13 @@ public final class GraphUtils {
             result[i++] = h;
         }
         
+        Arrays.sort(result);
+        
         return result;
     }
     
-    public static TreeSet<Long> getHashValuesSet(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
-        TreeSet<Long> hashValSet = new TreeSet<>();
+    public static HashSet<Long> getHashValuesSet(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
+        HashSet<Long> hashValSet = new HashSet<>();
         
         itr.start(seq);
         long[] hVals = itr.hVals;
@@ -2857,7 +2865,7 @@ public final class GraphUtils {
     }
     
     public static long[] combineSketches(long[]... sketches) {
-        TreeSet<Long> hashValSet = new TreeSet<>();
+        HashSet<Long> hashValSet = new HashSet<>();
         for (long[] sketch : sketches) {
             for (long val : sketch) {
                 hashValSet.add(val);
@@ -2870,12 +2878,14 @@ public final class GraphUtils {
         for (Long h : hashValSet) {
             result[i++] = h;
         }
+        
+        Arrays.sort(result);
         
         return result;
     }
     
     public static long[] combineSketches(Collection<long[]> sketches) {
-        TreeSet<Long> hashValSet = new TreeSet<>();
+        HashSet<Long> hashValSet = new HashSet<>();
         for (long[] sketch : sketches) {
             for (long val : sketch) {
                 hashValSet.add(val);
@@ -2888,6 +2898,8 @@ public final class GraphUtils {
         for (Long h : hashValSet) {
             result[i++] = h;
         }
+        
+        Arrays.sort(result);
         
         return result;
     }
