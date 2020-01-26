@@ -2275,12 +2275,12 @@ public class RNABloom {
     
     public class ContainmentCalculator implements Runnable {
         private final long[] queryHashVals;
-        private final ArrayBlockingQueue<Integer> sketchIDsQueue;
+        private int startIndex = -1;
+        private int stopIndex = -1;
         private int bestOverlap = -1;
         private float bestOverlapProportion = -1;
         private int bestTargetIndex = -1;
         private final ArrayList<long[]> targetSketches;
-        private boolean terminateWhenInputExhausts = false;
         private boolean successful = false;
         private Exception exception = null;
         private int minSketchOverlap = -1;
@@ -2288,12 +2288,13 @@ public class RNABloom {
         private ArrayDeque<Integer> overlappingSketchIndexes = new ArrayDeque<>();
         
         public ContainmentCalculator(long[] queryHashVals, ArrayList<long[]> targetSketches, 
-                                    ArrayBlockingQueue<Integer> sketchIDsQueue,
+                                    int startIndex, int stopIndex,
                                     int minSketchOverlap,
                                     float minSketchOverlapProportion) {
             this.queryHashVals = queryHashVals;
+            this.startIndex = startIndex;
+            this.stopIndex= stopIndex;
             this.targetSketches = targetSketches;
-            this.sketchIDsQueue = sketchIDsQueue;
             this.minSketchOverlap = minSketchOverlap;
             this.minSketchOverlapProportion = minSketchOverlapProportion;
         }
@@ -2301,14 +2302,13 @@ public class RNABloom {
         @Override
         public void run() {
             try {
-                while(!(terminateWhenInputExhausts && sketchIDsQueue.isEmpty())) {
-                    Integer sketchID = sketchIDsQueue.poll(1, TimeUnit.MILLISECONDS);
-
-                    if (sketchID == null) {
+                for(int sketchID=startIndex; sketchID<stopIndex; ++sketchID) {
+                    long[] sketch = targetSketches.get(sketchID);
+                    
+                    if (sketch == null) {
                         continue;
                     }
                     
-                    long[] sketch = targetSketches.get(sketchID);
                     int overlap = getNumIntersection(queryHashVals, sketch);
                     float overlapProportion = Math.max((float)overlap / (float)sketch.length, (float)overlap / (float)queryHashVals.length);
 
@@ -2329,7 +2329,7 @@ public class RNABloom {
                 
                 successful = true;
                 
-            } catch (InterruptedException ex) {
+            } catch (Exception ex) {
                 exception = ex;
                 successful = false;
             }
@@ -2345,10 +2345,6 @@ public class RNABloom {
         
         public ArrayDeque<Integer> getOverlappingSketchIndexes() {
             return overlappingSketchIndexes;
-        }
-        
-        public void terminateWhenInputExhausts() {
-            terminateWhenInputExhausts = true;
         }
         
         public boolean isSucessful() {
@@ -2404,8 +2400,8 @@ public class RNABloom {
         final int minimizerWindowSize = k;
         int numDiscarded = 0;
         
-        int maxQueueSize = 100;
-        ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
+//        int maxQueueSize = 100;
+//        ArrayBlockingQueue<Integer> sketchIndexQueue = new ArrayBlockingQueue<>(maxQueueSize);
         
         ArrayList<long[]> targetSketches = new ArrayList<>();
         ArrayList<ArrayDeque<BitSequence>> targetSequences = new ArrayList<>();
@@ -2466,23 +2462,22 @@ public class RNABloom {
                         MyExecutorService service = new MyExecutorService(numWorkers, numWorkers);
                         
                         ContainmentCalculator[] workers = new ContainmentCalculator[numWorkers];
-                        for (int i=0; i<numWorkers; ++i) {
-                            ContainmentCalculator worker = new ContainmentCalculator(sortedHashVals, targetSketches, sketchIndexQueue, minSketchOverlap, minSketchOverlapProportion);
+                        int numTargets = targetSketches.size();
+                        int step = numTargets/numWorkers;
+                        int startIndex = 0;
+                        int stopIndex = step;
+                        for (int i=0; i<numWorkers-1; ++i) {
+                            ContainmentCalculator worker = new ContainmentCalculator(sortedHashVals, targetSketches, startIndex, stopIndex, minSketchOverlap, minSketchOverlapProportion);
                             workers[i] = worker;
                             service.submit(worker);
+                            startIndex = stopIndex;
+                            stopIndex += step;
                         }
                         
-                        int numTargets = targetSketches.size();
-                        for (int i=0; i<numTargets; ++i) {
-                            if (targetSketches.get(i) != null) {
-                                sketchIndexQueue.put(i);
-                            }
-                        }
-                        
-                        for (ContainmentCalculator worker : workers) {
-                            worker.terminateWhenInputExhausts();
-                        }
-                        
+                        ContainmentCalculator w = new ContainmentCalculator(sortedHashVals, targetSketches, startIndex, targetSketches.size(), minSketchOverlap, minSketchOverlapProportion);
+                        workers[numWorkers-1] = w;
+                        service.submit(w);
+                                                
                         service.terminate();
                         
                         int bestIntersectionSize = -1;
