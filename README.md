@@ -11,7 +11,7 @@
 
 Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
-:copyright: 2018 Canada's Michael Smith Genome Sciences Centre, BC Cancer
+:copyright: 2018-2020 Canada's Michael Smith Genome Sciences Centre, BC Cancer
 
 --------------------------------------------------------------------------------
 
@@ -168,6 +168,10 @@ This limits the maximum Java heap to 2 GB with the `-Xmx` option. Note that `jav
 
 See documentation for other [JVM options](https://docs.oracle.com/cd/E37116_01/install.111210/e23737/configuring_jvm.htm#OUDIG00071).
 
+
+## Implementation :pencil:
+
+RNA-Bloom is written in Java with Apache NetBeans IDE. It uses the [Apache Commons CLI library](https://commons.apache.org/proper/commons-cli/) and [JGraphT core library](https://jgrapht.org/).
 
 
 ## Citing RNA-Bloom :scroll:
