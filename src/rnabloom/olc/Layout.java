@@ -524,7 +524,9 @@ public class Layout {
         reader.close();
         
         System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
-        System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
+        if (!artifactCutIndexes.isEmpty()) {
+            System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
+        }
         
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
@@ -533,9 +535,11 @@ public class Layout {
                 longestSet.add(name);
             }
         }
-                
-        System.out.println("         - unique:    " + NumberFormat.getInstance().format(longestSet.size()));
-                        
+        
+        if (!longestSet.isEmpty()) {
+            System.out.println("         - unique:    " + NumberFormat.getInstance().format(longestSet.size()));
+        }
+        
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
         for (PafRecord r : dovetailRecords) {
@@ -576,7 +580,9 @@ public class Layout {
             }
         }
         
-        System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+        if (!dovetailReadNames.isEmpty()) {
+            System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+        }
         
         int numEdges = graph.edgeSet().size();
         if (numEdges > 2) {
@@ -654,9 +660,9 @@ public class Layout {
         fw.close();
         
         if (seqID > 1)
-            System.out.println(NumberFormat.getInstance().format(seqID) + " sequences remaining after layout");
+            System.out.println(NumberFormat.getInstance().format(seqID) + " sequences remain");
         else
-            System.out.println(Integer.toString(seqID) + " sequence remaining after layout");
+            System.out.println(Integer.toString(seqID) + " sequence remains");
     }
     
     private void layoutStrandedBackbones(String outFastaPath) throws IOException {
@@ -720,7 +726,9 @@ public class Layout {
         reader.close();
         
         System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
-        System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
+        if (!artifactCutIndexes.isEmpty()) {
+            System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
+        }
         
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
@@ -730,8 +738,10 @@ public class Layout {
             }
         }
         
-        System.out.println("         - unique:    " + NumberFormat.getInstance().format(longestSet.size()));
-                
+        if (!longestSet.isEmpty()) {
+            System.out.println("         - unique:    " + NumberFormat.getInstance().format(longestSet.size()));
+        }        
+        
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
         for (PafRecord r : dovetailRecords) {
@@ -758,8 +768,10 @@ public class Layout {
             }
         }
         
-        System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
-
+        if (!dovetailReadNames.isEmpty()) {
+            System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+        }
+        
         int numEdges = graph.edgeSet().size();
         if (numEdges > 2) {
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
@@ -838,9 +850,9 @@ public class Layout {
         fw.close();
         
         if (seqID > 1)
-            System.out.println(NumberFormat.getInstance().format(seqID) + " sequences remaining after layout");
+            System.out.println(NumberFormat.getInstance().format(seqID) + " sequences remain");
         else
-            System.out.println(Integer.toString(seqID) + " sequence remaining after layout");
+            System.out.println(Integer.toString(seqID) + " sequence remains");
     }
     
     public static void main(String[] args) {
