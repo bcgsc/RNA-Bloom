@@ -3474,8 +3474,38 @@ public class RNABloom {
             Files.deleteIfExists(sys.getPath(unconnectedPolyaSingletonsFasta));
         }
     }
+    
+    public class ReadPairsFactoryWorker implements Runnable {
+        private FastxFilePair[] fastxPairs;
+        private ArrayBlockingQueue<PairedReadSegments> readPairsQueue;
+        private long numParsed = 0;
+        private boolean stopped = false;
         
-    public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastqPairs, 
+        public ReadPairsFactoryWorker(FastxFilePair[] fastxPairs,
+                ArrayBlockingQueue<PairedReadSegments> readPairsQueue) {
+            this.fastxPairs = fastxPairs;
+            this.readPairsQueue = readPairsQueue;
+        }
+        
+        @Override
+        public void run() {
+            try {
+                FastxPairSequenceIterator rin = new FastxPairSequenceIterator(fastxPairs, seqPattern, qualPatternFrag);
+                while (rin.hasNext()) {
+                    readPairsQueue.put(rin.next());
+                    ++numParsed;
+                }
+                stopped = true;
+            }
+            catch (Exception ex) {
+                stopped = true;
+                ex.printStackTrace();
+                throw new RuntimeException(ex);
+            }
+        }
+    }
+    
+    public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastxPairs, 
                                                 FragmentPaths fragPaths,
                                                 int bound,
                                                 int minOverlap,
@@ -3493,16 +3523,19 @@ public class RNABloom {
         if (covFPR <= 0) {
             covFPR = graph.getCbf().getFPR();
         }        
-        
-        long numParsed = 0;
-        
+                
         int shortestFragmentLengthAllowed = k;
         int leftReadLengthThreshold = k;
         int rightReadLengthThreshold = k;
         
         boolean assemblePolyaTails = this.minPolyATailLengthRequired > 0;
         
-        ArrayBlockingQueue<PairedReadSegments> readPairs = new ArrayBlockingQueue<>(numThreads*2);
+        ArrayBlockingQueue<PairedReadSegments> readPairs = new ArrayBlockingQueue<>(sampleSize);
+        
+        ReadPairsFactoryWorker supplier = new ReadPairsFactoryWorker(fastxPairs, readPairs);
+        Thread supplierThread = new Thread(supplier);
+        supplierThread.start();
+        
         ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
                 
         FragmentAssembler[] workers = new FragmentAssembler[numThreads];
@@ -3524,14 +3557,13 @@ public class RNABloom {
             threads[i].start();
         }
         
-        FastxPairSequenceIterator rin = new FastxPairSequenceIterator(fastqPairs, this.seqPattern, this.qualPatternFrag);
-        while (rin.hasNext()) {
-            if (fragments.remainingCapacity() == 0) {
+        while (true) {
+            if (supplier.stopped || fragments.remainingCapacity() == 0) {
                 break;
             }
-            
-            readPairs.put(rin.next());
-            ++numParsed;
+            else {
+                Thread.sleep(100);
+            }
         }
         
         // Calculate length stats
@@ -3566,14 +3598,11 @@ public class RNABloom {
         System.out.println("Paired kmers distance:       " + (longFragmentLengthThreshold - k - minNumKmerPairs));
         System.out.println("Max graph traversal depth:   " + newBound);
 
-        FragmentWriterWorker writerWorker = new FragmentWriterWorker(fragments, fragPaths, assemblePolyaTails, shortestFragmentLengthAllowed);
-        Thread writerThread = new Thread(writerWorker);
+        FragmentWriterWorker writer = new FragmentWriterWorker(fragments, fragPaths, assemblePolyaTails, shortestFragmentLengthAllowed);
+        Thread writerThread = new Thread(writer);
         writerThread.start();
         
-        while (rin.hasNext()) {
-            readPairs.put(rin.next());
-            ++numParsed;
-        }
+        supplierThread.join();
         
         for (FragmentAssembler w : workers) {
             w.stopWhenEmpty();
@@ -3583,11 +3612,12 @@ public class RNABloom {
             t.join();
         }
 
-        writerWorker.stopWhenEmpty();
+        writer.stopWhenEmpty();
         writerThread.join();
         
-        long numConnected = writerWorker.getNumConnected();
-        long numUnconnected = writerWorker.getNumUnconnected();
+        long numParsed = supplier.numParsed;
+        long numConnected = writer.getNumConnected();
+        long numUnconnected = writer.getNumUnconnected();
         long numDiscarded = numParsed - numConnected - numUnconnected;
 
         System.out.println("Parsed " + NumberFormat.getInstance().format(numParsed) + " read pairs.");
