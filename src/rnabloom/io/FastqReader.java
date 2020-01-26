@@ -26,23 +26,24 @@ import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
+import static rnabloom.io.Constants.BUFFER_SIZE;
+import static rnabloom.io.Constants.GZIP_EXTENSION;
 
 /**
  *
  * @author Ka Ming Nip
  */
 public final class FastqReader implements FastxReaderInterface {
-    private final static String GZIP_EXTENSION = ".gz";
     private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("^@([^\\s/]+)(?:/[12])?.*$");
     private final BufferedReader br;
     private final Iterator<String> itr;
     
     public FastqReader(String path) throws IOException {        
         if (path.toLowerCase().endsWith(GZIP_EXTENSION)) {
-            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))));
+            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))), BUFFER_SIZE);
         }
         else {
-            br = new BufferedReader(new InputStreamReader(new FileInputStream(path)));
+            br = new BufferedReader(new InputStreamReader(new FileInputStream(path)), BUFFER_SIZE);
         }
         itr = br.lines().iterator();
     }

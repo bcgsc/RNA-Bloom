@@ -66,6 +66,7 @@ import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
 import rnabloom.bloom.hash.ReverseComplementPairedNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer;
+import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.FastaFilteredSequenceIterator;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
@@ -99,9 +100,7 @@ public class RNABloom {
     public final static long NUM_BYTES_1GB = (long) pow(1024, 3);
     public final static long NUM_BYTES_1MB = (long) pow(1024, 2);
     public final static long NUM_BYTES_1KB = (long) 1024;
-    
-    private final static String FASTA_EXT = ".fa";
-    
+        
     private boolean debug = false;
     private int k;
     private boolean strandSpecific;

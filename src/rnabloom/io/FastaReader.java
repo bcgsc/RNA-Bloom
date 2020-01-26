@@ -26,13 +26,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 //import java.util.NoSuchElementException;
 import java.util.zip.GZIPInputStream;
+import static rnabloom.io.Constants.BUFFER_SIZE;
+import static rnabloom.io.Constants.GZIP_EXTENSION;
 
 /**
  *
  * @author Ka Ming Nip
  */
 public class FastaReader implements FastxReaderInterface {
-    private final static String GZIP_EXTENSION = ".gz";
     private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("^>([^\\s/]+)(?:/[12])?.*$");
     private final static Pattern RECORD_NAME_COMMENT_PATTERN = Pattern.compile("^>([^\\s/]+)\\s*(.*)?$");
     private final Iterator<String> itr;
@@ -40,10 +41,10 @@ public class FastaReader implements FastxReaderInterface {
     
     public FastaReader(String path) throws IOException {
         if (path.toLowerCase().endsWith(GZIP_EXTENSION)) {
-            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))));
+            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))), BUFFER_SIZE);
         }
         else {
-            br = new BufferedReader(new InputStreamReader(new FileInputStream(path)));
+            br = new BufferedReader(new InputStreamReader(new FileInputStream(path)), BUFFER_SIZE);
         }
         itr = br.lines().iterator();
     }

@@ -23,13 +23,14 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.zip.GZIPOutputStream;
+import static rnabloom.io.Constants.BUFFER_SIZE;
+import static rnabloom.io.Constants.GZIP_EXTENSION;
 
 /**
  *
  * @author Ka Ming Nip
  */
 public class FastaWriter {
-    private final static String GZIP_EXTENSION = ".gz";
     private final Writer out;
     //private FileLock lock = null;
     
@@ -38,7 +39,7 @@ public class FastaWriter {
             out = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(path, append)), "UTF-8");
         }
         else {
-            out = new BufferedWriter(new FileWriter(path, append));
+            out = new BufferedWriter(new FileWriter(path, append), BUFFER_SIZE);
         }
         /*
         FileOutputStream stream = new FileOutputStream(path, append);

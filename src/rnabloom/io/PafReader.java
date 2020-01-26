@@ -22,22 +22,23 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 import java.util.zip.GZIPInputStream;
+import static rnabloom.io.Constants.BUFFER_SIZE;
+import static rnabloom.io.Constants.GZIP_EXTENSION;
 
 /**
  *
  * @author kmnip
  */
 public class PafReader {
-    private final static String GZIP_EXTENSION = ".gz";
     private final Iterator<String> itr;
     private final BufferedReader br;
     
     public PafReader(String path) throws IOException {
         if (path.toLowerCase().endsWith(GZIP_EXTENSION)) {
-            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))));
+            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))), BUFFER_SIZE);
         }
         else {
-            br = new BufferedReader(new InputStreamReader(new FileInputStream(path)));
+            br = new BufferedReader(new InputStreamReader(new FileInputStream(path)), BUFFER_SIZE);
         }
         itr = br.lines().iterator();
     }
