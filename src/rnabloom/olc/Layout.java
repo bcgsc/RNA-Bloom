@@ -238,9 +238,9 @@ public class Layout {
         
         BiconnectivityInspector<String, OverlapEdge> bci = new BiconnectivityInspector<>(graph);
         
-        // Perform transitive reduction on each connected component; 
+        // Perform transitive reduction on each biconnected component; 
         // this routine should use less memory than reducing the entire graph.
-        for (Graph<String, OverlapEdge> cc : bci.getConnectedComponents()) {
+        for (Graph<String, OverlapEdge> cc : bci.getBlocks()) {
             Set<OverlapEdge> edges = cc.edgeSet();
             if (!edges.isEmpty()) {
                 edges = new HashSet<>(edges);
