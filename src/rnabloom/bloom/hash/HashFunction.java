@@ -180,8 +180,16 @@ public class HashFunction {
         return new NTHashIterator(k, numHash);
     }
     
+    public NTHashIterator getReverseComplementHashIterator(final int numHash) {
+        return new ReverseComplementNTHashIterator(k, numHash);
+    }
+    
     public PairedNTHashIterator getPairedHashIterator(final int numHash, final int distance) {
         return new PairedNTHashIterator(k, numHash, distance);
+    }
+
+    public PairedNTHashIterator getReverseComplementPairedHashIterator(final int numHash, final int distance) {
+        return new ReverseComplementPairedNTHashIterator(k, numHash, distance);
     }
     
 //    public SuccessorsNTHashIterator getSuccessorsHashIterator(final int numHash) {

@@ -159,11 +159,19 @@ public class CanonicalHashFunction extends HashFunction {
     }
     
     @Override
+    public NTHashIterator getReverseComplementHashIterator(final int numHash) {
+        return this.getHashIterator(numHash);
+    }
+    
+    @Override
     public PairedNTHashIterator getPairedHashIterator(final int numHash, final int distance) {
         return new CanonicalPairedNTHashIterator(k, numHash, distance);
     }
-    
-
+        
+    @Override
+    public PairedNTHashIterator getReverseComplementPairedHashIterator(final int numHash, final int distance) {
+        return this.getPairedHashIterator(numHash, distance);
+    }
     
         
 //    @Override
