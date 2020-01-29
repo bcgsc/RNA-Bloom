@@ -38,8 +38,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.TreeSet;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -58,12 +56,8 @@ import org.apache.commons.cli.Options;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.PairedKeysBloomFilter;
-import rnabloom.bloom.hash.CanonicalNTHashIterator;
-import rnabloom.bloom.hash.CanonicalPairedNTHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.bloom.hash.PairedNTHashIterator;
-import rnabloom.bloom.hash.ReverseComplementNTHashIterator;
-import rnabloom.bloom.hash.ReverseComplementPairedNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer;
 import static rnabloom.io.Constants.FASTA_EXT;
@@ -288,7 +282,7 @@ public class RNABloom {
     }
     
     public void clearPkBf() {
-        graph.clearPkbf();
+        graph.clearFpkbf();
     }
     
     public void clearRpkBf() {
@@ -328,21 +322,15 @@ public class RNABloom {
         private final int id;
         private final String path;
         private PairedNTHashIterator pitr = null;
-        private int kmerPairDistance = 0;
         private long numReads = 0;
         private boolean successful = false;
         private boolean existingKmersOnly = false;
         
-        public PairedKmersToGraphWorker(int id, String path, boolean stranded, int numHash, boolean existingKmersOnly) {
+        public PairedKmersToGraphWorker(int id, String path, boolean existingKmersOnly) {
             this.id = id;
             this.path = path;
-            this.kmerPairDistance = graph.getReadPairedKmerDistance();
             this.existingKmersOnly = existingKmersOnly;
-            if (stranded) {
-                pitr = new PairedNTHashIterator(k, numHash, kmerPairDistance);
-            } else {
-                pitr = new CanonicalPairedNTHashIterator(k, numHash, kmerPairDistance);
-            }
+            this.pitr = graph.getPairedHashIterator(graph.getReadPairedKmerDistance());
         }
         
         @Override
@@ -367,15 +355,11 @@ public class RNABloom {
                             mSeq.reset(seq);
 
                             while (mSeq.find()) {
-                                int start = mSeq.start();
-                                int end = mSeq.end();
-
-                                if (end - start - k + 1 >= kmerPairDistance) {
-                                    pitr.start(seq, start, end);
+                                if (pitr.start(seq, mSeq.start(), mSeq.end())) {
                                     while (pitr.hasNext()) {
                                         pitr.next();
                                         if (graph.contains(lHashVals) && graph.contains(rHashVals)) {
-                                            graph.addSingleReadPairedKmer(pHashVals);
+                                            graph.addReadSingleKmerPair(pHashVals);
                                         }
                                     }
                                 }
@@ -390,14 +374,10 @@ public class RNABloom {
                             mSeq.reset(seq);
 
                             while (mSeq.find()) {
-                                int start = mSeq.start();
-                                int end = mSeq.end();
-
-                                if (end - start - k + 1 >= kmerPairDistance) {
-                                    pitr.start(seq, start, end);
+                                if (pitr.start(seq, mSeq.start(), mSeq.end())) {
                                     while (pitr.hasNext()) {
                                         pitr.next();
-                                        graph.addSingleReadPairedKmer(pHashVals);
+                                        graph.addReadSingleKmerPair(pHashVals);
                                     }
                                 }
                             }
@@ -433,48 +413,25 @@ public class RNABloom {
         private final String path;
         private NTHashIterator itr;
         private PairedNTHashIterator pitr = null;
-        private int kmerPairDistance = 0;
         private long numReads = 0;
         private boolean successful = false;
         private final Consumer<long[]> addFunction;
         private boolean storeReadPairedKmers = false;
         
-        public SeqToGraphWorker(int id, String path, boolean stranded, boolean reverseComplement, int numHash, boolean incrementIfPresent, boolean storeReadPairedKmers) {            
+        public SeqToGraphWorker(int id, String path, boolean reverseComplement, boolean incrementIfPresent, boolean storeReadPairedKmers) {            
             this.id = id;
             this.path = path;
             this.storeReadPairedKmers = storeReadPairedKmers;
             
-            if (stranded) {
-                if (reverseComplement) {
-                    itr = new ReverseComplementNTHashIterator(k, numHash);
-                }
-                else {
-                    itr = new NTHashIterator(k, numHash);
-                }
-            }
-            else {
-                itr = new CanonicalNTHashIterator(k, numHash);
-            }
+            int numHash = graph.getMaxNumHash();
+            this.itr = reverseComplement ? graph.getReverseComplementHashIterator(numHash) : graph.getHashIterator(numHash);
             
             if (storeReadPairedKmers) {
-                kmerPairDistance = graph.getReadPairedKmerDistance();
-                if (stranded) {
-                    if (reverseComplement) {
-                        pitr = new ReverseComplementPairedNTHashIterator(k, numHash, kmerPairDistance);
-                    } else {
-                        pitr = new PairedNTHashIterator(k, numHash, kmerPairDistance);
-                    }
-                } else {
-                    pitr = new CanonicalPairedNTHashIterator(k, numHash, kmerPairDistance);
-                }
+                int kmerPairDistance = graph.getReadPairedKmerDistance();
+                this.pitr = reverseComplement ? graph.getReverseComplementPairedHashIterator(kmerPairDistance) : graph.getPairedHashIterator(kmerPairDistance);
             }
             
-            if (incrementIfPresent) {
-                addFunction = graph::addCountIfPresent;
-            }
-            else {
-                addFunction = graph::add;
-            }
+            this.addFunction = incrementIfPresent ? graph::addCountIfPresent : graph::add;
         }
                 
         @Override
@@ -505,17 +462,17 @@ public class RNABloom {
                                     int start = mSeq.start();
                                     int end = mSeq.end();
 
-                                    itr.start(record.seq, start, end);
-                                    while (itr.hasNext()) {
-                                        itr.next();
-                                        addFunction.accept(hashVals);
-                                    }
+                                    if (itr.start(record.seq, start, end)) {
+                                        while (itr.hasNext()) {
+                                            itr.next();
+                                            addFunction.accept(hashVals);
+                                        }
 
-                                    if (end - start - k + 1 >= kmerPairDistance) {
-                                        pitr.start(record.seq, start, end);
-                                        while (pitr.hasNext()) {
-                                            pitr.next();
-                                            graph.addSingleReadPairedKmer(phashVals);
+                                        if (pitr.start(record.seq, start, end)) {
+                                            while (pitr.hasNext()) {
+                                                pitr.next();
+                                                graph.addReadSingleKmerPair(phashVals);
+                                            }
                                         }
                                     }
                                 }
@@ -533,10 +490,11 @@ public class RNABloom {
                             while (mQual.find()) {
                                 mSeq.region(mQual.start(), mQual.end());
                                 while (mSeq.find()) {
-                                    itr.start(record.seq, mSeq.start(), mSeq.end());
-                                    while (itr.hasNext()) {
-                                        itr.next();
-                                        addFunction.accept(hashVals);
+                                    if (itr.start(record.seq, mSeq.start(), mSeq.end())) {
+                                        while (itr.hasNext()) {
+                                            itr.next();
+                                            addFunction.accept(hashVals);
+                                        }
                                     }
                                 }
                             }
@@ -563,17 +521,17 @@ public class RNABloom {
                                 int start = mSeq.start();
                                 int end = mSeq.end();
 
-                                itr.start(seq, start, end);
-                                while (itr.hasNext()) {
-                                    itr.next();
-                                    addFunction.accept(hashVals);
-                                }
+                                if (itr.start(seq, start, end)) {
+                                    while (itr.hasNext()) {
+                                        itr.next();
+                                        addFunction.accept(hashVals);
+                                    }
 
-                                if (end - start - k + 1 >= kmerPairDistance) {
-                                    pitr.start(seq, start, end);
-                                    while (pitr.hasNext()) {
-                                        pitr.next();
-                                        graph.addSingleReadPairedKmer(phashVals);
+                                    if (pitr.start(seq, start, end)) {
+                                        while (pitr.hasNext()) {
+                                            pitr.next();
+                                            graph.addReadSingleKmerPair(phashVals);
+                                        }
                                     }
                                 }
                             }
@@ -587,10 +545,11 @@ public class RNABloom {
                             mSeq.reset(seq);
 
                             while (mSeq.find()) {
-                                itr.start(seq, mSeq.start(), mSeq.end());
-                                while (itr.hasNext()) {
-                                    itr.next();
-                                    addFunction.accept(hashVals);
+                                if (itr.start(seq, mSeq.start(), mSeq.end())) {
+                                    while (itr.hasNext()) {
+                                        itr.next();
+                                        addFunction.accept(hashVals);
+                                    }
                                 }
                             }
 
@@ -753,7 +712,6 @@ public class RNABloom {
         /** parse the reads */
         
         long numReads = 0;
-        int numHash = graph.getMaxNumHash();
         
         ExecutorService service = Executors.newFixedThreadPool(numThreads);
         
@@ -761,19 +719,19 @@ public class RNABloom {
         int threadId = 0;
            
         for (String path : forwardReadPaths) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, false, numHash, addCountsOnly, storeReadKmerPairs);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, false, addCountsOnly, storeReadKmerPairs);
             service.submit(t);
             threadPool.add(t);
         }
 
         for (String path : reverseReadPaths) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, true, numHash, addCountsOnly, storeReadKmerPairs);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, true, addCountsOnly, storeReadKmerPairs);
             service.submit(t);
             threadPool.add(t);
         }
         
         for (String path : longReadPaths) {
-            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, strandSpecific, reverseComplementLong, numHash, addCountsOnly, false);
+            SeqToGraphWorker t = new SeqToGraphWorker(++threadId, path, reverseComplementLong, addCountsOnly, false);
             service.submit(t);
             threadPool.add(t);
         }
@@ -793,7 +751,7 @@ public class RNABloom {
             service = Executors.newFixedThreadPool(numThreads);
 
             for (String path : refTranscriptsPaths) {
-                PairedKmersToGraphWorker t = new PairedKmersToGraphWorker(++threadId, path, strandSpecific, numHash, true);
+                PairedKmersToGraphWorker t = new PairedKmersToGraphWorker(++threadId, path, true);
                 service.submit(t);
             }
 
@@ -858,16 +816,16 @@ public class RNABloom {
                         while (readItr.hasNext()) {
                             readItr.next();
                             if (graph.contains(readHashValsL) && graph.contains(readHashValsR)) {
-                                graph.addSingleReadPairedKmer(readHashValsP);
+                                graph.addReadSingleKmerPair(readHashValsP);
                             }
                         }
-                    }
-                    
-                    if (fragItr.start(seq)) {
-                        while (fragItr.hasNext()) {
-                            fragItr.next();
-                            if (graph.contains(fragHashValsL) && graph.contains(fragHashValsR)) {
-                                graph.addPairedKmers(fragHashValsL, fragHashValsR, fragHashValsP);
+                        
+                        if (fragItr.start(seq)) {
+                            while (fragItr.hasNext()) {
+                                fragItr.next();
+                                if (graph.contains(fragHashValsL) && graph.contains(fragHashValsR)) {
+                                    graph.addFragmentSingleKmerPair(fragHashValsP);
+                                }
                             }
                         }
                     }
@@ -889,14 +847,14 @@ public class RNABloom {
                     if (readItr.start(seq)) {
                         while (readItr.hasNext()) {
                             readItr.next();
-                            graph.addSingleReadPairedKmer(readHashValsP);
+                            graph.addReadSingleKmerPair(readHashValsP);
                         }
                     }
                     
                     if (fragItr.start(seq)) {
                         while (fragItr.hasNext()) {
                             fragItr.next();
-                            graph.addPairedKmers(fragHashValsL, fragHashValsR, fragHashValsP);
+                            graph.addFragmentSingleKmerPair(fragHashValsP);
                         }
                     }
                 }
@@ -909,72 +867,115 @@ public class RNABloom {
         System.out.println("Fragments paired kmers Bloom filter FPR:  " + graph.getPkbfFPR() * 100 + " %");
     }
     
-    public void populateGraphFromFragments(Collection<String> fastas, boolean strandSpecific, boolean loadPairedKmers) throws IOException {
-        /** insert into graph if absent */
+    public class FragmentsToGraphWorker implements Runnable {
+        private final int id;
+        private final String path;
+        private final boolean loadPairedKmers;
+        private long numSeqs = 0;
         
-        /** parse the fragments */
-                          
-        NTHashIterator itr = graph.getHashIterator(graph.getMaxNumHash());
-        long[] hashVals = itr.hVals;
-
-        PairedNTHashIterator readItr = graph.getPairedHashIterator(graph.getReadPairedKmerDistance());
-        long[] readHashValsP = readItr.hVals3;
+        public FragmentsToGraphWorker(int id, String path, boolean loadPairedKmers) {
+            this.id= id;
+            this.path = path;
+            this.loadPairedKmers = loadPairedKmers;
+        }
         
-        PairedNTHashIterator fragItr = graph.getPairedHashIterator(graph.getFragPairedKmerDistance());
-        long[] fragHashValsL = fragItr.hVals1;
-        long[] fragHashValsR = fragItr.hVals2;
-        long[] fragHashValsP = fragItr.hVals3;
+        @Override
+        public void run() {
+            try {
+                System.out.println("[" + id + "] Parsing `" + path + "`...");
+                
+                NTHashIterator itr = graph.getHashIterator(graph.getMaxNumHash());
+                long[] hashVals = itr.hVals;
 
+                PairedNTHashIterator readItr = graph.getPairedHashIterator(graph.getReadPairedKmerDistance());
+                long[] readHashValsP = readItr.hVals3;
+
+                PairedNTHashIterator fragItr = graph.getPairedHashIterator(graph.getFragPairedKmerDistance());
+                long[] fragHashValsP = fragItr.hVals3;
+
+                FastaReader fin = new FastaReader(path);
+
+                String seq;
+                if (loadPairedKmers) {
+                    while (fin.hasNext()) {
+                        seq = fin.next();
+                        ++numSeqs;
+
+                        if (itr.start(seq)) {
+                            while (itr.hasNext()) {
+                                itr.next();
+                                graph.addDbgOnly(hashVals);
+                            }
+
+                            if (readItr.start(seq)) {
+                                while (readItr.hasNext()) {
+                                    readItr.next();
+                                    graph.addReadSingleKmerPair(readHashValsP);
+                                }
+
+                                if (fragItr.start(seq)) {
+                                    while (fragItr.hasNext()) {
+                                        fragItr.next();
+                                        graph.addFragmentSingleKmerPair(fragHashValsP);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                else {
+                    while (fin.hasNext()) {
+                        seq = fin.next();
+                        ++numSeqs;
+
+                        if (itr.start(seq)) {
+                            while (itr.hasNext()) {
+                                itr.next();
+                                graph.addDbgOnly(hashVals);
+                            }
+                        }
+                    }
+                }
+
+                fin.close();
+                System.out.println("[" + id + "] Parsed " + NumberFormat.getInstance().format(numSeqs) + " sequences.");
+            }
+            catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+    }
+    
+    public void populateGraphFromFragments(Collection<String> fastas, Collection<String> refFastas, boolean loadPairedKmers, int numThreads) throws InterruptedException {        
+        ExecutorService service = Executors.newFixedThreadPool(numThreads);
+        
+        int threadId = 0;
+        
         for (String path : fastas) {
-            FastaReader fin = new FastaReader(path);
-
-            System.out.println("Parsing `" + path + "`...");
-
-            String seq;
-            if (loadPairedKmers) {
-                while (fin.hasNext()) {
-                    seq = fin.next();
-
-                    if (itr.start(seq)) {
-                        while (itr.hasNext()) {
-                            itr.next();
-                            graph.addDbgOnly(hashVals);
-                        }
-                    }
-
-                    if (readItr.start(seq)) {
-                        while (readItr.hasNext()) {
-                            readItr.next();
-                            graph.addSingleReadPairedKmer(readHashValsP);
-                        }
-                    }
-                    
-                    if (fragItr.start(seq)) {
-                        while (fragItr.hasNext()) {
-                            fragItr.next();
-                            graph.addPairedKmers(fragHashValsL, fragHashValsR, fragHashValsP);
-                        }
-                    }
-                }
-            }
-            else {
-                while (fin.hasNext()) {
-                    seq = fin.next();
-
-                    if (itr.start(seq)) {
-                        while (itr.hasNext()) {
-                            itr.next();
-                            graph.addDbgOnly(hashVals);
-                        }
-                    }
-                }
-            }
-
-            fin.close();
+            service.submit(new FragmentsToGraphWorker(++threadId, path, loadPairedKmers));
         }
                 
+        service.shutdown();
+        service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        
+        if (!refFastas.isEmpty()) {
+            System.out.println("Augmenting graph with reference transcripts...");
+            
+            service = Executors.newFixedThreadPool(numThreads);
+            
+            for (String path : refFastas) {
+                service.submit(new PairedKmersToGraphWorker(++threadId, path, true));
+            }
+            
+            service.shutdown();
+            service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        }
+        
         dbgFPR = graph.getDbgbfFPR();
-        System.out.println("DBG Bloom filter FPR:      " + dbgFPR * 100 + " %");
+
+        System.out.println("DBG Bloom filter FPR:                     " + dbgFPR * 100 + " %");
+        System.out.println("Reads paired k-mers Bloom filter FPR:     " + graph.getRpkbf().getFPR() * 100 + " %");
+        System.out.println("Fragments paired k-mers Bloom filter FPR: " + graph.getFpkbf().getFPR() * 100 + " %");
 //        covFPR = graph.getCbfFPR();
     }
         
@@ -1492,7 +1493,7 @@ public class RNABloom {
                                 }
 
                                 if (this.storeKmerPairs) {
-                                    graph.addPairedKmers(fragmentKmers);
+                                    graph.addFragmentPairKmers(fragmentKmers);
                                 }
 
                                 outList.put(new Fragment(left, right, fragmentKmers, fragLength, minCov, false));
@@ -1763,7 +1764,7 @@ public class RNABloom {
 
                                 if (hasComplexKmer) {
                                     if (this.storeKmerPairs) {
-                                        graph.addPairedKmers(fragmentKmers);
+                                        graph.addFragmentPairKmers(fragmentKmers);
                                     }
 
                                     if (!debug) {
@@ -2083,7 +2084,7 @@ public class RNABloom {
 
                                 if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                                     if (frag.minCov == 1) {
-                                        graph.addPairedKmers(fragKmers);
+                                        graph.addFragmentPairKmers(fragKmers);
 
                                         if (frag.length >= longFragmentLengthThreshold) {
                                             for (Kmer kmer : fragKmers) {
@@ -2100,7 +2101,7 @@ public class RNABloom {
                                         m = getCoverageOrderOfMagnitude(frag.minCov);
 
                                         if (m >= 0) {
-                                            graph.addPairedKmers(fragKmers);
+                                            graph.addFragmentPairKmers(fragKmers);
 
                                             if (frag.length >= longFragmentLengthThreshold) {
                                                 for (Kmer kmer : fragKmers) {
@@ -2154,7 +2155,7 @@ public class RNABloom {
 
                     if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
                         if (frag.minCov == 1) {
-                            graph.addPairedKmers(fragKmers);
+                            graph.addFragmentPairKmers(fragKmers);
 
                             if (frag.length >= longFragmentLengthThreshold) {
                                 for (Kmer kmer : fragKmers) {
@@ -2171,7 +2172,7 @@ public class RNABloom {
                             m = getCoverageOrderOfMagnitude(frag.minCov);
 
                             if (m >= 0) {
-                                graph.addPairedKmers(fragKmers);
+                                graph.addFragmentPairKmers(fragKmers);
 
                                 if (frag.length >= longFragmentLengthThreshold) {
                                     for (Kmer kmer : fragKmers) {
@@ -3302,7 +3303,7 @@ public class RNABloom {
                                 ArrayList<Kmer> fragKmers = frag.kmers;
 
                                 if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
-                                    graph.addPairedKmers(fragKmers);
+                                    graph.addFragmentPairKmers(fragKmers);
 
                                     if (fragLen >= longFragmentLengthThreshold) {
                                         for (Kmer kmer : fragKmers) {
@@ -3639,7 +3640,7 @@ public class RNABloom {
     }
     
     public void restorePairedKmersBloomFilter(File graphFile) throws IOException {
-        graph.destroyPkbf();
+        graph.destroyFpkbf();
         graph.restorePkbf(graphFile);
         graph.updateFragmentKmerDistance(graphFile);
     }
@@ -4349,13 +4350,13 @@ public class RNABloom {
     }
     
     private static void assembleTranscriptsPE(RNABloom assembler, boolean forceOverwrite,
-            String outdir, String name, String txptNamePrefix, boolean strandSpecific,
+            String outdir, String name, String txptNamePrefix,
             long sbfSize, int sbfNumHash, long pkbfSize, int pkbfNumHash, int numThreads, boolean noFragDBG,
             int sampleSize, int minTranscriptLength, boolean keepArtifact, boolean keepChimera, 
             boolean reqFragKmersConsistency, boolean restorePairedKmers,
             float minKmerCov, String branchFreeExtensionThreshold,
             boolean reduceRedundancy, boolean assemblePolya, boolean writeUracil,
-            String[] refTranscriptFile) throws IOException, InterruptedException {
+            String[] refTranscriptPaths) throws IOException, InterruptedException {
         
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
         final String transcriptsFasta = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
@@ -4380,15 +4381,8 @@ public class RNABloom {
                     assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
                     assembler.updateFragmentKmerDistance(graphFile);
                 }
-                assembler.populateGraphFromFragments(fragPaths.asList(assemblePolya), strandSpecific, restorePairedKmers);
+                assembler.populateGraphFromFragments(fragPaths.asList(assemblePolya), Arrays.asList(refTranscriptPaths), restorePairedKmers, numThreads);
                 System.out.println("Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                
-                if (refTranscriptFile != null && refTranscriptFile.length > 0) {
-                    System.out.println("Augmenting graph with reference transcripts...");
-                    timer.start();
-                    assembler.addPairedKmersFromSequences(refTranscriptFile, true);
-                    System.out.println("Graph augmented in " + MyTimer.hmsFormat(timer.elapsedMillis()));
-                }
             }
 
             
@@ -5674,7 +5668,7 @@ public class RNABloom {
                     String sampleOutdir = outdir + File.separator + sampleName;
                     
                     assembleTranscriptsPE(assembler, forceOverwrite,
-                                    sampleOutdir, sampleName, txptNamePrefix, strandSpecific,
+                                    sampleOutdir, sampleName, txptNamePrefix,
                                     sbfSize, sbfNumHash, pkbfSize, pkbfNumHash, numThreads, noFragDBG,
                                     sampleSize, minTranscriptLength, keepArtifact, keepChimera,
                                     reqFragKmersConsistency, true, minKmerCov,
@@ -5860,9 +5854,9 @@ public class RNABloom {
 
                 System.out.println("\n> Stage 3: Assemble transcripts for \"" + name + "\"");
                 stageTimer.start();
-                                
+                
                 assembleTranscriptsPE(assembler, forceOverwrite,
-                                outdir, name, txptNamePrefix, strandSpecific,
+                                outdir, name, txptNamePrefix,
                                 sbfSize, sbfNumHash, pkbfSize, pkbfNumHash, numThreads, noFragDBG,
                                 sampleSize, minTranscriptLength, keepArtifact, keepChimera,
                                 reqFragKmersConsistency, true, minKmerCov, 
