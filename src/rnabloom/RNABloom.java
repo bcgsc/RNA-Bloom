@@ -4389,7 +4389,11 @@ public class RNABloom {
                     assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
                     assembler.updateFragmentKmerDistance(graphFile);
                 }
-                assembler.populateGraphFromFragments(fragPaths.asList(assemblePolya), Arrays.asList(refTranscriptPaths), restorePairedKmers, numThreads);
+                                
+                assembler.populateGraphFromFragments(fragPaths.asList(assemblePolya),
+                        refTranscriptPaths == null ? new ArrayList<>() : Arrays.asList(refTranscriptPaths),
+                        restorePairedKmers, numThreads);
+                
                 System.out.println("Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));
             }
 
@@ -5148,6 +5152,11 @@ public class RNABloom {
             String[] longReadPaths = line.getOptionValues(optLongReads.getOpt());
             String[] refTranscriptPaths = line.getOptionValues(optRefTranscripts.getOpt());
             
+            boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
+            boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
+            boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
+            boolean hasRefTranscriptFiles = refTranscriptPaths != null && refTranscriptPaths.length > 0;
+            
             final String pooledReadsListFile = line.getOptionValue(optPooledAssembly.getOpt());
             final boolean pooledGraphMode = pooledReadsListFile != null;
                         
@@ -5264,11 +5273,6 @@ public class RNABloom {
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
 //            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final boolean useCompressedMinimizers = false;
-
-            boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
-            boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
-            boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
-            boolean hasRefTranscriptFiles = refTranscriptPaths != null && refTranscriptPaths.length > 0;
             
             if ((hasLongReadFiles || outputNrTxpts || mergePool) && !hasMinimap2()) {
                 exitOnError("`minimap2` not found in PATH!");
