@@ -2531,7 +2531,7 @@ public class RNABloom {
                             ArrayDeque<BitSequence> seqs = targetSequences.get(bestTargetSketchID);
                             seqs.add(new BitSequence(seq));
                             
-                            if (c > 0 && !overlapSketchIDs.isEmpty()) {
+                            if (!overlapSketchIDs.isEmpty()) {
                                 // combine overlapping clusters
                                 
                                 ArrayDeque<long[]> overlappingSketches = new ArrayDeque<>();
