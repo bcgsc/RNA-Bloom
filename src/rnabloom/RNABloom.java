@@ -2399,6 +2399,7 @@ public class RNABloom {
             int sketchSize, int numThreads, float minCoverage, boolean useCompressedMinimizers) throws IOException, InterruptedException {
 
         final int minimizerWindowSize = k;
+        final int minSharedMinimizers = k*2;
         int numDiscarded = 0;
         
 //        int maxQueueSize = 100;
@@ -2413,7 +2414,7 @@ public class RNABloom {
         for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
 //            double sumOverlapProportions = 0;
 //            int numSeq = 0;
-            float covThreshold = Math.max(minCoverage, COVERAGE_ORDER_VALUES[c]);
+            float covThreshold = COVERAGE_ORDER_VALUES[c];
 
             for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
                 
@@ -2456,7 +2457,7 @@ public class RNABloom {
                     }
                     else {
                         float minSketchOverlapProportion = (float)sortedHashVals.length / (float)numKmers;
-                        int minSketchOverlap = Math.max(k, (int) Math.floor(minSketchOverlapProportion * (sortedHashVals.length-minimizerWindowSize+1)/minimizerWindowSize));
+                        int minSketchOverlap = Math.max(minSharedMinimizers, (int) Math.floor(minSketchOverlapProportion * (sortedHashVals.length-minimizerWindowSize+1)/minimizerWindowSize));
                         
                         /** start thread pool*/
                         int numWorkers = Math.min(numThreads, targetSketches.size());
@@ -2530,7 +2531,7 @@ public class RNABloom {
                             ArrayDeque<BitSequence> seqs = targetSequences.get(bestTargetSketchID);
                             seqs.add(new BitSequence(seq));
                             
-                            if (!overlapSketchIDs.isEmpty()) {
+                            if (c > 0 && !overlapSketchIDs.isEmpty()) {
                                 // combine overlapping clusters
                                 
                                 ArrayDeque<long[]> overlappingSketches = new ArrayDeque<>();
@@ -2612,6 +2613,7 @@ public class RNABloom {
         System.out.println("Writing clustered reads to files...");
         int clusterID = 0;
         long seqID = 0;
+        ArrayList<Integer> clusterSizes = new ArrayList<>(targetSequences.size());
         for (ArrayDeque<BitSequence> seqs : targetSequences) {
             if (seqs != null) {
                 FastaWriter writer = new FastaWriter(clusteredLongReadsDirectory + File.separator + clusterID + FASTA_EXT, true);
@@ -2620,12 +2622,18 @@ public class RNABloom {
                     writer.write("r" + Long.toString(seqID++), b.toString());
                 }
                 
+                clusterSizes.add(seqs.size());
+                
                 writer.close();
                 
                 ++clusterID;
             }
         }
         
+        System.out.println("Cluster Sizes Distribution");
+        int[] csd = getMinQ1MedianQ3Max(clusterSizes);
+        System.out.println("\tmin\tQ1\tM\tQ3\tmax");
+        System.out.println("\t" + csd[0] + "\t" + csd[1] + "\t" + csd[2] + "\t" + csd[3] + "\t" + csd[4]);
         System.out.println(NumberFormat.getInstance().format(seqID) + " reads were assigned to " + NumberFormat.getInstance().format(clusterID) + " clusters.");
     }
     
