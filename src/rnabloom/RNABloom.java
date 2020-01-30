@@ -2408,7 +2408,7 @@ public class RNABloom {
         ArrayDeque<Integer> targetSketchesNullIndexes = new ArrayDeque<>();
         NTHashIterator itr = graph.getHashIterator();
         
-        int maxClusterSize = 0;
+        int maxClusterSize = 1; // each cluster has a minimum of 1 read
         int numDiscarded = 0;
         
         // skip l=0 because their lengths are too short to have a sketch
@@ -2559,9 +2559,7 @@ public class RNABloom {
                                 targetSketches.set(bestTargetSketchID, combineSketches(sketch, targetSketches.get(bestTargetSketchID)));
                             }
                             
-                            if (maxClusterSize < seqs.size()) {
-                                maxClusterSize = seqs.size();
-                            }
+                            maxClusterSize = Math.max(maxClusterSize, seqs.size());
                         }
                     }
                 }
