@@ -2458,7 +2458,8 @@ public class RNABloom {
                         targetSequences.add(seqs);
                     }
                     else {
-                        int minSketchOverlap = Math.max(minSharedMinimizers, (int) Math.ceil(minSketchOverlapProportion * (numHashVals-minimizerWindowSize+1)/minimizerWindowSize));
+                        int numNonOverlapMinimizers = (numHashVals-minimizerWindowSize+1)/minimizerWindowSize;
+                        int minSketchOverlap = Math.max(minSharedMinimizers, (int) Math.ceil(minSketchOverlapProportion * numNonOverlapMinimizers));
                         
                         /** start thread pool*/
                         int numWorkers = Math.min(numThreads, targetSketches.size());
@@ -2552,7 +2553,7 @@ public class RNABloom {
                                 
                                 targetSketches.set(bestTargetSketchID, combineSketches(overlappingSketches));
                             }
-                            else if ((float)bestIntersectionSize/(float)numHashVals < 0.5f) {
+                            else if (numNonOverlapMinimizers-bestIntersectionSize > minSharedMinimizers) {
                                 long[] sketch = useCompressedMinimizers ?
                                                 getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
                                                 getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
