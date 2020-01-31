@@ -2444,8 +2444,9 @@ public class RNABloom {
 //                    }                    
 
                     int bestTargetSketchID = -1;
+                    int numTargets = targetSketches.size();
                     
-                    if (targetSketches.isEmpty()) {
+                    if (numTargets == 0) {
                         long[] sketch = useCompressedMinimizers ?
                                         getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
                                         getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
@@ -2462,11 +2463,10 @@ public class RNABloom {
                         int minSketchOverlap = Math.max(minSharedMinimizers, (int) Math.ceil(minSketchOverlapProportion * numNonOverlapMinimizers));
                         
                         /** start thread pool*/
-                        int numWorkers = Math.min(numThreads, targetSketches.size());
+                        int numWorkers = Math.min(numThreads, numTargets);
                         MyExecutorService service = new MyExecutorService(numWorkers, numWorkers);
                         
                         ContainmentCalculator[] workers = new ContainmentCalculator[numWorkers];
-                        int numTargets = targetSketches.size();
                         int step = numTargets/numWorkers;
                         int startIndex = 0;
                         int stopIndex = step;
