@@ -2399,9 +2399,9 @@ public class RNABloom {
             int sketchSize, int numThreads, float minCoverage, boolean useCompressedMinimizers) throws IOException, InterruptedException {
 
         final int minimizerWindowSize = k;
-        final int minSharedMinimizers = k;
+        final int minSharedMinimizers = 5;
         float covThreshold = 2;
-        float minSketchOverlapProportion = 0.1f;
+        float minSketchOverlapProportion = 0.2f;
        
         ArrayList<long[]> targetSketches = new ArrayList<>();
         ArrayList<ArrayDeque<BitSequence>> targetSequences = new ArrayList<>();
@@ -5050,11 +5050,11 @@ public class RNABloom {
                                     .build();
         options.addOption(optDebug);
         
-//        Option optHomopolymerCompressed = Option.builder("hpcm")
-//                                    .desc("use homopolymer-compressed minimizers in long-read clustering [false]\n(Requires `-long`)")
-//                                    .hasArg(false)
-//                                    .build();
-//        options.addOption(optHomopolymerCompressed);
+        Option optHomopolymerCompressed = Option.builder("hpcm")
+                                    .desc("use homopolymer-compressed minimizers in long-read clustering [false]\n(Requires `-long`)")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optHomopolymerCompressed);
         
         Option optHelp = Option.builder("h")
                                     .longOpt("help")
@@ -5283,8 +5283,8 @@ public class RNABloom {
             final boolean mergePool = line.hasOption(optMergePool.getOpt());
             final boolean outputNrTxpts = mergePool ? true : !line.hasOption(optNoReduce.getOpt());
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
-//            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
-            final boolean useCompressedMinimizers = false;
+            final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
+//            final boolean useCompressedMinimizers = false;
             
             if ((hasLongReadFiles || outputNrTxpts || mergePool) && !hasMinimap2()) {
                 exitOnError("`minimap2` not found in PATH!");
