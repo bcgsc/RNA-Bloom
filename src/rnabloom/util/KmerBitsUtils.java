@@ -17,6 +17,7 @@
 package rnabloom.util;
 
 import java.util.BitSet;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  *
@@ -49,24 +50,36 @@ public class KmerBitsUtils {
         
         for (int i=0; i<len; ++i) {
             switch (seq.charAt(i)) {
-                case 'A':
+                case 'A': case 'a':
                     // 00
                     break;
-                case 'C':
+                case 'C': case 'c':
                     // 01
                     bits.set(2*i + 1);
                     break;
-                case 'G':
+                case 'G': case 'g':
                     // 10
                     bits.set(2*i);
                     break;
-                case 'T':
+                case 'T': case 't': case 'U': case 'u':
                     // 11
                     bits.set(2*i, 2*i + 2);
                     break;
-                case 'U':
-                    // 11
-                    bits.set(2*i, 2*i + 2);
+                default:
+                    // use a random nucleotide
+                    switch (ThreadLocalRandom.current().nextInt(0, 4)) {
+                        case 0:
+                            break;
+                        case 1:
+                            bits.set(2*i + 1);
+                            break;
+                        case 2:
+                            bits.set(2*i);
+                            break;
+                        case 3:
+                            bits.set(2*i, 2*i + 2);
+                            break;
+                    }
                     break;
             }
         }
