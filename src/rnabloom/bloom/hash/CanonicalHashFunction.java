@@ -159,8 +159,18 @@ public class CanonicalHashFunction extends HashFunction {
     }
     
     @Override
+    public NTHashIterator getHashIterator(final int numHash, final int k) {
+        return new CanonicalNTHashIterator(k, numHash);
+    }
+    
+    @Override
     public NTHashIterator getReverseComplementHashIterator(final int numHash) {
         return this.getHashIterator(numHash);
+    }
+    
+    @Override
+    public NTHashIterator getReverseComplementHashIterator(final int numHash, final int k) {
+        return this.getHashIterator(k, numHash);
     }
     
     @Override

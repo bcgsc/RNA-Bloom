@@ -180,7 +180,15 @@ public class HashFunction {
         return new NTHashIterator(k, numHash);
     }
     
+    public NTHashIterator getHashIterator(final int numHash, final int k) {
+        return new NTHashIterator(k, numHash);
+    }
+    
     public NTHashIterator getReverseComplementHashIterator(final int numHash) {
+        return new ReverseComplementNTHashIterator(k, numHash);
+    }
+    
+    public NTHashIterator getReverseComplementHashIterator(final int numHash, final int k) {
         return new ReverseComplementNTHashIterator(k, numHash);
     }
     
