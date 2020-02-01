@@ -1189,8 +1189,16 @@ public class BloomFilterDeBruijnGraph {
         return hashFunction.getHashIterator(numHash);
     }
     
+    public NTHashIterator getHashIterator(int numHash, int k) {
+        return hashFunction.getHashIterator(numHash, k);
+    }
+    
     public NTHashIterator getReverseComplementHashIterator(int numHash) {
         return hashFunction.getReverseComplementHashIterator(numHash);
+    }
+    
+    public NTHashIterator getReverseComplementHashIterator(int numHash, int k) {
+        return hashFunction.getReverseComplementHashIterator(numHash, k);
     }
     
     public PairedNTHashIterator getPairedHashIterator(int d) {
