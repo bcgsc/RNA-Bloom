@@ -2396,17 +2396,15 @@ public class RNABloom {
     }
     
     public void clusterLongReads(String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory,
-            int sketchSize, int numThreads, float minCoverage, boolean useCompressedMinimizers) throws IOException, InterruptedException {
+            int sketchSize, int numThreads, float minCoverage, boolean useCompressedMinimizers,
+            int minimizerSize, int minimizerWindowSize, float minSketchOverlapPercentage, int minSketchOverlapNumber) throws IOException, InterruptedException {
 
-        final int minimizerWindowSize = k;
-        final int minSharedMinimizers = 5;
         float covThreshold = 2;
-        float minSketchOverlapProportion = 0.2f;
        
         ArrayList<long[]> targetSketches = new ArrayList<>();
         ArrayList<ArrayDeque<BitSequence>> targetSequences = new ArrayList<>();
         ArrayDeque<Integer> targetSketchesNullIndexes = new ArrayDeque<>();
-        NTHashIterator itr = graph.getHashIterator();
+        NTHashIterator itr = graph.getHashIterator(1, minimizerSize);
         
         int maxClusterSize = 1; // each cluster has a minimum of 1 read
         int numDiscarded = 0;
@@ -2460,7 +2458,7 @@ public class RNABloom {
                     }
                     else {
                         int numNonOverlapMinimizers = (numHashVals-minimizerWindowSize+1)/minimizerWindowSize;
-                        int minSketchOverlap = Math.max(minSharedMinimizers, (int) Math.ceil(minSketchOverlapProportion * numNonOverlapMinimizers));
+                        int minSketchOverlap = Math.max(minSketchOverlapNumber, (int) Math.ceil(minSketchOverlapPercentage * numNonOverlapMinimizers));
                         
                         /** start thread pool*/
                         int numWorkers = Math.min(numThreads, numTargets);
@@ -2471,14 +2469,14 @@ public class RNABloom {
                         int startIndex = 0;
                         int stopIndex = step;
                         for (int i=0; i<numWorkers-1; ++i) {
-                            ContainmentCalculator worker = new ContainmentCalculator(sortedHashVals, targetSketches, startIndex, stopIndex, minSketchOverlap, minSketchOverlapProportion);
+                            ContainmentCalculator worker = new ContainmentCalculator(sortedHashVals, targetSketches, startIndex, stopIndex, minSketchOverlap, minSketchOverlapPercentage);
                             workers[i] = worker;
                             service.submit(worker);
                             startIndex = stopIndex;
                             stopIndex += step;
                         }
                         
-                        ContainmentCalculator w = new ContainmentCalculator(sortedHashVals, targetSketches, startIndex, targetSketches.size(), minSketchOverlap, minSketchOverlapProportion);
+                        ContainmentCalculator w = new ContainmentCalculator(sortedHashVals, targetSketches, startIndex, targetSketches.size(), minSketchOverlap, minSketchOverlapPercentage);
                         workers[numWorkers-1] = w;
                         service.submit(w);
                                                 
@@ -2553,7 +2551,7 @@ public class RNABloom {
                                 
                                 targetSketches.set(bestTargetSketchID, combineSketches(overlappingSketches));
                             }
-                            else if (numNonOverlapMinimizers-bestIntersectionSize > minSharedMinimizers) {
+                            else if (numNonOverlapMinimizers-bestIntersectionSize > minSketchOverlapNumber) {
                                 long[] sketch = useCompressedMinimizers ?
                                                 getMinimizersWithCompressedHomoPolymers(seq, k, itr, minimizerWindowSize) :
                                                 getMinimizers(seq, numKmers, itr, minimizerWindowSize, graph, covThreshold);
@@ -4131,7 +4129,8 @@ public class RNABloom {
     
     private static void clusterLongReads(RNABloom assembler, 
             String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory,
-            int sketchSize, int numThreads, float minKmerCov, boolean useCompressedMinimizers) throws IOException, InterruptedException {
+            int sketchSize, int numThreads, float minKmerCov, boolean useCompressedMinimizers,
+            int minimizerSize, int minimizerWindowSize, float minSketchOverlapPercentage, int minSketchOverlapNumber) throws IOException, InterruptedException {
         
         File outdir = new File(clusteredLongReadsDirectory);
         if (outdir.exists()) {
@@ -4143,7 +4142,8 @@ public class RNABloom {
             outdir.mkdirs();
         }
         
-        assembler.clusterLongReads(correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov, useCompressedMinimizers);
+        assembler.clusterLongReads(correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, minKmerCov, useCompressedMinimizers,
+                minimizerSize, minimizerWindowSize, minSketchOverlapPercentage, minSketchOverlapNumber);
     }
     
     private static boolean assembleLongReads(RNABloom assembler, 
@@ -5050,11 +5050,47 @@ public class RNABloom {
                                     .build();
         options.addOption(optDebug);
         
-        Option optHomopolymerCompressed = Option.builder("hpcm")
+        Option optHomopolymerCompressed = Option.builder("hpc")
                                     .desc("use homopolymer-compressed minimizers in long-read clustering [false]\n(Requires `-long`)")
                                     .hasArg(false)
                                     .build();
         options.addOption(optHomopolymerCompressed);
+        
+        final String optMinimizerSizeDefault = "13";
+        Option optMinimizerSize = Option.builder("m")
+                                    .longOpt("minimizer")
+                                    .desc("minimizer size [" + optMinimizerSizeDefault + "]")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optMinimizerSize);
+        
+        final String optMinimizerWindowSizeDefault = "21";
+        Option optMinimizerWindowSize = Option.builder("mw")
+                                    .longOpt("minimizer-window")
+                                    .desc("minimizer window size [" + optMinimizerWindowSizeDefault + "]")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optMinimizerWindowSize);
+        
+        final String optSketchOverlapProportionDefault = "0.3";
+        Option optSketchOverlapProportion = Option.builder("sop")
+                                    .longOpt("sketch-overlap-proportion")
+                                    .desc("minimum proportion of sketch overlap minimizers [" + optSketchOverlapProportionDefault + "]")
+                                    .hasArg(true)
+                                    .argName("DECIMAL")
+                                    .build();
+        options.addOption(optSketchOverlapProportion);
+        
+        final String optSketchOverlapNumberDefault = "7";
+        Option optSketchOverlapNumber = Option.builder("son")
+                                    .longOpt("sketch-overlap-number")
+                                    .desc("minimum number of sketch overlap minimizers [" + optSketchOverlapNumberDefault + "]")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optSketchOverlapNumber);
         
         Option optHelp = Option.builder("h")
                                     .longOpt("help")
@@ -5284,7 +5320,10 @@ public class RNABloom {
             final boolean outputNrTxpts = mergePool ? true : !line.hasOption(optNoReduce.getOpt());
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
             final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
-//            final boolean useCompressedMinimizers = false;
+            final int minimizerSize = Integer.parseInt(line.getOptionValue(optMinimizerSize.getOpt(), optMinimizerSizeDefault));
+            final int minimizerWindowSize = Integer.parseInt(line.getOptionValue(optMinimizerWindowSize.getOpt(), optMinimizerWindowSizeDefault));
+            final float minSketchOverlapProportion = Float.parseFloat(line.getOptionValue(optSketchOverlapProportion.getOpt(), optSketchOverlapProportionDefault));
+            final int minSketchOverlapNumber = Integer.parseInt(line.getOptionValue(optSketchOverlapNumber.getOpt(), optSketchOverlapNumberDefault));
             
             if ((hasLongReadFiles || outputNrTxpts || mergePool) && !hasMinimap2()) {
                 exitOnError("`minimap2` not found in PATH!");
@@ -5796,7 +5835,8 @@ public class RNABloom {
                 else {
                     clusterLongReads(assembler,
                             correctedLongReadFileNames, clusteredLongReadsDirectory,
-                            sketchSize, numThreads, minKmerCov, useCompressedMinimizers);
+                            sketchSize, numThreads, minKmerCov, useCompressedMinimizers,
+                            minimizerSize, minimizerWindowSize, minSketchOverlapProportion, minSketchOverlapNumber);
                     
                     touch(longReadsClusteredStamp);
                 }
