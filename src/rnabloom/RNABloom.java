@@ -5163,12 +5163,7 @@ public class RNABloom {
             String[] rightReadPaths = line.getOptionValues(optRightReads.getOpt());
             String[] longReadPaths = line.getOptionValues(optLongReads.getOpt());
             String[] refTranscriptPaths = line.getOptionValues(optRefTranscripts.getOpt());
-            
-            boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
-            boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
-            boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
-            boolean hasRefTranscriptFiles = refTranscriptPaths != null && refTranscriptPaths.length > 0;
-            
+                        
             final String pooledReadsListFile = line.getOptionValue(optPooledAssembly.getOpt());
             final boolean pooledGraphMode = pooledReadsListFile != null;
                         
@@ -5274,6 +5269,11 @@ public class RNABloom {
                                 
                 maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
             }
+            
+            boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
+            boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
+            boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
+            boolean hasRefTranscriptFiles = refTranscriptPaths != null && refTranscriptPaths.length > 0;
             
             final boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
             final boolean revCompRight = line.hasOption(optRevCompRight.getOpt());
