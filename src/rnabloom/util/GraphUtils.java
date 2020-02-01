@@ -2833,6 +2833,21 @@ public final class GraphUtils {
         return hashValSet;
     }
     
+    public static long[] getAscendingHashValues(String seq, NTHashIterator itr, int numKmers) {
+        HashSet<Long> hashValSet = getHashValuesSet(seq, itr, numKmers);
+        
+        int numVals = hashValSet.size();
+        long[] result = new long[numVals];
+        int i=0;
+        for (Long h : hashValSet) {
+            result[i++] = h;
+        }
+        
+        Arrays.sort(result);
+        
+        return result;
+    }
+    
     public static long[] getAscendingHashValues(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
         HashSet<Long> hashValSet = getHashValuesSet(seq, itr, graph, numKmers, minCoverage);
         
@@ -2846,6 +2861,19 @@ public final class GraphUtils {
         Arrays.sort(result);
         
         return result;
+    }
+    
+    public static HashSet<Long> getHashValuesSet(String seq, NTHashIterator itr, int numKmers) {
+        HashSet<Long> hashValSet = new HashSet<>();
+        
+        itr.start(seq);
+        long[] hVals = itr.hVals;
+        for (int i=0; i<numKmers; ++i) {
+            itr.next();
+            hashValSet.add(hVals[0]);
+        }
+        
+        return hashValSet;
     }
     
     public static HashSet<Long> getHashValuesSet(String seq, NTHashIterator itr, BloomFilterDeBruijnGraph graph, int numKmers, float minCoverage) {
