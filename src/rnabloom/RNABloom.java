@@ -2398,7 +2398,7 @@ public class RNABloom {
     public void clusterLongReads(String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory,
             int sketchSize, int numThreads, boolean useCompressedMinimizers,
             int minimizerSize, int minimizerWindowSize, float minSketchOverlapPercentage, int minSketchOverlapNumber) throws IOException, InterruptedException {
-       
+                
         ArrayList<long[]> targetSketches = new ArrayList<>();
         ArrayList<ArrayDeque<BitSequence>> targetSequences = new ArrayList<>();
         ArrayDeque<Integer> targetSketchesNullIndexes = new ArrayDeque<>();
@@ -4139,6 +4139,8 @@ public class RNABloom {
         else {
             outdir.mkdirs();
         }
+        
+        assembler.destroyAllBf();
         
         assembler.clusterLongReads(correctedLongReadFileNames, clusteredLongReadsDirectory, sketchSize, numThreads, useCompressedMinimizers,
                 minimizerSize, minimizerWindowSize, minSketchOverlapPercentage, minSketchOverlapNumber);
