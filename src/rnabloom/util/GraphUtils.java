@@ -2970,6 +2970,43 @@ public final class GraphUtils {
         return intersectionSize;
     }
     
+    public static boolean hasNumIntersection(long[] sketch1, long[] sketch2, int minIntersection) {
+        int sketchSize1 = sketch1.length;
+        int sketchSize2 = sketch2.length;
+        int intersectionSize = 0;
+        int j = 0;
+        
+        long hash1, hash2;
+        for (int i=0; i<sketchSize1 && j<sketchSize2; ++i) {
+            hash1 = sketch1[i];
+            hash2 = sketch2[j];
+            
+            if (hash1 == hash2) {
+                if (++intersectionSize >= minIntersection) {
+                    return true;
+                }
+                ++j;
+            }
+            else if (hash1 > hash2) {
+                for (++j; j<sketchSize2; ++j) {
+                    hash2 = sketch2[j];
+                    if (hash1 == hash2) {
+                        if (++intersectionSize >= minIntersection) {
+                            return true;
+                        }
+                        ++j;
+                        break;
+                    }
+                    else if (hash1 < hash2) {
+                        break;
+                    }
+                }
+            }
+        }
+        
+        return false;
+    }
+    
     public static int getNumIntersection(TreeSet<Long> sketch1, TreeSet<Long> sketch2) {
         Iterator<Long> itr1 = sketch1.iterator();
         Iterator<Long> itr2 = sketch2.iterator();
