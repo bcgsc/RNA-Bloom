@@ -2408,12 +2408,11 @@ public class RNABloom {
         int maxClusterSize = 1; // each cluster has a minimum of 1 read
         int numDiscarded = 0;
         
-        // skip l=0 because their lengths are too short to have a sketch
         //for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
         for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
 
             //for (int c=COVERAGE_ORDER.length-1; c>=0; --c) {
-            for (int l=LENGTH_STRATUM_NAMES.length-1; l>0; --l) {
+            for (int l=LENGTH_STRATUM_NAMES.length-1; l>=0; --l) {
                 
                 String readFile = correctedLongReadFileNames[c][l];
                 FastaReader fr = new FastaReader(readFile);
@@ -2741,18 +2740,14 @@ public class RNABloom {
         return ok;
     }
     
-    public static final int LENGTH_STRATUM_MIN_S_INDEX = 0;
-    public static final int LENGTH_STRATUM_S_Q1_INDEX = 1;
-    public static final int LENGTH_STRATUM_Q1_MED_INDEX = 2;
-    public static final int LENGTH_STRATUM_MED_Q3_INDEX = 3;
-    public static final int LENGTH_STRATUM_Q3_MAX_INDEX = 4;
+    public static final int LENGTH_STRATUM_MIN_Q1_INDEX = 0;
+    public static final int LENGTH_STRATUM_Q1_MED_INDEX = 1;
+    public static final int LENGTH_STRATUM_MED_Q3_INDEX = 2;
+    public static final int LENGTH_STRATUM_Q3_MAX_INDEX = 3;
     
-    public static int getLongReadLengthStratumIndex(LengthStats stats, int minSeqLen, int testLen) {
-        if (testLen < minSeqLen) {
-            return LENGTH_STRATUM_MIN_S_INDEX;
-        }
-        else if (testLen < stats.q1) {
-            return LENGTH_STRATUM_S_Q1_INDEX;
+    public static int getLongReadLengthStratumIndex(LengthStats stats, int testLen) {
+        if (testLen < stats.q1) {
+            return LENGTH_STRATUM_MIN_Q1_INDEX;
         }
         else if (testLen < stats.median) {
             return LENGTH_STRATUM_Q1_MED_INDEX;
@@ -2765,7 +2760,7 @@ public class RNABloom {
         }
     }
     
-    private static final String[] LENGTH_STRATUM_NAMES = new String[]{"min_s", "s_q1", "q1_med", "med_q3", "q3_max"};
+    private static final String[] LENGTH_STRATUM_NAMES = new String[]{"min_q1", "q1_med", "med_q3", "q3_max"};
     
     public class CorrectedLongReadsWriterWorker implements Runnable {
         private final ArrayBlockingQueue<Sequence> inputQueue;
@@ -2793,7 +2788,7 @@ public class RNABloom {
 
                 while(!(terminateWhenInputExhausts && inputQueue.isEmpty())) {
                     Sequence seq = inputQueue.poll(1, TimeUnit.MILLISECONDS);
-                    if (seq == null) {
+                    if (seq == null || seq.length < minSeqLen) {
                         continue;
                     }
 
@@ -2813,7 +2808,7 @@ public class RNABloom {
                                 
                 sampleLengthStats = getLengthStats(lengths);
                 
-                System.out.println("Corrected Read Lengths Distribution (n=" + sampleSize + ")");
+                System.out.println("Corrected Read Lengths Sampling Distribution (n=" + sampleSize + ")");
                 System.out.println("\tmin\tq1\tmed\tq3\tmax");
                 System.out.println("\t" + sampleLengthStats.min + "\t" + 
                                             sampleLengthStats.q1 + "\t" +
@@ -2823,25 +2818,24 @@ public class RNABloom {
 
                 /** write the sample sequences to file */
                 for (Sequence seq : sample) {
-                    
-                    int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, minSeqLen, seq.length);
+                    int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, seq.length);
                     int covStatumIndex = getCoverageOrderOfMagnitude(seq.coverage);
-                    
+
                     //String header = Long.toString(++numCorrected) + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
                     ++numCorrected;
                     String header = seq.name + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
-                    
+
                     writers[covStatumIndex][lengthStratumIndex].write(header, seq.seq);
                 }
 
                 /** write the remaining sequences to file */
                 while(!(terminateWhenInputExhausts && areDependentWorkersDone() && inputQueue.isEmpty())) {
                     Sequence seq = inputQueue.poll(1, TimeUnit.MILLISECONDS);
-                    if (seq == null) {
+                    if (seq == null || seq.length < minSeqLen) {
                         continue;
                     }
 
-                    int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, minSeqLen, seq.length);
+                    int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, seq.length);
                     int covStatumIndex = getCoverageOrderOfMagnitude(seq.coverage);
 
                     //String header = Long.toString(++numCorrected) + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
@@ -3035,7 +3029,10 @@ public class RNABloom {
         service.submit(writerWorker);
         
         for (FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths); itr.hasNext() ; ++numReads) {
-            inputQueue.put(itr.nextWithName());
+            String[] seq = itr.nextWithName();
+            if (seq[1].length() >= minSeqLen) {
+                inputQueue.put(seq);
+            }
         }
         
         for (LongReadCorrectionWorker worker : correctionWorkers) {
@@ -3604,7 +3601,7 @@ public class RNABloom {
             w.updateBound(newBound);
         }
         
-        System.out.println("Fragment Lengths Distribution (n=" + fragLengths.size() + ")");
+        System.out.println("Fragment Lengths Sampling Distribution (n=" + fragLengths.size() + ")");
         System.out.println("\tmin\tQ1\tM\tQ3\tmax");
         System.out.println("\t" + fragLengthsStats[0] + "\t" + fragLengthsStats[1] + "\t" + fragLengthsStats[2] + "\t" + fragLengthsStats[3] + "\t" + fragLengthsStats[4]);
         System.out.println("Paired kmers distance:       " + (longFragmentLengthThreshold - k - minNumKmerPairs));
