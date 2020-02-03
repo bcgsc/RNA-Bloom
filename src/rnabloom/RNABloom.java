@@ -2626,6 +2626,10 @@ public class RNABloom {
                 
                 clusterSizes.add(seqs.size());
                 
+                if (seqs.size() == maxClusterSize) {
+                    System.out.println("Largest cluster (" + maxClusterSize + ") at \"" + clusterID + "\"");
+                }
+                
                 writer.close();
                 
                 ++clusterID;
