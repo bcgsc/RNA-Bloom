@@ -2972,7 +2972,15 @@ public final class GraphUtils {
     
     public static boolean hasNumIntersection(long[] sketch1, long[] sketch2, int minIntersection) {
         int sketchSize1 = sketch1.length;
+        if (sketchSize1 < minIntersection) {
+            return false;
+        }
+        
         int sketchSize2 = sketch2.length;
+        if (sketchSize2 < minIntersection) {
+            return false;
+        }
+        
         int intersectionSize = 0;
         int j = 0;
         
