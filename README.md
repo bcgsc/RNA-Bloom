@@ -25,7 +25,7 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 | --------------------------------------------------- | ---------------------- | ---------------------- |
 | [minimap2](https://github.com/lh3/minimap2)         | required               | required               |
 | [Racon](https://github.com/lbcb-sci/racon)          | not used               | required               |
-| [ntCard](https://github.com/bcgsc/ntCard) >=1.2.0   | required for `-ntcard` | required for `-ntcard` |
+| [ntCard](https://github.com/bcgsc/ntCard) >=1.2.1   | required for `-ntcard` | required for `-ntcard` |
 
 :warning: Their executables must be accessible from your `PATH`!
 
@@ -117,7 +117,7 @@ Input reads are expected to be only in the forward orientation.
 
 By default, uracil (`U`) is written as `T`. Use the `-uracil` option to write `U` instead of `T` in the output assembly.
 
-ntCard v1.2.0 supports uracil in reads.
+ntCard v1.2.1 supports uracil in reads.
 
 
 ## General Settings :gear:

@@ -18,7 +18,7 @@ requirements:
     - openjdk >=8
     - minimap2
     - racon
-    - ntcard >=1.2.0
+    - ntcard >=1.2.1
 
 test:
   commands:
