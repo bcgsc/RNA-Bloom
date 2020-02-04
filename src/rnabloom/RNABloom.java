@@ -5367,7 +5367,7 @@ public class RNABloom {
             
             final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), optFprDefault));
             final boolean saveGraph = line.hasOption(optSaveBf.getOpt());
-            boolean storeReadPairedKmers = hasLeftReadFiles || hasRightReadFiles || hasRefTranscriptFiles;
+            boolean storeReadPairedKmers = !hasLongReadFiles && (hasLeftReadFiles || hasRightReadFiles || hasRefTranscriptFiles);
             
             boolean useNTCard = line.hasOption(optNtcard.getOpt());
             
