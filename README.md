@@ -33,7 +33,7 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 ## Installation :wrench:
 
-You may either install RNA-Bloom with `conda` run:
+You may either install with conda run:
 ```
 conda install -c bioconda rnabloom
 ```
