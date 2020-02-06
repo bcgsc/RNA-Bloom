@@ -1,4 +1,6 @@
 [![Release](https://img.shields.io/github/v/release/bcgsc/RNA-Bloom?include_prereleases)](https://github.com/bcgsc/RNA-Bloom/releases)
+[![Downloads](https://img.shields.io/github/downloads/bcgsc/RNA-Bloom/total?logo=github)](https://github.com/bcgsc/RNA-Bloom/releases)
+[![Conda](https://img.shields.io/conda/dn/bioconda/rnabloom?label=Conda)](https://anaconda.org/bioconda/rnabloom)
 
 <p align="center">
   <img src="rnabloom_logo.png" alt="RNA-Bloom's logo"/>
@@ -31,6 +33,12 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 ## Installation :wrench:
 
+You may either install RNA-Bloom with `conda` run:
+```
+conda install -c bioconda rnabloom
+```
+OR download from GitHub:
+ 
 1. Download the binary tarball `rnabloom_vX.X.X.tar.gz` from the [releases](https://github.com/bcgsc/RNA-Bloom/releases) section.
 2. Extract the downloaded tarball with the command:
 ```
