@@ -35,9 +35,9 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 ## Installation :wrench:
 
-You may install in two ways:
+RNA-Bloom can be installed in two ways:
 
-### (A) install with conda run:
+### (A) install with `conda`:
 ```
 conda install -c bioconda rnabloom
 ```
@@ -176,6 +176,11 @@ java -jar RNA-Bloom.jar -help
 ### (E) limit the size of Java heap:
 ```
 java -Xmx2g -jar RNA-Bloom.jar ...
+```
+or if you installed with `conda`:
+```
+export JAVA_TOOL_OPTIONS="-Xmx2g"
+rnabloom ...
 ```
 This limits the maximum Java heap to 2 GB with the `-Xmx` option. Note that `java` options has no effect on Bloom filter sizes.
 
