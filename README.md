@@ -31,20 +31,25 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 :warning: Their executables must be accessible from your `PATH`!
 
+
+
 ## Installation :wrench:
 
-You may either install with conda run:
+You may install in two ways:
+
+### (A) install with conda run:
 ```
 conda install -c bioconda rnabloom
 ```
-OR download from GitHub:
- 
+RNA-Bloom can be run as `rnabloom ...`
+
+### (B) download from GitHub: 
 1. Download the binary tarball `rnabloom_vX.X.X.tar.gz` from the [releases](https://github.com/bcgsc/RNA-Bloom/releases) section.
 2. Extract the downloaded tarball with the command:
 ```
 tar -zxf rnabloom_vX.X.X.tar.gz
 ```
-3. RNA-Bloom is ready to use, ie. `java -jar /path/to/RNA-Bloom.jar ...`
+RNA-Bloom can be run as `java -jar /path/to/RNA-Bloom.jar ...`
 
 
 
