@@ -19,7 +19,7 @@ public class NucleotideBitsUtils {
     private static final byte[] BIT_MASKS = new byte[]{(byte) 1, (byte) 2, (byte)(1<<2), (byte)(1<<3), (byte)(1<<4), (byte)(1<<5), (byte)(1<<6), (byte)(1<<7)};
     private static final char[][] BYTE_TETRAMER_ARRAY = getByteToTetramerArray();
     
-    public static char[] byteToTetramer(byte b) {
+    private static char[] byteToTetramer(byte b) {
         return BYTE_TETRAMER_ARRAY[((int)b)+128];
     }
     
@@ -53,15 +53,15 @@ public class NucleotideBitsUtils {
         for (int i=0; i<4; ++i) {
             switch (tetramer[3-i]) {
                 // A: do nothing
-                case 'C':
+                case 'C': case 'c':
                     // 01
                     bits |= BIT_MASKS[i*2];
                     break;
-                case 'G':
+                case 'G': case 'g':
                     // 10
                     bits |= BIT_MASKS[i*2+1];
                     break;
-                case 'T':
+                case 'T': case 't':
                     // 11
                     bits |= BIT_MASKS[i*2];
                     bits |= BIT_MASKS[i*2+1];
