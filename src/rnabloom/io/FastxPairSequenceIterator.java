@@ -30,6 +30,7 @@ public class FastxPairSequenceIterator {
     private final Pattern seqPattern;
     private final Pattern qualPattern;
     private FastxPairReader reader;
+    private PairedReadSegments n = null;
     
     public FastxPairSequenceIterator(FastxFilePair[] fastxPairs, Pattern seqPattern, Pattern qualPattern) throws IOException {
         this.seqPattern = seqPattern;
@@ -37,6 +38,9 @@ public class FastxPairSequenceIterator {
         this.fastxPairs = fastxPairs;
         this.fileCursor = 0;
         setReader(fastxPairs[fileCursor]);
+        if (hasNext()) {
+            n = readNext();
+        }
     }
     
     private void setReader(FastxFilePair fxPair) throws IOException {
@@ -71,7 +75,7 @@ public class FastxPairSequenceIterator {
         return hasNext;
     }
     
-    public PairedReadSegments next() throws FileFormatException, IOException {        
+    private PairedReadSegments readNext() throws FileFormatException, IOException {        
         try {
             return reader.next();
         }
@@ -79,12 +83,23 @@ public class FastxPairSequenceIterator {
             reader.close();
             
             if (++fileCursor >= fastxPairs.length) {
-                throw new NoSuchElementException();
+                return null;
             }
             
             setReader(fastxPairs[fileCursor]);
             
-            return this.next();
+            return this.readNext();
         }
+    }
+    
+    public synchronized PairedReadSegments next() throws IOException {
+        if (n == null) {
+            return null;
+        }
+        
+        PairedReadSegments p = this.n;
+        this.n = readNext();
+        
+        return p;
     }
 }

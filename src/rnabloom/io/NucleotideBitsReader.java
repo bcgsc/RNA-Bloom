@@ -18,7 +18,7 @@ import static rnabloom.util.NucleotideBitsUtils.byteArrayToSeq;
  *
  * @author kmnip
  */
-public class NucleotideBitsReader {
+public class NucleotideBitsReader implements SequenceFileIteratorInterface {
     private FileInputStream fin;
     private byte[] seqLenBytes = new byte[4];
     
@@ -26,7 +26,7 @@ public class NucleotideBitsReader {
         fin = new FileInputStream(path);
     }
         
-    public String read() throws IOException {
+    public synchronized String next() throws IOException {
         if (fin.read(seqLenBytes) > 0) {
             int seqLen = ByteBuffer.wrap(Arrays.copyOfRange(seqLenBytes, 0, 4)).getInt();
             byte[] seqBytes = new byte[seqLen % 4 > 0 ? seqLen/4+1 : seqLen/4];
@@ -59,7 +59,7 @@ public class NucleotideBitsReader {
             NucleotideBitsReader reader = new NucleotideBitsReader(path);
             java.util.ArrayList<String> seqs2 = new java.util.ArrayList<>();
             String seq;
-            while ((seq=reader.read()) != null) {
+            while ((seq=reader.next()) != null) {
                 seqs2.add(seq);
             }
             reader.close();

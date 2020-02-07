@@ -84,6 +84,7 @@ import static rnabloom.util.GraphUtils.*;
 import rnabloom.util.NTCardHistogram;
 import static rnabloom.util.SeqUtils.*;
 import static rnabloom.io.Constants.NBITS_EXT;
+import rnabloom.io.SequenceFileIteratorInterface;
 
 /**
  *
@@ -900,7 +901,7 @@ public class RNABloom {
 
                 if (loadPairedKmers) {
                     String seq = null;
-                    while ((seq = fin.read()) != null) {
+                    while ((seq = fin.next()) != null) {
                         ++numSeqs;
 
                         if (itr.start(seq)) {
@@ -927,7 +928,7 @@ public class RNABloom {
                 }
                 else {
                     String seq = null;
-                    while ((seq = fin.read()) != null) {
+                    while ((seq = fin.next()) != null) {
                         ++numSeqs;
 
                         if (itr.start(seq)) {
@@ -1046,7 +1047,7 @@ public class RNABloom {
             this.prefix = prefix;
         }
                 
-        public void write(String fragment, ArrayList<Kmer> transcriptKmers) throws IOException {            
+        public synchronized void write(String fragment, ArrayList<Kmer> transcriptKmers) throws IOException {            
             if (!represented(transcriptKmers,
                                 graph,
                                 screeningBf,
@@ -1198,35 +1199,30 @@ public class RNABloom {
     }
     
     private class TranscriptAssemblyWorker implements Runnable {
-        
-        private final ArrayBlockingQueue<String> fragments;
-        private final ArrayBlockingQueue<Transcript> transcripts;
-        private boolean keepGoing = true;
+        private TranscriptWriter writer;
+        private final SequenceFileIteratorInterface fin;
         private boolean extendBranchFreeFragmentsOnly = false;
         private boolean keepArtifact = false;
         private boolean keepChimera = false;
         private boolean haveFragKmers = false;
         private final float minKmerCov;
+        private long numParsed;
         
-        public TranscriptAssemblyWorker(ArrayBlockingQueue<String> fragments,
-                                        ArrayBlockingQueue<Transcript> transcripts,
+        public TranscriptAssemblyWorker(SequenceFileIteratorInterface fin,
+                                        TranscriptWriter writer,
                                         boolean includeNaiveExtensions,
                                         boolean extendBranchFreeFragmentsOnly,
                                         boolean keepArtifact,
                                         boolean keepChimera,
                                         boolean haveFragKmers,
                                         float minKmerCov) {
-            this.fragments = fragments;
-            this.transcripts = transcripts;
+            this.fin = fin;
             this.extendBranchFreeFragmentsOnly = extendBranchFreeFragmentsOnly;
             this.keepArtifact = keepArtifact;
             this.keepChimera = keepChimera;
             this.haveFragKmers = haveFragKmers;
             this.minKmerCov = minKmerCov;
-        }
-
-        public void stopWhenEmpty () {
-            keepGoing = false;
+            this.writer = writer;
         }
         
         @Override
@@ -1236,105 +1232,100 @@ public class RNABloom {
                 int maxEdgeClipLength = minPolyATailLengthRequired > 0 ? 0 : maxTipLength;
                 boolean keepBluntEndArtifact = keepArtifact;
                 
-                while (true) {
+                String fragment;
+                while ((fragment = fin.next()) != null) {
+                    ++numParsed;
 //                    String seq = "";
 //                    ArrayList<Kmer> kmers2 = graph.getKmers(seq);
 //                    printPairedKmersPositions(kmers2, graph);
                     
-                    String fragment = fragments.poll(10, TimeUnit.MICROSECONDS);
-                    
-                    if (fragment == null) {
-                        if (!keepGoing) {
-                            break;
-                        }
-                    }
-                    else {
-                        ArrayList<Kmer> kmers = graph.getKmers(fragment);
-                        
-                        if (!kmers.isEmpty()) {
-                            if ( (!extendBranchFreeFragmentsOnly || isBranchFree(kmers, graph, maxTipLength)) &&
-                                 !represented(kmers,
-                                                graph,
-                                                screeningBf,
-                                                lookahead,
-                                                maxIndelSize,
-                                                maxEdgeClipLength,
-                                                percentIdentity) &&
-                                 (keepChimera || !isChimera(kmers, graph, screeningBf, lookahead)) &&
-                                 (keepBluntEndArtifact || !isBluntEndArtifact(kmers, graph, screeningBf, maxEdgeClipLength)) ) {
-                                
-                                int[] originalFragRange;
-                                
-                                if (haveFragKmers) {
-                                    originalFragRange = extendPE(kmers, graph, maxTipLength, minKmerCov);
-                                }
-                                else {
-                                    originalFragRange = extendSE(kmers, graph, maxTipLength, minKmerCov);
-                                }
+                    ArrayList<Kmer> kmers = graph.getKmers(fragment);
 
-                                int[] currentRange = new int[]{0, kmers.size()};
-                                
-                                if (haveFragKmers) {
-                                    if (kmers.size() >= fragKmersDist) {
-                                        ArrayDeque<int[]> ranges = breakWithFragPairedKmers(kmers, graph, lookahead);
-                                        int numFragSegs = ranges.size();
+                    if (!kmers.isEmpty()) {
+                        if ( (!extendBranchFreeFragmentsOnly || isBranchFree(kmers, graph, maxTipLength)) &&
+                             !represented(kmers,
+                                            graph,
+                                            screeningBf,
+                                            lookahead,
+                                            maxIndelSize,
+                                            maxEdgeClipLength,
+                                            percentIdentity) &&
+                             (keepChimera || !isChimera(kmers, graph, screeningBf, lookahead)) &&
+                             (keepBluntEndArtifact || !isBluntEndArtifact(kmers, graph, screeningBf, maxEdgeClipLength)) ) {
 
-                                        if (numFragSegs == 1) {
-                                            currentRange = ranges.peekFirst();
-                                        }
-                                        else if (numFragSegs > 1) {
-                                            int bestOverlap = 0;
-                                            int[] bestRange = null;
-                                            for (int[] range : ranges) {
-                                                int overlap = intervalOverlapSize(range, originalFragRange);
-                                                if (overlap > bestOverlap) {
-                                                    bestOverlap = overlap;
-                                                    bestRange = range;
-                                                }
+                            int[] originalFragRange;
+
+                            if (haveFragKmers) {
+                                originalFragRange = extendPE(kmers, graph, maxTipLength, minKmerCov);
+                            }
+                            else {
+                                originalFragRange = extendSE(kmers, graph, maxTipLength, minKmerCov);
+                            }
+
+                            int[] currentRange = new int[]{0, kmers.size()};
+
+                            if (haveFragKmers) {
+                                if (kmers.size() >= fragKmersDist) {
+                                    ArrayDeque<int[]> ranges = breakWithFragPairedKmers(kmers, graph, lookahead);
+                                    int numFragSegs = ranges.size();
+
+                                    if (numFragSegs == 1) {
+                                        currentRange = ranges.peekFirst();
+                                    }
+                                    else if (numFragSegs > 1) {
+                                        int bestOverlap = 0;
+                                        int[] bestRange = null;
+                                        for (int[] range : ranges) {
+                                            int overlap = intervalOverlapSize(range, originalFragRange);
+                                            if (overlap > bestOverlap) {
+                                                bestOverlap = overlap;
+                                                bestRange = range;
                                             }
+                                        }
 
-                                            currentRange = bestRange;
-                                        }
-                                        else {
-                                            currentRange = null;
-                                        }
+                                        currentRange = bestRange;
                                     }
                                     else {
                                         currentRange = null;
                                     }
                                 }
-                                
-                                if (currentRange != null) {
-                                    ArrayDeque<int[]> ranges = breakWithReadPairedKmers(kmers, graph, lookahead, currentRange[0], currentRange[1]);
-                                    int numFragSegs = ranges.size();
+                                else {
+                                    currentRange = null;
+                                }
+                            }
 
-                                    if (numFragSegs > 0) {
-                                        if (numFragSegs == 1) {
-                                            currentRange = ranges.peekFirst();
-                                        }
-                                        else if (numFragSegs > 1) {
-                                            int bestOverlap = 0;
-                                            int[] bestRange = null;
-                                            for (int[] range : ranges) {
-                                                int overlap = intervalOverlapSize(range, originalFragRange);
-                                                if (overlap > bestOverlap) {
-                                                    bestOverlap = overlap;
-                                                    bestRange = range;
-                                                }
+                            if (currentRange != null) {
+                                ArrayDeque<int[]> ranges = breakWithReadPairedKmers(kmers, graph, lookahead, currentRange[0], currentRange[1]);
+                                int numFragSegs = ranges.size();
+
+                                if (numFragSegs > 0) {
+                                    if (numFragSegs == 1) {
+                                        currentRange = ranges.peekFirst();
+                                    }
+                                    else if (numFragSegs > 1) {
+                                        int bestOverlap = 0;
+                                        int[] bestRange = null;
+                                        for (int[] range : ranges) {
+                                            int overlap = intervalOverlapSize(range, originalFragRange);
+                                            if (overlap > bestOverlap) {
+                                                bestOverlap = overlap;
+                                                bestRange = range;
                                             }
-
-                                            currentRange = bestRange;
                                         }
-                                        
-                                        if (currentRange != null) {
-                                            ArrayList<Kmer> txptKmers = new ArrayList<>(kmers.subList(currentRange[0], currentRange[1]));
 
-                                            String fragInfo = debug ? fragment : "";
-                                            
-                                            if (!keepArtifact) {
-                                                txptKmers = trimReverseComplementArtifact(txptKmers, maxTipLength, maxIndelSize, percentIdentity, graph);
-                                            }
-                                            
+                                        currentRange = bestRange;
+                                    }
+
+                                    if (currentRange != null) {
+                                        ArrayList<Kmer> txptKmers = new ArrayList<>(kmers.subList(currentRange[0], currentRange[1]));
+
+                                        String fragInfo = debug ? fragment : "";
+
+                                        if (!keepArtifact) {
+                                            txptKmers = trimReverseComplementArtifact(txptKmers, maxTipLength, maxIndelSize, percentIdentity, graph);
+                                        }
+
+                                        writer.write(fragInfo, txptKmers);
 //                                            if (!keepArtifact) {
 //                                                if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
 //                                                    txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
@@ -1342,9 +1333,8 @@ public class RNABloom {
 //                                                }
 //                                            }
 //                                            else {
-                                                transcripts.put(new Transcript(fragInfo, txptKmers));
+//                                            transcripts.put(new Transcript(fragInfo, txptKmers));
 //                                            }     
-                                        }
                                     }
                                 }
                             }
@@ -1359,6 +1349,7 @@ public class RNABloom {
         }
     }
     
+    /*
     private class TranscriptWriterWorker implements Runnable {
         
         private final ArrayBlockingQueue<Transcript> transcripts;
@@ -1396,7 +1387,9 @@ public class RNABloom {
             }
         }
     }
+    */
     
+    /*
     private class ReadConnector implements Runnable {
         private String left;
         private String right;
@@ -1545,9 +1538,10 @@ public class RNABloom {
             }
         }
     }
+    */
     
     private class FragmentAssembler implements Runnable {
-        private ArrayBlockingQueue<PairedReadSegments> inList;
+        FastxPairSequenceIterator rin;
         private ArrayBlockingQueue<Fragment> outList;
         private int bound;
         private int minOverlap;
@@ -1558,9 +1552,10 @@ public class RNABloom {
         private boolean extendFragments;
         private int minKmerCov;
         private boolean trimArtifact;
-        private boolean keepGoing = true;
+        private long numParsed = 0;
+        private boolean done = false;
         
-        public FragmentAssembler(ArrayBlockingQueue<PairedReadSegments> inList,
+        public FragmentAssembler(FastxPairSequenceIterator rin,
                                 ArrayBlockingQueue<Fragment> outList,
                                 int bound, 
                                 int minOverlap, 
@@ -1572,7 +1567,7 @@ public class RNABloom {
                                 int minKmerCov,
                                 boolean keepArtifact) {
             
-            this.inList = inList;
+            this.rin = rin;
             this.outList = outList;
             this.bound = bound;
             this.minOverlap = minOverlap;
@@ -1588,234 +1583,228 @@ public class RNABloom {
         @Override
         public void run() {
             try {
-                while(true) {
-                    PairedReadSegments p  = inList.poll(10, TimeUnit.MICROSECONDS);
+                PairedReadSegments p;
+                while((p = rin.next()) != null) {
+                    ++numParsed;
                     
-                    if (p == null) {
-                        if (!keepGoing) {
-                            break;
+                    ArrayList<Kmer> leftKmers = null;
+                    ArrayList<Kmer> rightKmers = null;
+
+                    // connect segments of each read
+                    //String left = getBestSegment(p.left, graph);
+                    String left = connect(p.left, graph, lookahead);
+
+                    if (left.length() >= this.leftReadLengthThreshold) {
+                        if (!isLowComplexity2(left)) {
+                            if (minKmerCov > 1) {
+                                leftKmers = graph.getKmers(left, minKmerCov);
+                            }
+                            else {
+                                leftKmers = graph.getKmers(left);
+                            }
                         }
                     }
-                    else {                        
-                        ArrayList<Kmer> leftKmers = null;
-                        ArrayList<Kmer> rightKmers = null;
-                        
-                        // connect segments of each read
-                        //String left = getBestSegment(p.left, graph);
-                        String left = connect(p.left, graph, lookahead);
 
-                        if (left.length() >= this.leftReadLengthThreshold) {
-                            if (!isLowComplexity2(left)) {
-                                if (minKmerCov > 1) {
-                                    leftKmers = graph.getKmers(left, minKmerCov);
-                                }
-                                else {
-                                    leftKmers = graph.getKmers(left);
-                                }
+                    //String right = getBestSegment(p.right, graph);
+                    String right = connect(p.right, graph, lookahead);
+
+                    if (right.length() >= this.rightReadLengthThreshold) {
+                        if (!isLowComplexity2(right)) {
+                            if (minKmerCov > 1) {
+                                rightKmers = graph.getKmers(right, minKmerCov);
+                            }
+                            else {
+                                rightKmers = graph.getKmers(right);
+                            }
+                        }
+                    }
+
+                    boolean leftBad = leftKmers == null || leftKmers.isEmpty();
+                    boolean rightBad = rightKmers == null || rightKmers.isEmpty();
+
+                    if (leftBad && rightBad) {
+                        continue;
+                    }
+
+                    ArrayList<Kmer> fragmentKmers = null;
+
+                    if (!leftBad && !rightBad) {
+                        if (errorCorrectionIterations > 0) {
+                            ReadPair correctedReadPair = correctErrorsPE(leftKmers,
+                                                                        rightKmers,
+                                                                        graph, 
+                                                                        lookahead, 
+                                                                        maxIndelSize, 
+                                                                        maxCovGradient, 
+                                                                        covFPR,
+                                                                        this.errorCorrectionIterations,
+                                                                        2,
+                                                                        percentIdentity,
+                                                                        minKmerCov);
+
+                            if (correctedReadPair.corrected) {
+                                leftKmers = correctedReadPair.leftKmers;
+                                rightKmers = correctedReadPair.rightKmers;
                             }
                         }
 
-                        //String right = getBestSegment(p.right, graph);
-                        String right = connect(p.right, graph, lookahead);
-
-                        if (right.length() >= this.rightReadLengthThreshold) {
-                            if (!isLowComplexity2(right)) {
-                                if (minKmerCov > 1) {
-                                    rightKmers = graph.getKmers(right, minKmerCov);
-                                }
-                                else {
-                                    rightKmers = graph.getKmers(right);
-                                }
+                        fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound,
+                                lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity, minKmerCov);
+                    }
+                    else if (!leftBad) {
+                        if (errorCorrectionIterations > 0) {
+                            ArrayList<Kmer> corrected = correctErrorsSE(leftKmers,
+                                                                        graph, 
+                                                                        lookahead, 
+                                                                        maxIndelSize, 
+                                                                        maxCovGradient, 
+                                                                        covFPR,
+                                                                        percentIdentity,
+                                                                        minKmerCov);
+                            if (corrected != null && !corrected.isEmpty()) {
+                                leftKmers = corrected;
                             }
                         }
-
-                        boolean leftBad = leftKmers == null || leftKmers.isEmpty();
-                        boolean rightBad = rightKmers == null || rightKmers.isEmpty();
-
-                        if (leftBad && rightBad) {
-                            continue;
-                        }
-
-                        ArrayList<Kmer> fragmentKmers = null;
-
-                        if (!leftBad && !rightBad) {
-                            if (errorCorrectionIterations > 0) {
-                                ReadPair correctedReadPair = correctErrorsPE(leftKmers,
-                                                                            rightKmers,
-                                                                            graph, 
-                                                                            lookahead, 
-                                                                            maxIndelSize, 
-                                                                            maxCovGradient, 
-                                                                            covFPR,
-                                                                            this.errorCorrectionIterations,
-                                                                            2,
-                                                                            percentIdentity,
-                                                                            minKmerCov);
-
-                                if (correctedReadPair.corrected) {
-                                    leftKmers = correctedReadPair.leftKmers;
-                                    rightKmers = correctedReadPair.rightKmers;
-                                }
-                            }
-
-                            fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound,
-                                    lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity, minKmerCov);
-                        }
-                        else if (!leftBad) {
-                            if (errorCorrectionIterations > 0) {
-                                ArrayList<Kmer> corrected = correctErrorsSE(leftKmers,
-                                                                            graph, 
-                                                                            lookahead, 
-                                                                            maxIndelSize, 
-                                                                            maxCovGradient, 
-                                                                            covFPR,
-                                                                            percentIdentity,
-                                                                            minKmerCov);
-                                if (corrected != null && !corrected.isEmpty()) {
-                                    leftKmers = corrected;
-                                }
+                    }
+                    else if (!rightBad) {
+                        if (errorCorrectionIterations > 0) {
+                            ArrayList<Kmer> corrected = correctErrorsSE(rightKmers,
+                                                                        graph, 
+                                                                        lookahead, 
+                                                                        maxIndelSize, 
+                                                                        maxCovGradient, 
+                                                                        covFPR,
+                                                                        percentIdentity,
+                                                                        minKmerCov);
+                            if (corrected != null && !corrected.isEmpty()) {
+                                rightKmers = corrected;
                             }
                         }
-                        else if (!rightBad) {
-                            if (errorCorrectionIterations > 0) {
-                                ArrayList<Kmer> corrected = correctErrorsSE(rightKmers,
-                                                                            graph, 
-                                                                            lookahead, 
-                                                                            maxIndelSize, 
-                                                                            maxCovGradient, 
-                                                                            covFPR,
-                                                                            percentIdentity,
-                                                                            minKmerCov);
-                                if (corrected != null && !corrected.isEmpty()) {
-                                    rightKmers = corrected;
-                                }
+                    }
+
+                    // check for read consistency if fragment is long enough
+                    int preExtensionFragLen = -1;
+
+                    if (fragmentKmers != null) {
+                        if (graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
+                            ArrayDeque<int[]> ranges = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
+
+                            if (ranges.size() != 1) {
+                                fragmentKmers = null;
                             }
-                        }
-
-                        // check for read consistency if fragment is long enough
-                        int preExtensionFragLen = -1;
-                        
-                        if (fragmentKmers != null) {
-                            if (graph.getReadPairedKmerDistance() < fragmentKmers.size()) {
-                                ArrayDeque<int[]> ranges = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
-
-                                if (ranges.size() != 1) {
+                            else {
+                                int[] range = ranges.peek();
+                                if (range[0] >= leftKmers.size() || range[1] < fragmentKmers.size() - rightKmers.size()) {
+                                    // fragment is a spurious connection between left and right reads
                                     fragmentKmers = null;
                                 }
-                                else {
-                                    int[] range = ranges.peek();
-                                    if (range[0] >= leftKmers.size() || range[1] < fragmentKmers.size() - rightKmers.size()) {
-                                        // fragment is a spurious connection between left and right reads
-                                        fragmentKmers = null;
-                                    }
-                                    else if (range[0] > 0 || range[1] < fragmentKmers.size()) {
-                                        // trim the fragment
-                                        fragmentKmers = new ArrayList<>(fragmentKmers.subList(range[0], range[1]));
-                                    }
+                                else if (range[0] > 0 || range[1] < fragmentKmers.size()) {
+                                    // trim the fragment
+                                    fragmentKmers = new ArrayList<>(fragmentKmers.subList(range[0], range[1]));
                                 }
                             }
-                            
-                            if (fragmentKmers != null && trimArtifact) {
-                                fragmentKmers = trimReverseComplementArtifact(fragmentKmers, maxTipLength, maxIndelSize, percentIdentity, graph);
-                                //fragmentKmers = trimHairpinBySequenceMatching(fragmentKmers, k, percentIdentity, graph);
-                            }
-                            
-                            if (fragmentKmers != null) {
-                                preExtensionFragLen = fragmentKmers.size() + k - 1;
-                                
-                                if (extendFragments) {
-                                    ArrayList<Kmer> extendedFragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength, minKmerCov);
-                                    
-                                    if (extendedFragmentKmers.size() != preExtensionFragLen) {
-                                        // fragment was extended; check consistency with reads
-                                        ArrayDeque<int[]> ranges = breakWithReadPairedKmers(extendedFragmentKmers, graph, lookahead);
-                                        
-                                        if (ranges.size() == 1) {
-                                            // there is one consistent section in the extended fragment
-                                            int[] range = ranges.peek();
-                                            if (range[0] > 0 || range[1] < extendedFragmentKmers.size()) {
-                                                // trim extended fragment
-                                                fragmentKmers = new ArrayList<>(extendedFragmentKmers.subList(range[0], range[1]));
-                                            }
-                                            else {
-                                                // trimming not needed; replace original fragment with extended fragment
-                                                fragmentKmers = extendedFragmentKmers;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                        }
+
+                        if (fragmentKmers != null && trimArtifact) {
+                            fragmentKmers = trimReverseComplementArtifact(fragmentKmers, maxTipLength, maxIndelSize, percentIdentity, graph);
+                            //fragmentKmers = trimHairpinBySequenceMatching(fragmentKmers, k, percentIdentity, graph);
                         }
 
                         if (fragmentKmers != null) {
-                            if (fragmentKmers.size() + k - 1 >= k + lookahead) {
-                                boolean hasComplexKmer = false;
+                            preExtensionFragLen = fragmentKmers.size() + k - 1;
 
-                                float minCov = Float.MAX_VALUE;
-                                for (Kmer kmer : fragmentKmers) {
-                                    if (kmer.count < minCov) {
-                                        minCov = kmer.count;
-                                    }
+                            if (extendFragments) {
+                                ArrayList<Kmer> extendedFragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength, minKmerCov);
 
-                                    if (!hasComplexKmer) {
-                                        if (!graph.isRepeatKmer(kmer)) {
-                                            hasComplexKmer = true;
+                                if (extendedFragmentKmers.size() != preExtensionFragLen) {
+                                    // fragment was extended; check consistency with reads
+                                    ArrayDeque<int[]> ranges = breakWithReadPairedKmers(extendedFragmentKmers, graph, lookahead);
+
+                                    if (ranges.size() == 1) {
+                                        // there is one consistent section in the extended fragment
+                                        int[] range = ranges.peek();
+                                        if (range[0] > 0 || range[1] < extendedFragmentKmers.size()) {
+                                            // trim extended fragment
+                                            fragmentKmers = new ArrayList<>(extendedFragmentKmers.subList(range[0], range[1]));
+                                        }
+                                        else {
+                                            // trimming not needed; replace original fragment with extended fragment
+                                            fragmentKmers = extendedFragmentKmers;
                                         }
                                     }
                                 }
+                            }
+                        }
+                    }
 
-                                if (hasComplexKmer) {
-                                    if (this.storeKmerPairs) {
-                                        graph.addFragmentPairKmers(fragmentKmers);
+                    if (fragmentKmers != null) {
+                        if (fragmentKmers.size() + k - 1 >= k + lookahead) {
+                            boolean hasComplexKmer = false;
+
+                            float minCov = Float.MAX_VALUE;
+                            for (Kmer kmer : fragmentKmers) {
+                                if (kmer.count < minCov) {
+                                    minCov = kmer.count;
+                                }
+
+                                if (!hasComplexKmer) {
+                                    if (!graph.isRepeatKmer(kmer)) {
+                                        hasComplexKmer = true;
                                     }
+                                }
+                            }
 
-                                    if (!debug) {
-                                       left = "";
-                                       right = "";
-                                    }
+                            if (hasComplexKmer) {
+                                if (this.storeKmerPairs) {
+                                    graph.addFragmentPairKmers(fragmentKmers);
+                                }
 
-                                    outList.put(new Fragment(left, right, fragmentKmers, preExtensionFragLen, minCov, false));
+                                if (!debug) {
+                                   left = "";
+                                   right = "";
+                                }
+
+                                outList.put(new Fragment(left, right, fragmentKmers, preExtensionFragLen, minCov, false));
+                            }
+                        }
+                    }
+                    else {
+                        // this is an unconnected read pair
+                        float minCov = Float.MAX_VALUE;
+
+                        boolean hasComplexLeftKmer = false;
+
+                        if (!leftBad && leftKmers.size() >= lookahead) {
+                            for (Kmer kmer : leftKmers) {
+                                if (kmer.count < minCov) {
+                                    minCov = kmer.count;
+                                }
+
+                                if (!hasComplexLeftKmer && !graph.isRepeatKmer(kmer)) {
+                                    hasComplexLeftKmer = true;
                                 }
                             }
                         }
-                        else {
-                            // this is an unconnected read pair
-                            float minCov = Float.MAX_VALUE;
 
-                            boolean hasComplexLeftKmer = false;
+                        boolean hasComplexRightKmer = false;
 
-                            if (!leftBad && leftKmers.size() >= lookahead) {
-                                for (Kmer kmer : leftKmers) {
-                                    if (kmer.count < minCov) {
-                                        minCov = kmer.count;
-                                    }
+                        if (!rightBad && rightKmers.size() >= lookahead) {
+                            for (Kmer kmer : rightKmers) {
+                                if (kmer.count < minCov) {
+                                    minCov = kmer.count;
+                                }
 
-                                    if (!hasComplexLeftKmer && !graph.isRepeatKmer(kmer)) {
-                                        hasComplexLeftKmer = true;
-                                    }
+                                if (!hasComplexRightKmer && !graph.isRepeatKmer(kmer)) {
+                                    hasComplexRightKmer = true;
                                 }
                             }
+                        }
 
-                            boolean hasComplexRightKmer = false;
+                        if (hasComplexLeftKmer || hasComplexRightKmer) {
+                            left = leftBad ? "" : left;
+                            right = rightBad ? "" : right;
 
-                            if (!rightBad && rightKmers.size() >= lookahead) {
-                                for (Kmer kmer : rightKmers) {
-                                    if (kmer.count < minCov) {
-                                        minCov = kmer.count;
-                                    }
-
-                                    if (!hasComplexRightKmer && !graph.isRepeatKmer(kmer)) {
-                                        hasComplexRightKmer = true;
-                                    }
-                                }
-                            }
-
-                            if (hasComplexLeftKmer || hasComplexRightKmer) {
-                                left = leftBad ? "" : left;
-                                right = rightBad ? "" : right;
-
-                                outList.put(new Fragment(left, right, null, 0, minCov, true));
-                            }
+                            outList.put(new Fragment(left, right, null, 0, minCov, true));
                         }
                     }
                 }
@@ -1824,14 +1813,11 @@ public class RNABloom {
                 ex.printStackTrace();
                 throw new RuntimeException(ex);
             }
+            done = true;
         }
         
         public void updateBound(int bound) {
             this.bound = bound;
-        }
-        
-        public void stopWhenEmpty () {
-            keepGoing = false;
         }
     }
     
@@ -1944,6 +1930,7 @@ public class RNABloom {
         graph.updateFragmentKmerDistance(new File(graphFile));
     }
     
+    /*
     public void rescueUnconnectedMultiThreaded(String[] fastas, 
                                                 String[] longFragmentsFastaPaths,
                                                 String[] shortFragmentsFastaPaths,
@@ -1959,7 +1946,7 @@ public class RNABloom {
                                                 boolean extendFragments,
                                                 float minKmerCov) throws IOException, InterruptedException {
         
-        /* make sure paired kmer distance is set */
+        // make sure paired kmer distance is set
         
         if (dbgFPR <= 0) {
             dbgFPR = graph.getDbgbf().getFPR();
@@ -2056,11 +2043,9 @@ public class RNABloom {
                         }
 
                         if (frag.minCov >= 2) {
-                            /*
-                            When reads were parsed at k2, kmers common to both fragments and reads have counts incremented by 1.
-                            Kmers unique to fragments would have a count of 1.
-                            So, min kmer counts >= 2 need to be decremented by 1 when assigning fragments.
-                            */ 
+                            //When reads were parsed at k2, kmers common to both fragments and reads have counts incremented by 1.
+                            //Kmers unique to fragments would have a count of 1.
+                            //So, min kmer counts >= 2 need to be decremented by 1 when assigning fragments.
                             --frag.minCov;
                         }
 
@@ -2214,6 +2199,7 @@ public class RNABloom {
         System.out.println("Paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100   + " %");
         System.out.println("Screening Bloom filter FPR:    " + screeningBf.getFPR() * 100 + " %");    
     }
+    */
     
     private final static String LABEL_SEPARATOR = ":";
     private final static String LABEL_MIN = "min";
@@ -3486,6 +3472,7 @@ public class RNABloom {
         }
     }
     
+    /*
     public class ReadPairsFactoryWorker implements Runnable {
         private FastxFilePair[] fastxPairs;
         private ArrayBlockingQueue<PairedReadSegments> readPairsQueue;
@@ -3515,6 +3502,7 @@ public class RNABloom {
             }
         }
     }
+    */
     
     public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastxPairs, 
                                                 FragmentPaths fragPaths,
@@ -3541,18 +3529,14 @@ public class RNABloom {
         
         boolean assemblePolyaTails = this.minPolyATailLengthRequired > 0;
         
-        ArrayBlockingQueue<PairedReadSegments> readPairs = new ArrayBlockingQueue<>(sampleSize);
-        
-        ReadPairsFactoryWorker supplier = new ReadPairsFactoryWorker(fastxPairs, readPairs);
-        Thread supplierThread = new Thread(supplier);
-        supplierThread.start();
+        FastxPairSequenceIterator rin = new FastxPairSequenceIterator(fastxPairs, seqPattern, qualPatternFrag);
         
         ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
                 
         FragmentAssembler[] workers = new FragmentAssembler[numThreads];
         Thread[] threads = new Thread[numThreads];
         for (int i=0; i<numThreads; ++i) {
-            workers[i] = new FragmentAssembler(readPairs,
+            workers[i] = new FragmentAssembler(rin,
                                                 fragments,
                                                 bound,
                                                 minOverlap,
@@ -3569,12 +3553,22 @@ public class RNABloom {
         }
         
         while (true) {
-            if (supplier.stopped || fragments.remainingCapacity() == 0) {
+            if (fragments.remainingCapacity() == 0) {
                 break;
             }
-            else {
-                Thread.sleep(100);
+            
+            int numDone = 0;
+            for (FragmentAssembler w : workers) {
+                if (w.done) {
+                    ++numDone;
+                }
             }
+            
+            if (numDone == workers.length) {
+                break;
+            }
+            
+            Thread.sleep(10);
         }
         
         // Calculate length stats
@@ -3613,12 +3607,6 @@ public class RNABloom {
         Thread writerThread = new Thread(writer);
         writerThread.start();
         
-        supplierThread.join();
-        
-        for (FragmentAssembler w : workers) {
-            w.stopWhenEmpty();
-        }
-
         for (Thread t : threads) {
             t.join();
         }
@@ -3626,7 +3614,11 @@ public class RNABloom {
         writer.stopWhenEmpty();
         writerThread.join();
         
-        long numParsed = supplier.numParsed;
+        long numParsed = 0;
+        for (FragmentAssembler w : workers) {
+            numParsed += w.numParsed;
+        }
+        
         long numConnected = writer.getNumConnected();
         long numUnconnected = writer.getNumUnconnected();
         long numDiscarded = numParsed - numConnected - numUnconnected;
@@ -3666,46 +3658,90 @@ public class RNABloom {
                                                     boolean reqFragKmersConsistency,
                                                     float minKmerCov) throws InterruptedException, IOException {
         
-        long numFragmentsParsed = 0;
         NucleotideBitsReader fin = new NucleotideBitsReader(fragmentsPath);
-
-        ArrayBlockingQueue<String> fragmentsQueue = new ArrayBlockingQueue<>(numThreads*2, true);
-        ArrayBlockingQueue<Transcript> transcriptsQueue = new ArrayBlockingQueue<>(numThreads*2, true);
         
         TranscriptAssemblyWorker[] workers = new TranscriptAssemblyWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
         for (int i=0; i<numThreads; ++i) {
-            workers[i] = new TranscriptAssemblyWorker(fragmentsQueue, transcriptsQueue, includeNaiveExtensions, extendBranchFreeFragmentsOnly, keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
+            workers[i] = new TranscriptAssemblyWorker(fin, writer, includeNaiveExtensions, extendBranchFreeFragmentsOnly, keepArtifact, keepChimera, reqFragKmersConsistency, minKmerCov);
             threads[i] = new Thread(workers[i]);
             threads[i].start();
-        }
-        
-        TranscriptWriterWorker writerWorker = new TranscriptWriterWorker(transcriptsQueue, writer);
-        Thread writerThread = new Thread(writerWorker);
-        writerThread.start();
-
-        String seq = null;
-        while ((seq = fin.read()) != null) {
-            fragmentsQueue.put(seq);
-            ++numFragmentsParsed;
-        }
-
-        fin.close();
-
-        for (TranscriptAssemblyWorker w : workers) {
-            w.stopWhenEmpty();
         }
 
         for (Thread t : threads) {
             t.join();
         }
-
-        writerWorker.stopWhenEmpty();
-        writerThread.join();
+        
+        fin.close();
+        
+        long numFragmentsParsed = 0;
+        for (TranscriptAssemblyWorker w : workers) {
+            numFragmentsParsed += w.numParsed;
+        }
         
         return numFragmentsParsed;
     }
 
+    private class SingleEndReadsIterator implements SequenceFileIteratorInterface {
+        private FastaFilteredSequenceIterator faItr = null;
+        private FastqFilteredSequenceIterator fqItr = null;
+        private long numReadsParsed = 0;
+        
+        public SingleEndReadsIterator(String[] readPaths, boolean reverseComplement) throws IOException {
+            ArrayList<String> fastaPaths = new ArrayList<>();
+            ArrayList<String> fastqPaths = new ArrayList<>();
+            for (String p : readPaths) {
+                if (FastaReader.isCorrectFormat(p)) {
+                    fastaPaths.add(p);
+                }
+                else if (FastqReader.isCorrectFormat(p)) {
+                    fastqPaths.add(p);
+                }
+            }
+            
+            if (!fastaPaths.isEmpty()) {
+                String[] paths = new String[fastaPaths.size()];
+                fastaPaths.toArray(paths);
+                faItr = new FastaFilteredSequenceIterator(paths, seqPattern, reverseComplement);
+            }
+            
+            if (!fastqPaths.isEmpty()) {
+                String[] paths = new String[fastqPaths.size()];
+                fastqPaths.toArray(paths);
+                fqItr = new FastqFilteredSequenceIterator(paths, seqPattern, qualPatternFrag, reverseComplement);
+            }
+        }
+
+        @Override
+        public String next() throws IOException {
+            if (faItr != null && faItr.hasNext()) {
+                ++numReadsParsed;
+                ArrayList<String> segments = faItr.nextSegments();
+                while (!segments.isEmpty()) {
+                    String seq = connect(segments, graph, lookahead);
+                    if (seq.length() >= k) {
+                        return seq;
+                    }
+                    segments = faItr.nextSegments();
+                }
+            }
+            
+            if (fqItr != null && fqItr.hasNext()) {
+                ++numReadsParsed;
+                ArrayList<String> segments = fqItr.nextSegments();
+                while (!segments.isEmpty()) {
+                    String seq = connect(segments, graph, lookahead);
+                    if (seq.length() >= k) {
+                        return seq;
+                    }
+                    segments = fqItr.nextSegments();
+                }
+            }
+            
+            return null;
+        }
+    }
+    
     public void assembleSingleEndReads(String[] readPaths,
                                     boolean reverseComplement,
                                     String outFasta,
@@ -3720,9 +3756,7 @@ public class RNABloom {
 
         //boolean assemblePolya = minPolyATailLengthRequired > 0;
         /*@TODO support prioritized assembly of polya reads */
-        
-        long numReadsParsed = 0;
-        
+                
         boolean includeNaiveExtensions = true;
         boolean extendBranchFreeFragmentsOnly = false;
 
@@ -3730,81 +3764,24 @@ public class RNABloom {
         FastaWriter foutShort = new FastaWriter(outFastaShort, false);
         TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, maxTipLength, writeUracil);
         
-        ArrayBlockingQueue<String> readsQueue = new ArrayBlockingQueue<>(numThreads*2);
-        ArrayBlockingQueue<Transcript> transcriptsQueue = new ArrayBlockingQueue<>(numThreads*2);
+        SingleEndReadsIterator readsItr = new SingleEndReadsIterator(readPaths, reverseComplement);
         
         TranscriptAssemblyWorker[] workers = new TranscriptAssemblyWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
         for (int i=0; i<numThreads; ++i) {
-            workers[i] = new TranscriptAssemblyWorker(readsQueue, transcriptsQueue, includeNaiveExtensions, extendBranchFreeFragmentsOnly, keepArtifact, keepChimera, false, minKmerCov);
+            workers[i] = new TranscriptAssemblyWorker(readsItr, writer, includeNaiveExtensions, extendBranchFreeFragmentsOnly, keepArtifact, keepChimera, false, minKmerCov);
             threads[i] = new Thread(workers[i]);
             threads[i].start();
-        }
-        
-        TranscriptWriterWorker writerWorker = new TranscriptWriterWorker(transcriptsQueue, writer);
-        Thread writerThread = new Thread(writerWorker);
-        writerThread.start();
-        
-        ArrayList<String> fastaPaths = new ArrayList<>();
-        ArrayList<String> fastqPaths = new ArrayList<>();
-        for (String p : readPaths) {
-            if (FastaReader.isCorrectFormat(p)) {
-                fastaPaths.add(p);
-            }
-            else if (FastqReader.isCorrectFormat(p)) {
-                fastqPaths.add(p);
-            }
-        }
-        
-        if (!fastaPaths.isEmpty()) {
-            String[] paths = new String[fastaPaths.size()];
-            fastaPaths.toArray(paths);
-            FastaFilteredSequenceIterator rin = new FastaFilteredSequenceIterator(paths, seqPattern, reverseComplement);
-
-            while (rin.hasNext()) {
-                ++numReadsParsed;
-                ArrayList<String> segments = rin.nextSegments();
-                if (!segments.isEmpty()) {
-                    String seq = connect(segments, graph, lookahead);
-                    if (seq.length() >= k) {
-                        readsQueue.put(seq);
-                    }
-                }
-            }
-        }
-        
-        if (!fastqPaths.isEmpty()) {
-            String[] paths = new String[fastqPaths.size()];
-            fastqPaths.toArray(paths);
-            FastqFilteredSequenceIterator rin = new FastqFilteredSequenceIterator(paths, seqPattern, qualPatternFrag, reverseComplement);
-
-            while (rin.hasNext()) {
-                ++numReadsParsed;
-                ArrayList<String> segments = rin.nextSegments();
-                if (!segments.isEmpty()) {
-                    String seq = connect(segments, graph, lookahead);
-                    if (seq.length() >= k) {
-                        readsQueue.put(seq);
-                    }
-                }
-            }
-        }
-        
-        for (TranscriptAssemblyWorker w : workers) {
-            w.stopWhenEmpty();
         }
 
         for (Thread t : threads) {
             t.join();
         }
 
-        writerWorker.stopWhenEmpty();
-        writerThread.join();
-        
         fout.close();
         foutShort.close();
         
-        System.out.println("Parsed " + NumberFormat.getInstance().format(numReadsParsed) + " reads.");
+        System.out.println("Parsed " + NumberFormat.getInstance().format(readsItr.numReadsParsed) + " reads.");
     }
     
     public void assembleTranscriptsMultiThreaded(FragmentPaths fragPaths,
