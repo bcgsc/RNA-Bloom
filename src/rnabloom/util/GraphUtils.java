@@ -654,6 +654,16 @@ public final class GraphUtils {
         return true;
     }
     
+    public static boolean lookupAndAddAllKmers(final BloomFilter bf,
+                                final ArrayList<Kmer> kmers) {
+        boolean foundAll = true;
+        for (Kmer kmer : kmers) {
+            foundAll &= bf.lookupThenAdd(kmer.getHash());
+        }
+        
+        return foundAll;
+    }
+    
     public static int reduceRedundancy(final String inFasta,
                                         final String outFasta,
                                         final BloomFilterDeBruijnGraph graph,
