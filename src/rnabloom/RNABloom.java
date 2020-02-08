@@ -3142,70 +3142,70 @@ public class RNABloom {
             }
         }
         
-        public NucleotideBitsWriter getWriter(Fragment frag, String seq) {
-            if (frag.isUnconnectedRead) {
-                boolean isPolya = assemblePolyaTails && polyATailPattern.matcher(seq).matches();
+        public void writeUnconnected(String seq, float fragMinCov) throws IOException {
+            boolean isPolya = assemblePolyaTails && polyATailPattern.matcher(seq).matches();
 
-                if (frag.minCov == 1) {
-                    if (isPolya) {
-                        return unconnectedPolyaSingletonsOut;
-                    }
-                    else {
-                        return unconnectedSingletonsOut;
-                    }
+            if (fragMinCov == 1) {
+                if (isPolya) {
+                    unconnectedPolyaSingletonsOut.write(seq);
                 }
                 else {
-                    int m = getCoverageOrderOfMagnitude(frag.minCov);
-
-                    if (isPolya) {
-                        return unconnectedPolyaReadsOut[m];
-                    }
-                    else {
-                        return unconnectedReadsOut[m];
-                    }
+                    unconnectedSingletonsOut.write(seq);
                 }
             }
             else {
-                boolean isLong = frag.length >= longFragmentLengthThreshold;        
-                boolean isPolya = assemblePolyaTails && polyATailPattern.matcher(seq).matches();
+                int m = getCoverageOrderOfMagnitude(fragMinCov);
 
-                if (frag.minCov == 1) {
-                    if (isLong) {
-                        if (isPolya) {
-                            return longPolyaSingletonsOut;
-                        }
-                        else {
-                            return longSingletonsOut;
-                        }
-                    }
-                    else {
-                        if (isPolya) {
-                            return shortPolyaSingletonsOut;
-                        }
-                        else {
-                            return shortSingletonsOut;
-                        }
-                    }
+                if (isPolya) {
+                    unconnectedPolyaReadsOut[m].write(seq);
                 }
                 else {
-                    int m = getCoverageOrderOfMagnitude(frag.minCov);
+                    unconnectedReadsOut[m].write(seq);
+                }
+            }
+        }
+        
+        public void writeShort(String seq, float fragMinCov) throws IOException {
+            boolean isPolya = assemblePolyaTails && polyATailPattern.matcher(seq).matches();
 
-                    if (isLong) {
-                        if (isPolya) {
-                            return longPolyaFragmentsOut[m];
-                        }
-                        else {
-                            return longFragmentsOut[m];
-                        }
-                    }
-                    else {
-                        if (isPolya) {
-                            return shortPolyaFragmentsOut[m];
-                        }
-                        else {
-                            return shortFragmentsOut[m];
-                        }
-                    }
+            if (fragMinCov == 1) {
+                if (isPolya) {
+                    shortPolyaSingletonsOut.write(seq);
+                }
+                else {
+                    shortSingletonsOut.write(seq);
+                }
+            }
+            else {
+                int m = getCoverageOrderOfMagnitude(fragMinCov);
+                if (isPolya) {
+                    shortPolyaFragmentsOut[m].write(seq);
+                }
+                else {
+                    shortFragmentsOut[m].write(seq);
+                }
+            }
+        }
+    
+        public void writeLong(String seq, float fragMinCov) throws IOException {
+            boolean isPolya = assemblePolyaTails && polyATailPattern.matcher(seq).matches();
+
+            if (fragMinCov == 1) {
+                if (isPolya) {
+                    longPolyaSingletonsOut.write(seq);
+                }
+                else {
+                    longSingletonsOut.write(seq);
+                }
+            }
+            else {
+                int m = getCoverageOrderOfMagnitude(fragMinCov);
+
+                if (isPolya) {
+                    longPolyaFragmentsOut[m].write(seq);
+                }
+                else {
+                    longFragmentsOut[m].write(seq);
                 }
             }
         }
@@ -3265,9 +3265,6 @@ public class RNABloom {
         
         @Override
         public void run() {
-            long fragmentId = 0;
-            long unconnectedReadId = 0;
-            
             try {
                 while (true) {
                     Fragment frag = fragments.poll(10, TimeUnit.MICROSECONDS);
@@ -3278,20 +3275,19 @@ public class RNABloom {
                         }
                     }
                     else {
+                        float minCov = frag.minCov;
+                        
                         if (frag.isUnconnectedRead) {
                             ++readPairsNotConnected;
-                            ++unconnectedReadId;
 
                             String seq = frag.left;
                             if (seq != null && seq.length() >= k) {
-                                NucleotideBitsWriter writer = writers.getWriter(frag, seq);
-                                writer.write(seq);
+                                writers.writeUnconnected(seq, minCov);
                             }
 
                             seq = frag.right;
                             if (seq != null && seq.length() >= k) {
-                                NucleotideBitsWriter writer = writers.getWriter(frag, seq);
-                                writer.write(seq);
+                                writers.writeUnconnected(seq, minCov);
                             }
                         }
                         else {
@@ -3299,22 +3295,20 @@ public class RNABloom {
 
                             int fragLen = frag.kmers.size()+ k - 1; // not using frag.length because it is the original length and frag may be extended
                             
-                            if (fragLen >= shortestFragmentLengthAllowed && frag.minCov > 0) {
+                            if (fragLen >= shortestFragmentLengthAllowed && minCov > 0) {
                                 ArrayList<Kmer> fragKmers = frag.kmers;
+                                boolean hasAllKmers = lookupAndAddAllKmers(screeningBf, fragKmers);
 
-                                if (!containsAllKmers(screeningBf, fragKmers) || !graph.containsAllPairedKmers(fragKmers)) {
-                                    graph.addFragmentPairKmers(fragKmers);
-
-                                    if (fragLen >= longFragmentLengthThreshold) {
-                                        for (Kmer kmer : fragKmers) {
-                                            screeningBf.add(kmer.getHash());
-                                        }
+                                if (fragLen < longFragmentLengthThreshold) {
+                                    if (!hasAllKmers) {
+                                        writers.writeShort(graph.assemble(fragKmers), minCov);
                                     }
-
-                                    String seq = graph.assemble(fragKmers);
-
-                                    NucleotideBitsWriter writer = writers.getWriter(frag, seq);
-                                    writer.write(seq);
+                                }
+                                else {
+                                    boolean hasAllKmerPairs = graph.lookupAndAddAllPairedKmers(fragKmers);
+                                    if (!hasAllKmers || !hasAllKmerPairs) {
+                                        writers.writeLong(graph.assemble(fragKmers), minCov);
+                                    }
                                 }
                             }
                         }

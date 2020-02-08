@@ -140,6 +140,10 @@ public class BloomFilter implements BloomFilterInterface {
         add(hashFunction.getHashValues(hashVal, numHash));
     }
     
+    public boolean lookupThenAdd(final long hashVal) {
+        return lookupThenAdd(hashFunction.getHashValues(hashVal, numHash));
+    }
+    
     public boolean lookupThenAdd(final long[] hashVals) {
         boolean found = true;
         

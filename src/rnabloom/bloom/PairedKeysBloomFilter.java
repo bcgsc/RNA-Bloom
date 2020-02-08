@@ -153,6 +153,20 @@ public class PairedKeysBloomFilter {
         
         return true;
     }
+    
+    public boolean lookupThenAdd(final long hashValsPair) {
+        return lookupThenAdd(hashFunction.getHashValues(hashValsPair, numHash));
+    }
+    
+    public boolean lookupThenAdd(final long[] hashVals) {
+        boolean foundAll = true;
+        
+        for (int h=0; h<numHash; ++h) {
+            foundAll &= bitArrayPair.getAndSet(getIndex(hashVals[h]));
+        }
+        
+        return foundAll;
+    }
 
 //    public boolean lookup(final long hashValsLeft, final long hashValsRight) {
 //        return lookup(hashFunction.getHashValues(hashValsLeft, numHash), hashFunction.getHashValues(hashValsRight, numHash));

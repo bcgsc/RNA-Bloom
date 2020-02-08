@@ -510,6 +510,19 @@ public class BloomFilterDeBruijnGraph {
         
         return true;
     }
+    
+    public boolean lookupAndAddAllPairedKmers(ArrayList<Kmer> kmers) {
+        // add paired kmers
+        final int upperBound = kmers.size() - fragmentPairedKmersDistance;
+        
+        boolean foundAll = true;
+        
+        for (int i=0; i<upperBound; ++i) {
+            foundAll &= fpkbf.lookupThenAdd(kmers.get(i).getKmerPairHashValue(kmers.get(i+fragmentPairedKmersDistance)));
+        }
+        
+        return foundAll;
+    }
         
     public boolean lookupFragmentKmerPair(Kmer left, Kmer right) {
         return fpkbf.lookup(left.getKmerPairHashValue(right));
