@@ -21,7 +21,10 @@ public class NucleotideBitsWriter {
     }
     
     public void write(String seq) throws IOException {
-        out.write(seqToByteArray(seq));
+        byte[] bytes = seqToByteArray(seq);
+        synchronized(this) {
+            out.write(bytes);
+        }
     }
     
     public void close() throws IOException {
