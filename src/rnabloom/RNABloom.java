@@ -4211,17 +4211,17 @@ public class RNABloom {
             int k, int numThreads, boolean stranded, int maxIndelSize, int maxTipLength,
             float percentIdentity, boolean removeArtifacts, int txptLengthThreshold, boolean writeUracil) throws IOException {
         
-        String concatenatedFasta = outdir + File.separator + "all_transcripts" + FASTA_EXT;
-        String reducedFasta = outdir + File.separator + "all_transcripts_nr" + FASTA_EXT;
-        String tmpPrefix = outdir + File.separator + "all_transcripts_overlap";
-        String outLongFasta = outdir + File.separator + assemblyName + ".transcripts" + FASTA_EXT;
-        String outShortFasta = outdir + File.separator + assemblyName + ".transcripts.short" + FASTA_EXT;
+        String concatenatedFasta = outdir + File.separator + assemblyName + ".all" + FASTA_EXT;
+        String reducedFasta      = outdir + File.separator + assemblyName + ".all_nr" + FASTA_EXT;
+        String tmpPrefix         = outdir + File.separator + assemblyName + ".tmp";
+        String outLongFasta      = outdir + File.separator + assemblyName + ".transcripts" + FASTA_EXT;
+        String outShortFasta     = outdir + File.separator + assemblyName + ".transcripts.short" + FASTA_EXT;
 
         // combine assembly files
         FastaWriter fout = new FastaWriter(concatenatedFasta, false);
         FastaReader fin;
         for (String sampleName : sampleNames) {
-            String longTxptsPath = outdir + File.separator + sampleName + File.separator + sampleName + ".transcripts" + txptFileExt;
+            String longTxptsPath  = outdir + File.separator + sampleName + File.separator + sampleName + ".transcripts" + txptFileExt;
             String shortTxptsPath = outdir + File.separator + sampleName + File.separator + sampleName + ".transcripts" + shortTxptFileExt;
             
             fin = new FastaReader(longTxptsPath);
@@ -4272,10 +4272,10 @@ public class RNABloom {
         final File nrTxptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
 
         if (forceOverwrite || !nrTxptsDoneStamp.exists()) {
-            String tmpPrefix = outdir + File.separator + name + ".tmp";
-            String transcriptsFasta = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
-            String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
-            String nrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr" + FASTA_EXT;
+            String tmpPrefix               = outdir + File.separator + name + ".tmp";
+            String transcriptsFasta        = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
+            String shortTranscriptsFasta   = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
+            String nrTranscriptsFasta      = outdir + File.separator + name + ".transcripts.nr" + FASTA_EXT;
             String shortNrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr.short" + FASTA_EXT;
 
             Files.deleteIfExists(FileSystems.getDefault().getPath(nrTranscriptsFasta));
@@ -4308,7 +4308,7 @@ public class RNABloom {
             float minKmerCov, boolean reduceRedundancy, boolean writeUracil) throws IOException, InterruptedException {
 
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
-        final String transcriptsFasta = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
+        final String transcriptsFasta      = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
         final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
         
         if (forceOverwrite || !txptsDoneStamp.exists()) {
