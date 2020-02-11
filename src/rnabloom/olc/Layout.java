@@ -30,6 +30,7 @@ import org.jgrapht.Graph;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.TransitiveReduction;
 import org.jgrapht.alg.connectivity.BiconnectivityInspector;
+import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import rnabloom.io.ExtendedPafRecord;
@@ -236,11 +237,11 @@ public class Layout {
     private int reduceTransitively() {
         int numEdgesRemoved = 0;
         
-        BiconnectivityInspector<String, OverlapEdge> bci = new BiconnectivityInspector<>(graph);
+        KosarajuStrongConnectivityInspector<String, OverlapEdge> ci = new KosarajuStrongConnectivityInspector<>(graph);
         
         // Perform transitive reduction on each biconnected component; 
         // this routine should use less memory than reducing the entire graph.
-        for (Graph<String, OverlapEdge> cc : bci.getBlocks()) {
+        for (Graph<String, OverlapEdge> cc : ci.getStronglyConnectedComponents()) {
             Set<OverlapEdge> edges = cc.edgeSet();
             if (!edges.isEmpty()) {
                 edges = new HashSet<>(edges);
@@ -585,15 +586,16 @@ public class Layout {
         }
         
         int numEdges = graph.edgeSet().size();
-        if (numEdges > 2) {
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
-            
-            reduceTransitively();
-            numEdges = graph.edgeSet().size();
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
-        }
+//        if (numEdges > 2) {
+//            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+//            
+//            reduceTransitively();
+//            numEdges = graph.edgeSet().size();
+//            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+//        }
         
         if (numEdges > 1) {
+            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
             resolveJunctions(dovetailReadNames, false);
             numEdges = graph.edgeSet().size();
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
@@ -603,7 +605,8 @@ public class Layout {
         HashMap<String, byte[]> longestReadSeqs = new HashMap<>(longestSet.size());
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
-        int seqID = 0;
+        long seqID = 0;
+        long originalNumSeq = 0;
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
@@ -616,14 +619,14 @@ public class Layout {
                     int halfLen = nameSeq[1].length()/2;
                     int cutIndex = artifactCutIndexes.get(name);
                     if (cutIndex < halfLen) {
-                        fw.write(Integer.toString(++seqID), nameSeq[1].substring(cutIndex+1));
+                        fw.write(Long.toString(++seqID), nameSeq[1].substring(cutIndex+1));
                     }
                     else {
-                        fw.write(Integer.toString(++seqID), nameSeq[1].substring(0, cutIndex));
+                        fw.write(Long.toString(++seqID), nameSeq[1].substring(0, cutIndex));
                     }
                 }
                 else {
-                    fw.write(Integer.toString(++seqID), nameSeq[1]);
+                    fw.write(Long.toString(++seqID), nameSeq[1]);
                 }
             }
         }
@@ -645,7 +648,7 @@ public class Layout {
                 String backbone = assemblePath(path, longestReadSeqs);
                 
                 // write backbone to FASTA
-                String header = Integer.toString(++seqID);
+                String header = Long.toString(++seqID);
                 if (path.size() > 1) {
                     //print(path, ',')
                     header += " path=[" + String.join(",", path) + "]";
@@ -659,10 +662,7 @@ public class Layout {
         }
         fw.close();
         
-        if (seqID > 1)
-            System.out.println(NumberFormat.getInstance().format(seqID) + " sequences remain");
-        else
-            System.out.println(Integer.toString(seqID) + " sequence remains");
+        System.out.println("discarded: " + NumberFormat.getInstance().format(originalNumSeq-seqID) + "\tremaining: " + NumberFormat.getInstance().format(seqID));
     }
     
     private void layoutStrandedBackbones(String outFastaPath) throws IOException {
@@ -773,16 +773,17 @@ public class Layout {
         }
         
         int numEdges = graph.edgeSet().size();
-        if (numEdges > 2) {
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
-            
-            reduceTransitively();
-            numEdges = graph.edgeSet().size();
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
-        }
+//        if (numEdges > 2) {
+//            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+//            
+//            reduceTransitively();
+//            numEdges = graph.edgeSet().size();
+//            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+//        }
         
         if (numEdges > 1) {
-            resolveJunctions(dovetailReadNames, false);
+            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+            resolveJunctions(dovetailReadNames, true);
             numEdges = graph.edgeSet().size();
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
         }
@@ -791,8 +792,10 @@ public class Layout {
         HashMap<String, byte[]> longestReadSeqs = new HashMap<>(dovetailReadNames.size());
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
-        int seqID = 0;
+        long seqID = 0;
+        long originalNumSeq = 0;
         while (fr.hasNext()) {
+            ++originalNumSeq;
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
             if (dovetailReadNames.contains(name)) {
@@ -805,14 +808,14 @@ public class Layout {
                     int halfLen = nameSeq[1].length()/2;
                     int cutIndex = artifactCutIndexes.get(name);
                     if (cutIndex < halfLen) {
-                        fw.write(Integer.toString(++seqID), nameSeq[1].substring(cutIndex+1));
+                        fw.write(Long.toString(++seqID), nameSeq[1].substring(cutIndex+1));
                     }
                     else {
-                        fw.write(Integer.toString(++seqID), nameSeq[1].substring(0, cutIndex));
+                        fw.write(Long.toString(++seqID), nameSeq[1].substring(0, cutIndex));
                     }
                 }
                 else {
-                    fw.write(Integer.toString(++seqID), nameSeq[1]);
+                    fw.write(Long.toString(++seqID), nameSeq[1]);
                 }
             }
         }
@@ -835,7 +838,7 @@ public class Layout {
                 String backbone = assemblePath(path, longestReadSeqs);
                 
                 // write backbone to FASTA
-                String header = Integer.toString(++seqID);
+                String header = Long.toString(++seqID);
                 if (path.size() > 1) {
                     //print(path, ',')
                     header += " path=[" + String.join(",", path) + "]";
@@ -849,20 +852,18 @@ public class Layout {
         }
         fw.close();
         
-        if (seqID > 1)
-            System.out.println(NumberFormat.getInstance().format(seqID) + " sequences remain");
-        else
-            System.out.println(Integer.toString(seqID) + " sequence remains");
+        System.out.println("discarded: " + NumberFormat.getInstance().format(originalNumSeq-seqID) + "\tremaining: " + NumberFormat.getInstance().format(seqID));
     }
     
     public static void main(String[] args) {
         boolean stranded = true;
-        String seqFastaPath = "";
-        String overlapPafPath = "";
-        String backboneFastaPath = "";
+        String seqFastaPath = "cat.fa";
+        String overlapPafPath = "ava.paf.gz";
+        String backboneFastaPath = "backbones.fa";
         
         try {
-            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 100, 0.40f, 100, 10, true);
+            //seqFile, pafFile, stranded, maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact
+            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 5, 0.90f, 2*25, 1, true);
             myLayout.writeBackboneSequences(backboneFastaPath);
         } catch (Exception ex) {
             ex.printStackTrace();
