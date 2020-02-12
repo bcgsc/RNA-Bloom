@@ -19,6 +19,8 @@ package rnabloom.olc;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -29,7 +31,6 @@ import java.util.regex.Pattern;
 import org.jgrapht.Graph;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.TransitiveReduction;
-import org.jgrapht.alg.connectivity.BiconnectivityInspector;
 import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
@@ -72,7 +73,7 @@ public class Layout {
         this.cutRevCompArtifact = cutRevCompArtifact;
     }
     
-    private class OverlapEdge extends DefaultEdge {
+    private class OverlapEdge extends DefaultEdge implements Comparable<OverlapEdge> {
         public int sourceStart, sourceEnd, sinkStart, sinkEnd;
         
         public OverlapEdge(int sourceStart, int sourceEnd, int sinkStart, int sinkEnd) {
@@ -80,6 +81,12 @@ public class Layout {
             this.sourceEnd = sourceEnd;
             this.sinkStart = sinkStart;
             this.sinkEnd = sinkEnd;
+        }
+
+        @Override
+        public int compareTo(OverlapEdge o) {
+            // an edge with a larger overlap is "less"
+            return Math.max(o.sinkEnd-o.sinkStart, o.sourceEnd-o.sourceStart) - Math.max(sinkEnd-sinkStart, sourceEnd-sourceStart);
         }
     }
 
@@ -270,6 +277,32 @@ public class Layout {
         
         return numEdgesRemoved;
     }
+        
+    private void resolveJunctions() {
+        ArrayList<OverlapEdge> edges = new ArrayList<>(graph.edgeSet());
+        Collections.sort(edges);
+        for (OverlapEdge bestEdge : edges) {
+            if (graph.containsEdge(bestEdge)) {
+                String source = graph.getEdgeSource(bestEdge);
+                ArrayDeque<OverlapEdge> edgesToRemove = new ArrayDeque<>();
+                for (OverlapEdge e : graph.outgoingEdgesOf(source)) {
+                    if (!e.equals(bestEdge)) {
+                        edgesToRemove.add(e);
+                    }
+                }
+                graph.removeAllEdges(edgesToRemove);
+                
+                String target = graph.getEdgeTarget(bestEdge);
+                edgesToRemove = new ArrayDeque<>();
+                for (OverlapEdge e : graph.incomingEdgesOf(target)) {
+                    if (!e.equals(bestEdge)) {
+                        edgesToRemove.add(e);
+                    }
+                }
+                graph.removeAllEdges(edgesToRemove);
+            }
+        }
+    }
     
     private void resolveJunctions(HashSet<String> names, boolean strandSpecific) {
         for (String name : names) {
@@ -288,25 +321,24 @@ public class Layout {
                     int overlap = e.sourceEnd - e.sourceStart;
                     if (overlap > bestOverlap) {
                         edgesToRemove.add(bestEdge);
-                        if (!strandSpecific) {
-                            OverlapEdge re = getReverseComplementEdge(bestEdge);
-                            if (re != null) {
-                                edgesToRemove.add(re);
-                            }
-                        }
                         
                         bestOverlap = overlap;
                         bestEdge = e;
                     }
                     else {
                         edgesToRemove.add(e);
-                        if (!strandSpecific) {
-                            OverlapEdge re = getReverseComplementEdge(e);
-                            if (re != null) {
-                                edgesToRemove.add(re);
-                            }
-                        }
                     }
+                }
+                
+                if (!strandSpecific) {
+                    ArrayDeque<OverlapEdge> reEdgesToRemove = new ArrayDeque<>(edgesToRemove.size());
+                    for (OverlapEdge e : edgesToRemove) {
+                        OverlapEdge re = getReverseComplementEdge(e);
+                        if (re != null) {
+                            reEdgesToRemove.add(re);
+                        }                        
+                    }
+                    graph.removeAllEdges(reEdgesToRemove);
                 }
                                 
                 // remove other edges from graph
@@ -326,25 +358,24 @@ public class Layout {
                     int overlap = e.sinkEnd - e.sinkStart;
                     if (overlap > bestOverlap) {
                         edgesToRemove.add(bestEdge);
-                        if (!strandSpecific) {
-                            OverlapEdge re = getReverseComplementEdge(bestEdge);
-                            if (re != null) {
-                                edgesToRemove.add(re);
-                            }
-                        }
                         
                         bestOverlap = overlap;
                         bestEdge = e;
                     }
                     else {
                         edgesToRemove.add(e);
-                        if (!strandSpecific) {
-                            OverlapEdge re = getReverseComplementEdge(e);
-                            if (re != null) {
-                                edgesToRemove.add(re);
-                            }
-                        }
                     }
+                }
+                
+                if (!strandSpecific) {
+                    ArrayDeque<OverlapEdge> reEdgesToRemove = new ArrayDeque<>(edgesToRemove.size());
+                    for (OverlapEdge e : edgesToRemove) {
+                        OverlapEdge re = getReverseComplementEdge(e);
+                        if (re != null) {
+                            reEdgesToRemove.add(re);
+                        }                        
+                    }
+                    graph.removeAllEdges(reEdgesToRemove);
                 }
                 
                 // remove other edges from graph
@@ -596,7 +627,8 @@ public class Layout {
         
         if (numEdges > 1) {
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
-            resolveJunctions(dovetailReadNames, false);
+            //resolveJunctions(dovetailReadNames, false);
+            resolveJunctions();
             numEdges = graph.edgeSet().size();
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
         }
@@ -784,7 +816,8 @@ public class Layout {
         
         if (numEdges > 1) {
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
-            resolveJunctions(dovetailReadNames, true);
+            //resolveJunctions(dovetailReadNames, true);
+            resolveJunctions();
             numEdges = graph.edgeSet().size();
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
         }
