@@ -608,6 +608,7 @@ public class Layout {
         long seqID = 0;
         long originalNumSeq = 0;
         while (fr.hasNext()) {
+            ++originalNumSeq;
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
             if (dovetailReadNames.contains(name)) {
@@ -662,7 +663,7 @@ public class Layout {
         }
         fw.close();
         
-        System.out.println("discarded: " + NumberFormat.getInstance().format(originalNumSeq-seqID) + "\tremaining: " + NumberFormat.getInstance().format(seqID));
+        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq-seqID) + "\tafter: " + NumberFormat.getInstance().format(seqID));
     }
     
     private void layoutStrandedBackbones(String outFastaPath) throws IOException {
@@ -852,7 +853,7 @@ public class Layout {
         }
         fw.close();
         
-        System.out.println("discarded: " + NumberFormat.getInstance().format(originalNumSeq-seqID) + "\tremaining: " + NumberFormat.getInstance().format(seqID));
+        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
     }
     
     public static void main(String[] args) {
