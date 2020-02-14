@@ -695,7 +695,7 @@ public class Layout {
         }
         fw.close();
         
-        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq-seqID) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
     }
     
     private void layoutStrandedBackbones(String outFastaPath) throws IOException {
