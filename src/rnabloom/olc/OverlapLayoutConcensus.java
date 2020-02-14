@@ -248,11 +248,9 @@ public class OverlapLayoutConcensus {
         Path targetPath = Paths.get(target);
         Path linkPath = Paths.get(link);
         
-        if (Files.exists(linkPath)) {
-            Files.delete(linkPath);
-        }
+        Files.deleteIfExists(linkPath);
         
-        Files.createSymbolicLink(linkPath, targetPath.relativize(linkPath));
+        Files.createSymbolicLink(linkPath, linkPath.getParent().relativize(targetPath));
     }
     
     public static boolean overlapLayout(String readsPath, String tmpPrefix, String layoutPath,
