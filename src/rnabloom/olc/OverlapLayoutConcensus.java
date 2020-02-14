@@ -26,8 +26,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.lang.ProcessBuilder.Redirect;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -244,13 +244,24 @@ public class OverlapLayoutConcensus {
         return longestNameSeq;
     }
     
+    private static void symlinkRemoveExisting(String target, String link) throws IOException {
+        Path targetPath = Paths.get(target);
+        Path linkPath = Paths.get(link);
+        
+        if (Files.exists(linkPath)) {
+            Files.delete(linkPath);
+        }
+        
+        Files.createSymbolicLink(linkPath, targetPath.relativize(linkPath));
+    }
+    
     public static boolean overlapLayout(String readsPath, String tmpPrefix, String layoutPath,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact) throws IOException {
         String avaPaf = tmpPrefix + "_ava.paf.gz";
         
         if (hasOnlyOneSequence(readsPath)) {
-            Files.copy(Paths.get(readsPath), Paths.get(layoutPath), StandardCopyOption.REPLACE_EXISTING);
+            symlinkRemoveExisting(layoutPath, readsPath);
             return true;
         }
         
@@ -270,7 +281,7 @@ public class OverlapLayoutConcensus {
         }
         else {
             // PAF file is empty
-            Files.copy(Paths.get(readsPath), Paths.get(layoutPath), StandardCopyOption.REPLACE_EXISTING);
+            symlinkRemoveExisting(layoutPath, readsPath);
         }
         
         return true;
@@ -283,7 +294,7 @@ public class OverlapLayoutConcensus {
         String mapPaf = tmpPrefix + "_map.paf.gz";
         
         if (hasOnlyOneSequence(readsPath)) {
-            Files.copy(Paths.get(readsPath), Paths.get(concensusPath), StandardCopyOption.REPLACE_EXISTING);
+            symlinkRemoveExisting(concensusPath, readsPath);
             return true;
         }
         
@@ -303,7 +314,7 @@ public class OverlapLayoutConcensus {
         }
         else {
             // PAF file is empty
-            Files.copy(Paths.get(readsPath), Paths.get(concensusPath), StandardCopyOption.REPLACE_EXISTING);
+            symlinkRemoveExisting(concensusPath, readsPath);
             return true;
         }
         
