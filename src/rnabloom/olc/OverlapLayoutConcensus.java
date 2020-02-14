@@ -261,7 +261,7 @@ public class OverlapLayoutConcensus {
         String avaPaf = tmpPrefix + "_ava.paf.gz";
         
         if (hasOnlyOneSequence(readsPath)) {
-            symlinkRemoveExisting(layoutPath, readsPath);
+            symlinkRemoveExisting(readsPath, layoutPath);
             return true;
         }
         
@@ -281,7 +281,7 @@ public class OverlapLayoutConcensus {
         }
         else {
             // PAF file is empty
-            symlinkRemoveExisting(layoutPath, readsPath);
+            symlinkRemoveExisting(readsPath, layoutPath);
         }
         
         return true;
@@ -294,7 +294,7 @@ public class OverlapLayoutConcensus {
         String mapPaf = tmpPrefix + "_map.paf.gz";
         
         if (hasOnlyOneSequence(readsPath)) {
-            symlinkRemoveExisting(concensusPath, readsPath);
+            symlinkRemoveExisting(readsPath, concensusPath);
             return true;
         }
         
@@ -314,7 +314,7 @@ public class OverlapLayoutConcensus {
         }
         else {
             // PAF file is empty
-            symlinkRemoveExisting(concensusPath, readsPath);
+            symlinkRemoveExisting(readsPath, concensusPath);
             return true;
         }
         
