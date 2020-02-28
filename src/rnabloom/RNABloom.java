@@ -91,7 +91,7 @@ import rnabloom.io.SequenceFileIteratorInterface;
  * @author Ka Ming Nip
  */
 public class RNABloom {
-    public final static String VERSION = "1.2.3";
+    public final static String VERSION = "1.2.4";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
