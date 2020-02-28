@@ -782,15 +782,34 @@ public class RNABloom {
                 (graph.getRpkbf() == null || graph.getRpkbfFPR() <= maxFPR);
     }
     
-    public long[] getOptimalBloomFilterSizes(float maxFPR) {
-        long maxPopCount = Math.max(screeningBf.getPopCount(),
-                                Math.max(graph.getDbgbf().getPopCount(),
-                                    Math.max(graph.getCbf().getPopCount(), graph.getRpkbf().getPopCount())));
+    public long[] getOptimalBloomFilterSizes(float maxFPR, int sbfNumHash, int dbgbfNumHash, int cbfNumHash, int pkbfNumHash) {
+        long maxPopCount = 0;
+        if (screeningBf != null) {
+            maxPopCount = Math.max(maxPopCount, screeningBf.getPopCount());
+        }
         
-        long sbfSize = BloomFilter.getExpectedSize(maxPopCount, maxFPR, screeningBf.getNumHash());
-        long dbgbfSize = BloomFilter.getExpectedSize(maxPopCount, maxFPR, graph.getDbgbfNumHash());
-        long cbfSize = CountingBloomFilter.getExpectedSize(maxPopCount, maxFPR, graph.getCbfNumHash());
-        long pkbfSize = PairedKeysBloomFilter.getExpectedSize(maxPopCount, maxFPR, graph.getPkbfNumHash());
+        if (graph != null) {
+            if (graph.getDbgbf() != null) {
+                maxPopCount = Math.max(maxPopCount, graph.getDbgbf().getPopCount());
+            }
+
+            if (graph.getCbf() != null) {
+                maxPopCount = Math.max(maxPopCount, graph.getCbf().getPopCount());
+            }
+
+            if (graph.getRpkbf() != null) {
+                maxPopCount = Math.max(maxPopCount, graph.getRpkbf().getPopCount());
+            }
+
+            if (graph.getFpkbf() != null) {
+                maxPopCount = Math.max(maxPopCount, graph.getFpkbf().getPopCount());
+            }
+        }
+        
+        long sbfSize = BloomFilter.getExpectedSize(maxPopCount, maxFPR, sbfNumHash);
+        long dbgbfSize = BloomFilter.getExpectedSize(maxPopCount, maxFPR, dbgbfNumHash);
+        long cbfSize = CountingBloomFilter.getExpectedSize(maxPopCount, maxFPR, cbfNumHash);
+        long pkbfSize = PairedKeysBloomFilter.getExpectedSize(maxPopCount, maxFPR, pkbfNumHash);
                 
         return new long[]{sbfSize, dbgbfSize, cbfSize, pkbfSize};
     }
@@ -5586,7 +5605,7 @@ public class RNABloom {
 
                         System.out.println("Adjusting Bloom filter sizes...");
 
-                        long[] suggestedSizes = assembler.getOptimalBloomFilterSizes(maxFPR);
+                        long[] suggestedSizes = assembler.getOptimalBloomFilterSizes(maxFPR, sbfNumHash, dbgbfNumHash, cbfNumHash, pkbfNumHash);
 
                         assembler.destroyAllBf();
 
