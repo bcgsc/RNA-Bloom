@@ -1081,6 +1081,195 @@ public final class SeqUtils {
         return positions;
     }
     
+    public static int[] getPolyATailRegion(String seq, int searchRange, int window, int minWindowMatch, int seedSize) {
+//        int searchRange = 100;
+//        int window = 17;
+//        int minWindowMatch = 15;
+//        int seedSize = 2;
+        
+        int start = -1;
+        int end = -1;
+        
+        int seqLen = seq.length();
+        if (seqLen < window || searchRange < window) {
+            return null;
+        }
+        
+        int numMatch = 0;
+        for (int i=seqLen-1; i>=seqLen-window; --i) {
+            if (seq.charAt(i) == 'A') {
+                ++numMatch;
+            }
+        }
+        
+        if (numMatch >= minWindowMatch) {
+            start = seqLen-window;
+            end = seqLen-1;
+        }
+        
+        if (numMatch > 0 && seq.charAt(seqLen-1) == 'A') {
+            --numMatch;
+        }
+        
+        int min = Math.max(0, seqLen- searchRange);
+        for (int i=seqLen-window-1; i>=min; --i) {            
+            if (seq.charAt(i) == 'A') {
+                ++numMatch;
+            }
+            
+            if (numMatch >= minWindowMatch) {
+                if (start < 0) {
+                    start = i;
+                    end = i+window;
+                }
+                else if (i+window>start) {
+                    start = i;
+                }
+                else {
+                    break;
+                }
+            }
+            
+            if (seq.charAt(i+window) == 'A') {
+                --numMatch;
+            }
+        }
+        
+        if (start<0 || end<0) {
+            return null;
+        }
+        
+        for (int i=start; i<end; ++i) {
+            boolean seedFound = false;
+            
+            for (int j=0; j<seedSize; ++j) {
+                seedFound = true;
+                if (seq.charAt(i+j) != 'A') {
+                    seedFound = false;
+                    i += j;
+                    break;
+                }
+            }
+            
+            if (seedFound) {
+                start = i;
+                break;
+            }
+        }
+        
+        for (int i=end; i>start; --i) {
+            boolean seedFound = false;
+
+            for (int j=0; j<seedSize; ++j) {
+                seedFound = true;
+                if (seq.charAt(i-j) != 'A') {
+                    seedFound = false;
+                    i -= j;
+                    break;
+                }
+            }
+            
+            if (seedFound) {
+                end = i;
+                break;
+            }
+        }
+        
+        return new int[]{start, end};
+    }
+    
+    public static int[] getPolyTHeadRegion(String seq, int searchRange, int window, int minWindowMatch, int seedSize) {
+        int start = -1;
+        int end = -1;
+        
+        int seqLen = seq.length();
+        if (seqLen < window || searchRange < window) {
+            return null;
+        }
+        
+        int numMatch = 0;
+        for (int i=0; i<window; ++i) {
+            if (seq.charAt(i) == 'T') {
+                ++numMatch;
+            }
+        }
+        
+        if (numMatch >= minWindowMatch) {
+            start = 0;
+            end = window;
+        }
+        
+        if (numMatch > 0 && seq.charAt(0) == 'T') {
+            --numMatch;
+        }
+        
+        int max = Math.min(seqLen, searchRange);
+        for (int i=window; i<max; ++i) {            
+            if (seq.charAt(i) == 'T') {
+                ++numMatch;
+            }
+            
+            if (numMatch >= minWindowMatch) {
+                if (start < 0) {
+                    start = i-window;
+                    end = i;
+                }
+                else if (i-window<end) {
+                    end = i;
+                }
+                else {
+                    break;
+                }
+            }
+            
+            if (seq.charAt(i-window) == 'T') {
+                --numMatch;
+            }
+        }
+        
+        if (start<0 || end<0) {
+            return null;
+        }
+        
+        for (int i=start; i<end; ++i) {
+            boolean seedFound = false;
+            
+            for (int j=0; j<seedSize; ++j) {
+                seedFound = true;
+                if (seq.charAt(i+j) != 'T') {
+                    seedFound = false;
+                    i += j;
+                    break;
+                }
+            }
+            
+            if (seedFound) {
+                start = i;
+                break;
+            }
+        }
+        
+        for (int i=end; i>start; --i) {
+            boolean seedFound = false;
+            
+            for (int j=0; j<seedSize; ++j) {
+                seedFound = true;
+                if (seq.charAt(i-j) != 'T') {
+                    seedFound = false;
+                    i -=j ;
+                    break;
+                }
+            }
+            
+            if (seedFound) {
+                end = i;
+                break;
+            }
+        }
+        
+        return new int[]{start, end};
+    }
+    
     public static boolean isHomoPolymer(String seq) {
         char c = seq.charAt(0);
         
@@ -1270,6 +1459,6 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-
+        
     }
 }
