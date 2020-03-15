@@ -1285,7 +1285,7 @@ public class RNABloom {
 
                             if (haveFragKmers) {
                                 if (kmers.size() >= fragKmersDist) {
-                                    ArrayDeque<int[]> ranges = breakWithFragPairedKmers(kmers, graph, lookahead);
+                                    ArrayDeque<int[]> ranges = breakWithFragPairedKmers(kmers, graph, minNumKmerPairs);
                                     int numFragSegs = ranges.size();
 
                                     if (numFragSegs == 1) {
@@ -1314,7 +1314,7 @@ public class RNABloom {
                             }
 
                             if (currentRange != null) {
-                                ArrayDeque<int[]> ranges = breakWithReadPairedKmers(kmers, graph, lookahead, currentRange[0], currentRange[1]);
+                                ArrayDeque<int[]> ranges = breakWithReadPairedKmers(kmers, graph, minNumKmerPairs, currentRange[0], currentRange[1]);
                                 int numFragSegs = ranges.size();
 
                                 if (numFragSegs > 0) {
@@ -1737,7 +1737,7 @@ public class RNABloom {
 
                                 if (extendedFragmentKmers.size() != preExtensionFragLen) {
                                     // fragment was extended; check consistency with reads
-                                    ArrayDeque<int[]> ranges = breakWithReadPairedKmers(extendedFragmentKmers, graph, lookahead);
+                                    ArrayDeque<int[]> ranges = breakWithReadPairedKmers(extendedFragmentKmers, graph, minNumKmerPairs);
 
                                     if (ranges.size() == 1) {
                                         // there is one consistent section in the extended fragment
