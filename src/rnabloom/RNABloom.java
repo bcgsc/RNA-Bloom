@@ -2945,6 +2945,8 @@ public class RNABloom {
         
         @Override
         public void run() {
+            boolean stranded = graph.isStranded();
+            
             while(!terminateWhenInputExhausts || !inputQueue.isEmpty()) {
                 try {                    
                     String[] nameSeqPair = inputQueue.poll(1, TimeUnit.SECONDS);
@@ -2980,6 +2982,37 @@ public class RNABloom {
                         if (!correctedKmers.isEmpty()) {
                             float cov = getMinMedianKmerCoverage(correctedKmers, 200);
                             seq = graph.assemble(correctedKmers);
+                            
+                            int halflen = seq.length()/2;
+                            
+                            if (stranded) {
+                                // find polyA tail and trim trailing sequence
+                                int[] region = getPolyATailRegion(seq, 100, 17, 15, 2);
+                                int start = region[0];
+                                int end = region[1];
+                                if (start >= halflen) {
+                                    seq = seq.substring(0, start) + "A".repeat(end-start+1);
+                                }
+                            }
+                            else {
+                                // find polyA tail and trim trailing sequence
+                                int[] region = getPolyATailRegion(seq, 100, 17, 15, 2);
+                                int start = region[0];
+                                int end = region[1];
+                                if (start >= halflen) {
+                                    seq = seq.substring(0, start) + "A".repeat(end-start+1);
+                                }
+                                else {
+                                    // find polyT head and trim preceding sequence
+                                    region = getPolyTHeadRegion(seq, 100, 17, 15, 2);
+                                    start = region[0];
+                                    end = region[1];
+                                    if (start >= 0 && end <= halflen) {
+                                        seq = "T".repeat(end-start+1) + seq.substring(0, start);
+                                    }
+                                }
+                            }
+                            
                             outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov));
                         }
                     }
