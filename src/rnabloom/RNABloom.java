@@ -5492,7 +5492,7 @@ public class RNABloom {
                 
                 if (hasLongReadFiles) {
                     if (!line.hasOption(optMinKmerCov.getOpt())) {
-                        minKmerCov = hist.covThreshold;
+                        minKmerCov = hist.getMinCovThreshold(3);
                     }
                     
                     System.out.println("Min k-mer coverage threshold: " + NumberFormat.getInstance().format(minKmerCov));
@@ -5517,7 +5517,7 @@ public class RNABloom {
                 dbgGB = dbgbfSize / (float) NUM_BITS_1GB;
                 
                 if (hist != null) {
-                    cbfSize = CountingBloomFilter.getExpectedSize(expNumKmers-hist.numSingletons, maxFPR, cbfNumHash);
+                    cbfSize = CountingBloomFilter.getExpectedSize(expNumKmers-hist.getNumSingletons(), maxFPR, cbfNumHash);
                     cbfGB = cbfSize / (float) NUM_BYTES_1GB;
                 }
                 else {
