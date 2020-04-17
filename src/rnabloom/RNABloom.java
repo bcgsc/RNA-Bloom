@@ -2778,6 +2778,7 @@ public class RNABloom {
         private final int maxSampleSize;
         private final int minSeqLen;
         private final FastaWriter[][] writers;
+        private final FastaWriter repeatsWriter;
         private LengthStats sampleLengthStats = null;
         private boolean terminateWhenInputExhausts = false;
         private long numCorrected = 0;
@@ -2785,9 +2786,11 @@ public class RNABloom {
         private Exception exception = null;
         private LongReadCorrectionWorker[] workersToWait = null;
         
-        public CorrectedLongReadsWriterWorker(ArrayBlockingQueue<Sequence> inputQueue, FastaWriter[][] writers, int maxSampleSize, int minSeqLen) {
+        public CorrectedLongReadsWriterWorker(ArrayBlockingQueue<Sequence> inputQueue, 
+                FastaWriter[][] writers, FastaWriter repeatsWriter, int maxSampleSize, int minSeqLen) {
             this.inputQueue = inputQueue;
             this.writers = writers;
+            this.repeatsWriter = repeatsWriter;
             this.maxSampleSize = maxSampleSize;
             this.minSeqLen = minSeqLen;
         }
@@ -2836,7 +2839,12 @@ public class RNABloom {
                     ++numCorrected;
                     String header = seq.name + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
 
-                    writers[covStatumIndex][lengthStratumIndex].write(header, seq.seq);
+                    if (seq.isRepeat) {
+                        repeatsWriter.write(header, seq.seq);
+                    }
+                    else {
+                        writers[covStatumIndex][lengthStratumIndex].write(header, seq.seq);
+                    }
                 }
 
                 /** write the remaining sequences to file */
@@ -2853,7 +2861,12 @@ public class RNABloom {
                     ++numCorrected;
                     String header = seq.name + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
 
-                    writers[covStatumIndex][lengthStratumIndex].write(header, seq.seq);
+                    if (seq.isRepeat) {
+                        repeatsWriter.write(header, seq.seq);
+                    }
+                    else {
+                        writers[covStatumIndex][lengthStratumIndex].write(header, seq.seq);
+                    }
                 }
                 
                 successful = true;
@@ -2908,12 +2921,14 @@ public class RNABloom {
         String seq;
         int length;
         float coverage;
+        boolean isRepeat;
         
-        public Sequence(String name, String seq, int length, float coverage) {
+        public Sequence(String name, String seq, int length, float coverage, boolean isRepeat) {
             this.name = name;
             this.seq = seq;
             this.length = length;
             this.coverage = coverage;
+            this.isRepeat = isRepeat;
         }
     }
     
@@ -2981,6 +2996,8 @@ public class RNABloom {
                         
                         if (!correctedKmers.isEmpty()) {
                             float cov = getMinMedianKmerCoverage(correctedKmers, 200);
+                            boolean isRepeat = isRepeatSequence(correctedKmers, k);
+                            
                             seq = graph.assemble(correctedKmers);
                             
                             int halflen = seq.length()/2;
@@ -3019,7 +3036,7 @@ public class RNABloom {
                                 }
                             }
                             
-                            outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov));
+                            outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov, isRepeat));
                         }
                     }
                 } catch (Exception ex) {
@@ -3049,6 +3066,7 @@ public class RNABloom {
     
     public void correctLongReadsMultithreaded(String[] inputFastxPaths,
                                                 FastaWriter[][] outFastaWriters,
+                                                FastaWriter repeatsOutFastaWriter,
                                                 int minKmerCov,
                                                 int maxErrCorrItr,
                                                 int numThreads,
@@ -3075,7 +3093,7 @@ public class RNABloom {
         }
         
         //FastaWriter writer = new FastaWriter(outFasta, true);
-        CorrectedLongReadsWriterWorker writerWorker = new CorrectedLongReadsWriterWorker(outputQueue, outFastaWriters, maxSampleSize, minSeqLen);
+        CorrectedLongReadsWriterWorker writerWorker = new CorrectedLongReadsWriterWorker(outputQueue, outFastaWriters, repeatsOutFastaWriter, maxSampleSize, minSeqLen);
         service.submit(writerWorker);
         
         for (FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths); itr.hasNext() ; ++numReads) {
@@ -4127,7 +4145,7 @@ public class RNABloom {
     }
     
     private static void correctLongReads(RNABloom assembler, 
-            String[] readFastxPaths, String[][] correctedLongReadFileNames, 
+            String[] readFastxPaths, String[][] correctedLongReadFileNames, String repeatReadsFileName,
             int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, boolean reverseComplement, boolean trimArtifact) throws InterruptedException, IOException, Exception {
         
         /* set up the file writers */
@@ -4140,13 +4158,17 @@ public class RNABloom {
             }
         }
         
-        assembler.correctLongReadsMultithreaded(readFastxPaths, writers, minKmerCov, maxErrCorrItr, numThreads, sampleSize, minSeqLen, reverseComplement, trimArtifact);
+        FastaWriter repeatReadsWriter = new FastaWriter(repeatReadsFileName, true);
+        
+        assembler.correctLongReadsMultithreaded(readFastxPaths, writers, repeatReadsWriter, minKmerCov, maxErrCorrItr, numThreads, sampleSize, minSeqLen, reverseComplement, trimArtifact);
         
         for (int i=0; i<writers.length; ++i) {
             for (int j=0; j<writers[i].length; ++j) {
                 writers[i][j].close();
             }
         }
+        
+        repeatReadsWriter.close();
     }
     
     private static void clusterLongReads(RNABloom assembler, 
@@ -5815,6 +5837,8 @@ public class RNABloom {
                         correctedLongReadFileNames[c][l] = correctedLongReadsFasta;
                     }
                 }
+                
+                String repeatReadsFileName = correctedLongReadFilePrefix + ".repeats." + FASTA_EXT;
 
                 System.out.println("\n> Stage 2: Correct long reads for \"" + name + "\"");
                 MyTimer stageTimer = new MyTimer();
@@ -5831,8 +5855,10 @@ public class RNABloom {
                         }
                     }
                     
+                    Files.deleteIfExists(FileSystems.getDefault().getPath(repeatReadsFileName));
+                    
                     correctLongReads(assembler,
-                            longReadPaths, correctedLongReadFileNames,
+                            longReadPaths, correctedLongReadFileNames, repeatReadsFileName,
                             maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength,
                             revCompLong, !keepArtifact);
                     

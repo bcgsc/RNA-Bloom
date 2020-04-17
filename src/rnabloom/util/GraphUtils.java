@@ -8471,6 +8471,23 @@ public final class GraphUtils {
         return false;
     }
     
+    public static boolean isRepeatSequence(ArrayList<Kmer> kmers, int k) {
+        int numKmers = kmers.size();
+        
+        if (numKmers < k) {
+            return isLowComplexity2(kmers.get(0).bytes) && isLowComplexity2(kmers.get(numKmers-1).bytes);
+        }
+        
+        int threshold = numKmers/k + k - 1;
+        
+        HashSet<Long> hashValSet = new HashSet<>();
+        for (Kmer kmer : kmers) {
+            hashValSet.add(kmer.getHash());
+        }
+        
+        return hashValSet.size() < threshold;
+    }
+    
 //    public static void main(String[] args) {
 ////        String seq = "AAAAAAAAAAA";
 //        String seq = "AAAAAAAAAAACCC";
