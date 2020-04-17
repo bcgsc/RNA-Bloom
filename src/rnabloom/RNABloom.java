@@ -5838,7 +5838,7 @@ public class RNABloom {
                     }
                 }
                 
-                String repeatReadsFileName = correctedLongReadFilePrefix + ".repeats." + FASTA_EXT;
+                String repeatReadsFileName = correctedLongReadFilePrefix + ".repeats" + FASTA_EXT;
 
                 System.out.println("\n> Stage 2: Correct long reads for \"" + name + "\"");
                 MyTimer stageTimer = new MyTimer();
