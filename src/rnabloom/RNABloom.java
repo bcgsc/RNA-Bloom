@@ -2996,40 +2996,47 @@ public class RNABloom {
                         
                         if (!correctedKmers.isEmpty()) {
                             float cov = getMinMedianKmerCoverage(correctedKmers, 200);
-                            boolean isRepeat = isRepeatSequence(correctedKmers, k);
+                            boolean isRepeat = isRepeatSequence(correctedKmers, k, 1f/3f) || isLowComplexity(correctedKmers, k, 1f/3f);
                             
                             seq = graph.assemble(correctedKmers);
                             
-                            int halflen = seq.length()/2;
+                            int seqLength = seq.length();
+                            if (!isRepeat && compressHomoPolymers(seq).length() < 1f/3f * seqLength) {
+                                isRepeat = true;
+                            }
                             
-                            if (stranded) {
-                                // find polyA tail and trim trailing sequence
-                                int[] region = getPolyATailRegion(seq, 100, 17, 15, 2);
-                                if (region != null) {
-                                    int start = region[0];
-                                    int end = region[1];
-                                    if (start >= halflen) {
-                                        seq = seq.substring(0, start) + "A".repeat(end-start+1);
+                            int halflen = seqLength/2;
+                            
+                            if (!isRepeat) {
+                                if (stranded) {
+                                    // find polyA tail and trim trailing sequence
+                                    int[] region = getPolyATailRegion(seq, 100, 17, 15, 2);
+                                    if (region != null) {
+                                        int start = region[0];
+                                        int end = region[1];
+                                        if (start >= halflen) {
+                                            seq = seq.substring(0, start) + "A".repeat(end-start+1);
+                                        }
                                     }
                                 }
-                            }
-                            else {
-                                // find polyA tail and trim trailing sequence
-                                int[] region = getPolyATailRegion(seq, 100, 17, 15, 2);
-                                if (region != null) {
-                                    int start = region[0];
-                                    int end = region[1];
-                                    if (start >= halflen) {
-                                        seq = seq.substring(0, start) + "A".repeat(end-start+1);
-                                    }
-                                    else {
-                                        // find polyT head and trim preceding sequence
-                                        region = getPolyTHeadRegion(seq, 100, 17, 15, 2);
-                                        if (region != null) {
-                                            start = region[0];
-                                            end = region[1];
-                                            if (start >= 0 && end <= halflen) {
-                                                seq = "T".repeat(end-start+1) + seq.substring(0, start);
+                                else {
+                                    // find polyA tail and trim trailing sequence
+                                    int[] region = getPolyATailRegion(seq, 100, 17, 15, 2);
+                                    if (region != null) {
+                                        int start = region[0];
+                                        int end = region[1];
+                                        if (start >= halflen) {
+                                            seq = seq.substring(0, start) + "A".repeat(end-start+1);
+                                        }
+                                        else {
+                                            // find polyT head and trim preceding sequence
+                                            region = getPolyTHeadRegion(seq, 100, 17, 15, 2);
+                                            if (region != null) {
+                                                start = region[0];
+                                                end = region[1];
+                                                if (start >= 0 && end <= halflen) {
+                                                    seq = "T".repeat(end-start+1) + seq.substring(0, start);
+                                                }
                                             }
                                         }
                                     }

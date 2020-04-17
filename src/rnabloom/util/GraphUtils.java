@@ -8471,21 +8471,32 @@ public final class GraphUtils {
         return false;
     }
     
-    public static boolean isRepeatSequence(ArrayList<Kmer> kmers, int k) {
+    public static boolean isRepeatSequence(ArrayList<Kmer> kmers, int k, float minUniqueFraction) {
         int numKmers = kmers.size();
-        
-        if (numKmers < k) {
-            return isLowComplexity2(kmers.get(0).bytes) && isLowComplexity2(kmers.get(numKmers-1).bytes);
-        }
-        
-        int threshold = numKmers/3;
         
         HashSet<Long> hashValSet = new HashSet<>();
         for (Kmer kmer : kmers) {
             hashValSet.add(kmer.getHash());
         }
         
-        return hashValSet.size() < threshold;
+        return hashValSet.size() < Math.round(numKmers * minUniqueFraction);
+    }
+    
+    public static boolean isLowComplexity(ArrayList<Kmer> kmers, int k, float minUniqueFraction) {
+        int numKmers = kmers.size();
+        
+        if (numKmers < k) {
+            return isLowComplexity2(kmers.get(0).bytes) || isLowComplexity2(kmers.get(numKmers-1).bytes);
+        }
+        
+        int lowComplexityKmers = 0;
+        for (int i=0; i<numKmers; i+=k) {
+            if (isLowComplexity2(kmers.get(i).bytes)) {
+                ++lowComplexityKmers;
+            }
+        }
+        
+        return lowComplexityKmers >= (1f - minUniqueFraction) * numKmers/k; 
     }
     
 //    public static void main(String[] args) {
