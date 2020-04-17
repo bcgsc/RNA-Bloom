@@ -26,20 +26,24 @@ import java.io.IOException;
  * @author kmnip
  */
 public class NTCardHistogram {
-    private static final int NUM_COUNTS = 65535;
+    public static final int MAX_MULTIPLICITY = 65535;
     public long numKmers = 0;
     public long numUniqueKmers = 0;
-    public long[] counts = new long[NUM_COUNTS];
+    public long numUniqueOverrepresentedKmers = 0;
+    public long[] counts = new long[MAX_MULTIPLICITY];
     
     public NTCardHistogram(String path) throws FileNotFoundException, IOException {
         boolean f0Found = false;
         BufferedReader br = new BufferedReader(new FileReader(path));
         String line;
+        long sum = 0;
         while ((line = br.readLine()) != null) {
             if (line.length() > 0) {
                 String[] cols = line.split("\t");
                 if (f0Found) {
-                    counts[Integer.parseInt(cols[0]) - 1] = Long.parseLong(cols[1]);
+                    long count = Long.parseLong(cols[1]);
+                    counts[Integer.parseInt(cols[0]) - 1] = count;
+                    sum += count;
                 }
                 else if (cols[0].equals("F1")) {
                     numKmers = Long.parseLong(cols[1]);
@@ -50,6 +54,8 @@ public class NTCardHistogram {
                 }
             }
         }
+        
+        numUniqueOverrepresentedKmers = numUniqueKmers - sum;
         br.close();
     }
     
@@ -58,7 +64,7 @@ public class NTCardHistogram {
     }
     
     public int getMinCovThreshold(int multiplier) {
-        for (int i=1; i<NUM_COUNTS; ++i) {
+        for (int i=1; i<MAX_MULTIPLICITY; ++i) {
             if (multiplier * counts[i] > counts[i-1]) {
                 return i;
             }
@@ -69,14 +75,18 @@ public class NTCardHistogram {
     
     public int getMaxCovThreshold(double fraction) {
         long numKmers = Math.round(fraction * numUniqueKmers);
-        long sum = 0;
-        for (int i=NUM_COUNTS-1; i>=0; --i) {
+        long sum = numUniqueOverrepresentedKmers;
+        if (sum >= numKmers) {
+            return MAX_MULTIPLICITY+1;
+        }
+        
+        for (int i=MAX_MULTIPLICITY-1; i>=0; --i) {
             sum += counts[i];
             if (sum >= numKmers) {
                 return i+1;
             }
         }
         
-        return NUM_COUNTS;
+        return MAX_MULTIPLICITY + 1;
     }
 }
