@@ -8478,7 +8478,7 @@ public final class GraphUtils {
             return isLowComplexity2(kmers.get(0).bytes) && isLowComplexity2(kmers.get(numKmers-1).bytes);
         }
         
-        int threshold = numKmers/k + k - 1;
+        int threshold = numKmers/3;
         
         HashSet<Long> hashValSet = new HashSet<>();
         for (Kmer kmer : kmers) {
