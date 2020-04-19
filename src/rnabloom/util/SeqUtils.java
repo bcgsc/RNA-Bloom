@@ -1459,6 +1459,6 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        
+
     }
 }

@@ -3007,6 +3007,8 @@ public class RNABloom {
                             
                             int halflen = seqLength/2;
                             
+                            String prefix = "";
+                            
                             if (!isRepeat) {
                                 if (stranded) {
                                     // find polyA tail and trim trailing sequence
@@ -3021,29 +3023,49 @@ public class RNABloom {
                                 }
                                 else {
                                     // find polyA tail and trim trailing sequence
-                                    int[] region = getPolyATailRegion(seq, 100, 17, 15, 2);
-                                    if (region != null) {
-                                        int start = region[0];
-                                        int end = region[1];
+                                    int[] regionA = getPolyATailRegion(seq, 100, 17, 15, 2);
+                                    int[] regionT = getPolyTHeadRegion(seq, 100, 17, 15, 2);
+                                    if (regionA != null && regionT == null) {
+                                        int start = regionA[0];
+                                        int end = regionA[1];
                                         if (start >= halflen) {
                                             seq = seq.substring(0, start) + "A".repeat(end-start+1);
                                         }
-                                        else {
-                                            // find polyT head and trim preceding sequence
-                                            region = getPolyTHeadRegion(seq, 100, 17, 15, 2);
-                                            if (region != null) {
-                                                start = region[0];
-                                                end = region[1];
-                                                if (start >= 0 && end <= halflen) {
-                                                    seq = "T".repeat(end-start+1) + seq.substring(0, start);
-                                                }
+                                    }
+                                    else if (regionT != null && regionA == null) {
+                                        int start = regionT[0];
+                                        int end = regionT[1];
+                                        if (start >= 0 && end <= halflen) {
+                                            seq = reverseComplement(seq.substring(end+1)) + "A".repeat(end-start+1);
+                                        }
+                                    }
+                                    else if (regionA != null && regionT != null) {
+                                        int startA = regionA[0];
+                                        int endA = regionA[1];
+                                        int startT = regionT[0];
+                                        int endT = regionT[1];
+                                        boolean isPolyA = startA >= halflen;
+                                        boolean isPolyT = startT >= 0 && endT <= halflen;
+                                        if (isPolyA && !isPolyT) {
+                                            seq = seq.substring(0, startA) + "A".repeat(endA-startA+1);
+                                        }
+                                        else if (isPolyT && !isPolyA) {
+                                            seq = reverseComplement(seq.substring(endT+1)) + "A".repeat(endT-startT+1);
+                                        }
+                                        else if (isPolyA && isPolyT){
+                                            int midIndex = (endT+1+startA)/2;
+                                            String left = reverseComplement(seq.substring(endT+1, midIndex));
+                                            String right = seq.substring(midIndex, startA);
+                                            if (getPercentIdentity(left, right) >= percentIdentity) {
+                                                seq = right + "A".repeat(Math.min(endA-startA+1, endT-startT+1));
+                                                prefix = "TSA_";
                                             }
                                         }
                                     }
                                 }
                             }
                             
-                            outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov, isRepeat));
+                            outputQueue.put(new Sequence(prefix + nameSeqPair[0], seq, seq.length(), cov, isRepeat));
                         }
                     }
                 } catch (Exception ex) {
