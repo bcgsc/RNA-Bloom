@@ -3060,6 +3060,28 @@ public class RNABloom {
                                                 seq = right + "A".repeat(Math.min(endA-startA+1, endT-startT+1));
                                                 prefix = "TSA_";
                                             }
+                                            else {
+                                                int numA = 0;
+                                                for (int i=startA; i<=endA; ++i) {
+                                                    if (seq.charAt(i) == 'A') {
+                                                        ++numA;
+                                                    }
+                                                }
+
+                                                int numT = 0;
+                                                for (int i=startT; i<=endT; ++i) {
+                                                    if (seq.charAt(i) == 'T') {
+                                                        ++numT;
+                                                    }
+                                                }
+
+                                                if (numA >= numT) {
+                                                    seq = seq.substring(0, startA) + "A".repeat(endA-startA+1);
+                                                }
+                                                else {
+                                                    seq = reverseComplement(seq.substring(endT+1)) + "A".repeat(endT-startT+1);
+                                                }
+                                            }
                                         }
                                     }
                                 }
