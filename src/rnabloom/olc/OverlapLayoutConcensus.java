@@ -284,9 +284,10 @@ public class OverlapLayoutConcensus {
         
         return true;
     }
-    
+        
     public static boolean overlapLayoutConcensus(String readsPath, String tmpPrefix, String concensusPath, 
-            int numThreads, boolean stranded, String minimapOptions, int maxIndelSize, boolean cutRevCompArtifact) throws IOException {
+            int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
+            float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact) throws IOException {
         String avaPaf = tmpPrefix + "_ava.paf.gz";
         String backbonesFa = tmpPrefix + "_backbones.fa";
         String mapPaf = tmpPrefix + "_map.paf.gz";
@@ -306,7 +307,7 @@ public class OverlapLayoutConcensus {
         
         if (nonEmptyPafFile) {
             // lay out backbones
-            if (!layout(readsPath, avaPaf, backbonesFa, stranded, 100, 0.4f, 200, maxIndelSize, cutRevCompArtifact)) {
+            if (!layout(readsPath, avaPaf, backbonesFa, stranded, maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact)) {
                 return false;
             }
         }
