@@ -2759,13 +2759,15 @@ public class RNABloom {
                                     int numThreads,
                                     String minimapOptions,
                                     int minKmerCov,
+                                    int maxEdgeClip,
+                                    float minAlnId,
+                                    int minOverlapMatches,
                                     String txptNamePrefix,
                                     boolean stranded,
-                                    int minTranscriptLength,
                                     boolean removeArtifacts) throws IOException {
-        int maxEdgeClip = 100;
-        float minAlnId = 0.4f;
-        int minOverlapMatches = 200;
+//        int maxEdgeClip = 100;
+//        float minAlnId = 0.4f;
+//        int minOverlapMatches = 200;
         
         boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, outFasta, 
                 numThreads, stranded, minimapOptions, maxEdgeClip,
@@ -4482,9 +4484,9 @@ public class RNABloom {
             int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, 
             boolean reverseComplement, boolean trimArtifact, boolean writeUracil) throws InterruptedException, IOException, Exception {
         
-        FastaWriter longWriter = new FastaWriter(outLongFasta, true);
-        FastaWriter shortWriter = new FastaWriter(outShortFasta, true);
-        FastaWriter repeatsWriter = new FastaWriter(outRepeatsFasta, true);
+        FastaWriter longWriter = new FastaWriter(outLongFasta, false);
+        FastaWriter shortWriter = new FastaWriter(outShortFasta, false);
+        FastaWriter repeatsWriter = new FastaWriter(outRepeatsFasta, false);
 
         assembler.correctLongReadsMultithreaded(inFastxList,
                                                 longWriter, shortWriter, repeatsWriter,
@@ -4549,16 +4551,12 @@ public class RNABloom {
     private static boolean assembleUnclusteredLongReads(RNABloom assembler,
             String readsFasta, String outFasta, String tmpPrefix, 
             int numThreads, boolean forceOverwrite,
-            String minimapOptions, int minKmerCov, String txptNamePrefix, 
-            boolean stranded, int minTranscriptLength, boolean removeArtifacts) throws IOException {
+            String minimapOptions, int minKmerCov,
+            int maxEdgeClip, float minAlnId, int minOverlapMatches,
+            String txptNamePrefix, boolean stranded, boolean removeArtifacts) throws IOException {
         
         if (forceOverwrite) {
-            File out = new File(outFasta);
-            if (out.isFile()) {
-                out.delete();
-            }
-            
-            // delete tmp files
+            Files.deleteIfExists(FileSystems.getDefault().getPath(outFasta));
         }
         
         return assembler.assembleUnclusteredLongReads(readsFasta, 
@@ -4567,9 +4565,11 @@ public class RNABloom {
                                     numThreads,
                                     minimapOptions,
                                     minKmerCov,
+                                    maxEdgeClip,
+                                    minAlnId,
+                                    minOverlapMatches,
                                     txptNamePrefix,
                                     stranded,
-                                    minTranscriptLength,
                                     removeArtifacts);
     }    
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -5036,7 +5036,7 @@ public class RNABloom {
         options.addOption(optPooledAssembly);
         
         Option optLongReads = Option.builder("long")
-                                    .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `-k 17 -c 3 -indel 10 -e 3 -p 0.8` unless each option is defined otherwise.)")
+                                    .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `-k 17 -c 3 -indel 10 -e 3 -p 0.8 -overlap 200 -tip 100` unless each option is defined otherwise.)")
                                     .hasArgs()
                                     .argName("FILE")
                                     .build();
@@ -5135,18 +5135,17 @@ public class RNABloom {
                                     .build();
         options.addOption(optKmerSize);
         
-        final String optStageDefault = "4";
+        final String optStageDefault = "3";
         Option optStage = Option.builder("stage")
                                     .desc("assembly termination stage\n" +
                                             "short reads: [3]\n" +
                                             "1. construct graph\n" +
                                             "2. assemble fragments\n" +
                                             "3. assemble transcripts\n" +
-                                            "long reads: [4]\n" + 
+                                            "long reads: [3]\n" + 
                                             "1. construct graph\n" +
                                             "2. correct reads\n" +
-                                            "3. cluster reads\n" + 
-                                            "4. assemble transcripts")
+                                            "3. assemble transcripts")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -5290,7 +5289,7 @@ public class RNABloom {
         
         final String optTipLengthDefault = "5";
         Option optTipLength = Option.builder("tiplength")
-                                    .desc("maximum branch length to be considered a tip [" + optTipLengthDefault + "]")
+                                    .desc("maximum number of bases in a tip [" + optTipLengthDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -5369,7 +5368,7 @@ public class RNABloom {
         
         final String optOverlapDefault = "10";
         Option optOverlap = Option.builder("overlap")
-                                    .desc("minimum number of overlapping bases between read mates [" + optOverlapDefault + "]")
+                                    .desc("minimum number of overlapping bases between reads [" + optOverlapDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -5447,12 +5446,21 @@ public class RNABloom {
                                     .build();
         options.addOption(optMinimapOptions);
 
+        final String optLongReadOverlapProportionDefault = "0.4";
+        Option optLongReadOverlapProportion = Option.builder("lrop")
+                                    .desc("minimum proportion of matching bases within long-read overlaps [" + optLongReadOverlapProportionDefault + "]")
+                                    .hasArg(true)
+                                    .argName("DECIMAL")
+                                    .build();
+        options.addOption(optLongReadOverlapProportion);
+        
         Option optDebug = Option.builder("debug")
                                     .desc("print debugging information [false]")
                                     .hasArg(false)
                                     .build();
         options.addOption(optDebug);
-        
+
+        /*
         Option optHomopolymerCompressed = Option.builder("hpc")
                                     .desc("use homopolymer-compressed minimizers in long-read clustering [false]\n(Requires `-long`)")
                                     .hasArg(false)
@@ -5494,6 +5502,7 @@ public class RNABloom {
                                     .argName("INT")
                                     .build();
         options.addOption(optSketchOverlapNumber);
+        */
         
         Option optHelp = Option.builder("h")
                                     .longOpt("help")
@@ -5722,11 +5731,13 @@ public class RNABloom {
             final boolean mergePool = line.hasOption(optMergePool.getOpt());
             final boolean outputNrTxpts = mergePool ? true : !line.hasOption(optNoReduce.getOpt());
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
+            /*
             final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final int minimizerSize = Integer.parseInt(line.getOptionValue(optMinimizerSize.getOpt(), optMinimizerSizeDefault));
             final int minimizerWindowSize = Integer.parseInt(line.getOptionValue(optMinimizerWindowSize.getOpt(), optMinimizerWindowSizeDefault));
             final float minSketchOverlapProportion = Float.parseFloat(line.getOptionValue(optSketchOverlapProportion.getOpt(), optSketchOverlapProportionDefault));
             final int minSketchOverlapNumber = Integer.parseInt(line.getOptionValue(optSketchOverlapNumber.getOpt(), optSketchOverlapNumberDefault));
+            */
             
             if ((hasLongReadFiles || outputNrTxpts || mergePool) && !hasMinimap2()) {
                 exitOnError("`minimap2` not found in PATH!");
@@ -5751,6 +5762,14 @@ public class RNABloom {
             
             String defaultMinKmerCov = hasLongReadFiles ? "3" : optMinKmerCovDefault;
             int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), defaultMinKmerCov));
+            
+            String defaultMinOverlap = hasLongReadFiles ? "200" : optOverlapDefault;
+            final int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), defaultMinOverlap));
+            
+            String defaultMaxTipLen = hasLongReadFiles ? "100" : optTipLengthDefault;
+            final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), defaultMaxTipLen));
+            
+            final float longReadOverlapProportion = Float.parseFloat(line.getOptionValue(optLongReadOverlapProportion.getOpt(), optLongReadOverlapProportionDefault));
             
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), optBaseQualFragDefault));
@@ -5909,12 +5928,10 @@ public class RNABloom {
             }
             
             /**@TODO ensure that sbfNumHash and pkbfNumHash <= max(dbgbfNumHash, cbfNumHash) */
-                        
-            final int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), optOverlapDefault));
+            
             final int sampleSize = Integer.parseInt(line.getOptionValue(optSample.getOpt(), optSampleDefault));
             final int bound = Integer.parseInt(line.getOptionValue(optBound.getOpt(), optBoundDefault));
             final int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), optLookaheadDefault));
-            final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), optTipLengthDefault));
             final float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), optMaxCovGradDefault));
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), optMinLengthDefault));
             
@@ -6290,9 +6307,9 @@ public class RNABloom {
                     
                     boolean ok = assembleUnclusteredLongReads(assembler,
                             longCorrectedReadsPath, assembledTranscriptsPath, tmpPrefix, 
-                            numThreads, forceOverwrite,
-                            minimapOptions, minKmerCov, txptNamePrefix, 
-                            strandSpecific, minTranscriptLength, !keepArtifact);
+                            numThreads, forceOverwrite, minimapOptions, minKmerCov, 
+                            maxTipLen, longReadOverlapProportion, minOverlap,
+                            txptNamePrefix, strandSpecific, !keepArtifact);
                     
                     
                     if (ok) {
