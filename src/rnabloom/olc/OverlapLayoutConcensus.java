@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.lang.ProcessBuilder.Redirect;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -291,6 +292,10 @@ public class OverlapLayoutConcensus {
         String avaPaf = tmpPrefix + "_ava.paf.gz";
         String backbonesFa = tmpPrefix + "_backbones.fa";
         String mapPaf = tmpPrefix + "_map.paf.gz";
+        
+        Files.deleteIfExists(FileSystems.getDefault().getPath(avaPaf));
+        Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa));
+        Files.deleteIfExists(FileSystems.getDefault().getPath(mapPaf));
         
         if (hasOnlyOneSequence(readsPath)) {
             symlinkRemoveExisting(readsPath, concensusPath);
