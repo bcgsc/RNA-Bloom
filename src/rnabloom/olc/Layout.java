@@ -60,8 +60,9 @@ public class Layout {
     private int maxIndelSize = 20;
     private int minOverlapMatches = 200;
     private boolean cutRevCompArtifact = false;
+    private int minNumAltReads = 0;
     
-    public Layout(String seqFile, String pafFile, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact) {
+    public Layout(String seqFile, String pafFile, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact, int minSeqDepth) {
         this.graph = new DefaultDirectedGraph<>(OverlapEdge.class);
         this.overlapPafPath = pafFile;
         this.seqFastaPath = seqFile;
@@ -71,6 +72,7 @@ public class Layout {
         this.minOverlapMatches = minOverlapMatches;
         this.maxIndelSize = maxIndelSize;
         this.cutRevCompArtifact = cutRevCompArtifact;
+        this.minNumAltReads = minSeqDepth - 1;
     }
     
     private class OverlapEdge extends DefaultEdge implements Comparable<OverlapEdge> {
@@ -495,6 +497,56 @@ public class Layout {
         return sb.toString();
     }
     
+    private static class Interval {
+        int start;
+        int end;
+        
+        public Interval(int start, int end) {
+            this.start = start;
+            this.end = end;
+        }
+    }
+    
+    private static int getMinCoverage(ArrayDeque<Interval> spans, int targetLength, int edgeTolerance, int window) {
+        int effectiveLength = targetLength - 2*edgeTolerance;
+        int numWindows = effectiveLength / window;
+        int shift = edgeTolerance + (effectiveLength % window)/2;
+        
+        if (targetLength < window) {
+            numWindows = 1;
+            shift = 0;
+        }
+        else if (effectiveLength < window) {
+            numWindows = 1;
+            shift = (targetLength % window)/2;
+        }
+        
+        int[] covs = new int[numWindows];
+        
+        for (Interval s : spans) {
+            int adjStartPos =  s.start - shift;
+            int wStart = adjStartPos/window;
+            if (adjStartPos % window > 0) {
+                ++wStart;
+            }
+            
+            int wEnd = Math.min((s.end - shift)/window, numWindows);
+            
+            for (int i=wStart; i<wEnd; ++i) {
+                covs[i] += 1;
+            }
+        }
+        
+        int min = covs[0];
+        for (int c : covs) {
+            if (c < min) {
+                min = c;
+            }
+        }
+        
+        return min;
+    }
+    
     private void layoutBackbones(String outFastaPath) throws IOException {
         HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
         HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
@@ -503,8 +555,31 @@ public class Layout {
                
         // look for containment and dovetails
         PafReader reader = new PafReader(overlapPafPath);
+        
+        boolean checkNumAltReads = minNumAltReads > 0;
+        ArrayDeque<Interval> spans = new ArrayDeque<>();
+        String prevName = null;
+        int prevLen = -1;
+        ArrayDeque<String> discardReadIDs = new ArrayDeque<>();
+        
         while (reader.hasNext()) {
             ExtendedPafRecord r = reader.next();
+            
+            if (checkNumAltReads) {
+                if (!r.qName.equals(prevName)) {
+                    if (!spans.isEmpty() && prevName != null) {
+                        if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
+                            discardReadIDs.add(prevName);
+                        }
+                    }
+
+                    spans = new ArrayDeque<>();
+                }
+
+                prevName = r.qName; 
+                prevLen = r.qLen;
+                spans.add(new Interval(r.qStart, r.qEnd));
+            }
             
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
@@ -555,11 +630,21 @@ public class Layout {
         }
         reader.close();
         
+        if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
+            if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
+                discardReadIDs.add(prevName);
+            }
+        }
+        
         System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
+        if (!discardReadIDs.isEmpty()) {
+            System.out.println("         - discarded: " + NumberFormat.getInstance().format(discardReadIDs.size()));
+        }
+        
         if (!artifactCutIndexes.isEmpty()) {
             System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
         }
-        
+                
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
         for (String name : lengths.keySet()) {
@@ -567,6 +652,7 @@ public class Layout {
                 longestSet.add(name);
             }
         }
+        longestSet.removeAll(discardReadIDs);
         
         if (!longestSet.isEmpty()) {
             System.out.println("         - unique:    " + NumberFormat.getInstance().format(longestSet.size()));
@@ -646,7 +732,7 @@ public class Layout {
             if (dovetailReadNames.contains(name)) {
                 longestReadSeqs.put(name, stringToBytes(nameSeq[1], lengths.get(name)));
             }
-            else if (!lengths.containsKey(name) || longestSet.contains(name)) {
+            else if (longestSet.contains(name) || (!checkNumAltReads && !lengths.containsKey(name))) {
                 // an orphan sequence with no overlaps with other sequences
                 if (cutRevCompArtifact && artifactCutIndexes.containsKey(name)) {
                     int halfLen = nameSeq[1].length()/2;
@@ -706,9 +792,32 @@ public class Layout {
         
         // look for containment and overlaps
         PafReader reader = new PafReader(overlapPafPath);
+        
+        boolean checkNumAltReads = minNumAltReads > 0;
+        ArrayDeque<Interval> spans = new ArrayDeque<>();
+        String prevName = null;
+        int prevLen = -1;
+        ArrayDeque<String> discardReadIDs = new ArrayDeque<>();
+        
         while (reader.hasNext()) {
             ExtendedPafRecord r = reader.next();
 
+            if (checkNumAltReads && !r.reverseComplemented) {
+                if (!r.qName.equals(prevName)) {
+                    if (!spans.isEmpty() && prevName != null) {
+                        if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
+                            discardReadIDs.add(prevName);
+                        }
+                    }
+
+                    spans = new ArrayDeque<>();
+                }
+
+                prevName = r.qName; 
+                prevLen = r.qLen;
+                spans.add(new Interval(r.qStart, r.qEnd));
+            }
+            
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
             
@@ -758,7 +867,17 @@ public class Layout {
         }
         reader.close();
         
+        if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
+            if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
+                discardReadIDs.add(prevName);
+            }
+        }
+        
         System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
+        if (!discardReadIDs.isEmpty()) {
+            System.out.println("         - discarded: " + NumberFormat.getInstance().format(discardReadIDs.size()));
+        }
+        
         if (!artifactCutIndexes.isEmpty()) {
             System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
         }
@@ -770,6 +889,7 @@ public class Layout {
                 longestSet.add(name);
             }
         }
+        longestSet.removeAll(discardReadIDs);
         
         if (!longestSet.isEmpty()) {
             System.out.println("         - unique:    " + NumberFormat.getInstance().format(longestSet.size()));
@@ -836,7 +956,7 @@ public class Layout {
                 String seq = nameSeq[1];
                 longestReadSeqs.put(name, stringToBytes(seq, seq.length()));
             }
-            else if (!lengths.containsKey(name) || longestSet.contains(name)) {
+            else if (longestSet.contains(name) || (!checkNumAltReads && !lengths.containsKey(name))) {
                 // an orphan sequence with no overlaps with other sequences
                 if (cutRevCompArtifact && artifactCutIndexes.containsKey(name)) {
                     int halfLen = nameSeq[1].length()/2;
@@ -897,7 +1017,7 @@ public class Layout {
         
         try {
             //seqFile, pafFile, stranded, maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact
-            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 5, 0.90f, 2*25, 1, true);
+            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 5, 0.90f, 2*25, 1, true, 1);
             myLayout.writeBackboneSequences(backboneFastaPath);
         } catch (Exception ex) {
             ex.printStackTrace();

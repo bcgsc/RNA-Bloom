@@ -2688,7 +2688,7 @@ public class RNABloom {
 
                 boolean ok = overlapLayoutConcensus(readsPath, 
                         tmpPrefix, concensusPath, numThreads, stranded, minimapOptions, 
-                        100, 0.4f, 200, maxIndelSize, removeArtifacts);
+                        100, 0.4f, 200, maxIndelSize, removeArtifacts, 1);
                 if (!ok) {
                     System.out.println("*** Error assembling cluster `" + clusterID + "`!!! ***");
                     errors.add(clusterID);
@@ -2748,7 +2748,9 @@ public class RNABloom {
         }
         
         System.out.println("Inter-cluster assembly...");
-        ok = overlapLayout(assembledLongReadsConcatenated, tmpPrefix, assembledLongReadsCombined, numThreads, stranded, "-r " + Integer.toString(2*maxIndelSize), k, percentIdentity, minTranscriptLength, maxIndelSize, removeArtifacts);
+        ok = overlapLayout(assembledLongReadsConcatenated, tmpPrefix, assembledLongReadsCombined,
+                numThreads, stranded, "-r " + Integer.toString(2*maxIndelSize),
+                k, percentIdentity, minTranscriptLength, maxIndelSize, removeArtifacts, 1);
         
         return ok;
     }
@@ -2764,14 +2766,16 @@ public class RNABloom {
                                     int minOverlapMatches,
                                     String txptNamePrefix,
                                     boolean stranded,
-                                    boolean removeArtifacts) throws IOException {
+                                    boolean removeArtifacts,
+                                    int minSeqDepth) throws IOException {
 //        int maxEdgeClip = 100;
 //        float minAlnId = 0.4f;
 //        int minOverlapMatches = 200;
         
         boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, outFasta, 
                 numThreads, stranded, minimapOptions, maxEdgeClip,
-                minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts);
+                minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
+                minSeqDepth);
         
         return ok;
     }
@@ -4553,7 +4557,8 @@ public class RNABloom {
             int numThreads, boolean forceOverwrite,
             String minimapOptions, int minKmerCov,
             int maxEdgeClip, float minAlnId, int minOverlapMatches,
-            String txptNamePrefix, boolean stranded, boolean removeArtifacts) throws IOException {
+            String txptNamePrefix, boolean stranded, boolean removeArtifacts,
+            int minSeqDepth) throws IOException {
         
         if (forceOverwrite) {
             Files.deleteIfExists(FileSystems.getDefault().getPath(outFasta));
@@ -4570,7 +4575,8 @@ public class RNABloom {
                                     minOverlapMatches,
                                     txptNamePrefix,
                                     stranded,
-                                    removeArtifacts);
+                                    removeArtifacts,
+                                    minSeqDepth);
     }    
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, FastxFilePair[] fqPairs,
@@ -4687,7 +4693,7 @@ public class RNABloom {
 
         boolean ok = overlapLayout(concatenatedFasta, tmpPrefix, reducedFasta, numThreads,
                         stranded, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, 2*k,
-                        maxIndelSize, removeArtifacts);
+                        maxIndelSize, removeArtifacts, 1);
         
         splitFastaByLength(reducedFasta, outLongFasta, outShortFasta, txptLengthThreshold);
         
@@ -4883,7 +4889,7 @@ public class RNABloom {
         
         boolean ok = overlapLayout(concatenatedFasta, tmpPrefix, reducedFasta, 
                         numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize),
-                        maxTipLength, percentIdentity, 2*k, maxIndelSize, removeArtifacts);
+                        maxTipLength, percentIdentity, 2*k, maxIndelSize, removeArtifacts, 1);
         
         splitFastaByLength(reducedFasta, outLongFasta, outShortFasta, txptLengthThreshold);
         
@@ -5454,6 +5460,14 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadOverlapProportion);
         
+        final String optLongReadMinReadDepthDefault = "2";
+        Option optLongReadMinReadDepth = Option.builder("lrrd")
+                                    .desc("min read depth required for long-read assembly [" + optLongReadMinReadDepthDefault + "]")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optLongReadMinReadDepth);
+        
         Option optDebug = Option.builder("debug")
                                     .desc("print debugging information [false]")
                                     .hasArg(false)
@@ -5770,6 +5784,7 @@ public class RNABloom {
             final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), defaultMaxTipLen));
             
             final float longReadOverlapProportion = Float.parseFloat(line.getOptionValue(optLongReadOverlapProportion.getOpt(), optLongReadOverlapProportionDefault));
+            final int longReadMinReadDepth = Integer.parseInt(line.getOptionValue(optLongReadMinReadDepth.getOpt(), optLongReadMinReadDepthDefault));
             
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), optBaseQualFragDefault));
@@ -6309,7 +6324,8 @@ public class RNABloom {
                             longCorrectedReadsPath, assembledTranscriptsPath, tmpPrefix, 
                             numThreads, forceOverwrite, minimapOptions, minKmerCov, 
                             maxTipLen, longReadOverlapProportion, minOverlap,
-                            txptNamePrefix, strandSpecific, !keepArtifact);
+                            txptNamePrefix, strandSpecific, !keepArtifact,
+                            longReadMinReadDepth);
                     
                     
                     if (ok) {
