@@ -17,6 +17,7 @@
 package rnabloom.olc;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.NumberFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -52,7 +53,7 @@ public class Layout {
     
     private final static Pattern CIGAR_OP_PATTERN = Pattern.compile("(\\d+)([MIDNSHPX=])");
     private DefaultDirectedGraph<String, OverlapEdge> graph;
-    private String overlapPafPath;
+    private InputStream overlapPafInputStream;
     private String seqFastaPath;
     private boolean stranded;
     private int maxEdgeClip = 100;
@@ -62,9 +63,9 @@ public class Layout {
     private boolean cutRevCompArtifact = false;
     private int minNumAltReads = 0;
     
-    public Layout(String seqFile, String pafFile, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact, int minSeqDepth) {
+    public Layout(String seqFile, InputStream overlapPafInputStream, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact, int minSeqDepth) {
         this.graph = new DefaultDirectedGraph<>(OverlapEdge.class);
-        this.overlapPafPath = pafFile;
+        this.overlapPafInputStream = overlapPafInputStream;
         this.seqFastaPath = seqFile;
         this.stranded = stranded;
         this.maxEdgeClip = maxEdgeClip;
@@ -554,7 +555,7 @@ public class Layout {
         HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id -> cut index
                
         // look for containment and dovetails
-        PafReader reader = new PafReader(overlapPafPath);
+        PafReader reader = new PafReader(overlapPafInputStream);
         
         boolean checkNumAltReads = minNumAltReads > 0;
         ArrayDeque<Interval> spans = new ArrayDeque<>();
@@ -791,7 +792,7 @@ public class Layout {
         HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id -> cut index
         
         // look for containment and overlaps
-        PafReader reader = new PafReader(overlapPafPath);
+        PafReader reader = new PafReader(overlapPafInputStream);
         
         boolean checkNumAltReads = minNumAltReads > 0;
         ArrayDeque<Interval> spans = new ArrayDeque<>();
@@ -1010,17 +1011,6 @@ public class Layout {
     }
     
     public static void main(String[] args) {
-        boolean stranded = true;
-        String seqFastaPath = "cat.fa";
-        String overlapPafPath = "ava.paf.gz";
-        String backboneFastaPath = "backbones.fa";
-        
-        try {
-            //seqFile, pafFile, stranded, maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact
-            Layout myLayout = new Layout(seqFastaPath, overlapPafPath, stranded, 5, 0.90f, 2*25, 1, true, 1);
-            myLayout.writeBackboneSequences(backboneFastaPath);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+        //debug
     }
 }

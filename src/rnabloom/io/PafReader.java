@@ -19,6 +19,7 @@ package rnabloom.io;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 import java.util.zip.GZIPInputStream;
@@ -42,7 +43,12 @@ public class PafReader {
         }
         itr = br.lines().iterator();
     }
-        
+    
+    public PafReader(InputStream in) {
+        br = new BufferedReader(new InputStreamReader(in));
+        itr = br.lines().iterator();
+    }
+    
     public boolean hasNext() {
         return itr.hasNext();
     }

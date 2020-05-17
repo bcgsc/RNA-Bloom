@@ -4857,7 +4857,7 @@ public class RNABloom {
         }
     }
     
-    private boolean generateNonRedundantTranscripts(String inLongFastas, String inShortFasta,
+    private boolean generateNonRedundantTranscripts(String inLongFasta, String inShortFasta,
             String tmpPrefix, String outLongFasta, String outShortFasta,
             int numThreads, boolean removeArtifacts, int txptLengthThreshold) throws IOException {
         
@@ -4867,7 +4867,7 @@ public class RNABloom {
         // combine assembly files
         FastaWriter fout = new FastaWriter(concatenatedFasta, false);
         
-        FastaReader fin = new FastaReader(inLongFastas);
+        FastaReader fin = new FastaReader(inLongFasta);
         while(fin.hasNext()) {
             String[] nameCommentSeq = fin.nextWithComment();
             //String comment = nameCommentSeq[1];
