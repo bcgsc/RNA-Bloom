@@ -3972,6 +3972,9 @@ public class RNABloom {
         int[] fragLengthsStats = getMinQ1MedianQ3Max(fragLengths);
         
         longFragmentLengthThreshold = fragLengthsStats[1];
+        
+        assert longFragmentLengthThreshold - k - minNumKmerPairs > 0; // otherwise, no kmer pairs can be extracted
+        
         setPairedKmerDistance(longFragmentLengthThreshold);
         
         int newBound = getPairedReadsMaxDistance(fragLengthsStats);
@@ -4577,7 +4580,8 @@ public class RNABloom {
                                     stranded,
                                     removeArtifacts,
                                     minSeqDepth);
-    }    
+    }
+    
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, FastxFilePair[] fqPairs,
             long sbfSize, long pkbfSize, int sbfNumHash, int pkbfNumHash, int numThreads,
