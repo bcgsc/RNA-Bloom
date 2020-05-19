@@ -163,8 +163,7 @@ java -jar RNA-Bloom.jar -stage N ...
 | --- | -------------------- | -------------------- |
 | 1   | construct graph      | construct graph      |
 | 2   | assemble fragments   | correct reads        |
-| 3   | assemble transcripts | cluster reads        |
-| 4   | N/A                  | assemble transcripts |
+| 3   | assemble transcripts | assemble transcripts |
 
 This is a very useful option if you only want to assemble fragments or correct long reads (ie. with `-stage 2`)!
 
