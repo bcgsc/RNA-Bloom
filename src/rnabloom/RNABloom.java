@@ -6348,6 +6348,7 @@ public class RNABloom {
             }
             else if (hasLeftReadFiles && !hasRightReadFiles) {
                 // Note: no stage 2
+                System.out.println("\n> Skipping Stage 2 for single-end reads.");
                 
                 System.out.println("\n> Stage 3: Assemble transcripts for \"" + name + "\"");
                 MyTimer stageTimer = new MyTimer();
