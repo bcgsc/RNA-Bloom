@@ -46,7 +46,11 @@ public class FastqFilteredSequenceIterator {
         System.out.println("Parsing `" + path + "`...");
     }
     
-    public boolean hasNext() throws IOException {
+    public synchronized boolean hasNext() throws IOException {
+        if (fileCursor >= fastqPaths.length) {
+            return false;
+        }
+
         boolean hasNext = reader.hasNext();
         
         if (!hasNext) {
@@ -64,7 +68,7 @@ public class FastqFilteredSequenceIterator {
         return hasNext;
     }
 
-    public String next() throws FileFormatException, IOException {
+    public synchronized String next() throws FileFormatException, IOException {
         try {
             reader.nextWithoutName(record);
             
@@ -89,7 +93,7 @@ public class FastqFilteredSequenceIterator {
         }
     }
     
-    public ArrayList<String> nextSegments() throws FileFormatException, IOException {
+    public synchronized ArrayList<String> nextSegments() throws FileFormatException, IOException {
         try {
             reader.nextWithoutName(record);
             

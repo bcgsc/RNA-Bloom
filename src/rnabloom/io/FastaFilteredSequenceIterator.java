@@ -43,7 +43,11 @@ public class FastaFilteredSequenceIterator {
         System.out.println("Parsing `" + path + "`...");
     }
     
-    public boolean hasNext() throws IOException {
+    public synchronized boolean hasNext() throws IOException {
+        if (fileCursor >= fastaPaths.length) {
+            return false;
+        }
+
         boolean hasNext = reader.hasNext();
         
         if (!hasNext) {
@@ -61,7 +65,7 @@ public class FastaFilteredSequenceIterator {
         return hasNext;
     }
 
-    public String next() throws FileFormatException, IOException {
+    public synchronized String next() throws FileFormatException, IOException {
         try {
             String seq = longestSeq(reader.next(), seqPattern);
 
@@ -84,7 +88,7 @@ public class FastaFilteredSequenceIterator {
         }
     }
     
-    public ArrayList<String> nextSegments() throws FileFormatException, IOException {
+    public synchronized ArrayList<String> nextSegments() throws FileFormatException, IOException {
         try {
             ArrayList<String> segments = filterFasta(reader.next(), seqPattern);
 

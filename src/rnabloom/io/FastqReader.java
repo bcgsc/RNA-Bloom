@@ -63,7 +63,7 @@ public final class FastqReader implements FastxReaderInterface {
     }
     
     @Override
-    public boolean hasNext() {
+    public synchronized boolean hasNext() {
         return itr.hasNext();
     }
     
@@ -115,7 +115,7 @@ public final class FastqReader implements FastxReaderInterface {
         return new String[]{name, seq};
     }
     
-    public void nextWithoutName(FastqRecord fr) throws FileFormatException {
+    public synchronized void nextWithoutName(FastqRecord fr) throws FileFormatException {
         String line1, line3;
         
         synchronized(this) {
@@ -134,7 +134,7 @@ public final class FastqReader implements FastxReaderInterface {
         }
     }
     
-    public void nextWithName(FastqRecord fr) throws FileFormatException {
+    public synchronized void nextWithName(FastqRecord fr) throws FileFormatException {
         String line1, line3;
         
         synchronized(this) {

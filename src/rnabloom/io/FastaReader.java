@@ -74,7 +74,7 @@ public class FastaReader implements FastxReaderInterface {
     }
 
     @Override
-    public boolean hasNext() {
+    public synchronized boolean hasNext() {
         return itr.hasNext();
     }
 
@@ -150,7 +150,7 @@ public class FastaReader implements FastxReaderInterface {
         return new String[]{name, builder.toString()};
     }
     
-    public void nextWithName(FastaRecord fr) throws FileFormatException {
+    public synchronized void nextWithName(FastaRecord fr) throws FileFormatException {
         if (header == null) {
             header = itr.next().trim();
         }
