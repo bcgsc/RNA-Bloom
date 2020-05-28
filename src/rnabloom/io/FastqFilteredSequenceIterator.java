@@ -65,6 +65,7 @@ public class FastqFilteredSequenceIterator {
                 return false;
             }
             
+            hasNext = true;
             setReader(fastqPaths[fileCursor]);
             
             return this.hasNext();
@@ -97,6 +98,7 @@ public class FastqFilteredSequenceIterator {
                 return null;
             }
             
+            hasNext = true;
             setReader(fastqPaths[fileCursor]);
             
             return this.next();
@@ -135,6 +137,7 @@ public class FastqFilteredSequenceIterator {
                 return null;
             }
             
+            hasNext = true;
             setReader(fastqPaths[fileCursor]);
             
             return this.nextSegments();

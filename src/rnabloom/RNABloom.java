@@ -4109,6 +4109,7 @@ public class RNABloom {
                             return seq;
                         }
                     }
+                    ++numReadsParsed;
                     segments = faItr.nextSegments();
                 }
             }
@@ -4123,6 +4124,7 @@ public class RNABloom {
                             return seq;
                         }
                     }
+                    ++numReadsParsed;
                     segments = fqItr.nextSegments();
                 }
             }

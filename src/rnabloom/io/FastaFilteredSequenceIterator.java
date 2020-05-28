@@ -62,6 +62,7 @@ public class FastaFilteredSequenceIterator {
                 return false;
             }
             
+            hasNext = true;
             setReader(fastaPaths[fileCursor]);
             
             return this.hasNext();
@@ -92,6 +93,7 @@ public class FastaFilteredSequenceIterator {
                 return null;
             }
             
+            hasNext = true;
             setReader(fastaPaths[fileCursor]);
             
             return this.next();
@@ -128,6 +130,7 @@ public class FastaFilteredSequenceIterator {
                 return null;
             }
             
+            hasNext = true;
             setReader(fastaPaths[fileCursor]);
             
             return this.nextSegments();
