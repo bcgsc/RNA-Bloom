@@ -26,12 +26,16 @@ public class FastqFilteredSequenceIterator {
     private int fileCursor = 0;
     private FastqReader reader = null;
     private final FastqRecord record = new FastqRecord();
+    private boolean hasNext = true;
     
     public FastqFilteredSequenceIterator(String[] fastqPaths, Pattern seqPattern, Pattern qualPattern, boolean reverseComplement) throws IOException {
         this.seqPattern = seqPattern;
         this.qualPattern = qualPattern;
         this.fastqPaths = fastqPaths;
         this.reverseComplement = reverseComplement;
+        
+        hasNext = fileCursor < fastqPaths.length;
+        
         setReader(fastqPaths[fileCursor]);
     }
     
@@ -47,16 +51,17 @@ public class FastqFilteredSequenceIterator {
     }
     
     public synchronized boolean hasNext() throws IOException {
-        if (fileCursor >= fastqPaths.length) {
+        if (!hasNext) {
             return false;
         }
-
-        boolean hasNext = reader.hasNext();
+        
+        hasNext = reader.hasNext();
         
         if (!hasNext) {
             reader.close();
             
             if (++fileCursor >= fastqPaths.length) {
+                hasNext = false;
                 return false;
             }
             
@@ -69,6 +74,10 @@ public class FastqFilteredSequenceIterator {
     }
 
     public synchronized String next() throws FileFormatException, IOException {
+        if (!hasNext) {
+            return null;
+        }
+        
         try {
             reader.nextWithoutName(record);
             
@@ -84,7 +93,8 @@ public class FastqFilteredSequenceIterator {
             reader.close();
             
             if (++fileCursor >= fastqPaths.length) {
-                throw new NoSuchElementException();
+                hasNext = false;
+                return null;
             }
             
             setReader(fastqPaths[fileCursor]);
@@ -94,6 +104,10 @@ public class FastqFilteredSequenceIterator {
     }
     
     public synchronized ArrayList<String> nextSegments() throws FileFormatException, IOException {
+        if (!hasNext) {
+            return null;
+        }
+        
         try {
             reader.nextWithoutName(record);
             
@@ -117,7 +131,8 @@ public class FastqFilteredSequenceIterator {
             reader.close();
             
             if (++fileCursor >= fastqPaths.length) {
-                throw new NoSuchElementException();
+                hasNext = false;
+                return null;
             }
             
             setReader(fastqPaths[fileCursor]);

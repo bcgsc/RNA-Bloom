@@ -4098,14 +4098,16 @@ public class RNABloom {
         }
 
         @Override
-        public String next() throws IOException {
+        public synchronized String next() throws IOException {
             if (faItr != null && faItr.hasNext()) {
                 ++numReadsParsed;
                 ArrayList<String> segments = faItr.nextSegments();
-                while (!segments.isEmpty()) {
-                    String seq = connect(segments, graph, lookahead);
-                    if (seq.length() >= k) {
-                        return seq;
+                while (segments != null) {
+                    if (!segments.isEmpty()) {
+                        String seq = connect(segments, graph, lookahead);
+                        if (seq.length() >= k) {
+                            return seq;
+                        }
                     }
                     segments = faItr.nextSegments();
                 }
@@ -4114,10 +4116,12 @@ public class RNABloom {
             if (fqItr != null && fqItr.hasNext()) {
                 ++numReadsParsed;
                 ArrayList<String> segments = fqItr.nextSegments();
-                while (!segments.isEmpty()) {
-                    String seq = connect(segments, graph, lookahead);
-                    if (seq.length() >= k) {
-                        return seq;
+                while (segments != null) {
+                    if (!segments.isEmpty()) {
+                        String seq = connect(segments, graph, lookahead);
+                        if (seq.length() >= k) {
+                            return seq;
+                        }
                     }
                     segments = fqItr.nextSegments();
                 }

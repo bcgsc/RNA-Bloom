@@ -24,11 +24,15 @@ public class FastaFilteredSequenceIterator {
     private final boolean reverseComplement;
     private int fileCursor = 0;
     private FastaReader reader = null;
+    private boolean hasNext = true;
     
     public FastaFilteredSequenceIterator(String[] fastaPaths, Pattern seqPattern, boolean reverseComplement) throws IOException {
         this.seqPattern = seqPattern;
         this.fastaPaths = fastaPaths;
         this.reverseComplement = reverseComplement;
+        
+        hasNext = fileCursor < fastaPaths.length;
+        
         setReader(fastaPaths[fileCursor]);
     }
     
@@ -44,16 +48,17 @@ public class FastaFilteredSequenceIterator {
     }
     
     public synchronized boolean hasNext() throws IOException {
-        if (fileCursor >= fastaPaths.length) {
+        if (!hasNext) {
             return false;
         }
 
-        boolean hasNext = reader.hasNext();
+        hasNext = reader.hasNext();
         
         if (!hasNext) {
             reader.close();
             
             if (++fileCursor >= fastaPaths.length) {
+                hasNext = false;
                 return false;
             }
             
@@ -66,6 +71,10 @@ public class FastaFilteredSequenceIterator {
     }
 
     public synchronized String next() throws FileFormatException, IOException {
+        if (!hasNext) {
+            return null;
+        }
+        
         try {
             String seq = longestSeq(reader.next(), seqPattern);
 
@@ -79,7 +88,8 @@ public class FastaFilteredSequenceIterator {
             reader.close();
             
             if (++fileCursor >= fastaPaths.length) {
-                throw new NoSuchElementException();
+                hasNext = false;
+                return null;
             }
             
             setReader(fastaPaths[fileCursor]);
@@ -89,6 +99,10 @@ public class FastaFilteredSequenceIterator {
     }
     
     public synchronized ArrayList<String> nextSegments() throws FileFormatException, IOException {
+        if (!hasNext) {
+            return null;
+        }
+        
         try {
             ArrayList<String> segments = filterFasta(reader.next(), seqPattern);
 
@@ -110,7 +124,8 @@ public class FastaFilteredSequenceIterator {
             reader.close();
             
             if (++fileCursor >= fastaPaths.length) {
-                throw new NoSuchElementException();
+                hasNext = false;
+                return null;
             }
             
             setReader(fastaPaths[fileCursor]);
