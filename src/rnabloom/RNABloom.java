@@ -5651,13 +5651,18 @@ public class RNABloom {
                         
             final String pooledReadsListFile = line.getOptionValue(optPooledAssembly.getOpt());
             final boolean pooledGraphMode = pooledReadsListFile != null;
-                        
+            boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
+            
+            if (pooledGraphMode && (leftReadPaths != null || rightReadPaths != null || longReadPaths != null) ) {
+                exitOnError("Option `-pool` cannot be used with options `-left`, `-right`, or `-long`");
+            }
+                                    
             HashMap<String, ArrayList<String>> pooledLeftReadPaths = new HashMap<>();
             HashMap<String, ArrayList<String>> pooledRightReadPaths = new HashMap<>();
             
             float maxBfMem = 0;
             
-            if (pooledGraphMode) {
+            if (pooledGraphMode) {                
                 System.out.println("Pooled assembly mode is ON!");
                 
                 if (!new File(pooledReadsListFile).isFile()) {
@@ -5757,7 +5762,7 @@ public class RNABloom {
             
             boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
             boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
-            boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
+
             boolean hasRefTranscriptFiles = refTranscriptPaths != null && refTranscriptPaths.length > 0;
             
             final boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
