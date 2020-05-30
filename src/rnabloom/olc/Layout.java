@@ -147,7 +147,9 @@ public class Layout {
     
     private int getReverseComplementArtifactCutIndex(ExtendedPafRecord r) {
         if (r.qName.equals(r.tName) && r.reverseComplemented) {
-            if (r.qStart <= maxEdgeClip) {
+            int rightEdgeClip = r.qLen - r.qEnd;
+            
+            if (r.qStart <= maxEdgeClip && r.qStart <= rightEdgeClip) {
                 // left edge has reverse complement
                 if (r.qStart == r.tStart && r.qEnd == r.tEnd) {
                     // palindrome
@@ -157,7 +159,7 @@ public class Layout {
                     return r.qEnd -1;
                 }
             }
-            else if (r.qLen - r.qEnd <= maxEdgeClip) {
+            else if (rightEdgeClip <= maxEdgeClip && r.qStart >= rightEdgeClip) {
                 // right edge has reverse complement
                 if (r.qStart == r.tStart && r.qEnd == r.tEnd) {
                     // palindrome
