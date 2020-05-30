@@ -2660,7 +2660,8 @@ public class RNABloom {
                                     String txptNamePrefix,
                                     boolean stranded,
                                     int minTranscriptLength,
-                                    boolean removeArtifacts) throws IOException {
+                                    boolean removeArtifacts,
+                                    boolean usePacBioPreset) throws IOException {
         
         ArrayList<Integer> clusterIDs = new ArrayList<>();
         
@@ -2688,7 +2689,7 @@ public class RNABloom {
 
                 boolean ok = overlapLayoutConcensus(readsPath, 
                         tmpPrefix, concensusPath, numThreads, stranded, minimapOptions, 
-                        100, 0.4f, 200, maxIndelSize, removeArtifacts, 1);
+                        100, 0.4f, 200, maxIndelSize, removeArtifacts, 1, usePacBioPreset);
                 if (!ok) {
                     System.out.println("*** Error assembling cluster `" + clusterID + "`!!! ***");
                     errors.add(clusterID);
@@ -2750,7 +2751,7 @@ public class RNABloom {
         System.out.println("Inter-cluster assembly...");
         ok = overlapLayout(assembledLongReadsConcatenated, tmpPrefix, assembledLongReadsCombined,
                 numThreads, stranded, "-r " + Integer.toString(2*maxIndelSize),
-                k, percentIdentity, minTranscriptLength, maxIndelSize, removeArtifacts, 1);
+                k, percentIdentity, minTranscriptLength, maxIndelSize, removeArtifacts, 1, usePacBioPreset);
         
         return ok;
     }
@@ -2767,7 +2768,8 @@ public class RNABloom {
                                     String txptNamePrefix,
                                     boolean stranded,
                                     boolean removeArtifacts,
-                                    int minSeqDepth) throws IOException {
+                                    int minSeqDepth,
+                                    boolean usePacBioPreset) throws IOException {
 //        int maxEdgeClip = 100;
 //        float minAlnId = 0.4f;
 //        int minOverlapMatches = 200;
@@ -2775,7 +2777,7 @@ public class RNABloom {
         boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, outFasta, 
                 numThreads, stranded, minimapOptions, maxEdgeClip,
                 minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
-                minSeqDepth);
+                minSeqDepth, usePacBioPreset);
         
         return ok;
     }
@@ -4543,7 +4545,7 @@ public class RNABloom {
             String assembledLongReadsCombined,
             int numThreads, boolean forceOverwrite,
             boolean writeUracil, String minimapOptions, int minKmerCov, String txptNamePrefix, 
-            boolean stranded, int minTranscriptLength, boolean removeArtifacts) throws IOException {
+            boolean stranded, int minTranscriptLength, boolean removeArtifacts, boolean usePacBioPreset) throws IOException {
         
         File outdir = new File(assembledLongReadsDirectory);
         if (outdir.exists()) {
@@ -4558,7 +4560,7 @@ public class RNABloom {
         }
         
         return assembler.assembleLongReads(clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombined,
-                numThreads, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, stranded, minTranscriptLength, removeArtifacts);
+                numThreads, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, stranded, minTranscriptLength, removeArtifacts, usePacBioPreset);
     }
     
     private static boolean assembleUnclusteredLongReads(RNABloom assembler,
@@ -4567,7 +4569,7 @@ public class RNABloom {
             String minimapOptions, int minKmerCov,
             int maxEdgeClip, float minAlnId, int minOverlapMatches,
             String txptNamePrefix, boolean stranded, boolean removeArtifacts,
-            int minSeqDepth) throws IOException {
+            int minSeqDepth, boolean usePacBioPreset) throws IOException {
         
         if (forceOverwrite) {
             Files.deleteIfExists(FileSystems.getDefault().getPath(outFasta));
@@ -4585,7 +4587,8 @@ public class RNABloom {
                                     txptNamePrefix,
                                     stranded,
                                     removeArtifacts,
-                                    minSeqDepth);
+                                    minSeqDepth,
+                                    usePacBioPreset);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -4656,7 +4659,8 @@ public class RNABloom {
     private static boolean mergePooledAssemblies(String outdir, String assemblyName, String[] sampleNames,
             String txptFileExt, String shortTxptFileExt, String txptNamePrefix,
             int k, int numThreads, boolean stranded, int maxIndelSize, int maxTipLength,
-            float percentIdentity, boolean removeArtifacts, int txptLengthThreshold, boolean writeUracil) throws IOException {
+            float percentIdentity, boolean removeArtifacts, int txptLengthThreshold, boolean writeUracil,
+            boolean usePacBioPreset) throws IOException {
         
         String concatenatedFasta = outdir + File.separator + assemblyName + ".all" + FASTA_EXT;
         String reducedFasta      = outdir + File.separator + assemblyName + ".all_nr" + FASTA_EXT;
@@ -4703,7 +4707,7 @@ public class RNABloom {
 
         boolean ok = overlapLayout(concatenatedFasta, tmpPrefix, reducedFasta, numThreads,
                         stranded, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, 2*k,
-                        maxIndelSize, removeArtifacts, 1);
+                        maxIndelSize, removeArtifacts, 1, usePacBioPreset);
         
         splitFastaByLength(reducedFasta, outLongFasta, outShortFasta, txptLengthThreshold);
         
@@ -4714,7 +4718,7 @@ public class RNABloom {
     }
     
     private static void assembleTranscriptsNR(RNABloom assembler, String outdir, String name, boolean forceOverwrite,
-            int numThreads, boolean keepArtifact, int minTranscriptLength) throws IOException {
+            int numThreads, boolean keepArtifact, int minTranscriptLength, boolean usePacBioPreset) throws IOException {
         
         final File nrTxptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
 
@@ -4732,7 +4736,8 @@ public class RNABloom {
             timer.start();
 
             boolean ok = assembler.generateNonRedundantTranscripts(transcriptsFasta, shortTranscriptsFasta,
-                    tmpPrefix, nrTranscriptsFasta, shortNrTranscriptsFasta, numThreads, !keepArtifact, minTranscriptLength);
+                    tmpPrefix, nrTranscriptsFasta, shortNrTranscriptsFasta, numThreads, !keepArtifact, minTranscriptLength,
+                    usePacBioPreset);
 
             if (ok) {
                 System.out.println("Redundancy reduced in " + MyTimer.hmsFormat(timer.elapsedMillis()));
@@ -4752,7 +4757,8 @@ public class RNABloom {
             long sbfSize, int sbfNumHash, int numThreads, 
             String[] readPaths, boolean reverseComplement,
             int minTranscriptLength, boolean keepArtifact, boolean keepChimera,
-            float minKmerCov, boolean reduceRedundancy, boolean writeUracil) throws IOException, InterruptedException {
+            float minKmerCov, boolean reduceRedundancy, boolean writeUracil,
+            boolean usePacBioPreset) throws IOException, InterruptedException {
 
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
         final String transcriptsFasta      = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
@@ -4784,7 +4790,7 @@ public class RNABloom {
         }
         
         if (reduceRedundancy) {
-            assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, minTranscriptLength);
+            assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, minTranscriptLength, usePacBioPreset);
         }
     }
     
@@ -4795,7 +4801,7 @@ public class RNABloom {
             boolean reqFragKmersConsistency, boolean restorePairedKmers,
             float minKmerCov, String branchFreeExtensionThreshold,
             boolean reduceRedundancy, boolean assemblePolya, boolean writeUracil,
-            String[] refTranscriptPaths) throws IOException, InterruptedException {
+            String[] refTranscriptPaths, boolean usePacBioPreset) throws IOException, InterruptedException {
         
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
         final String transcriptsFasta = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
@@ -4863,13 +4869,14 @@ public class RNABloom {
         }
                 
         if (reduceRedundancy) {
-            assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, minTranscriptLength);
+            assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, minTranscriptLength, usePacBioPreset);
         }
     }
     
     private boolean generateNonRedundantTranscripts(String inLongFasta, String inShortFasta,
             String tmpPrefix, String outLongFasta, String outShortFasta,
-            int numThreads, boolean removeArtifacts, int txptLengthThreshold) throws IOException {
+            int numThreads, boolean removeArtifacts, int txptLengthThreshold,
+            boolean usePacBioPreset) throws IOException {
         
         String concatenatedFasta = tmpPrefix + "_ava_cat" + FASTA_EXT;
         String reducedFasta = tmpPrefix + "_ava_cat_nr" + FASTA_EXT;
@@ -4899,7 +4906,7 @@ public class RNABloom {
         
         boolean ok = overlapLayout(concatenatedFasta, tmpPrefix, reducedFasta, 
                         numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize),
-                        maxTipLength, percentIdentity, 2*k, maxIndelSize, removeArtifacts, 1);
+                        maxTipLength, percentIdentity, 2*k, maxIndelSize, removeArtifacts, 1, usePacBioPreset);
         
         splitFastaByLength(reducedFasta, outLongFasta, outShortFasta, txptLengthThreshold);
         
@@ -5478,6 +5485,12 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadMinReadDepth);
         
+        Option optLongReadPacBioPreset = Option.builder("lrpb")
+                                    .desc("use PacBio preset for minimap2 [false]")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optLongReadPacBioPreset);
+        
         Option optDebug = Option.builder("debug")
                                     .desc("print debugging information [false]")
                                     .hasArg(false)
@@ -5755,6 +5768,7 @@ public class RNABloom {
             final boolean mergePool = line.hasOption(optMergePool.getOpt());
             final boolean outputNrTxpts = mergePool ? true : !line.hasOption(optNoReduce.getOpt());
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
+            final boolean usePacBioPreset = line.hasOption(optLongReadPacBioPreset.getOpt());
             /*
             final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final int minimizerSize = Integer.parseInt(line.getOptionValue(optMinimizerSize.getOpt(), optMinimizerSizeDefault));
@@ -6181,7 +6195,7 @@ public class RNABloom {
                                     sampleSize, minTranscriptLength, keepArtifact, keepChimera,
                                     reqFragKmersConsistency, true, minKmerCov,
                                     branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0, writeUracil,
-                                    refTranscriptPaths);
+                                    refTranscriptPaths, usePacBioPreset);
                     
                     System.out.print("\n");
                 }
@@ -6203,7 +6217,8 @@ public class RNABloom {
                         boolean ok = mergePooledAssemblies(outdir, name, sampleNames, 
                                         txptFileExt, shortTxptFileExt, txptNamePrefix,
                                         k, numThreads, strandSpecific, maxIndelSize,
-                                        maxTipLen, percentIdentity, !keepArtifact, minTranscriptLength, writeUracil);
+                                        maxTipLen, percentIdentity, !keepArtifact, 
+                                        minTranscriptLength, writeUracil, usePacBioPreset);
                         
                         if (ok) {
                             System.out.println("Merged assembly at `" + outdir + File.separator + name + ".transcripts.fa`");
@@ -6335,7 +6350,7 @@ public class RNABloom {
                             numThreads, forceOverwrite, minimapOptions, minKmerCov, 
                             maxTipLen, longReadOverlapProportion, minOverlap,
                             txptNamePrefix, strandSpecific, !keepArtifact,
-                            longReadMinReadDepth);
+                            longReadMinReadDepth, usePacBioPreset);
                     
                     
                     if (ok) {
@@ -6366,7 +6381,7 @@ public class RNABloom {
                                     leftReadPaths, revCompLeft,
                                     minTranscriptLength, keepArtifact, keepChimera,
                                     minKmerCov,
-                                    outputNrTxpts, writeUracil);
+                                    outputNrTxpts, writeUracil, usePacBioPreset);
                 
                 System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }
@@ -6401,7 +6416,7 @@ public class RNABloom {
                                 sampleSize, minTranscriptLength, keepArtifact, keepChimera,
                                 reqFragKmersConsistency, true, minKmerCov, 
                                 branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0, writeUracil,
-                                refTranscriptPaths);
+                                refTranscriptPaths, usePacBioPreset);
                 
                 System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
             }      

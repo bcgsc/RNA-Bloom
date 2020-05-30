@@ -46,6 +46,9 @@ public class OverlapLayoutConcensus {
     private final static String MINIMAP2 = "minimap2";
     private final static String RACON = "racon";
     
+    private final static String PRESET_PACBIO = "pb";
+    private final static String PRESET_ONT = "ont";
+    
     private static boolean runCommand(List<String> command, String logPath) {
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -53,7 +56,7 @@ public class OverlapLayoutConcensus {
                 // write stdout and stderr to file to avoid hanging due to buffer overflow
                 pb.redirectErrorStream(true);
                 File logFile = new File(logPath);
-                pb.redirectOutput(Redirect.appendTo(logFile));
+                pb.redirectOutput(Redirect.to(logFile));
             }
             Process process = pb.start();
             int exitStatus = process.waitFor();
@@ -70,7 +73,7 @@ public class OverlapLayoutConcensus {
             
             if (logPath != null) {
                 File logFile = new File(logPath);
-                pb.redirectError(Redirect.appendTo(logFile));
+                pb.redirectError(Redirect.to(logFile));
             }
             
             Process process = pb.start();
@@ -127,7 +130,8 @@ public class OverlapLayoutConcensus {
         return runCommand(command, null);
     }
     
-    public static boolean overlapWithMinimap(String seqFastaPath, String outPafPath, int numThreads, boolean align, String options) {
+    public static boolean overlapWithMinimap(String seqFastaPath, String outPafPath, int numThreads, 
+            boolean align, String options, boolean usePacBioPreset) {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
@@ -136,7 +140,8 @@ public class OverlapLayoutConcensus {
             options = "-c " + options;
         }
         
-        command.add(MINIMAP2 + " -x ava-ont " + options + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath + " | gzip -c > " + outPafPath);
+        String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
+        command.add(MINIMAP2 + " -x ava-" + preset + " " + options + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath + " | gzip -c > " + outPafPath);
         
         return runCommand(command, outPafPath + LOG_EXTENSION);
     }
@@ -144,7 +149,7 @@ public class OverlapLayoutConcensus {
     public static boolean overlapWithMinimapAndLayout(String seqFastaPath, String layoutFastaPath,
             int numThreads, boolean align, String minimapOptions, boolean stranded, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
-            int minSeqDepth) {
+            int minSeqDepth, boolean usePacBioPreset) {
         
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
@@ -154,13 +159,14 @@ public class OverlapLayoutConcensus {
             minimapOptions = "-c " + minimapOptions;
         }
         
-        command.add(MINIMAP2 + " -x ava-ont " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
+        String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
+        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
         
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
 
             File logFile = new File(layoutFastaPath + LOG_EXTENSION);
-            pb.redirectError(Redirect.appendTo(logFile));
+            pb.redirectError(Redirect.to(logFile));
             
             Process process = pb.start();
 
@@ -177,12 +183,14 @@ public class OverlapLayoutConcensus {
         }
     }
     
-    public static boolean mapWithMinimap(String queryFastaPath, String targetFastaPath, String outPafPath, int numThreads, String options) {
+    public static boolean mapWithMinimap(String queryFastaPath, String targetFastaPath, String outPafPath,
+            int numThreads, String options, boolean usePacBioPreset) {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
 
-        command.add(MINIMAP2 + " -x map-ont -c " + options + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath + " | gzip -c > " + outPafPath);
+        String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
+        command.add(MINIMAP2 + " -x map-" + preset + " -c " + options + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath + " | gzip -c > " + outPafPath);
         
         return runCommand(command, outPafPath + LOG_EXTENSION);
     }
@@ -243,7 +251,7 @@ public class OverlapLayoutConcensus {
     public static boolean overlapLayout(String readsPath, String tmpPrefix, String layoutPath,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
-            int minSeqDepth) throws IOException {
+            int minSeqDepth, boolean usePacBioPreset) throws IOException {
         
         if (hasOnlyOneSequence(readsPath)) {
             symlinkRemoveExisting(readsPath, layoutPath);
@@ -253,7 +261,7 @@ public class OverlapLayoutConcensus {
         boolean status = overlapWithMinimapAndLayout(readsPath, layoutPath,
             numThreads, false, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
-            minSeqDepth);
+            minSeqDepth, usePacBioPreset);
         
         if (!status) {
             // PAF is empty
@@ -266,7 +274,7 @@ public class OverlapLayoutConcensus {
     public static boolean overlapLayoutConcensus(String readsPath, String tmpPrefix, String concensusPath, 
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
-            int minSeqDepth) throws IOException {
+            int minSeqDepth, boolean usePacBioPreset) throws IOException {
         String backbonesFa = tmpPrefix + "_backbones.fa";
         String mapPaf = tmpPrefix + "_map.paf.gz";
         
@@ -281,7 +289,7 @@ public class OverlapLayoutConcensus {
         boolean status = overlapWithMinimapAndLayout(readsPath, backbonesFa,
             numThreads, false, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
-            minSeqDepth);
+            minSeqDepth, usePacBioPreset);
         
         if (!status) {
             // PAF is empty
@@ -289,7 +297,7 @@ public class OverlapLayoutConcensus {
             return true;
         }
         
-        if (!mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads, minimapOptions)) {
+        if (!mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads, minimapOptions, usePacBioPreset)) {
             return false;
         }
         
