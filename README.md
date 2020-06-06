@@ -7,7 +7,7 @@
 </p>
 
 **RNA-Bloom** is a fast and memory-efficient *de novo* transcript sequence assembler. It is designed for the following sequencing data types:
-* paired-end bulk RNA-seq (strand-specific/agnostic)
+* single-end/paired-end bulk RNA-seq (strand-specific/agnostic)
 * paired-end single-cell RNA-seq (strand-specific/agnostic)
 * nanopore RNA-seq (PCR cDNA/direct cDNA/direct RNA)
 
@@ -58,8 +58,15 @@ RNA-Bloom can be run as `java -jar /path/to/RNA-Bloom.jar ...`
 :warning: Input reads must be in either FASTQ or FASTA format and may be compressed with GZIP. 
 
 ### (A) assemble bulk RNA-seq data:
+
+* paired-end reads
 ```
 java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -ntcard -t THREADS -outdir OUTDIR
+```
+
+* single-end reads
+```
+java -jar RNA-Bloom.jar -left READS.fastq -ntcard -t THREADS -outdir OUTDIR
 ```
 
 ### (B) assemble single-cell RNA-seq data:
