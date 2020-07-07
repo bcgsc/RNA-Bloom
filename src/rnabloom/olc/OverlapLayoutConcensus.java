@@ -276,9 +276,11 @@ public class OverlapLayoutConcensus {
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
             int minSeqDepth, boolean usePacBioPreset) throws IOException {
         String backbonesFa = tmpPrefix + "_backbones.fa";
+        String backbonesFa2 = tmpPrefix + "_backbones2.fa";
         String mapPaf = tmpPrefix + "_map.paf.gz";
         
         Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa));
+        Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa2));
         Files.deleteIfExists(FileSystems.getDefault().getPath(mapPaf));
         
         if (hasOnlyOneSequence(readsPath)) {
@@ -297,11 +299,21 @@ public class OverlapLayoutConcensus {
             return true;
         }
         
-        if (!mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads, minimapOptions, usePacBioPreset)) {
+        status = overlapWithMinimapAndLayout(backbonesFa, backbonesFa2,
+            numThreads, true, minimapOptions, stranded, maxEdgeClip,
+            minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
+            1, usePacBioPreset);
+        
+        if (!status) {
+            // PAF is empty
+            backbonesFa2 = backbonesFa;
+        }
+        
+        if (!mapWithMinimap(readsPath, backbonesFa2, mapPaf, numThreads, minimapOptions, usePacBioPreset)) {
             return false;
         }
         
-        return concensusWithRacon(readsPath, backbonesFa, mapPaf, concensusPath, numThreads);
+        return concensusWithRacon(readsPath, backbonesFa2, mapPaf, concensusPath, numThreads);
     }
     
     public static void main(String[] args) {
