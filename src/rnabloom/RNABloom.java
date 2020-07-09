@@ -2689,7 +2689,7 @@ public class RNABloom {
 
                 boolean ok = overlapLayoutConcensus(readsPath, 
                         tmpPrefix, concensusPath, numThreads, stranded, minimapOptions, 
-                        100, 0.4f, 200, maxIndelSize, removeArtifacts, 1, usePacBioPreset);
+                        100, 0.2f, 200, maxIndelSize, removeArtifacts, 1, usePacBioPreset);
                 if (!ok) {
                     System.out.println("*** Error assembling cluster `" + clusterID + "`!!! ***");
                     errors.add(clusterID);
@@ -5469,7 +5469,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optMinimapOptions);
 
-        final String optLongReadOverlapProportionDefault = "0.4";
+        final String optLongReadOverlapProportionDefault = "0.2";
         Option optLongReadOverlapProportion = Option.builder("lrop")
                                     .desc("minimum proportion of matching bases within long-read overlaps [" + optLongReadOverlapProportionDefault + "]")
                                     .hasArg(true)
@@ -5477,7 +5477,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadOverlapProportion);
         
-        final String optLongReadMinReadDepthDefault = "2";
+        final String optLongReadMinReadDepthDefault = "1";
         Option optLongReadMinReadDepth = Option.builder("lrrd")
                                     .desc("min read depth required for long-read assembly [" + optLongReadMinReadDepthDefault + "]")
                                     .hasArg(true)

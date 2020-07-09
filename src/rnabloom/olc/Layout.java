@@ -283,7 +283,7 @@ public class Layout {
         return numEdgesRemoved;
     }
         
-    private void resolveJunctions() {
+    private void resolveJunctions() {        
         ArrayList<OverlapEdge> edges = new ArrayList<>(graph.edgeSet());
         Collections.sort(edges);
         for (OverlapEdge bestEdge : edges) {
@@ -595,7 +595,7 @@ public class Layout {
                     artifactCutIndexes.put(r.qName, cutIndex);
                 }
             }
-            else {
+            else {                
                 if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
                     if (isContainmentPafRecord(r)) {
                         String shorter, longer;
