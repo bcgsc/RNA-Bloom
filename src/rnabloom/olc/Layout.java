@@ -596,7 +596,7 @@ public class Layout {
                 }
             }
             else {                
-                if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
                     if (isContainmentPafRecord(r)) {
                         String shorter, longer;
                         int longerLen;
