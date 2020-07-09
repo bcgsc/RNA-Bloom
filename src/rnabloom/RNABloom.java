@@ -2979,8 +2979,8 @@ public class RNABloom {
             try {
                 ArrayDeque<Sequence> sample = new ArrayDeque<>(maxSampleSize);
 
-                while(!(terminateWhenInputExhausts && inputQueue.isEmpty())) {
-                    Sequence seq = inputQueue.poll(1, TimeUnit.MILLISECONDS);
+                while(!(terminateWhenInputExhausts && areDependentWorkersDone() && inputQueue.isEmpty())) {
+                    Sequence seq = inputQueue.poll(100, TimeUnit.MILLISECONDS);
                     if (seq == null || seq.length < minSeqLen) {
                         continue;
                     }
@@ -3031,7 +3031,7 @@ public class RNABloom {
 
                 /** write the remaining sequences to file */
                 while(!(terminateWhenInputExhausts && areDependentWorkersDone() && inputQueue.isEmpty())) {
-                    Sequence seq = inputQueue.poll(1, TimeUnit.MILLISECONDS);
+                    Sequence seq = inputQueue.poll(100, TimeUnit.MILLISECONDS);
                     if (seq == null || seq.length < minSeqLen) {
                         continue;
                     }
