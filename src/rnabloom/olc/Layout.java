@@ -669,7 +669,10 @@ public class Layout {
         
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
+        long originalNumSeq = 0;
+        long seqID = 0;
         while (fr.hasNext()) {
+            ++originalNumSeq;
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
             if (longestSet.contains(name) || (!checkNumAltReads && !lengths.containsKey(name))) {
@@ -678,19 +681,24 @@ public class Layout {
                     int halfLen = nameSeq[1].length()/2;
                     int cutIndex = artifactCutIndexes.get(name);
                     if (cutIndex < halfLen) {
+                        ++seqID;
                         fw.write(nameSeq[0], nameSeq[1].substring(cutIndex+1));
                     }
                     else {
+                        ++seqID;
                         fw.write(nameSeq[0], nameSeq[1].substring(0, cutIndex));
                     }
                 }
                 else {
+                    ++seqID;
                     fw.write(nameSeq[0], nameSeq[1]);
                 }
             }
         }
         fr.close();
         fw.close();
+        
+        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
     }
     
     private void layoutBackbones(String outFastaPath) throws IOException {
