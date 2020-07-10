@@ -5806,7 +5806,7 @@ public class RNABloom {
             String defaultMinKmerCov = hasLongReadFiles ? "2" : optMinKmerCovDefault;
             int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), defaultMinKmerCov));
             
-            String defaultMinOverlap = hasLongReadFiles ? "200" : optOverlapDefault;
+            String defaultMinOverlap = hasLongReadFiles ? "150" : optOverlapDefault;
             final int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), defaultMinOverlap));
             
             String defaultMaxTipLen = hasLongReadFiles ? "100" : optTipLengthDefault;
