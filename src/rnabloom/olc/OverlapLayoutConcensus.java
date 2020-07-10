@@ -329,16 +329,23 @@ public class OverlapLayoutConcensus {
             int minSeqDepth, boolean usePacBioPreset) throws IOException {
         String uniquesFa = tmpPrefix + "_unique.fa";
         String backbonesFa = tmpPrefix + "_backbones.fa";
+        String polishedFa = tmpPrefix + "_polished.fa";
+        String backbonesFa2 = tmpPrefix + "_backbones2.fa";
         String mapPaf = tmpPrefix + "_map.paf.gz";
+        
         
         Files.deleteIfExists(FileSystems.getDefault().getPath(uniquesFa));
         Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa));
+        Files.deleteIfExists(FileSystems.getDefault().getPath(polishedFa));
+        Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa2));
         Files.deleteIfExists(FileSystems.getDefault().getPath(mapPaf));
         
         if (hasOnlyOneSequence(readsPath)) {
             symlinkRemoveExisting(readsPath, concensusPath);
             return true;
         }
+        
+        // extract unique reads
         
         boolean status = overlapWithMinimapAndExtractUnique(readsPath, uniquesFa,
             numThreads, false, minimapOptions, stranded, maxEdgeClip,
@@ -351,6 +358,8 @@ public class OverlapLayoutConcensus {
             return true;
         }
         
+        // layout backbone from unique reads
+        
         status = overlapWithMinimapAndLayout(uniquesFa, backbonesFa,
             numThreads, true, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
@@ -361,11 +370,35 @@ public class OverlapLayoutConcensus {
             backbonesFa = uniquesFa;
         }
         
+        // polish backbone
+        
         if (!mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads, minimapOptions, usePacBioPreset)) {
             return false;
         }
         
-        return concensusWithRacon(readsPath, backbonesFa, mapPaf, concensusPath, numThreads);
+        if (!concensusWithRacon(readsPath, backbonesFa, mapPaf, polishedFa, numThreads)) {
+            return false;
+        }
+        
+        // layout backbone #2 from polished backbone
+        
+        status = overlapWithMinimapAndLayout(polishedFa, backbonesFa2,
+            numThreads, true, minimapOptions, stranded, maxEdgeClip/2,
+            minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
+            1, usePacBioPreset);
+        
+        if (!status) {
+            // PAF is empty
+            backbonesFa2 = polishedFa;
+        }
+        
+        // polish backbone #2
+        
+        if (!mapWithMinimap(readsPath, backbonesFa2, mapPaf, numThreads, minimapOptions, usePacBioPreset)) {
+            return false;
+        }
+        
+        return concensusWithRacon(readsPath, backbonesFa2, mapPaf, concensusPath, numThreads);
     }
     
     public static void main(String[] args) {
