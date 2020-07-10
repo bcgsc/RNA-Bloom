@@ -146,6 +146,43 @@ public class OverlapLayoutConcensus {
         return runCommand(command, outPafPath + LOG_EXTENSION);
     }
     
+    public static boolean overlapWithMinimapAndExtractUnique(String seqFastaPath, String layoutFastaPath,
+            int numThreads, boolean align, String minimapOptions, boolean stranded, int maxEdgeClip,
+            float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
+            int minSeqDepth, boolean usePacBioPreset) {
+        
+        ArrayList<String> command = new ArrayList<>();
+        command.add("/bin/sh");
+        command.add("-c");
+        
+        if (align) {
+            minimapOptions = "-c " + minimapOptions;
+        }
+        
+        String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
+        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
+        
+        try {            
+            ProcessBuilder pb = new ProcessBuilder(command);
+
+            File logFile = new File(layoutFastaPath + LOG_EXTENSION);
+            pb.redirectError(Redirect.to(logFile));
+            
+            Process process = pb.start();
+
+            if (!extractUnique(seqFastaPath, process.getInputStream(), layoutFastaPath, stranded, maxEdgeClip, 
+                    minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth)) {
+                return false;
+            }
+            
+            int exitStatus = process.waitFor();
+            return exitStatus == 0;
+        }
+        catch (IOException | InterruptedException e) {
+            return false;
+        }
+    }
+    
     public static boolean overlapWithMinimapAndLayout(String seqFastaPath, String layoutFastaPath,
             int numThreads, boolean align, String minimapOptions, boolean stranded, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
@@ -193,6 +230,21 @@ public class OverlapLayoutConcensus {
         command.add(MINIMAP2 + " -x map-" + preset + " -c " + options + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath + " | gzip -c > " + outPafPath);
         
         return runCommand(command, outPafPath + LOG_EXTENSION);
+    }
+    
+    public static boolean extractUnique(String seqFastaPath, InputStream overlapPafInputStream, String outFastaPath,
+            boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
+            boolean cutRevCompArtifact, int minSeqDepth) {
+        try {
+            Layout myLayout = new Layout(seqFastaPath, overlapPafInputStream, stranded, maxEdgeClip, minAlnId, 
+                    minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth);
+            myLayout.extractUnique(outFastaPath);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return false;
+        }
+        
+        return true;
     }
     
     public static boolean layout(String seqFastaPath, InputStream overlapPafInputStream, String backboneFastaPath,
@@ -275,12 +327,12 @@ public class OverlapLayoutConcensus {
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
             int minSeqDepth, boolean usePacBioPreset) throws IOException {
+        String uniquesFa = tmpPrefix + "_unique.fa";
         String backbonesFa = tmpPrefix + "_backbones.fa";
-        String backbonesFa2 = tmpPrefix + "_backbones2.fa";
         String mapPaf = tmpPrefix + "_map.paf.gz";
         
+        Files.deleteIfExists(FileSystems.getDefault().getPath(uniquesFa));
         Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa));
-        Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa2));
         Files.deleteIfExists(FileSystems.getDefault().getPath(mapPaf));
         
         if (hasOnlyOneSequence(readsPath)) {
@@ -288,7 +340,7 @@ public class OverlapLayoutConcensus {
             return true;
         }
         
-        boolean status = overlapWithMinimapAndLayout(readsPath, backbonesFa,
+        boolean status = overlapWithMinimapAndExtractUnique(readsPath, uniquesFa,
             numThreads, false, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
             minSeqDepth, usePacBioPreset);
@@ -299,21 +351,21 @@ public class OverlapLayoutConcensus {
             return true;
         }
         
-        status = overlapWithMinimapAndLayout(backbonesFa, backbonesFa2,
+        status = overlapWithMinimapAndLayout(uniquesFa, backbonesFa,
             numThreads, true, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
             1, usePacBioPreset);
         
         if (!status) {
             // PAF is empty
-            backbonesFa2 = backbonesFa;
+            backbonesFa = uniquesFa;
         }
         
-        if (!mapWithMinimap(readsPath, backbonesFa2, mapPaf, numThreads, minimapOptions, usePacBioPreset)) {
+        if (!mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads, minimapOptions, usePacBioPreset)) {
             return false;
         }
         
-        return concensusWithRacon(readsPath, backbonesFa2, mapPaf, concensusPath, numThreads);
+        return concensusWithRacon(readsPath, backbonesFa, mapPaf, concensusPath, numThreads);
     }
     
     public static void main(String[] args) {

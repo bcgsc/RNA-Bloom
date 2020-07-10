@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jgrapht.Graph;
@@ -548,6 +549,148 @@ public class Layout {
         }
         
         return min;
+    }
+    
+    public void extractUnique(String outFastaPath) throws IOException {
+        Function<ExtendedPafRecord,Boolean> checkContainmentFunction;
+        
+        if (stranded) {
+            checkContainmentFunction = this::isContainmentPafRecord;
+        }
+        else {
+            checkContainmentFunction = this::isStrandedContainmentPafRecord;
+        }
+        
+        HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
+        HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
+        HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id -> cut index
+                       
+        // look for containment and dovetails
+        PafReader reader = new PafReader(overlapPafInputStream);
+        
+        boolean checkNumAltReads = minNumAltReads > 0;
+        ArrayDeque<Interval> spans = new ArrayDeque<>();
+        String prevName = null;
+        int prevLen = -1;
+        ArrayDeque<String> discardReadIDs = new ArrayDeque<>();
+        
+        while (reader.hasNext()) {
+            ExtendedPafRecord r = reader.next();
+            
+            if (checkNumAltReads && (!stranded || !r.reverseComplemented)) {
+                if (!r.qName.equals(prevName)) {
+                    if (!spans.isEmpty() && prevName != null) {
+                        if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
+                            discardReadIDs.add(prevName);
+                        }
+                    }
+
+                    spans = new ArrayDeque<>();
+                }
+
+                prevName = r.qName; 
+                prevLen = r.qLen;
+                spans.add(new Interval(r.qStart, r.qEnd));
+            }
+            
+            lengths.put(r.qName, r.qLen);
+            lengths.put(r.tName, r.tLen);
+            
+            if (r.qName.equals(r.tName)) {
+                if (cutRevCompArtifact && 
+                        hasReverseComplementArtifact(r) && 
+                        hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                    int cutIndex = getReverseComplementArtifactCutIndex(r);
+                    artifactCutIndexes.put(r.qName, cutIndex);
+                }
+            }
+            else {                
+                if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
+                    if (checkContainmentFunction.apply(r)) {
+                        String shorter, longer;
+                        int longerLen;
+
+                        if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
+                            shorter = r.tName;
+                            longer = r.qName;
+                            longerLen = r.qLen;
+                        }
+                        else {
+                            shorter = r.qName;
+                            longer = r.tName;
+                            longerLen = r.tLen;
+                        }
+
+                        if (longestAlts.containsKey(shorter)) {
+                            String alt = longestAlts.get(shorter);
+                            int altLen = lengths.get(alt);
+                            if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
+                                longestAlts.put(shorter, longer);
+                            }
+                        }
+                        else {
+                            longestAlts.put(shorter, longer);
+                        }
+                    }
+                }
+            }
+        }
+        reader.close();
+        
+        if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
+            if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
+                discardReadIDs.add(prevName);
+            }
+        }
+        
+        System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
+        if (!discardReadIDs.isEmpty()) {
+            System.out.println("         - discarded: " + NumberFormat.getInstance().format(discardReadIDs.size()));
+        }
+        
+        if (!artifactCutIndexes.isEmpty()) {
+            System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
+        }
+                
+        // look for longest reads
+        HashSet<String> longestSet = new HashSet<>(longestAlts.values());
+        longestSet.removeAll(longestAlts.keySet());
+                
+        for (String name : lengths.keySet()) {
+            if (!longestAlts.containsKey(name) && !longestSet.contains(name)) {
+                longestSet.add(name);
+            }
+        }
+        longestSet.removeAll(discardReadIDs);
+        
+        if (!longestSet.isEmpty()) {
+            System.out.println("         - unique:    " + NumberFormat.getInstance().format(longestSet.size()));
+        }
+        
+        FastaReader fr = new FastaReader(seqFastaPath);
+        FastaWriter fw = new FastaWriter(outFastaPath, false);
+        while (fr.hasNext()) {
+            String[] nameSeq = fr.nextWithName();
+            String name = nameSeq[0];
+            if (longestSet.contains(name) || (!checkNumAltReads && !lengths.containsKey(name))) {
+                // an orphan sequence with no overlaps with other sequences
+                if (cutRevCompArtifact && artifactCutIndexes.containsKey(name)) {
+                    int halfLen = nameSeq[1].length()/2;
+                    int cutIndex = artifactCutIndexes.get(name);
+                    if (cutIndex < halfLen) {
+                        fw.write(nameSeq[0], nameSeq[1].substring(cutIndex+1));
+                    }
+                    else {
+                        fw.write(nameSeq[0], nameSeq[1].substring(0, cutIndex));
+                    }
+                }
+                else {
+                    fw.write(nameSeq[0], nameSeq[1]);
+                }
+            }
+        }
+        fr.close();
+        fw.close();
     }
     
     private void layoutBackbones(String outFastaPath) throws IOException {
