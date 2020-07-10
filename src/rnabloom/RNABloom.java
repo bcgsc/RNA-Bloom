@@ -5059,7 +5059,7 @@ public class RNABloom {
         options.addOption(optPooledAssembly);
         
         Option optLongReads = Option.builder("long")
-                                    .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `-k 17 -c 2 -indel 20 -e 3 -p 0.7 -overlap 200 -tip 100` unless each option is defined otherwise.)")
+                                    .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `-k 17 -c 2 -indel 30 -e 3 -p 0.7 -overlap 200 -tip 100` unless each option is defined otherwise.)")
                                     .hasArgs()
                                     .argName("FILE")
                                     .build();
@@ -5797,7 +5797,7 @@ public class RNABloom {
             String defaultPercentIdentity = hasLongReadFiles ? "0.7" : optPercentIdentityDefault;
             final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), defaultPercentIdentity));
             
-            String defaultMaxIndelSize = hasLongReadFiles ? "20" : optIndelSizeDefault;
+            String defaultMaxIndelSize = hasLongReadFiles ? "30" : optIndelSizeDefault;
             final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), defaultMaxIndelSize));
             
             String defaultMaxErrCorrItr = hasLongReadFiles ? "3" : optErrCorrItrDefault;
