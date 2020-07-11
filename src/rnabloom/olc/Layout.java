@@ -775,8 +775,8 @@ public class Layout {
                         }
                     }
                     
-                    if (//!longestAlts.containsKey(r.qName) &&
-                        //    !longestAlts.containsKey(r.tName) &&
+                    if ((!longestAlts.containsKey(r.qName) ||
+                            !longestAlts.containsKey(r.tName)) &&
                             isDovetailPafRecord(r)) {
                         dovetailRecords.add(r);
                     }
@@ -1015,8 +1015,8 @@ public class Layout {
                         }
                     }
                     
-                    if (//!longestAlts.containsKey(r.qName) &&
-                        //    !longestAlts.containsKey(r.tName) &&
+                    if ((!longestAlts.containsKey(r.qName) ||
+                            !longestAlts.containsKey(r.tName)) &&
                             isStrandedDovetailPafRecord(r)) {
                         dovetailRecords.add(r);
                     }
