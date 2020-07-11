@@ -774,8 +774,7 @@ public class Layout {
                             longestAlts.put(shorter, longer);
                         }
                     }
-                    
-                    if ((!longestAlts.containsKey(r.qName) ||
+                    else if ((!longestAlts.containsKey(r.qName) ||
                             !longestAlts.containsKey(r.tName)) &&
                             isDovetailPafRecord(r)) {
                         dovetailRecords.add(r);
@@ -1014,8 +1013,7 @@ public class Layout {
                             longestAlts.put(shorter, longer);
                         }
                     }
-                    
-                    if ((!longestAlts.containsKey(r.qName) ||
+                    else if ((!longestAlts.containsKey(r.qName) ||
                             !longestAlts.containsKey(r.tName)) &&
                             isStrandedDovetailPafRecord(r)) {
                         dovetailRecords.add(r);
