@@ -740,7 +740,7 @@ public class Layout {
                 
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
-//        longestSet.removeAll(longestAlts.keySet());
+        longestSet.removeAll(longestAlts.keySet());
         
         for (String name : lengths.keySet()) {
             if (!longestAlts.containsKey(name) && !longestSet.contains(name)) {
@@ -915,7 +915,7 @@ public class Layout {
                 
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
-        //longestSet.removeAll(longestAlts.keySet());
+        longestSet.removeAll(longestAlts.keySet());
                 
         for (String name : lengths.keySet()) {
             if (!longestAlts.containsKey(name) && !longestSet.contains(name)) {
@@ -1154,7 +1154,7 @@ public class Layout {
         
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
-        //longestSet.removeAll(longestAlts.keySet());
+        longestSet.removeAll(longestAlts.keySet());
         
         for (String name : lengths.keySet()) {
             if (!longestAlts.containsKey(name) && !longestSet.contains(name)) {
