@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.text.NumberFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -502,16 +503,69 @@ public class Layout {
     }
     
     private static class Interval {
-        int start;
-        int end;
+        public int start;
+        public int end;
         
         public Interval(int start, int end) {
             this.start = start;
             this.end = end;
         }
     }
+
+    private static Interval overlapInterval(Interval span1, Interval span2) {
+        if (span1.start >= span2.start && span1.start <= span2.end) {
+            return new Interval(span2.start, Math.max(span1.end, span2.end));
+        }
+        else if (span1.end >= span2.start && span1.end <= span2.end) {
+            return new Interval(Math.min(span1.start, span2.start), span2.end);
+        }
+                
+        return null;
+    }
     
-    private static int getMinCoverage(ArrayDeque<Interval> spans, int targetLength, int edgeTolerance, int window) {
+    private static ArrayList<Interval> overlapIntervals(ArrayList<Interval> spans) {
+        int numSpans = spans.size();
+        
+        for (int cursor=0; cursor<numSpans; ++cursor) {
+            ArrayList<Interval> newSpans = new ArrayList<>();
+            int newCursor = 0;
+            Interval query = spans.get(cursor);
+
+            for (int i=0; i<cursor; ++i) {
+                Interval target = spans.get(i);
+                Interval merged = overlapInterval(query, target);
+                if (merged != null) {
+                    query = merged;
+                }
+                else {
+                    newSpans.add(target);
+                }
+            }
+            
+            newCursor = newSpans.size();
+            newSpans.add(query);
+
+            for (int i=cursor+1; i<numSpans; ++i) {
+                Interval target = spans.get(i);
+                Interval merged = overlapInterval(query, target);
+                if (merged != null) {
+                    query = merged;
+                    newSpans.set(newCursor, merged);
+                }
+                else {
+                    newSpans.add(target);
+                }
+            }
+            
+            spans = newSpans;
+            numSpans = newSpans.size();
+            cursor = newCursor;
+        }
+        
+        return spans;
+    }
+    
+    private static int getMinCoverage(Collection<Interval> spans, int targetLength, int edgeTolerance, int window) {
         int effectiveLength = targetLength - 2*edgeTolerance;
         int numWindows = effectiveLength / window;
         int shift = edgeTolerance + (effectiveLength % window)/2;
@@ -569,10 +623,13 @@ public class Layout {
         PafReader reader = new PafReader(overlapPafInputStream);
         
         boolean checkNumAltReads = minNumAltReads > 0;
-        ArrayDeque<Interval> spans = new ArrayDeque<>();
+//        boolean checkNumAltReads = true;
+        
+        ArrayList<Interval> spans = new ArrayList<>();
         String prevName = null;
-        int prevLen = -1;
+//        int prevLen = -1;
         ArrayDeque<String> discardReadIDs = new ArrayDeque<>();
+        HashMap<String, ArrayList> readIntervalsMap = new HashMap<>();
         
         while (reader.hasNext()) {
             ExtendedPafRecord r = reader.next();
@@ -580,31 +637,34 @@ public class Layout {
             if (checkNumAltReads && (!stranded || !r.reverseComplemented)) {
                 if (!r.qName.equals(prevName)) {
                     if (!spans.isEmpty() && prevName != null) {
-                        if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
-                            discardReadIDs.add(prevName);
-                        }
+//                        if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
+//                            discardReadIDs.add(prevName);
+//                        }
+                        ArrayList<Interval> newSpans = overlapIntervals(spans);
+                        readIntervalsMap.put(prevName, newSpans);
                     }
 
-                    spans = new ArrayDeque<>();
+                    spans = new ArrayList<>();
                 }
 
                 prevName = r.qName; 
-                prevLen = r.qLen;
+//                prevLen = r.qLen;
                 spans.add(new Interval(r.qStart, r.qEnd));
             }
             
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
             
-            if (r.qName.equals(r.tName)) {
-                if (cutRevCompArtifact && 
-                        hasReverseComplementArtifact(r) && 
-                        hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
-                    int cutIndex = getReverseComplementArtifactCutIndex(r);
-                    artifactCutIndexes.put(r.qName, cutIndex);
-                }
-            }
-            else {                
+//            if (r.qName.equals(r.tName)) {
+//                if (cutRevCompArtifact && 
+//                        hasReverseComplementArtifact(r) && 
+//                        hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+//                    int cutIndex = getReverseComplementArtifactCutIndex(r);
+//                    artifactCutIndexes.put(r.qName, cutIndex);
+//                }
+//            }
+//            else {       
+            if (!r.qName.equals(r.tName)) {
                 if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
                     if (checkContainmentFunction.apply(r)) {
                         String shorter, longer;
@@ -638,9 +698,11 @@ public class Layout {
         reader.close();
         
         if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
-            if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
-                discardReadIDs.add(prevName);
-            }
+//            if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
+//                discardReadIDs.add(prevName);
+//            }
+            ArrayList<Interval> newSpans = overlapIntervals(spans);
+            readIntervalsMap.put(prevName, newSpans);
         }
         
         System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
@@ -654,7 +716,7 @@ public class Layout {
                 
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
-        longestSet.removeAll(longestAlts.keySet());
+//        longestSet.removeAll(longestAlts.keySet());
                 
         for (String name : lengths.keySet()) {
             if (!longestAlts.containsKey(name) && !longestSet.contains(name)) {
@@ -675,6 +737,7 @@ public class Layout {
             ++originalNumSeq;
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
+            /*
             if (longestSet.contains(name) || (!checkNumAltReads && !lengths.containsKey(name))) {
                 // an orphan sequence with no overlaps with other sequences
                 if (cutRevCompArtifact && artifactCutIndexes.containsKey(name)) {
@@ -692,6 +755,36 @@ public class Layout {
                 else {
                     ++seqID;
                     fw.write(nameSeq[0], nameSeq[1]);
+                }
+            }
+            */
+            if (longestSet.contains(name)) {
+                ++seqID;
+                
+                String seq = nameSeq[1];
+                if (checkNumAltReads) { 
+                    spans = readIntervalsMap.get(name);
+                    if (spans == null) {
+                        fw.write(name, seq);
+                    }
+                    else {
+                        int numSpans = spans.size();
+                        if (numSpans == 1) {
+                            Interval span = spans.get(0);
+                            fw.write(name + "_t " + seq.length() + ":" + span.start + "-" + span.end,
+                                    seq.substring(span.start, span.end));
+                        }
+                        else {
+                            for (int i=0; i<numSpans; ++i) {
+                                Interval span = spans.get(i);
+                                fw.write(name + "_p" + i + " " + seq.length() + ":" + span.start + "-" + span.end,
+                                        seq.substring(span.start, span.end));
+                            }
+                        }
+                    }
+                }
+                else {
+                    fw.write(name, seq);
                 }
             }
         }
