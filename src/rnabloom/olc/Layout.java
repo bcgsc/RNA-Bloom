@@ -741,7 +741,7 @@ public class Layout {
         // look for longest reads
         HashSet<String> longestSet = new HashSet<>(longestAlts.values());
 //        longestSet.removeAll(longestAlts.keySet());
-                
+        
         for (String name : lengths.keySet()) {
             if (!longestAlts.containsKey(name) && !longestSet.contains(name)) {
                 longestSet.add(name);
@@ -782,18 +782,13 @@ public class Layout {
                 }
             }
             */
-            if (longestSet.contains(name)) {
+            if (longestSet.contains(name) || (!checkNumAltReads && !lengths.containsKey(name))) {
                 ++seqID;
                 
                 String seq = nameSeq[1];
                 if (checkNumAltReads) { 
                     spans = readIntervalsMap.get(name);
-                    if (spans == null) {
-                        System.out.println(longestAlts.containsKey(name));
-                        System.out.println(longestAlts.containsValue(name));
-                        fw.write(name, seq);
-                    }
-                    else {
+                    if (spans != null) {
                         int numSpans = spans.size();
                         if (numSpans == 1) {
                             Interval span = spans.get(0);
