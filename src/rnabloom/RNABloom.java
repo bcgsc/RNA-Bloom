@@ -5803,7 +5803,7 @@ public class RNABloom {
             String defaultMaxErrCorrItr = hasLongReadFiles ? "3" : optErrCorrItrDefault;
             final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), defaultMaxErrCorrItr));
             
-            String defaultMinKmerCov = hasLongReadFiles ? "3" : optMinKmerCovDefault;
+            String defaultMinKmerCov = hasLongReadFiles ? "2" : optMinKmerCovDefault;
             int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), defaultMinKmerCov));
             
             String defaultMinOverlap = hasLongReadFiles ? "150" : optOverlapDefault;

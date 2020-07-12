@@ -640,8 +640,15 @@ public class Layout {
 //                        if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
 //                            discardReadIDs.add(prevName);
 //                        }
-                        ArrayList<Interval> newSpans = overlapIntervals(spans);
-                        readIntervalsMap.put(prevName, newSpans);
+
+                        if (readIntervalsMap.containsKey(prevName)) {
+                            ArrayList<Interval> qSpans = readIntervalsMap.get(prevName);
+                            qSpans.addAll(spans);
+                            readIntervalsMap.put(prevName, overlapIntervals(qSpans));
+                        }
+                        else {
+                            readIntervalsMap.put(prevName, overlapIntervals(spans));
+                        }
                     }
 
                     spans = new ArrayList<>();
@@ -650,6 +657,17 @@ public class Layout {
                 prevName = r.qName; 
 //                prevLen = r.qLen;
                 spans.add(new Interval(r.qStart, r.qEnd));
+                
+                if (readIntervalsMap.containsKey(r.tName)) {
+                    ArrayList<Interval> tSpans = readIntervalsMap.get(r.tName);
+                    tSpans.add(new Interval(r.tStart, r.tEnd));
+                    readIntervalsMap.put(r.tName, overlapIntervals(tSpans));
+                }
+                else {
+                    ArrayList<Interval> tSpans = new ArrayList<>();
+                    tSpans.add(new Interval(r.tStart, r.tEnd));
+                    readIntervalsMap.put(r.tName, tSpans);
+                }
             }
             
             lengths.put(r.qName, r.qLen);
@@ -701,8 +719,14 @@ public class Layout {
 //            if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
 //                discardReadIDs.add(prevName);
 //            }
-            ArrayList<Interval> newSpans = overlapIntervals(spans);
-            readIntervalsMap.put(prevName, newSpans);
+            if (readIntervalsMap.containsKey(prevName)) {
+                ArrayList<Interval> qSpans = readIntervalsMap.get(prevName);
+                qSpans.addAll(spans);
+                readIntervalsMap.put(prevName, overlapIntervals(qSpans));
+            }
+            else {
+                readIntervalsMap.put(prevName, overlapIntervals(spans));
+            }
         }
         
         System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
@@ -765,6 +789,8 @@ public class Layout {
                 if (checkNumAltReads) { 
                     spans = readIntervalsMap.get(name);
                     if (spans == null) {
+                        System.out.println(longestAlts.containsKey(name));
+                        System.out.println(longestAlts.containsValue(name));
                         fw.write(name, seq);
                     }
                     else {
