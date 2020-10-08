@@ -5908,21 +5908,26 @@ public class RNABloom {
                 writer.close();
                 
                 String histogramPathPrefix = outdir + File.separator + name;
-                                
+                
+                long numUniqueNonSingletons = -1L;
+                
                 for (int tmpK : kmerSizes) {                    
                     NTCardHistogram tmpHist = getNTCardHistogram(numThreads, tmpK, histogramPathPrefix, ntcard_reads_list_file, forceOverwrite);
                     if (tmpHist == null) {
                         exitOnError("Error running ntCard!");
                     }
-                    else if (tmpHist.numUniqueKmers > expNumKmers) {
+                    long tmpNumUniqueNonSingletons = tmpHist.numUniqueKmers - tmpHist.getNumSingletons();
+                    
+                    System.out.println("Unique k-mers (k=" + tmpK + "):     " + NumberFormat.getInstance().format(tmpHist.numUniqueKmers));
+                    System.out.println("Unique k-mers (k=" + tmpK + ",c>1): " + NumberFormat.getInstance().format(tmpNumUniqueNonSingletons));
+                    
+                    if (tmpNumUniqueNonSingletons > numUniqueNonSingletons) {
                         hist = tmpHist;
                         k = tmpK;
                         expNumKmers = tmpHist.numUniqueKmers;
+                        numUniqueNonSingletons = tmpNumUniqueNonSingletons;
                     }
-                    
-                    System.out.println("Unique k-mers (k=" + tmpK + "): " + NumberFormat.getInstance().format(tmpHist.numUniqueKmers));
-                    
-                    if (tmpHist.numUniqueKmers < expNumKmers) {
+                    else {
                         // optimal k is found
                         break;
                     }
