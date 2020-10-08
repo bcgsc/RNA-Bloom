@@ -129,7 +129,7 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     public long bitPopCount() {
         long count = 0;
         
-        long numLongs = (long) Math.floor(size / 8f);
+        long numLongs = size / 8L;
         for (long i=0; i<numLongs; ++i) {
             count += Long.bitCount(unsafe.getLong(start + (i * 8L)));
         }
