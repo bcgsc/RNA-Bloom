@@ -1111,12 +1111,15 @@ public class RNABloom {
                 }
                 
                 int len = transcript.length();
+                float cov = getMedianKmerCoverage(transcriptKmers);
                 
                 StringBuilder headerBuilder = new StringBuilder();
                 headerBuilder.append(prefix);
                 headerBuilder.append(++cid);
                 headerBuilder.append(" l=");
                 headerBuilder.append(len);
+                headerBuilder.append(" c=");
+                headerBuilder.append(String.format("%.1f", cov));
                 if (!fragment.isEmpty()) {
                     headerBuilder.append(" F=[");
                     headerBuilder.append(fragment);
