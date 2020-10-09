@@ -5389,7 +5389,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optMergePool);
         
-        final String optOverlapDefault = "10";
+        final String optOverlapDefault = "k-1";
         Option optOverlap = Option.builder("overlap")
                                     .desc("minimum number of overlapping bases between reads [" + optOverlapDefault + "]")
                                     .hasArg(true)
@@ -5805,10 +5805,7 @@ public class RNABloom {
             
             String defaultMinKmerCov = hasLongReadFiles ? "2" : optMinKmerCovDefault;
             int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), defaultMinKmerCov));
-            
-            String defaultMinOverlap = hasLongReadFiles ? "150" : optOverlapDefault;
-            final int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), defaultMinOverlap));
-            
+                        
             String defaultMaxTipLen = hasLongReadFiles ? "100" : optTipLengthDefault;
             final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), defaultMaxTipLen));
             
@@ -5955,6 +5952,9 @@ public class RNABloom {
                 expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt(), "-1"));
                 System.out.println("Min k-mer coverage threshold: " + NumberFormat.getInstance().format(minKmerCov));
             }
+            
+            String defaultMinOverlap = hasLongReadFiles ? "150" : Integer.toString(k-1);
+            final int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), defaultMinOverlap));
             
             if (expNumKmers > 0) {
                 sbfSize = BloomFilter.getExpectedSize(expNumKmers, maxFPR, sbfNumHash);
