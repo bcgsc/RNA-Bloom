@@ -16,6 +16,7 @@
  */
 package rnabloom.olc;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.NumberFormat;
@@ -26,6 +27,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -37,6 +39,7 @@ import org.jgrapht.alg.TransitiveReduction;
 import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
+import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
@@ -91,7 +94,8 @@ public class Layout {
         @Override
         public int compareTo(OverlapEdge o) {
             // an edge with a larger overlap is "less"
-            return Math.max(o.sinkEnd-o.sinkStart, o.sourceEnd-o.sourceStart) - Math.max(sinkEnd-sinkStart, sourceEnd-sourceStart);
+            //return Math.max(o.sinkEnd-o.sinkStart, o.sourceEnd-o.sourceStart) - Math.max(sinkEnd-sinkStart, sourceEnd-sourceStart);
+            return ((o.sinkEnd-o.sinkStart)+(o.sourceEnd-o.sourceStart))/2 - ((sinkEnd-sinkStart)+(sourceEnd-sourceStart))/2;
         }
     }
 
@@ -605,120 +609,132 @@ public class Layout {
         return min;
     }
     
-    public void extractUnique(String outFastaPath) throws IOException {
-        Function<ExtendedPafRecord,Boolean> checkContainmentFunction;
+    private class ReadClusters {
+        private LinkedList<HashSet<String>> clusters = new LinkedList<>();
         
-        if (stranded) {
-            checkContainmentFunction = this::isContainmentPafRecord;
-        }
-        else {
-            checkContainmentFunction = this::isStrandedContainmentPafRecord;
+        public ReadClusters() {
         }
         
-        HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
-        HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
-        HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id -> cut index
-                       
-        // look for containment and dovetails
+        public void add(String read1, String read2){
+            if (!read1.equals(read2)) {
+                HashSet<String> cluster1 = null;
+                HashSet<String> cluster2 = null;
+
+                for (HashSet<String> c : clusters) {
+                    if (c.contains(read1)) {
+                        cluster1 = c;
+                        break;
+                    }
+                }
+
+                for (HashSet<String> c : clusters) {
+                    if (c.contains(read2)) {
+                        cluster2 = c;
+                        break;
+                    }
+                }
+
+                if (cluster1 == null && cluster2 == null) {
+                    HashSet<String> c = new HashSet();
+                    c.add(read1);
+                    c.add(read2);
+                    clusters.add(c);
+                }
+                else if (cluster1 == null && cluster2 != null) {
+                    cluster2.add(read1);
+                }
+                else if (cluster1 != null && cluster2 == null) {
+                    cluster1.add(read2);
+                }
+                else if (cluster1 != cluster2) {
+                    clusters.remove(cluster2);
+                    cluster1.addAll(cluster2);
+                }
+            }
+        }
+        
+        public HashMap<String,Integer> assignIDs() {
+            HashMap<String,Integer> m = new HashMap<>();
+            int id = 1;
+            for (HashSet<String> c : clusters) {
+                for (String s : c) {
+                    m.put(s, id);
+                }
+                ++id;
+            }
+            return m;
+        }
+        
+        public int getID(String read) {
+            int id = 1;
+            for (HashSet<String> c : clusters){
+                if (c.contains(read)) {
+                    return id;
+                }
+                ++id;
+            }
+            return -1;
+        }
+        
+        public int size() {
+            return clusters.size();
+        }
+    }
+    
+    public int extractClusters(String outdir) throws IOException {
+        ReadClusters clusters = new ReadClusters();
+
         PafReader reader = new PafReader(overlapPafInputStream);
         
         boolean checkNumAltReads = minNumAltReads > 0;
-//        boolean checkNumAltReads = true;
         
         ArrayList<Interval> spans = new ArrayList<>();
         String prevName = null;
-//        int prevLen = -1;
-        ArrayDeque<String> discardReadIDs = new ArrayDeque<>();
+        
         HashMap<String, ArrayList> readIntervalsMap = new HashMap<>();
         
         while (reader.hasNext()) {
             ExtendedPafRecord r = reader.next();
             
-            if (checkNumAltReads && (!stranded || !r.reverseComplemented)) {
-                if (!r.qName.equals(prevName)) {
-                    if (!spans.isEmpty() && prevName != null) {
-//                        if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
-//                            discardReadIDs.add(prevName);
-//                        }
-
-                        if (readIntervalsMap.containsKey(prevName)) {
-                            ArrayList<Interval> qSpans = readIntervalsMap.get(prevName);
-                            qSpans.addAll(spans);
-                            readIntervalsMap.put(prevName, overlapIntervals(qSpans));
-                        }
-                        else {
-                            readIntervalsMap.put(prevName, overlapIntervals(spans));
-                        }
-                    }
-
-                    spans = new ArrayList<>();
-                }
-
-                prevName = r.qName; 
-//                prevLen = r.qLen;
-                spans.add(new Interval(r.qStart, r.qEnd));
+            if (!stranded || !r.reverseComplemented) {
+                clusters.add(r.qName, r.tName);
                 
-                if (readIntervalsMap.containsKey(r.tName)) {
-                    ArrayList<Interval> tSpans = readIntervalsMap.get(r.tName);
-                    tSpans.add(new Interval(r.tStart, r.tEnd));
-                    readIntervalsMap.put(r.tName, overlapIntervals(tSpans));
-                }
-                else {
-                    ArrayList<Interval> tSpans = new ArrayList<>();
-                    tSpans.add(new Interval(r.tStart, r.tEnd));
-                    readIntervalsMap.put(r.tName, tSpans);
-                }
-            }
-            
-            lengths.put(r.qName, r.qLen);
-            lengths.put(r.tName, r.tLen);
-            
-//            if (r.qName.equals(r.tName)) {
-//                if (cutRevCompArtifact && 
-//                        hasReverseComplementArtifact(r) && 
-//                        hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
-//                    int cutIndex = getReverseComplementArtifactCutIndex(r);
-//                    artifactCutIndexes.put(r.qName, cutIndex);
-//                }
-//            }
-//            else {       
-            if (!r.qName.equals(r.tName)) {
-                if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
-                    if (checkContainmentFunction.apply(r)) {
-                        String shorter, longer;
-                        int longerLen;
-
-                        if (r.qLen > r.tLen || (r.qLen == r.tLen && r.qName.compareTo(r.tName) > 0)) {
-                            shorter = r.tName;
-                            longer = r.qName;
-                            longerLen = r.qLen;
-                        }
-                        else {
-                            shorter = r.qName;
-                            longer = r.tName;
-                            longerLen = r.tLen;
-                        }
-
-                        if (longestAlts.containsKey(shorter)) {
-                            String alt = longestAlts.get(shorter);
-                            int altLen = lengths.get(alt);
-                            if (altLen < longerLen || (altLen == longerLen && longer.compareTo(alt) > 0)) {
-                                longestAlts.put(shorter, longer);
+                if (checkNumAltReads) {
+                    if (!r.qName.equals(prevName)) {
+                        if (!spans.isEmpty() && prevName != null) {
+                            if (readIntervalsMap.containsKey(prevName)) {
+                                ArrayList<Interval> qSpans = readIntervalsMap.get(prevName);
+                                qSpans.addAll(spans);
+                                readIntervalsMap.put(prevName, overlapIntervals(qSpans));
+                            }
+                            else {
+                                readIntervalsMap.put(prevName, overlapIntervals(spans));
                             }
                         }
-                        else {
-                            longestAlts.put(shorter, longer);
-                        }
+
+                        spans = new ArrayList<>();
+                    }
+
+                    spans.add(new Interval(r.qStart, r.qEnd));
+
+                    if (readIntervalsMap.containsKey(r.tName)) {
+                        ArrayList<Interval> tSpans = readIntervalsMap.get(r.tName);
+                        tSpans.add(new Interval(r.tStart, r.tEnd));
+                        readIntervalsMap.put(r.tName, overlapIntervals(tSpans));
+                    }
+                    else {
+                        ArrayList<Interval> tSpans = new ArrayList<>();
+                        tSpans.add(new Interval(r.tStart, r.tEnd));
+                        readIntervalsMap.put(r.tName, tSpans);
                     }
                 }
+                
+                prevName = r.qName;
             }
         }
         reader.close();
         
         if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
-//            if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
-//                discardReadIDs.add(prevName);
-//            }
             if (readIntervalsMap.containsKey(prevName)) {
                 ArrayList<Interval> qSpans = readIntervalsMap.get(prevName);
                 qSpans.addAll(spans);
@@ -729,62 +745,23 @@ public class Layout {
             }
         }
         
-        System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
-        if (!discardReadIDs.isEmpty()) {
-            System.out.println("         - discarded: " + NumberFormat.getInstance().format(discardReadIDs.size()));
-        }
-        
-        if (!artifactCutIndexes.isEmpty()) {
-            System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
-        }
-                
-        // look for longest reads
-        HashSet<String> longestSet = new HashSet<>(longestAlts.values());
-        longestSet.removeAll(longestAlts.keySet());
-        
-        for (String name : lengths.keySet()) {
-            if (!longestAlts.containsKey(name) && !longestSet.contains(name)) {
-                longestSet.add(name);
-            }
-        }
-        longestSet.removeAll(discardReadIDs);
-        
-        if (!longestSet.isEmpty()) {
-            System.out.println("         - unique:    " + NumberFormat.getInstance().format(longestSet.size()));
-        }
-        
+        HashMap<String, Integer> cids = clusters.assignIDs();
+        int numClusters = clusters.size();
+        System.out.println("Clusters found: " + numClusters);
+
         FastaReader fr = new FastaReader(seqFastaPath);
-        FastaWriter fw = new FastaWriter(outFastaPath, false);
-        long originalNumSeq = 0;
-        long seqID = 0;
+        
+//        long originalNumSeq = 0;
+//        long seqID = 0;
         while (fr.hasNext()) {
-            ++originalNumSeq;
+//            ++originalNumSeq;
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
-            /*
-            if (longestSet.contains(name) || (!checkNumAltReads && !lengths.containsKey(name))) {
-                // an orphan sequence with no overlaps with other sequences
-                if (cutRevCompArtifact && artifactCutIndexes.containsKey(name)) {
-                    int halfLen = nameSeq[1].length()/2;
-                    int cutIndex = artifactCutIndexes.get(name);
-                    if (cutIndex < halfLen) {
-                        ++seqID;
-                        fw.write(nameSeq[0], nameSeq[1].substring(cutIndex+1));
-                    }
-                    else {
-                        ++seqID;
-                        fw.write(nameSeq[0], nameSeq[1].substring(0, cutIndex));
-                    }
-                }
-                else {
-                    ++seqID;
-                    fw.write(nameSeq[0], nameSeq[1]);
-                }
-            }
-            */
-            if (longestSet.contains(name) || (!checkNumAltReads && !lengths.containsKey(name))) {
-                ++seqID;
-                
+            
+            if (cids.containsKey(name)) {
+                int cid = cids.get(name);
+                FastaWriter fw = new FastaWriter(outdir + File.separator + cid + FASTA_EXT, true);
+//                ++seqID;
                 String seq = nameSeq[1];
                 if (checkNumAltReads) { 
                     spans = readIntervalsMap.get(name);
@@ -807,12 +784,13 @@ public class Layout {
                 else {
                     fw.write(name, seq);
                 }
+                fw.close();
             }
         }
         fr.close();
-        fw.close();
         
-        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+        //System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+        return numClusters;
     }
     
     private void layoutBackbones(String outFastaPath) throws IOException {
@@ -824,7 +802,7 @@ public class Layout {
         // look for containment and dovetails
         PafReader reader = new PafReader(overlapPafInputStream);
         
-        boolean checkNumAltReads = minNumAltReads > 0;
+        boolean checkNumAltReads = false;//minNumAltReads > 0;
         ArrayDeque<Interval> spans = new ArrayDeque<>();
         String prevName = null;
         int prevLen = -1;
@@ -832,7 +810,7 @@ public class Layout {
         
         while (reader.hasNext()) {
             ExtendedPafRecord r = reader.next();
-            
+            /*
             if (checkNumAltReads) {
                 if (!r.qName.equals(prevName)) {
                     if (!spans.isEmpty() && prevName != null) {
@@ -848,7 +826,7 @@ public class Layout {
                 prevLen = r.qLen;
                 spans.add(new Interval(r.qStart, r.qEnd));
             }
-            
+            */
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
             
@@ -897,19 +875,19 @@ public class Layout {
             }
         }
         reader.close();
-        
+        /*
         if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
             if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
                 discardReadIDs.add(prevName);
             }
         }
-        
+        */
         System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
         if (!discardReadIDs.isEmpty()) {
             System.out.println("         - discarded: " + NumberFormat.getInstance().format(discardReadIDs.size()));
         }
         
-        if (!artifactCutIndexes.isEmpty()) {
+        if (cutRevCompArtifact && !artifactCutIndexes.isEmpty()) {
             System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
         }
                 
@@ -930,7 +908,7 @@ public class Layout {
         
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
-        for (PafRecord r : dovetailRecords) {
+        for (PafRecord r : dovetailRecords) {                
             if ((!cutRevCompArtifact || (!artifactCutIndexes.containsKey(r.qName) && !artifactCutIndexes.containsKey(r.tName))) &&
                     longestSet.contains(r.qName) && longestSet.contains(r.tName)) {
                 if (!dovetailReadNames.contains(r.qName)) {
@@ -944,7 +922,7 @@ public class Layout {
                     graph.addVertex(r.tName + "-");
                     dovetailReadNames.add(r.tName);
                 }
-                
+                                
                 if (r.reverseComplemented) {
                     if (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip) {
                         graph.addEdge(r.tName+"+", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
@@ -1063,7 +1041,7 @@ public class Layout {
         // look for containment and overlaps
         PafReader reader = new PafReader(overlapPafInputStream);
         
-        boolean checkNumAltReads = minNumAltReads > 0;
+        boolean checkNumAltReads = false;//minNumAltReads > 0;
         ArrayDeque<Interval> spans = new ArrayDeque<>();
         String prevName = null;
         int prevLen = -1;
@@ -1071,7 +1049,7 @@ public class Layout {
         
         while (reader.hasNext()) {
             ExtendedPafRecord r = reader.next();
-
+            /*
             if (checkNumAltReads && !r.reverseComplemented) {
                 if (!r.qName.equals(prevName)) {
                     if (!spans.isEmpty() && prevName != null) {
@@ -1087,7 +1065,7 @@ public class Layout {
                 prevLen = r.qLen;
                 spans.add(new Interval(r.qStart, r.qEnd));
             }
-            
+            */
             lengths.put(r.qName, r.qLen);
             lengths.put(r.tName, r.tLen);
             
@@ -1136,19 +1114,19 @@ public class Layout {
             }
         }
         reader.close();
-        
+        /*
         if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
             if (minNumAltReads > getMinCoverage(spans, prevLen, maxEdgeClip, minOverlapMatches)) {
                 discardReadIDs.add(prevName);
             }
         }
-        
+        */
         System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
         if (!discardReadIDs.isEmpty()) {
             System.out.println("         - discarded: " + NumberFormat.getInstance().format(discardReadIDs.size()));
         }
         
-        if (!artifactCutIndexes.isEmpty()) {
+        if (cutRevCompArtifact && !artifactCutIndexes.isEmpty()) {
             System.out.println("         - artifacts: " + NumberFormat.getInstance().format(artifactCutIndexes.size()));
         }
         

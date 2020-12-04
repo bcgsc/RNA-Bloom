@@ -85,6 +85,7 @@ import rnabloom.util.NTCardHistogram;
 import static rnabloom.util.SeqUtils.*;
 import static rnabloom.io.Constants.NBITS_EXT;
 import rnabloom.io.SequenceFileIteratorInterface;
+import static rnabloom.olc.OverlapLayoutConcensus.clusteredOLC;
 
 /**
  *
@@ -2758,6 +2759,72 @@ public class RNABloom {
         
         return ok;
     }
+
+    public boolean assembleClusteredLongReads(String readsPath, 
+                                    String clusterdir, 
+                                    String outFasta,
+                                    boolean writeUracil,
+                                    int numThreads,
+                                    String minimapOptions,
+                                    int minKmerCov,
+                                    int maxEdgeClip,
+                                    float minAlnId,
+                                    int minOverlapMatches,
+                                    String txptNamePrefix,
+                                    boolean stranded,
+                                    boolean removeArtifacts,
+                                    int minSeqDepth,
+                                    boolean usePacBioPreset) throws IOException {
+        
+        System.out.println("Clustering reads...");
+        int numClusters = clusteredOLC(readsPath, clusterdir, 
+                            numThreads, stranded, minimapOptions, maxEdgeClip,
+                            minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
+                            minSeqDepth, usePacBioPreset);
+        
+        /**@TODO handle errors in clusteredOLC */
+        
+        Pattern raconRcPattern = Pattern.compile("RC:i:(\\d+)");
+
+        // combine assembly files
+        System.out.println("Combining transcripts from " + numClusters + " clusters...");
+        FastaWriter fout = new FastaWriter(outFasta, false);
+        FastaReader fin;
+        int numTranscripts = 0;
+        for (int clusterID = 1; clusterID<=numClusters; ++clusterID) {
+            String clusterAssemblyPath = clusterdir + File.separator + clusterID + "_transcripts" + FASTA_EXT;
+            fin = new FastaReader(clusterAssemblyPath);
+            while(fin.hasNext()) {
+                ++numTranscripts;
+                String[] nameCommentSeq = fin.nextWithComment();
+                String comment = nameCommentSeq[1];
+                String seq = nameCommentSeq[2];
+
+                if (writeUracil) {
+                    seq = seq.replace('T', 'U');
+                }
+
+                String length = Integer.toString(seq.length());
+
+                String coverage = "1";
+                if (!comment.isEmpty()) {
+                    Matcher m = raconRcPattern.matcher(comment);
+                    if (m.find()) {
+                        coverage = m.group(1);
+                    }
+                }
+
+                fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0] +
+                        " l=" + length + " c=" + coverage, seq);
+            }
+            fin.close();
+        }
+        fout.close();
+        
+        System.out.println("Transcripts assembled: " + numTranscripts);
+        
+        return true;
+    }
     
     public boolean assembleUnclusteredLongReads(String readsPath, 
                                     String tmpPrefix, 
@@ -4594,6 +4661,44 @@ public class RNABloom {
                                     usePacBioPreset);
     }
     
+    private static boolean assembleClusteredLongReads(RNABloom assembler,
+            String readsFasta, String clusterdir, String outFasta, boolean writeUracil, 
+            int numThreads, boolean forceOverwrite,
+            String minimapOptions, int minKmerCov,
+            int maxEdgeClip, float minAlnId, int minOverlapMatches,
+            String txptNamePrefix, boolean stranded, boolean removeArtifacts,
+            int minSeqDepth, boolean usePacBioPreset) throws IOException {
+        
+        if (forceOverwrite) {
+            Files.deleteIfExists(FileSystems.getDefault().getPath(outFasta));
+            File outdir = new File(clusterdir);
+            if (outdir.exists()) {
+                for (File f : outdir.listFiles()) {
+                    f.delete();
+                }
+            }
+            else {
+                outdir.mkdirs();
+            }
+        }
+        
+        return assembler.assembleClusteredLongReads(readsFasta, 
+                                    clusterdir, 
+                                    outFasta,
+                                    writeUracil,
+                                    numThreads,
+                                    minimapOptions,
+                                    minKmerCov,
+                                    maxEdgeClip,
+                                    minAlnId,
+                                    minOverlapMatches,
+                                    txptNamePrefix,
+                                    stranded,
+                                    removeArtifacts,
+                                    minSeqDepth,
+                                    usePacBioPreset);
+    }
+    
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, FastxFilePair[] fqPairs,
             long sbfSize, long pkbfSize, int sbfNumHash, int pkbfNumHash, int numThreads,
@@ -5464,7 +5569,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optPolyATail);  
         
-        final String optMinimapOptionsDefault = "-r 150";
+        final String optMinimapOptionsDefault = "-r 150 -k 9";
         Option optMinimapOptions = Option.builder("mmopt")
                                     .desc("options for minimap2 [" + optMinimapOptionsDefault + "]\n(`-x` and `-t` are already in use)")
                                     .hasArg(true)
@@ -5809,7 +5914,7 @@ public class RNABloom {
             String defaultMinKmerCov = hasLongReadFiles ? "2" : optMinKmerCovDefault;
             int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), defaultMinKmerCov));
                         
-            String defaultMaxTipLen = hasLongReadFiles ? "100" : optTipLengthDefault;
+            String defaultMaxTipLen = hasLongReadFiles ? "30" : optTipLengthDefault;
             final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), defaultMaxTipLen));
             
             final float longReadOverlapProportion = Float.parseFloat(line.getOptionValue(optLongReadOverlapProportion.getOpt(), optLongReadOverlapProportionDefault));
@@ -6355,11 +6460,12 @@ public class RNABloom {
                             numThreads, forceOverwrite, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, strandSpecific, minTranscriptLength, !keepArtifact);
                     */
 
-                    final String tmpPrefix = outdir + File.separator + name + ".longreads.assembly";
+                    final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
                     final String assembledTranscriptsPath = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
                     
-                    boolean ok = assembleUnclusteredLongReads(assembler,
-                            longCorrectedReadsPath, assembledTranscriptsPath, tmpPrefix, 
+                    boolean ok = assembleClusteredLongReads(assembler,
+                            longCorrectedReadsPath, clusteredLongReadsDirectory, assembledTranscriptsPath,
+                            writeUracil, 
                             numThreads, forceOverwrite, minimapOptions, minKmerCov, 
                             maxTipLen, longReadOverlapProportion, minOverlap,
                             txptNamePrefix, strandSpecific, !keepArtifact,
