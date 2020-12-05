@@ -39,6 +39,7 @@ import org.jgrapht.alg.TransitiveReduction;
 import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
+import rnabloom.bloom.SimpleBloomFilter;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.FastaReader;
@@ -611,26 +612,35 @@ public class Layout {
     
     private class ReadClusters {
         private LinkedList<HashSet<String>> clusters = new LinkedList<>();
+        private SimpleBloomFilter bf;
         
-        public ReadClusters() {
+        public ReadClusters(long numReads) {
+            this.bf = new SimpleBloomFilter(3*numReads);
         }
         
         public void add(String read1, String read2){
             if (!read1.equals(read2)) {
                 HashSet<String> cluster1 = null;
                 HashSet<String> cluster2 = null;
+                Iterator<HashSet<String>> itr2 = clusters.iterator();
 
-                for (HashSet<String> c : clusters) {
-                    if (c.contains(read1)) {
-                        cluster1 = c;
-                        break;
+                if (bf.lookupAndAdd(read1)) {
+                    for (HashSet<String> c : clusters) {
+                        if (c.contains(read1)) {
+                            cluster1 = c;
+                            break;
+                        }
                     }
                 }
 
-                for (HashSet<String> c : clusters) {
-                    if (c.contains(read2)) {
-                        cluster2 = c;
-                        break;
+                if (bf.lookupAndAdd(read2)) {
+                    HashSet<String> c;
+                    while (itr2.hasNext()) {
+                        c = itr2.next();
+                        if (c.contains(read2)) {
+                            cluster2 = c;
+                            break;
+                        }
                     }
                 }
 
@@ -638,7 +648,7 @@ public class Layout {
                     HashSet<String> c = new HashSet();
                     c.add(read1);
                     c.add(read2);
-                    clusters.add(c);
+                    clusters.addFirst(c);
                 }
                 else if (cluster1 == null && cluster2 != null) {
                     cluster2.add(read1);
@@ -647,7 +657,7 @@ public class Layout {
                     cluster1.add(read2);
                 }
                 else if (cluster1 != cluster2) {
-                    clusters.remove(cluster2);
+                    itr2.remove();
                     cluster1.addAll(cluster2);
                 }
             }
@@ -679,10 +689,15 @@ public class Layout {
         public int size() {
             return clusters.size();
         }
+        
+        public void destroy() {
+            clusters = null;
+            bf.destroy();
+        }
     }
     
-    public int extractClusters(String outdir) throws IOException {
-        ReadClusters clusters = new ReadClusters();
+    public int extractClusters(String outdir, long numReads) throws IOException {
+        ReadClusters clusters = new ReadClusters(numReads);
 
         PafReader reader = new PafReader(overlapPafInputStream);
         
@@ -693,7 +708,12 @@ public class Layout {
         
         HashMap<String, ArrayList> readIntervalsMap = new HashMap<>();
         
+        int records = 0;
         while (reader.hasNext()) {
+            if (++records % 1000000 == 0) {
+                System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " records...");
+            }
+            
             ExtendedPafRecord r = reader.next();
             
             if (!stranded || !r.reverseComplemented) {
@@ -733,6 +753,7 @@ public class Layout {
             }
         }
         reader.close();
+        System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " records.");
         
         if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
             if (readIntervalsMap.containsKey(prevName)) {
@@ -747,6 +768,7 @@ public class Layout {
         
         HashMap<String, Integer> cids = clusters.assignIDs();
         int numClusters = clusters.size();
+        clusters.destroy();
         System.out.println("Clusters found: " + numClusters);
 
         FastaReader fr = new FastaReader(seqFastaPath);

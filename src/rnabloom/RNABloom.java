@@ -2763,6 +2763,7 @@ public class RNABloom {
     public boolean assembleClusteredLongReads(String readsPath, 
                                     String clusterdir, 
                                     String outFasta,
+                                    long numReads,
                                     boolean writeUracil,
                                     int numThreads,
                                     String minimapOptions,
@@ -2777,7 +2778,7 @@ public class RNABloom {
                                     boolean usePacBioPreset) throws IOException {
         
         System.out.println("Clustering reads...");
-        int numClusters = clusteredOLC(readsPath, clusterdir, 
+        int numClusters = clusteredOLC(readsPath, clusterdir, numReads,
                             numThreads, stranded, minimapOptions, maxEdgeClip,
                             minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
                             minSeqDepth, usePacBioPreset);
@@ -3371,7 +3372,7 @@ public class RNABloom {
         }
     }
     
-    public void correctLongReadsMultithreaded(String[] inputFastxPaths,
+    public long correctLongReadsMultithreaded(String[] inputFastxPaths,
                                                 FastaWriter[][] outFastaWriters,
                                                 FastaWriter repeatsOutFastaWriter,
                                                 int minKmerCov,
@@ -3442,9 +3443,11 @@ public class RNABloom {
         if (numArtifacts > 0) { 
             System.out.println("\tArtifacts: " + NumberFormat.getInstance().format(numArtifacts) + "(" + numArtifacts * 100f/numReads + "%)");
         }
+        
+        return numReads;
     }
     
-    public void correctLongReadsMultithreaded(String[] inputFastxPaths,
+    public long correctLongReadsMultithreaded(String[] inputFastxPaths,
                                                 FastaWriter longSeqWriter,
                                                 FastaWriter shortSeqWriter,
                                                 FastaWriter repeatsSeqWriter,
@@ -3519,6 +3522,8 @@ public class RNABloom {
         if (numArtifacts > 0) { 
             System.out.println("\tArtifacts: " + NumberFormat.getInstance().format(numArtifacts) + "(" + numArtifacts * 100f/numReads + "%)");
         }
+        
+        return numCorrected;
     }
     
     public String polishSequence(String seq, int maxErrCorrItr, int minKmerCov, int minNumSolidKmers) {
@@ -4461,6 +4466,18 @@ public class RNABloom {
         }
     }
     
+    public static void saveStringToFile(String path, String str) throws IOException {
+        FileWriter writer = new FileWriter(path, false);
+        writer.write(str);
+        writer.close();
+    }
+    
+    public static String loadStringFromFile(String path) throws FileNotFoundException, IOException {
+        BufferedReader br = new BufferedReader(new FileReader(path));
+        String line = br.readLine().strip();
+        return line;
+    }
+    
     public static void printHelp(Options options, boolean error) {
         printVersionInfo(false);
         System.out.println();
@@ -4537,7 +4554,7 @@ public class RNABloom {
         return true;
     }
     
-    private static void correctLongReads(RNABloom assembler, 
+    private static long correctLongReads(RNABloom assembler, 
             String[] readFastxPaths, String[][] correctedLongReadFileNames, String repeatReadsFileName,
             int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, boolean reverseComplement, boolean trimArtifact) throws InterruptedException, IOException, Exception {
         
@@ -4553,7 +4570,7 @@ public class RNABloom {
         
         FastaWriter repeatReadsWriter = new FastaWriter(repeatReadsFileName, true);
         
-        assembler.correctLongReadsMultithreaded(readFastxPaths, writers, repeatReadsWriter, minKmerCov, maxErrCorrItr, numThreads, sampleSize, minSeqLen, reverseComplement, trimArtifact);
+        long numCorrectedReads = assembler.correctLongReadsMultithreaded(readFastxPaths, writers, repeatReadsWriter, minKmerCov, maxErrCorrItr, numThreads, sampleSize, minSeqLen, reverseComplement, trimArtifact);
         
         for (int i=0; i<writers.length; ++i) {
             for (int j=0; j<writers[i].length; ++j) {
@@ -4562,9 +4579,11 @@ public class RNABloom {
         }
         
         repeatReadsWriter.close();
+        
+        return numCorrectedReads;
     }
     
-    private static void correctLongReads(RNABloom assembler, 
+    private static long correctLongReads(RNABloom assembler, 
             String[] inFastxList, String outLongFasta, String outShortFasta, String outRepeatsFasta,
             int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, 
             boolean reverseComplement, boolean trimArtifact, boolean writeUracil) throws InterruptedException, IOException, Exception {
@@ -4573,7 +4592,7 @@ public class RNABloom {
         FastaWriter shortWriter = new FastaWriter(outShortFasta, false);
         FastaWriter repeatsWriter = new FastaWriter(outRepeatsFasta, false);
 
-        assembler.correctLongReadsMultithreaded(inFastxList,
+        long numCorrected = assembler.correctLongReadsMultithreaded(inFastxList,
                                                 longWriter, shortWriter, repeatsWriter,
                                                 minKmerCov,
                                                 maxErrCorrItr,
@@ -4587,6 +4606,8 @@ public class RNABloom {
         longWriter.close();
         shortWriter.close();
         repeatsWriter.close();
+        
+        return numCorrected;
     }
     
     private static void clusterLongReads(RNABloom assembler, 
@@ -4662,7 +4683,8 @@ public class RNABloom {
     }
     
     private static boolean assembleClusteredLongReads(RNABloom assembler,
-            String readsFasta, String clusterdir, String outFasta, boolean writeUracil, 
+            String readsFasta, String clusterdir, String outFasta,
+            long numReads, boolean writeUracil, 
             int numThreads, boolean forceOverwrite,
             String minimapOptions, int minKmerCov,
             int maxEdgeClip, float minAlnId, int minOverlapMatches,
@@ -4685,6 +4707,7 @@ public class RNABloom {
         return assembler.assembleClusteredLongReads(readsFasta, 
                                     clusterdir, 
                                     outFasta,
+                                    numReads,
                                     writeUracil,
                                     numThreads,
                                     minimapOptions,
@@ -6375,13 +6398,16 @@ public class RNABloom {
                 String longCorrectedReadsPath = correctedLongReadFilePrefix + ".long" + FASTA_EXT;
                 String shortCorrectedReadsPath = correctedLongReadFilePrefix + ".short" + FASTA_EXT;
                 String repeatReadsFileName = correctedLongReadFilePrefix + ".repeats" + FASTA_EXT;
-
+                String numCorrectedReadsPath = correctedLongReadFilePrefix + ".count";
+                long numCorrectedReads = 0;
+                
                 System.out.println("\n> Stage 2: Correct long reads for \"" + name + "\"");
                 MyTimer stageTimer = new MyTimer();
                 stageTimer.start();
                 
                 if (longReadsCorrected) {
                     System.out.println("WARNING: Reads were already corrected!");
+                    numCorrectedReads = Long.parseLong(loadStringFromFile(numCorrectedReadsPath));
                 }
                 else {
                     /* set up the file writers */
@@ -6400,10 +6426,12 @@ public class RNABloom {
                             revCompLong, !keepArtifact);
                     */
                     
-                    correctLongReads(assembler, 
+                    numCorrectedReads = correctLongReads(assembler, 
                             longReadPaths, longCorrectedReadsPath, shortCorrectedReadsPath, repeatReadsFileName,
                             maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength,
                             revCompLong, !keepArtifact, writeUracil);
+                    
+                    saveStringToFile(numCorrectedReadsPath, Long.toString(numCorrectedReads));
                     
                     touch(longReadsCorrectedStamp);
                 }
@@ -6465,7 +6493,7 @@ public class RNABloom {
                     
                     boolean ok = assembleClusteredLongReads(assembler,
                             longCorrectedReadsPath, clusteredLongReadsDirectory, assembledTranscriptsPath,
-                            writeUracil, 
+                            numCorrectedReads, writeUracil, 
                             numThreads, forceOverwrite, minimapOptions, minKmerCov, 
                             maxTipLen, longReadOverlapProportion, minOverlap,
                             txptNamePrefix, strandSpecific, !keepArtifact,
