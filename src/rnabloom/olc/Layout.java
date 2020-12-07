@@ -100,6 +100,11 @@ public class Layout {
         }
     }
 
+    private boolean hasLargeOverlap(PafRecord r) {
+        return (r.qEnd - r.qStart) >= minOverlapMatches &&
+               (r.tEnd - r.tStart) >= minOverlapMatches;
+    }
+    
     private boolean hasGoodOverlap(PafRecord r) {
         return r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
                r.numMatch / (float)(r.tEnd - r.tStart) >= minAlnId;
@@ -663,6 +668,43 @@ public class Layout {
             }
         }
         
+        public void add(Collection<String> reads) {
+            HashSet<String> mySet = new HashSet<>(reads);
+            HashSet<String> cluster1 = null;
+            
+            boolean seen = false;
+            for (String s : mySet) {
+                seen |= bf.lookupAndAdd(s);
+            }
+            
+            if (seen) {
+                Iterator<HashSet<String>> itr = clusters.iterator();
+                while (itr.hasNext()) {
+                    HashSet<String> c = itr.next();
+                    if (mySet.removeAll(c)) {
+                        if (cluster1 == null) {
+                            cluster1 = c;
+                        }
+                        else {
+                            cluster1.addAll(c);
+                            itr.remove();
+                        }
+
+                        if (mySet.isEmpty()) {
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (cluster1 == null) {
+                clusters.addFirst(mySet);
+            }
+            else {
+                cluster1.addAll(mySet);
+            }
+        }
+        
         public HashMap<String,Integer> assignIDs() {
             HashMap<String,Integer> m = new HashMap<>();
             int id = 1;
@@ -704,24 +746,32 @@ public class Layout {
         boolean checkNumAltReads = minNumAltReads > 0;
         
         ArrayList<Interval> spans = new ArrayList<>();
+        ArrayDeque<String> neighborhood = new ArrayDeque<>();
         String prevName = null;
         
         HashMap<String, ArrayList> readIntervalsMap = new HashMap<>();
         
         int records = 0;
         while (reader.hasNext()) {
-            if (++records % 1000000 == 0) {
-                System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " records...");
-            }
+            ++records;
+//            if (++records % 1000000 == 0) {
+//                System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " overlap records...");
+//            }
             
             ExtendedPafRecord r = reader.next();
             
-            if (!stranded || !r.reverseComplemented) {
-                clusters.add(r.qName, r.tName);
-                
+            if ((!stranded || !r.reverseComplemented) && hasLargeOverlap(r)) {
+//                clusters.add(r.qName, r.tName);
+                boolean newQuery = prevName != null && !r.qName.equals(prevName);
+                if (newQuery) {
+                    neighborhood.add(prevName);
+                    clusters.add(neighborhood);
+                    neighborhood = new ArrayDeque<>();
+                }
+
                 if (checkNumAltReads) {
-                    if (!r.qName.equals(prevName)) {
-                        if (!spans.isEmpty() && prevName != null) {
+                    if (newQuery) {
+                        if (!spans.isEmpty()) {
                             if (readIntervalsMap.containsKey(prevName)) {
                                 ArrayList<Interval> qSpans = readIntervalsMap.get(prevName);
                                 qSpans.addAll(spans);
@@ -731,7 +781,7 @@ public class Layout {
                                 readIntervalsMap.put(prevName, overlapIntervals(spans));
                             }
                         }
-
+                        
                         spans = new ArrayList<>();
                     }
 
@@ -750,10 +800,11 @@ public class Layout {
                 }
                 
                 prevName = r.qName;
+                neighborhood.add(r.tName);
             }
         }
         reader.close();
-        System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " records.");
+        System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " overlap records.");
         
         if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
             if (readIntervalsMap.containsKey(prevName)) {
@@ -764,6 +815,9 @@ public class Layout {
             else {
                 readIntervalsMap.put(prevName, overlapIntervals(spans));
             }
+            
+            neighborhood.add(prevName);
+            clusters.add(neighborhood);
         }
         
         HashMap<String, Integer> cids = clusters.assignIDs();

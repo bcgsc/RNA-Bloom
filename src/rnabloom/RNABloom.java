@@ -2789,6 +2789,8 @@ public class RNABloom {
 
         // combine assembly files
         System.out.println("Combining transcripts from " + numClusters + " clusters...");
+//        String catFasta = clusterdir + "_cat" + FASTA_EXT;
+//        String tmpPrefix = clusterdir + "_tmp";
         FastaWriter fout = new FastaWriter(outFasta, false);
         FastaReader fin;
         int numTranscripts = 0;
@@ -2822,8 +2824,14 @@ public class RNABloom {
         }
         fout.close();
         
+//        System.out.println("Inter-cluster assembly...");
+//        boolean ok = overlapLayout(catFasta, tmpPrefix, outFasta,
+//                numThreads, stranded, minimapOptions,
+//                maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize, false, 1, usePacBioPreset);
+//        return ok;
+
         System.out.println("Transcripts assembled: " + numTranscripts);
-        
+
         return true;
     }
     
@@ -3392,7 +3400,7 @@ public class RNABloom {
                 
         int numCorrectionWorkers = numThreads;
         LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numCorrectionWorkers];
-        int minNumSolidKmers = 100;
+        int minNumSolidKmers = 5;
         
         for (int i=0; i<numCorrectionWorkers; ++i) {
             LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov, minNumSolidKmers, reverseComplement, trimArtifact);
@@ -3470,7 +3478,7 @@ public class RNABloom {
                 
         int numCorrectionWorkers = numThreads;
         LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numCorrectionWorkers];
-        int minNumSolidKmers = 100;
+        int minNumSolidKmers = 5;
         
         for (int i=0; i<numCorrectionWorkers; ++i) {
             LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov, minNumSolidKmers, reverseComplement, trimArtifact);
@@ -5937,7 +5945,7 @@ public class RNABloom {
             String defaultMinKmerCov = hasLongReadFiles ? "2" : optMinKmerCovDefault;
             int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), defaultMinKmerCov));
                         
-            String defaultMaxTipLen = hasLongReadFiles ? "30" : optTipLengthDefault;
+            String defaultMaxTipLen = hasLongReadFiles ? "50" : optTipLengthDefault;
             final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), defaultMaxTipLen));
             
             final float longReadOverlapProportion = Float.parseFloat(line.getOptionValue(optLongReadOverlapProportion.getOpt(), optLongReadOverlapProportionDefault));
