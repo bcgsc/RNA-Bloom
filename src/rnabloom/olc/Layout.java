@@ -617,10 +617,8 @@ public class Layout {
     
     private class ReadClusters {
         private LinkedList<HashSet<String>> clusters = new LinkedList<>();
-        private SimpleBloomFilter bf;
         
         public ReadClusters(long numReads) {
-            this.bf = new SimpleBloomFilter(3*numReads);
         }
         
         public void add(String read1, String read2){
@@ -629,23 +627,18 @@ public class Layout {
                 HashSet<String> cluster2 = null;
                 Iterator<HashSet<String>> itr2 = clusters.iterator();
 
-                if (bf.lookupAndAdd(read1)) {
-                    for (HashSet<String> c : clusters) {
-                        if (c.contains(read1)) {
-                            cluster1 = c;
-                            break;
-                        }
+                for (HashSet<String> c : clusters) {
+                    if (c.contains(read1)) {
+                        cluster1 = c;
+                        break;
                     }
                 }
 
-                if (bf.lookupAndAdd(read2)) {
-                    HashSet<String> c;
-                    while (itr2.hasNext()) {
-                        c = itr2.next();
-                        if (c.contains(read2)) {
-                            cluster2 = c;
-                            break;
-                        }
+                for (HashSet<String> c; itr2.hasNext(); ) {
+                    c = itr2.next();
+                    if (c.contains(read2)) {
+                        cluster2 = c;
+                        break;
                     }
                 }
 
@@ -672,27 +665,20 @@ public class Layout {
             HashSet<String> mySet = new HashSet<>(reads);
             HashSet<String> cluster1 = null;
             
-            boolean seen = false;
-            for (String s : mySet) {
-                seen |= bf.lookupAndAdd(s);
-            }
-            
-            if (seen) {
-                Iterator<HashSet<String>> itr = clusters.iterator();
-                while (itr.hasNext()) {
-                    HashSet<String> c = itr.next();
-                    if (mySet.removeAll(c)) {
-                        if (cluster1 == null) {
-                            cluster1 = c;
-                        }
-                        else {
-                            cluster1.addAll(c);
-                            itr.remove();
-                        }
+            Iterator<HashSet<String>> itr = clusters.iterator();
+            while (itr.hasNext()) {
+                HashSet<String> c = itr.next();
+                if (mySet.removeAll(c)) {
+                    if (cluster1 == null) {
+                        cluster1 = c;
+                    }
+                    else {
+                        cluster1.addAll(c);
+                        itr.remove();
+                    }
 
-                        if (mySet.isEmpty()) {
-                            break;
-                        }
+                    if (mySet.isEmpty()) {
+                        break;
                     }
                 }
             }
@@ -731,11 +717,6 @@ public class Layout {
         public int size() {
             return clusters.size();
         }
-        
-        public void destroy() {
-            clusters = null;
-            bf.destroy();
-        }
     }
     
     public int extractClusters(String outdir, long numReads) throws IOException {
@@ -760,7 +741,8 @@ public class Layout {
             
             ExtendedPafRecord r = reader.next();
             
-            if ((!stranded || !r.reverseComplemented) && hasLargeOverlap(r)) {
+            if ((!stranded || !r.reverseComplemented) && 
+                    hasLargeOverlap(r) && !r.qName.equals(r.tName)) {
 //                clusters.add(r.qName, r.tName);
                 boolean newQuery = prevName != null && !r.qName.equals(prevName);
                 if (newQuery) {
@@ -822,7 +804,6 @@ public class Layout {
         
         HashMap<String, Integer> cids = clusters.assignIDs();
         int numClusters = clusters.size();
-        clusters.destroy();
         System.out.println("Clusters found: " + numClusters);
 
         FastaReader fr = new FastaReader(seqFastaPath);
