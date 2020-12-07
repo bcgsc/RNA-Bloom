@@ -2789,16 +2789,16 @@ public class RNABloom {
 
         // combine assembly files
         System.out.println("Combining transcripts from " + numClusters + " clusters...");
-//        String catFasta = clusterdir + "_cat" + FASTA_EXT;
-//        String tmpPrefix = clusterdir + "_tmp";
-        FastaWriter fout = new FastaWriter(outFasta, false);
+        String catFasta = clusterdir + "_cat" + FASTA_EXT;
+        String tmpPrefix = clusterdir + "_tmp";
+        FastaWriter fout = new FastaWriter(catFasta, false);
         FastaReader fin;
-        int numTranscripts = 0;
+//        int numTranscripts = 0;
         for (int clusterID = 1; clusterID<=numClusters; ++clusterID) {
             String clusterAssemblyPath = clusterdir + File.separator + clusterID + "_transcripts" + FASTA_EXT;
             fin = new FastaReader(clusterAssemblyPath);
             while(fin.hasNext()) {
-                ++numTranscripts;
+//                ++numTranscripts;
                 String[] nameCommentSeq = fin.nextWithComment();
                 String comment = nameCommentSeq[1];
                 String seq = nameCommentSeq[2];
@@ -2824,15 +2824,14 @@ public class RNABloom {
         }
         fout.close();
         
-//        System.out.println("Inter-cluster assembly...");
-//        boolean ok = overlapLayout(catFasta, tmpPrefix, outFasta,
-//                numThreads, stranded, minimapOptions,
-//                maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize, false, 1, usePacBioPreset);
-//        return ok;
+        System.out.println("Inter-cluster assembly...");
+        boolean ok = overlapLayout(catFasta, tmpPrefix, outFasta,
+                numThreads, stranded, minimapOptions,
+                maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize, false, 1, usePacBioPreset);
+        return ok;
 
-        System.out.println("Transcripts assembled: " + numTranscripts);
-
-        return true;
+//        System.out.println("Transcripts assembled: " + numTranscripts);
+//        return true;
     }
     
     public boolean assembleUnclusteredLongReads(String readsPath, 
@@ -5600,7 +5599,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optPolyATail);  
         
-        final String optMinimapOptionsDefault = "-r 150 -k 9";
+        final String optMinimapOptionsDefault = "-r 150";
         Option optMinimapOptions = Option.builder("mmopt")
                                     .desc("options for minimap2 [" + optMinimapOptionsDefault + "]\n(`-x` and `-t` are already in use)")
                                     .hasArg(true)
