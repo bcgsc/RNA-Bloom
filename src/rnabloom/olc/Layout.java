@@ -661,12 +661,11 @@ public class Layout {
             }
         }
         
-        public void add(Collection<String> reads) {
-            HashSet<String> mySet = new HashSet<>(reads);
+        public void add(Collection<String> neighbohood) {
+            HashSet<String> mySet = new HashSet<>(neighbohood);
             HashSet<String> cluster1 = null;
-            
-            Iterator<HashSet<String>> itr = clusters.iterator();
-            while (itr.hasNext()) {
+
+            for (Iterator<HashSet<String>> itr = clusters.iterator(); itr.hasNext(); ) {
                 HashSet<String> c = itr.next();
                 if (mySet.removeAll(c)) {
                     if (cluster1 == null) {
@@ -682,7 +681,7 @@ public class Layout {
                     }
                 }
             }
-            
+
             if (cluster1 == null) {
                 clusters.addFirst(mySet);
             }
@@ -743,16 +742,21 @@ public class Layout {
             
             if ((!stranded || !r.reverseComplemented) && 
                     hasLargeOverlap(r) && !r.qName.equals(r.tName)) {
-//                clusters.add(r.qName, r.tName);
-                boolean newQuery = prevName != null && !r.qName.equals(prevName);
-                if (newQuery) {
-                    neighborhood.add(prevName);
+                boolean first = prevName == null;
+                boolean newQuery = !r.qName.equals(prevName);
+                
+                if (first) {
+                    neighborhood = new ArrayDeque<>();
+                    neighborhood.add(r.qName);
+                }
+                else if (newQuery) {
                     clusters.add(neighborhood);
                     neighborhood = new ArrayDeque<>();
+                    neighborhood.add(r.qName);
                 }
 
                 if (checkNumAltReads) {
-                    if (newQuery) {
+                    if (!first && newQuery) {
                         if (!spans.isEmpty()) {
                             if (readIntervalsMap.containsKey(prevName)) {
                                 ArrayList<Interval> qSpans = readIntervalsMap.get(prevName);
@@ -797,10 +801,9 @@ public class Layout {
             else {
                 readIntervalsMap.put(prevName, overlapIntervals(spans));
             }
-            
-            neighborhood.add(prevName);
-            clusters.add(neighborhood);
         }
+        
+        clusters.add(neighborhood);
         
         HashMap<String, Integer> cids = clusters.assignIDs();
         int numClusters = clusters.size();
