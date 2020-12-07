@@ -2826,7 +2826,7 @@ public class RNABloom {
         
         System.out.println("Inter-cluster assembly...");
         boolean ok = overlapLayout(catFasta, tmpPrefix, outFasta,
-                numThreads, stranded, minimapOptions,
+                numThreads, stranded, "-k 9 -r " + minOverlapMatches,
                 maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize, false, 1, usePacBioPreset);
         return ok;
 

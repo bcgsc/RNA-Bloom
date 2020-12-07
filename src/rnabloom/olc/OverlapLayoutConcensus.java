@@ -407,7 +407,7 @@ public class OverlapLayoutConcensus {
             // layout backbone #2 from polished backbone
 
             status = overlapWithMinimapAndLayout(polishedFa, backbonesFa2,
-                        numThreads, true, minimapOptions, stranded, maxEdgeClip,
+                        numThreads, true, "-k 9 -r " + minOverlapMatches, stranded, maxEdgeClip,
                         minAlnId, minOverlapMatches, maxIndelSize, false,
                         1, usePacBioPreset);
 
