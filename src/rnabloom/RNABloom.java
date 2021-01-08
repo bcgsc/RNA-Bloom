@@ -3477,7 +3477,7 @@ public class RNABloom {
                 
         int numCorrectionWorkers = numThreads;
         LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numCorrectionWorkers];
-        int minNumSolidKmers = 5;
+        int minNumSolidKmers = 100;
         
         for (int i=0; i<numCorrectionWorkers; ++i) {
             LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov, minNumSolidKmers, reverseComplement, trimArtifact);
