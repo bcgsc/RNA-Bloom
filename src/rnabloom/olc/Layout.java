@@ -30,7 +30,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jgrapht.Graph;
@@ -39,7 +38,6 @@ import org.jgrapht.alg.TransitiveReduction;
 import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
-import rnabloom.bloom.SimpleBloomFilter;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.FastaReader;
@@ -457,12 +455,18 @@ public class Layout {
         return path;
     }
     
-    public void writeBackboneSequences(String outFastaPath) throws IOException {
+    /**
+     * 
+     * @param outFastaPath
+     * @return boolean whether number of sequences have reduced
+     * @throws IOException 
+     */
+    public boolean writeBackboneSequences(String outFastaPath) throws IOException {
         if (stranded) {
-            layoutStrandedBackbones(outFastaPath);
+            return layoutStrandedBackbones(outFastaPath);
         }
         else {
-            layoutBackbones(outFastaPath);
+            return layoutBackbones(outFastaPath);
         }
     }
     
@@ -853,7 +857,7 @@ public class Layout {
         return numClusters;
     }
     
-    private void layoutBackbones(String outFastaPath) throws IOException {
+    private boolean layoutBackbones(String outFastaPath) throws IOException {
         HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
         HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
         ArrayDeque<PafRecord> dovetailRecords = new ArrayDeque<>();
@@ -1090,9 +1094,11 @@ public class Layout {
         fw.close();
         
         System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+        
+        return originalNumSeq > seqID;
     }
     
-    private void layoutStrandedBackbones(String outFastaPath) throws IOException {
+    private boolean layoutStrandedBackbones(String outFastaPath) throws IOException {
         HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
         HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
         ArrayDeque<PafRecord> dovetailRecords = new ArrayDeque<>();
@@ -1317,6 +1323,8 @@ public class Layout {
         fw.close();
         
         System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+        
+        return originalNumSeq > seqID;
     }
     
     public static void main(String[] args) {

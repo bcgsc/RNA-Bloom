@@ -256,13 +256,11 @@ public class OverlapLayoutConcensus {
         try {
             Layout myLayout = new Layout(seqFastaPath, overlapPafInputStream, stranded, maxEdgeClip, minAlnId, 
                     minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth);
-            myLayout.writeBackboneSequences(backboneFastaPath);
+            return myLayout.writeBackboneSequences(backboneFastaPath);
         } catch (Exception ex) {
             ex.printStackTrace();
             return false;
         }
-        
-        return true;
     }
         
     public static boolean concensusWithRacon(String queryFastaPath, String targetFastaPath, String mappingPafPath, String concensusFastaPath, int numThreads) {
@@ -384,8 +382,9 @@ public class OverlapLayoutConcensus {
             1, usePacBioPreset);
 
         if (!status) {
-            // PAF is empty
-            backbonesFa = readsPath;
+            // either PAF is empty or no backbones can be made
+            symlinkRemoveExisting(readsPath, concensusPath);
+            return true;
         }
 
         // polish backbone
@@ -412,7 +411,7 @@ public class OverlapLayoutConcensus {
                         1, usePacBioPreset);
 
             if (!status) {
-                // PAF is empty; no overlap between polished
+                // either PAF is empty or no backbones can be made
                 symlinkRemoveExisting(polishedFa, concensusPath);
                 return true;
             }
