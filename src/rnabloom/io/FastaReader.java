@@ -22,6 +22,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Iterator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 //import java.util.NoSuchElementException;
@@ -82,6 +84,10 @@ public class FastaReader implements FastxReaderInterface {
     
     @Override
     public synchronized String next() throws FileFormatException {
+        if (!itr.hasNext()) {
+            return null;
+        }
+        
         if (header == null) {
             header = itr.next().trim();
         }
@@ -114,6 +120,10 @@ public class FastaReader implements FastxReaderInterface {
 
     @Override
     public synchronized String[] nextWithName() throws FileFormatException {
+        if (!itr.hasNext()) {
+            return null;
+        }
+        
         if (header == null) {
             header = itr.next().trim();
         }
@@ -151,6 +161,12 @@ public class FastaReader implements FastxReaderInterface {
     }
     
     public synchronized void nextWithName(FastaRecord fr) throws FileFormatException {
+        if (!itr.hasNext()) {
+            fr.name = null;
+            fr.seq = null;
+            return;
+        }
+        
         if (header == null) {
             header = itr.next().trim();
         }
@@ -189,6 +205,10 @@ public class FastaReader implements FastxReaderInterface {
     }
     
     public synchronized String[] nextWithComment() throws FileFormatException {
+        if (!itr.hasNext()) {
+            return null;
+        }
+        
         if (header == null) {
             header = itr.next().trim();
         }

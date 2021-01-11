@@ -92,7 +92,7 @@ import static rnabloom.olc.OverlapLayoutConcensus.clusteredOLC;
  * @author Ka Ming Nip
  */
 public class RNABloom {
-    public final static String VERSION = "1.3.1";
+    public final static String VERSION = "1.4.0-pre2";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
@@ -2882,6 +2882,7 @@ public class RNABloom {
     
     private static final String[] LENGTH_STRATUM_NAMES = new String[]{"min_q1", "q1_med", "med_q3", "q3_max"};
     
+    /*
     public class CorrectedLongReadsWriterWorker implements Runnable {
         private final ArrayBlockingQueue<Sequence> inputQueue;
         private final int maxSampleSize;
@@ -2939,7 +2940,7 @@ public class RNABloom {
                                             sampleLengthStats.q3 + "\t" +
                                             sampleLengthStats.max);
 
-                /** write the sample sequences to file */
+                // write the sample sequences to file
                 for (Sequence seq : sample) {
                     int lengthStratumIndex = getLongReadLengthStratumIndex(sampleLengthStats, seq.length);
                     int covStatumIndex = getCoverageOrderOfMagnitude(seq.coverage);
@@ -2956,7 +2957,7 @@ public class RNABloom {
                     }
                 }
 
-                /** write the remaining sequences to file */
+                // write the remaining sequences to file
                 while(!(terminateWhenInputExhausts && areDependentWorkersDone() && inputQueue.isEmpty())) {
                     Sequence seq = inputQueue.poll(1, TimeUnit.MILLISECONDS);
                     if (seq == null || seq.length < minSeqLen) {
@@ -3024,6 +3025,7 @@ public class RNABloom {
             return sampleLengthStats;
         }
     }
+    */
     
     public class CorrectedLongReadsWriterWorker2 implements Runnable {
         private final ArrayBlockingQueue<Sequence> inputQueue;
@@ -3037,7 +3039,6 @@ public class RNABloom {
         private long numCorrected = 0;
         private boolean successful = false;
         private Exception exception = null;
-        private LongReadCorrectionWorker[] workersToWait = null;
         private final boolean writeUracil;
         
         public CorrectedLongReadsWriterWorker2(ArrayBlockingQueue<Sequence> inputQueue, 
@@ -3057,9 +3058,17 @@ public class RNABloom {
             try {
                 ArrayDeque<Sequence> sample = new ArrayDeque<>(maxSampleSize);
 
-                while(!(terminateWhenInputExhausts && areDependentWorkersDone() && inputQueue.isEmpty())) {
+                while(true) {
                     Sequence seq = inputQueue.poll(100, TimeUnit.MILLISECONDS);
-                    if (seq == null || seq.length < minSeqLen) {
+                    
+                    if (seq == null) {
+                        if (terminateWhenInputExhausts) {
+                            break;
+                        }
+                        continue;
+                    }
+                    
+                    if (seq.length < minSeqLen) {
                         continue;
                     }
 
@@ -3087,7 +3096,7 @@ public class RNABloom {
                                             sampleLengthStats.q3 + "\t" +
                                             sampleLengthStats.max);
 
-                /** write the sample sequences to file */
+                // write the sample sequences to file
                 for (Sequence seq : sample) {
                     ++numCorrected;
                     String header = seq.name + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
@@ -3107,10 +3116,18 @@ public class RNABloom {
                     }
                 }
 
-                /** write the remaining sequences to file */
-                while(!(terminateWhenInputExhausts && areDependentWorkersDone() && inputQueue.isEmpty())) {
+                // write the remaining sequences to file
+                while(true) {
                     Sequence seq = inputQueue.poll(100, TimeUnit.MILLISECONDS);
-                    if (seq == null || seq.length < minSeqLen) {
+                  
+                    if (seq == null) {
+                        if (terminateWhenInputExhausts) {
+                            break;
+                        }
+                        continue;
+                    }
+                    
+                    if (seq.length < minSeqLen) {
                         continue;
                     }
 
@@ -3142,25 +3159,8 @@ public class RNABloom {
             }
         }
         
-        public void terminateWhenInputExhausts(LongReadCorrectionWorker[] workersToWait) {
+        public void terminateWhenInputExhausts() {
             terminateWhenInputExhausts = true;
-            this.workersToWait = workersToWait;
-        }
-        
-        public boolean areDependentWorkersDone() {
-            if (workersToWait == null) {
-                return false;
-            }
-            else {
-                int numRemaining = workersToWait.length;
-                for (LongReadCorrectionWorker worker : workersToWait) {
-                    if (worker.successful || worker.exception != null) {
-                        --numRemaining;
-                    }
-                }
-                
-                return numRemaining <= 0;
-            }
         }
         
         public boolean isSucessful() {
@@ -3197,9 +3197,8 @@ public class RNABloom {
     }
     
     public class LongReadCorrectionWorker implements Runnable {
-        private final ArrayBlockingQueue<String[]> inputQueue;
+        private final FastxSequenceIterator itr;
         private final ArrayBlockingQueue<Sequence> outputQueue;
-        private boolean terminateWhenInputExhausts = false;
         private boolean successful = false;
         private Exception exception = null;
         private final int maxErrCorrItr;
@@ -3207,13 +3206,14 @@ public class RNABloom {
         private final int minNumSolidKmers;
         private final boolean reverseComplement;
         private boolean trimArtifact = false;
+        private long numReads = 0;
         private long numArtifacts = 0;
 
-        public LongReadCorrectionWorker(ArrayBlockingQueue<String[]> inputQueue,
+        public LongReadCorrectionWorker(FastxSequenceIterator itr,
                                         ArrayBlockingQueue<Sequence> outputQueue,
                                         int maxErrCorrItr, int minKmerCov, int minNumSolidKmers,
                                         boolean reverseComplement, boolean trimArtifact) {
-            this.inputQueue = inputQueue;
+            this.itr = itr;
             this.outputQueue = outputQueue;
             this.maxErrCorrItr = maxErrCorrItr;
             this.minKmerCov = minKmerCov;
@@ -3226,13 +3226,10 @@ public class RNABloom {
         public void run() {
             boolean stranded = graph.isStranded();
             
-            while(!terminateWhenInputExhausts || !inputQueue.isEmpty()) {
-                try {                    
-                    String[] nameSeqPair = inputQueue.poll(1, TimeUnit.SECONDS);
-                    if (nameSeqPair == null) {
-                        continue;
-                    }
-                    
+            try {
+                String[] nameSeqPair;
+                while((nameSeqPair = itr.next()) != null) {
+                    ++numReads;
                     String seq = reverseComplement ? reverseComplement(nameSeqPair[1]) : nameSeqPair[1];
                     
                     ArrayList<Kmer> kmers = graph.getKmers(seq);
@@ -3354,20 +3351,15 @@ public class RNABloom {
                             outputQueue.put(new Sequence(prefix + nameSeqPair[0], seq, seq.length(), cov, isRepeat));
                         }
                     }
-                } catch (Exception ex) {
-                    System.out.println(ex.getMessage());
-                    ex.printStackTrace();
-                    exception = ex;
-                    successful = false;
-                    return;
                 }
+                successful = true;
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());
+                ex.printStackTrace();
+                exception = ex;
+                successful = false;
+                return;
             }
-            
-            successful = true;
-        }
-        
-        public void terminateWhenInputExhausts() {
-            terminateWhenInputExhausts = true;
         }
         
         public boolean isSucessful() {
@@ -3379,6 +3371,7 @@ public class RNABloom {
         }
     }
     
+    /*
     public long correctLongReadsMultithreaded(String[] inputFastxPaths,
                                                 FastaWriter[][] outFastaWriters,
                                                 FastaWriter repeatsOutFastaWriter,
@@ -3394,15 +3387,16 @@ public class RNABloom {
         MyExecutorService service = new MyExecutorService(numThreads+1, numThreads+1);
         
         int maxQueueSize = 100;
-        ArrayBlockingQueue<String[]> inputQueue = new ArrayBlockingQueue<>(maxQueueSize);
+//        ArrayBlockingQueue<String[]> inputQueue = new ArrayBlockingQueue<>(maxQueueSize);
         ArrayBlockingQueue<Sequence> outputQueue = new ArrayBlockingQueue<>(maxQueueSize);
                 
         int numCorrectionWorkers = numThreads;
         LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numCorrectionWorkers];
         int minNumSolidKmers = 5;
+        FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths);
         
         for (int i=0; i<numCorrectionWorkers; ++i) {
-            LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov, minNumSolidKmers, reverseComplement, trimArtifact);
+            LongReadCorrectionWorker worker = new LongReadCorrectionWorker(itr, outputQueue, maxErrCorrItr, minKmerCov, minNumSolidKmers, reverseComplement, trimArtifact);
             correctionWorkers[i] = worker;
             service.submit(worker);
         }
@@ -3411,12 +3405,12 @@ public class RNABloom {
         CorrectedLongReadsWriterWorker writerWorker = new CorrectedLongReadsWriterWorker(outputQueue, outFastaWriters, repeatsOutFastaWriter, maxSampleSize, minSeqLen);
         service.submit(writerWorker);
         
-        for (FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths); itr.hasNext() ; ++numReads) {
-            String[] seq = itr.nextWithName();
-            if (seq[1].length() >= minSeqLen) {
-                inputQueue.put(seq);
-            }
-        }
+//        for (FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths); itr.hasNext() ; ++numReads) {
+//            String[] seq = itr.nextWithName();
+//            if (seq[1].length() >= minSeqLen) {
+//                inputQueue.put(seq);
+//            }
+//        }
         
         for (LongReadCorrectionWorker worker : correctionWorkers) {
             worker.terminateWhenInputExhausts();
@@ -3439,7 +3433,7 @@ public class RNABloom {
             numArtifacts += worker.numArtifacts;
         }
         
-        assert inputQueue.isEmpty() && outputQueue.isEmpty();
+        assert outputQueue.isEmpty();
         
         System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
         long numCorrected = writerWorker.getNumCorrected();
@@ -3453,6 +3447,7 @@ public class RNABloom {
         
         return numReads;
     }
+    */
     
     public long correctLongReadsMultithreaded(String[] inputFastxPaths,
                                                 FastaWriter longSeqWriter,
@@ -3468,42 +3463,36 @@ public class RNABloom {
                                                 boolean writeUracil) throws InterruptedException, IOException, Exception {
 
         long numReads = 0;
-        
-        MyExecutorService service = new MyExecutorService(numThreads+1, numThreads+1);
-        
-        int maxQueueSize = 100;
-        ArrayBlockingQueue<String[]> inputQueue = new ArrayBlockingQueue<>(maxQueueSize);
-        ArrayBlockingQueue<Sequence> outputQueue = new ArrayBlockingQueue<>(maxQueueSize);
+        ArrayBlockingQueue<Sequence> outputQueue = new ArrayBlockingQueue<>(maxSampleSize);
                 
-        int numCorrectionWorkers = numThreads;
-        LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numCorrectionWorkers];
-        int minNumSolidKmers = 100;
+        LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numThreads];
+        Thread[] threads = new Thread[numThreads];
         
-        for (int i=0; i<numCorrectionWorkers; ++i) {
-            LongReadCorrectionWorker worker = new LongReadCorrectionWorker(inputQueue, outputQueue, maxErrCorrItr, minKmerCov, minNumSolidKmers, reverseComplement, trimArtifact);
+        int minNumSolidKmers = 100;
+        FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths);
+        
+        for (int i=0; i<numThreads; ++i) {
+            LongReadCorrectionWorker worker = new LongReadCorrectionWorker(itr, outputQueue, maxErrCorrItr, minKmerCov,
+                    minNumSolidKmers, reverseComplement, trimArtifact);
             correctionWorkers[i] = worker;
-            service.submit(worker);
+            threads[i] = new Thread(worker);
+            threads[i].start();
         }
+        System.out.println("Initialized " + numThreads + " worker(s).");
         
         CorrectedLongReadsWriterWorker2 writerWorker = new CorrectedLongReadsWriterWorker2(outputQueue, 
                 longSeqWriter, shortSeqWriter, repeatsSeqWriter,
                 maxSampleSize, minSeqLen, writeUracil);
-        service.submit(writerWorker);
+        Thread writerThread = new Thread(writerWorker);
+        writerThread.start();
+        System.out.println("Initialized writer.");
         
-        for (FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths); itr.hasNext() ; ++numReads) {
-            String[] seq = itr.nextWithName();
-            if (seq[1].length() >= minSeqLen) {
-                inputQueue.put(seq);
-            }
+        for (Thread t : threads) {
+            t.join();
         }
-        
-        for (LongReadCorrectionWorker worker : correctionWorkers) {
-            worker.terminateWhenInputExhausts();
-        }
-        
-        writerWorker.terminateWhenInputExhausts(correctionWorkers);
-        
-        service.terminate();
+
+        writerWorker.terminateWhenInputExhausts();
+        writerThread.join();
         
         // check for errors
         if (!writerWorker.isSucessful()) {
@@ -3516,18 +3505,19 @@ public class RNABloom {
                 throw worker.getExceptionCaught();
             }
             numArtifacts += worker.numArtifacts;
+            numReads += worker.numReads;
         }
         
-        assert inputQueue.isEmpty() && outputQueue.isEmpty();
+        assert outputQueue.isEmpty();
         
         System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
         long numCorrected = writerWorker.getNumCorrected();
         long numDiscarded = numReads - numCorrected;
-        System.out.println("\tKept:      " + NumberFormat.getInstance().format(numCorrected) + "(" + numCorrected * 100f/numReads + "%)");
-        System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "(" + numDiscarded * 100f/numReads + "%)");
+        System.out.println("\tKept:      " + NumberFormat.getInstance().format(numCorrected) + "\t(" + numCorrected * 100f/numReads + "%)");
+        System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "\t(" + numDiscarded * 100f/numReads + "%)");
         
         if (numArtifacts > 0) { 
-            System.out.println("\tArtifacts: " + NumberFormat.getInstance().format(numArtifacts) + "(" + numArtifacts * 100f/numReads + "%)");
+            System.out.println("\tArtifacts: " + NumberFormat.getInstance().format(numArtifacts) + "\t(" + numArtifacts * 100f/numReads + "%)");
         }
         
         return numCorrected;
@@ -4561,11 +4551,12 @@ public class RNABloom {
         return true;
     }
     
+    /*
     private static long correctLongReads(RNABloom assembler, 
             String[] readFastxPaths, String[][] correctedLongReadFileNames, String repeatReadsFileName,
             int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, boolean reverseComplement, boolean trimArtifact) throws InterruptedException, IOException, Exception {
         
-        /* set up the file writers */
+        // set up the file writers
         final int numCovStrata = COVERAGE_ORDER.length;
         final int numLenStrata = LENGTH_STRATUM_NAMES.length;
         FastaWriter[][] writers = new FastaWriter[numCovStrata][numLenStrata];
@@ -4589,6 +4580,7 @@ public class RNABloom {
         
         return numCorrectedReads;
     }
+    */
     
     private static long correctLongReads(RNABloom assembler, 
             String[] inFastxList, String outLongFasta, String outShortFasta, String outRepeatsFasta,

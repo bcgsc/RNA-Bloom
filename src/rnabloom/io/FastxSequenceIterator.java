@@ -27,11 +27,15 @@ public class FastxSequenceIterator {
     private final String[] fastxPaths;
     private int fileCursor;
     private FastxReaderInterface reader;
+    private String[] n = null;
     
     public FastxSequenceIterator(String[] fastxPaths) throws IOException {
         this.fastxPaths = fastxPaths;
         fileCursor = 0;
         setReader(fastxPaths[fileCursor]);
+        if (hasNext()) {
+            n = readNext();
+        }
     }
     
     private void setReader(String path) throws IOException {
@@ -65,25 +69,8 @@ public class FastxSequenceIterator {
         
         return hasNext;
     }
-
-    public String next() throws FileFormatException, IOException {
-        try {
-            return reader.next();
-        }
-        catch (NoSuchElementException e) {
-            reader.close();
-            
-            if (++fileCursor >= fastxPaths.length) {
-                throw new NoSuchElementException();
-            }
-            
-            setReader(fastxPaths[fileCursor]);
-            
-            return this.next();
-        }
-    }
     
-    public String[] nextWithName() throws FileFormatException, IOException {        
+    private String[] readNext() throws FileFormatException, IOException {        
         try {
             return reader.nextWithName();
         }
@@ -91,12 +78,23 @@ public class FastxSequenceIterator {
             reader.close();
             
             if (++fileCursor >= fastxPaths.length) {
-                throw new NoSuchElementException();
+                return null;
             }
             
             setReader(fastxPaths[fileCursor]);
             
-            return this.nextWithName();
+            return this.readNext();
         }
+    }
+    
+    public synchronized String[] next() throws IOException {
+        if (n == null) {
+            return null;
+        }
+        
+        String[] p = this.n;
+        this.n = readNext();
+        
+        return p;
     }
 }

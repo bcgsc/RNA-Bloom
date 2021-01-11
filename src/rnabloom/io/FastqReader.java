@@ -69,6 +69,10 @@ public final class FastqReader implements FastxReaderInterface {
     
     @Override
     public synchronized String next() throws FileFormatException {
+        if (!itr.hasNext()) {
+            return null;
+        }
+        
         String line1, line3, seq;
         
         synchronized(this) {
@@ -91,6 +95,10 @@ public final class FastqReader implements FastxReaderInterface {
     
     @Override
     public synchronized String[] nextWithName() throws FileFormatException {
+        if (!itr.hasNext()) {
+            return null;
+        }
+        
         String line1, line3, name, seq;
         
         synchronized(this) {
@@ -116,6 +124,13 @@ public final class FastqReader implements FastxReaderInterface {
     }
     
     public synchronized void nextWithoutName(FastqRecord fr) throws FileFormatException {
+        if (!itr.hasNext()) {
+            fr.name = null;
+            fr.qual = null;
+            fr.seq = null;
+            return;
+        }
+        
         String line1, line3;
         
         synchronized(this) {
@@ -135,6 +150,13 @@ public final class FastqReader implements FastxReaderInterface {
     }
     
     public synchronized void nextWithName(FastqRecord fr) throws FileFormatException {
+        if (!itr.hasNext()) {
+            fr.name = null;
+            fr.qual = null;
+            fr.seq = null;
+            return;
+        }
+        
         String line1, line3;
         
         synchronized(this) {
