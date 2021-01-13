@@ -2783,7 +2783,9 @@ public class RNABloom {
                             minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
                             minSeqDepth, usePacBioPreset);
         
-        /**@TODO handle errors in clusteredOLC */
+        if (numClusters <= 0) {
+            return false;
+        }
         
         Pattern raconRcPattern = Pattern.compile("RC:i:(\\d+)");
 
