@@ -6085,7 +6085,7 @@ public class RNABloom {
                 System.out.println("Min k-mer coverage threshold: " + NumberFormat.getInstance().format(minKmerCov));
             }
             
-            String defaultMinOverlap = hasLongReadFiles ? "150" : Integer.toString(k-1);
+            String defaultMinOverlap = hasLongReadFiles ? "200" : Integer.toString(k-1);
             final int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), defaultMinOverlap));
             
             if (expNumKmers > 0) {
