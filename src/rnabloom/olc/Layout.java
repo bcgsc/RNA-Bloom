@@ -30,6 +30,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jgrapht.Graph;
@@ -516,7 +517,7 @@ public class Layout {
         return sb.toString();
     }
     
-    private static class Interval {
+    private static class Interval implements Comparable<Interval>{
         public int start;
         public int end;
         
@@ -524,8 +525,40 @@ public class Layout {
             this.start = start;
             this.end = end;
         }
+        
+        public boolean merge(Interval other) {
+            if (start >= other.start && start <= other.end) {
+                start = other.start;
+                end = Math.max(end, other.end);
+                return true;
+            }
+            else if (end >= other.start && end <= other.end) {
+                start = Math.min(start, other.start);
+                end = other.end;
+                return true;
+            }
+            else if (other.start >= start && other.start <= end) {
+                end = Math.max(end, other.end);
+                return true;
+            }
+            else if (other.end >= start && other.end <= end) {
+                start = Math.min(start, other.start);
+                return true;
+            }
+            return false; // not merged
+        }
+        
+        @Override
+        public int compareTo(Interval other) {
+            int c = start - other.start;
+            if (c == 0) {
+                c = end - other.end;
+            }
+            return c;
+        }
     }
 
+    /*
     private static Interval overlapInterval(Interval span1, Interval span2) {
         if (span1.start >= span2.start && span1.start <= span2.end) {
             return new Interval(span2.start, Math.max(span1.end, span2.end));
@@ -577,6 +610,37 @@ public class Layout {
         }
         
         return spans;
+    }
+    */
+    
+    private static void overlapIntervals(TreeSet<Interval> targets) {
+        if (!targets.isEmpty()) {
+            Iterator<Interval> itr = targets.iterator();
+            Interval prev = itr.next();
+            while (itr.hasNext()) {
+                Interval i = itr.next();
+                if (prev.merge(i)) {
+                    itr.remove();
+                }
+                else {
+                    prev = i;
+                }
+            }
+        }
+    }
+    
+    private static void overlapIntervals(TreeSet<Interval> targets, Interval query) {
+        Iterator<Interval> itr = targets.iterator();
+        while (itr.hasNext()) {
+            Interval i = itr.next();
+            if (query.merge(i)) {
+                itr.remove();
+            }
+            else if (query.compareTo(i) < 0) {
+                break;
+            }
+        }
+        targets.add(query);
     }
     
     private static int getMinCoverage(Collection<Interval> spans, int targetLength, int edgeTolerance, int window) {
@@ -729,12 +793,15 @@ public class Layout {
         
         boolean checkNumAltReads = minNumAltReads > 0;
         
-        ArrayList<Interval> spans = new ArrayList<>();
+//        ArrayList<Interval> spans = new ArrayList<>();
+//        HashMap<String, ArrayList> readIntervalsMap = new HashMap<>();
+
+        TreeSet<Interval> spans = new TreeSet<>();
+        HashMap<String, TreeSet> readIntervalsMap = new HashMap<>();
+        
         ArrayDeque<String> neighborhood = new ArrayDeque<>();
         String prevName = null;
-        
-        HashMap<String, ArrayList> readIntervalsMap = new HashMap<>();
-        
+                
         int records = 0;
         while (reader.hasNext()) {
             ++records;
@@ -763,28 +830,46 @@ public class Layout {
                     if (!first && newQuery) {
                         if (!spans.isEmpty()) {
                             if (readIntervalsMap.containsKey(prevName)) {
-                                ArrayList<Interval> qSpans = readIntervalsMap.get(prevName);
-                                qSpans.addAll(spans);
-                                readIntervalsMap.put(prevName, overlapIntervals(qSpans));
+                                TreeSet<Interval> qSpans = readIntervalsMap.get(prevName);
+                                //qSpans.addAll(spans);
+                                //readIntervalsMap.put(prevName, overlapIntervals(qSpans));
+                                overlapIntervals(spans);
+                                if (spans.size() > 1) {
+                                    qSpans.addAll(spans);
+                                    overlapIntervals(qSpans);
+                                }
+                                else {
+                                    overlapIntervals(qSpans, spans.first());
+                                }
                             }
                             else {
-                                readIntervalsMap.put(prevName, overlapIntervals(spans));
+                                //readIntervalsMap.put(prevName, overlapIntervals(spans));
+                                overlapIntervals(spans);
+                                readIntervalsMap.put(prevName, spans);
                             }
                         }
                         
-                        spans = new ArrayList<>();
+                        spans = new TreeSet<>();
+//                        spans = new ArrayList<>();
                     }
 
-                    spans.add(new Interval(r.qStart, r.qEnd));
-
-                    if (readIntervalsMap.containsKey(r.tName)) {
-                        ArrayList<Interval> tSpans = readIntervalsMap.get(r.tName);
-                        tSpans.add(new Interval(r.tStart, r.tEnd));
-                        readIntervalsMap.put(r.tName, overlapIntervals(tSpans));
+                    if (spans.isEmpty()) {
+                        spans.add(new Interval(r.qStart, r.qEnd));
                     }
                     else {
-                        ArrayList<Interval> tSpans = new ArrayList<>();
+                        overlapIntervals(spans, new Interval(r.qStart, r.qEnd));
+                    }
+                    
+                    if (readIntervalsMap.containsKey(r.tName)) {
+                        TreeSet<Interval> tSpans = readIntervalsMap.get(r.tName);
+                        //tSpans.add(new Interval(r.tStart, r.tEnd));
+                        //readIntervalsMap.put(r.tName, overlapIntervals(tSpans));
+                        overlapIntervals(tSpans, new Interval(r.tStart, r.tEnd));
+                    }
+                    else {
+                        TreeSet<Interval> tSpans = new TreeSet<>();
                         tSpans.add(new Interval(r.tStart, r.tEnd));
+                        //readIntervalsMap.put(r.tName, tSpans);
                         readIntervalsMap.put(r.tName, tSpans);
                     }
                 }
@@ -797,13 +882,28 @@ public class Layout {
         System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " overlap records.");
         
         if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
+//            if (readIntervalsMap.containsKey(prevName)) {
+//                ArrayList<Interval> qSpans = readIntervalsMap.get(prevName);
+//                qSpans.addAll(spans);
+//                readIntervalsMap.put(prevName, overlapIntervals(qSpans));
+//            }
+//            else {
+//                readIntervalsMap.put(prevName, overlapIntervals(spans));
+//            }
             if (readIntervalsMap.containsKey(prevName)) {
-                ArrayList<Interval> qSpans = readIntervalsMap.get(prevName);
-                qSpans.addAll(spans);
-                readIntervalsMap.put(prevName, overlapIntervals(qSpans));
+                TreeSet<Interval> qSpans = readIntervalsMap.get(prevName);
+                overlapIntervals(spans);
+                if (spans.size() > 1) {
+                    qSpans.addAll(spans);
+                    overlapIntervals(qSpans);
+                }
+                else {
+                    overlapIntervals(qSpans, spans.first());
+                }
             }
             else {
-                readIntervalsMap.put(prevName, overlapIntervals(spans));
+                overlapIntervals(spans);
+                readIntervalsMap.put(prevName, spans);
             }
         }
         
@@ -832,14 +932,14 @@ public class Layout {
                     if (spans != null) {
                         int numSpans = spans.size();
                         if (numSpans == 1) {
-                            Interval span = spans.get(0);
+                            Interval span = spans.first();
                             fw.write(name + "_t " + seq.length() + ":" + span.start + "-" + span.end,
                                     seq.substring(span.start, span.end));
                         }
                         else {
-                            for (int i=0; i<numSpans; ++i) {
-                                Interval span = spans.get(i);
-                                fw.write(name + "_p" + i + " " + seq.length() + ":" + span.start + "-" + span.end,
+                            int i = 0;
+                            for (Interval span : spans) {
+                                fw.write(name + "_p" + i++ + " " + seq.length() + ":" + span.start + "-" + span.end,
                                         seq.substring(span.start, span.end));
                             }
                         }
