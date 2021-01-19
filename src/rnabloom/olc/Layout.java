@@ -812,7 +812,8 @@ public class Layout {
             ExtendedPafRecord r = reader.next();
             
             if ((!stranded || !r.reverseComplemented) && 
-                    hasLargeOverlap(r) && !r.qName.equals(r.tName)) {
+                    hasLargeOverlap(r) && hasGoodOverlap(r) &&
+                    !r.qName.equals(r.tName)) {
                 boolean first = prevName == null;
                 boolean newQuery = !r.qName.equals(prevName);
                 

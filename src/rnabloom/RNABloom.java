@@ -2654,6 +2654,7 @@ public class RNABloom {
         System.out.println(NumberFormat.getInstance().format(seqID) + " reads were assigned to " + NumberFormat.getInstance().format(clusterID) + " clusters.");
     }
     
+    /*
     public boolean assembleLongReads(String clusteredLongReadsDirectory, 
                                     String assembledLongReadsDirectory, 
                                     String assembledLongReadsCombined,
@@ -2693,7 +2694,7 @@ public class RNABloom {
 
                 boolean ok = overlapLayoutConcensus(readsPath, 
                         tmpPrefix, concensusPath, numThreads, stranded, minimapOptions, 
-                        100, 0.2f, 200, maxIndelSize, removeArtifacts, 1, usePacBioPreset);
+                        maxTipLength, 0.4f, 150, maxIndelSize, removeArtifacts, 1, usePacBioPreset);
                 if (!ok) {
                     System.out.println("*** Error assembling cluster `" + clusterID + "`!!! ***");
                     errors.add(clusterID);
@@ -2759,6 +2760,7 @@ public class RNABloom {
         
         return ok;
     }
+    */
 
     public boolean assembleClusteredLongReads(String readsPath, 
                                     String clusterdir, 
@@ -4611,6 +4613,7 @@ public class RNABloom {
         return numCorrected;
     }
     
+    /*
     private static void clusterLongReads(RNABloom assembler, 
             String[][] correctedLongReadFileNames, String clusteredLongReadsDirectory,
             int sketchSize, int numThreads, boolean useCompressedMinimizers,
@@ -4682,6 +4685,7 @@ public class RNABloom {
                                     minSeqDepth,
                                     usePacBioPreset);
     }
+    */
     
     private static boolean assembleClusteredLongReads(RNABloom assembler,
             String readsFasta, String clusterdir, String outFasta,
@@ -5191,7 +5195,7 @@ public class RNABloom {
         options.addOption(optPooledAssembly);
         
         Option optLongReads = Option.builder("long")
-                                    .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `-k 17 -c 2 -indel 30 -e 3 -p 0.7 -overlap 200 -tip 100` unless each option is defined otherwise.)")
+                                    .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `-k 17 -c 2 -indel 30 -e 2 -p 0.7 -overlap 200 -tip 50` unless each option is defined otherwise.)")
                                     .hasArgs()
                                     .argName("FILE")
                                     .build();
@@ -5932,7 +5936,7 @@ public class RNABloom {
             String defaultMaxIndelSize = hasLongReadFiles ? "30" : optIndelSizeDefault;
             final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), defaultMaxIndelSize));
             
-            String defaultMaxErrCorrItr = hasLongReadFiles ? "3" : optErrCorrItrDefault;
+            String defaultMaxErrCorrItr = hasLongReadFiles ? "2" : optErrCorrItrDefault;
             final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), defaultMaxErrCorrItr));
             
             String defaultMinKmerCov = hasLongReadFiles ? "2" : optMinKmerCovDefault;
