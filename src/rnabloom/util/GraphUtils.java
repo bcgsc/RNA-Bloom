@@ -3496,7 +3496,7 @@ public final class GraphUtils {
                     else {
                         int maxLengthDifference = 0;
                         if (percentIdentity < 1.0f) {
-                            maxLengthDifference = Math.max(1, (int) Math.ceil(numBadKmersSince * (1 - percentIdentity) / k)) * maxIndelSize;
+                            maxLengthDifference = maxIndelSize;
                         }
                         
                         // find best candidate for left kmer
@@ -3540,7 +3540,7 @@ public final class GraphUtils {
                             int altPathLen = altPath.size();
 
                             if (oriPathMinCov < altPathMinCov &&
-                                    (oriPathMinCov < minKmerCov && altPathMinCov >= minKmerCov) ||
+                                    //(oriPathMinCov < minKmerCov && altPathMinCov >= minKmerCov) ||
                                     (numBadKmersSince-maxLengthDifference <= altPathLen && altPathLen <= numBadKmersSince+maxLengthDifference && 
                                         (altPathLen <= k+maxIndelSize ||
                                             getPercentIdentity(graph.assemble(altPath), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity))) {
