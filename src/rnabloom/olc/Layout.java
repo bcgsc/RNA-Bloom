@@ -729,8 +729,8 @@ public class Layout {
             }
         }
         
-        public void add(Collection<String> neighbohood) {
-            HashSet<String> mySet = new HashSet<>(neighbohood);
+        public void add(Collection<String> neighborhood) {
+            HashSet<String> mySet = new HashSet<>(neighborhood);
             HashSet<String> cluster1 = null;
 
             for (Iterator<HashSet<String>> itr = clusters.iterator(); itr.hasNext(); ) {
