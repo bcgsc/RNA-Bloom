@@ -5597,7 +5597,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optPolyATail);  
         
-        final String optMinimapOptionsDefault = "-r 150";
+        final String optMinimapOptionsDefault = "";
         Option optMinimapOptions = Option.builder("mmopt")
                                     .desc("options for minimap2 [" + optMinimapOptionsDefault + "]\n(`-x` and `-t` are already in use)")
                                     .hasArg(true)
@@ -5605,7 +5605,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optMinimapOptions);
 
-        final String optLongReadOverlapProportionDefault = "0.4";
+        final String optLongReadOverlapProportionDefault = "0.5";
         Option optLongReadOverlapProportion = Option.builder("lrop")
                                     .desc("minimum proportion of matching bases within long-read overlaps [" + optLongReadOverlapProportionDefault + "]")
                                     .hasArg(true)
@@ -5613,7 +5613,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadOverlapProportion);
         
-        final String optLongReadMinReadDepthDefault = "1";
+        final String optLongReadMinReadDepthDefault = "2";
         Option optLongReadMinReadDepth = Option.builder("lrrd")
                                     .desc("min read depth required for long-read assembly [" + optLongReadMinReadDepthDefault + "]")
                                     .hasArg(true)
