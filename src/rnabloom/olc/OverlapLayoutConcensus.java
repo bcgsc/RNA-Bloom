@@ -142,7 +142,7 @@ public class OverlapLayoutConcensus {
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x ava-" + preset + " " + options + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath + " | gzip -c > " + outPafPath);
+        command.add(MINIMAP2 + " -X -x ava-" + preset + " " + options + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath + " | gzip -c > " + outPafPath);
         
         return runCommand(command, outPafPath + LOG_EXTENSION);
     }
@@ -162,7 +162,7 @@ public class OverlapLayoutConcensus {
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
+        command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
         
         int numClusters = -1;
         try {            
@@ -202,7 +202,7 @@ public class OverlapLayoutConcensus {
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
+        command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
         
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -267,8 +267,8 @@ public class OverlapLayoutConcensus {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
-        command.add(RACON + " -e 0.1 --no-trimming -u -t " + numThreads + " " + queryFastaPath + " " + mappingPafPath + " " + targetFastaPath + " > " + concensusFastaPath);
-        
+        command.add(RACON + " -e 0.1 -t " + numThreads + " " + queryFastaPath + " " + mappingPafPath + " " + targetFastaPath + " > " + concensusFastaPath);
+        //--no-trimming -u
         return runCommand(command, concensusFastaPath + LOG_EXTENSION);
     }
         
