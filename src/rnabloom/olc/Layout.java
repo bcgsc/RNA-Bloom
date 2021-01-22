@@ -105,8 +105,9 @@ public class Layout {
     }
     
     private boolean hasGoodOverlap(PafRecord r) {
-        return r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
-               r.numMatch / (float)(r.tEnd - r.tStart) >= minAlnId;
+        return r.numMatch >= minOverlapMatches &&
+                r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
+                r.numMatch / (float)(r.tEnd - r.tStart) >= minAlnId;
     }
     
     private boolean hasAlignment(ExtendedPafRecord record) {
@@ -811,8 +812,7 @@ public class Layout {
             
             ExtendedPafRecord r = reader.next();
             
-            if ((!stranded || !r.reverseComplemented) && 
-                    hasLargeOverlap(r) && hasGoodOverlap(r) &&
+            if ((!stranded || !r.reverseComplemented) && hasGoodOverlap(r) &&
                     !r.qName.equals(r.tName)) {
                 boolean first = prevName == null;
                 boolean newQuery = !r.qName.equals(prevName);
