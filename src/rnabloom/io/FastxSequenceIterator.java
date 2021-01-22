@@ -71,10 +71,10 @@ public class FastxSequenceIterator {
     }
     
     private String[] readNext() throws FileFormatException, IOException {        
-        try {
+        if (reader.hasNext()) {
             return reader.nextWithName();
         }
-        catch (NoSuchElementException e) {
+        else {
             reader.close();
             
             if (++fileCursor >= fastxPaths.length) {
