@@ -5149,7 +5149,15 @@ public class RNABloom {
         System.out.println(    "Total:                 " + (dbgGB+cbfGB+2*pkbfGB+sbfGB));
     }
     
-    private static final String[] getNonEmptyLines(String textFile) throws FileNotFoundException, IOException {
+    private static boolean isListFile(String[] paths) {
+        return paths.length == 1 && paths[0].charAt(0) == '@';
+    }
+    
+    private static String[] getPathsFromListFile(String[] paths) throws IOException {
+        return getNonEmptyLines(paths[0].substring(1));
+    }
+    
+    private static String[] getNonEmptyLines(String textFile) throws IOException {
         ArrayList<String> lines = new ArrayList<>();
         
         BufferedReader br = new BufferedReader(new FileReader(textFile));
@@ -5873,9 +5881,9 @@ public class RNABloom {
                 maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
             }
             else if (longReadPaths != null && longReadPaths.length > 0) {
-                if (longReadPaths.length == 1 && longReadPaths[0].charAt(0) == '@') {
+                if (isListFile(longReadPaths)) {
                     // input path is a list file
-                    longReadPaths = getNonEmptyLines(longReadPaths[0].substring(1));
+                    longReadPaths = getPathsFromListFile(longReadPaths);
                 }
                 
                 checkInputFileFormat(longReadPaths);
@@ -5905,9 +5913,9 @@ public class RNABloom {
                     exitOnError("Read files are not paired properly!");
                 }
                 
-                if (leftReadPaths.length == 1 && leftReadPaths[0].charAt(0) == '@') {
+                if (isListFile(leftReadPaths)) {
                     // input path is a list file
-                    leftReadPaths = getNonEmptyLines(leftReadPaths[0].substring(1));
+                    leftReadPaths = getPathsFromListFile(leftReadPaths);
                 }
                 
                 checkInputFileFormat(leftReadPaths);
@@ -5917,9 +5925,9 @@ public class RNABloom {
                 }
                 
                 if (rightReadPaths != null && rightReadPaths.length > 0) {
-                    if (rightReadPaths.length == 1 && rightReadPaths[0].charAt(0) == '@') {
+                    if (isListFile(rightReadPaths)) {
                         // input path is a list file
-                        rightReadPaths = getNonEmptyLines(rightReadPaths[0].substring(1));
+                        rightReadPaths = getPathsFromListFile(rightReadPaths);
                     }
                     
                     checkInputFileFormat(rightReadPaths);
@@ -5936,9 +5944,9 @@ public class RNABloom {
             boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
 
             boolean hasRefTranscriptFiles = refTranscriptPaths != null && refTranscriptPaths.length > 0;
-            if (hasRefTranscriptFiles && refTranscriptPaths.length == 1 && refTranscriptPaths[0].charAt(0) == '@') {
+            if (hasRefTranscriptFiles && isListFile(refTranscriptPaths)) {
                 // input path is a list file
-                refTranscriptPaths = getNonEmptyLines(refTranscriptPaths[0].substring(1));
+                refTranscriptPaths = getPathsFromListFile(refTranscriptPaths);
             }
             
             final boolean revCompLeft = line.hasOption(optRevCompLeft.getOpt());
