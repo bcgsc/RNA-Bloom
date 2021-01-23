@@ -927,10 +927,10 @@ public class Layout {
         
         HashMap<String, Integer> cids = clusters.assignIDs();
         int numClusters = clusters.size();
-        System.out.println("Clusters found: " + numClusters);
+        System.out.println("Clusters found:  " + numClusters);
         
         int[] maxIDAndSize = clusters.getLargetClusterIDAndSize();
-        System.out.println("Largest cluster: #" + maxIDAndSize[0] + " (size=" + maxIDAndSize[1] + ")");
+        System.out.println("Largest cluster: #" + maxIDAndSize[0] + " (" + maxIDAndSize[1] + " reads)");
 
         FastaReader fr = new FastaReader(seqFastaPath);
         
