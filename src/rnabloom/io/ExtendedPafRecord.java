@@ -15,8 +15,8 @@ import java.util.regex.Pattern;
 public class ExtendedPafRecord extends PafRecord {
     public String cigar = null; // CIGAR string, eg. "129M" in "cg:Z:129M"
     public int nm = -1; // Total number of mismatches and gaps in the alignment, eg. 2 in "NM:i:2"
-    public Pattern cigarPattern = Pattern.compile("cg:Z:(\\S+)");
-    public Pattern nmPattern = Pattern.compile("NM:i:(\\d+)");
+    public final static Pattern CIGAR_PATTERN = Pattern.compile("cg:Z:(\\S+)");
+    public final static Pattern NM_PATTERN = Pattern.compile("NM:i:(\\d+)");
     
     @Override
     public void update(String[] cols) {
@@ -27,7 +27,7 @@ public class ExtendedPafRecord extends PafRecord {
             String item = cols[i];
             
             if (nm < 0) {
-                Matcher m = nmPattern.matcher(item);
+                Matcher m = NM_PATTERN.matcher(item);
                 if (m.matches()) {
                     nm = Integer.parseInt(m.group(1));
 
@@ -40,7 +40,7 @@ public class ExtendedPafRecord extends PafRecord {
             }
             
             if (cigar == null) {
-                Matcher m = cigarPattern.matcher(item);
+                Matcher m = CIGAR_PATTERN.matcher(item);
                 if (m.matches()) {
                     cigar = m.group(1);
 

@@ -961,7 +961,7 @@ public class Layout {
     private boolean layoutBackbones(String outFastaPath) throws IOException {
         HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
         HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
-        ArrayDeque<PafRecord> dovetailRecords = new ArrayDeque<>();
+        ArrayDeque<ExtendedOverlap> dovetailRecords = new ArrayDeque<>();
         HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id -> cut index
                
         // look for containment and dovetails
@@ -1034,7 +1034,7 @@ public class Layout {
                     else if ((!longestAlts.containsKey(r.qName) ||
                             !longestAlts.containsKey(r.tName)) &&
                             isDovetailPafRecord(r)) {
-                        dovetailRecords.add(r);
+                        dovetailRecords.add(pafToExtendedOverlap(r));
                     }
                 }
             }
@@ -1073,7 +1073,7 @@ public class Layout {
         
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
-        for (PafRecord r : dovetailRecords) {                
+        for (ExtendedOverlap r : dovetailRecords) {                
             if ((!cutRevCompArtifact || (!artifactCutIndexes.containsKey(r.qName) && !artifactCutIndexes.containsKey(r.tName))) &&
                     longestSet.contains(r.qName) && longestSet.contains(r.tName)) {
                 if (!dovetailReadNames.contains(r.qName)) {
@@ -1089,7 +1089,7 @@ public class Layout {
                 }
                                 
                 if (r.reverseComplemented) {
-                    if (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip) {
+                    if (r.qEnd >= lengths.get(r.qName) - maxEdgeClip && r.tEnd >= lengths.get(r.tName) - maxEdgeClip) {
                         graph.addEdge(r.tName+"+", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
                         graph.addEdge(r.qName+"+", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
                     }
@@ -1099,11 +1099,11 @@ public class Layout {
                     }
                 }
                 else {
-                    if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
+                    if (r.qEnd >= lengths.get(r.qName) - maxEdgeClip && r.tStart <= maxEdgeClip) {
                         graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
                         graph.addEdge(r.tName+"-", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
                     }
-                    else if (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip) {
+                    else if (r.tEnd >= lengths.get(r.tName) - maxEdgeClip && r.qStart <= maxEdgeClip) {
                         graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
                         graph.addEdge(r.qName+"-", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
                     }
@@ -1199,10 +1199,42 @@ public class Layout {
         return originalNumSeq > seqID;
     }
     
+    private class Overlap {
+        String qName, tName;
+        int qStart, qEnd, tStart, tEnd;
+    }
+    
+    private class ExtendedOverlap extends Overlap {
+        boolean reverseComplemented;
+    }
+    
+    private Overlap pafToOverlap(PafRecord r) {
+        Overlap o = new Overlap();
+        o.qName = r.qName;
+        o.tName = r.tName;
+        o.qStart = r.qStart;
+        o.qEnd = r.qEnd;
+        o.tStart = r.tStart;
+        o.tEnd = r.tEnd;
+        return o;
+    }
+    
+    private ExtendedOverlap pafToExtendedOverlap(PafRecord r) {
+        ExtendedOverlap o = new ExtendedOverlap();
+        o.qName = r.qName;
+        o.tName = r.tName;
+        o.qStart = r.qStart;
+        o.qEnd = r.qEnd;
+        o.tStart = r.tStart;
+        o.tEnd = r.tEnd;
+        o.reverseComplemented = r.reverseComplemented;
+        return o;
+    }
+    
     private boolean layoutStrandedBackbones(String outFastaPath) throws IOException {
         HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
         HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
-        ArrayDeque<PafRecord> dovetailRecords = new ArrayDeque<>();
+        ArrayDeque<Overlap> dovetailRecords = new ArrayDeque<>();
         HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id -> cut index
         
         // look for containment and overlaps
@@ -1275,7 +1307,7 @@ public class Layout {
                     else if ((!longestAlts.containsKey(r.qName) ||
                             !longestAlts.containsKey(r.tName)) &&
                             isStrandedDovetailPafRecord(r)) {
-                        dovetailRecords.add(r);
+                        dovetailRecords.add(pafToOverlap(r));
                     }
                 }
             }
@@ -1314,26 +1346,24 @@ public class Layout {
         
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
-        for (PafRecord r : dovetailRecords) {
-            if (!r.reverseComplemented) {
-                if ((!cutRevCompArtifact || (!artifactCutIndexes.containsKey(r.qName) && !artifactCutIndexes.containsKey(r.tName))) &&
-                        longestSet.contains(r.qName) && longestSet.contains(r.tName)) {
-                    if (!dovetailReadNames.contains(r.qName)) {
-                        graph.addVertex(r.qName + "+");
-                        dovetailReadNames.add(r.qName);
-                    }
-                    
-                    if (!dovetailReadNames.contains(r.tName)) {
-                        graph.addVertex(r.tName + "+");
-                        dovetailReadNames.add(r.tName);
-                    }
-                    
-                    if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
-                        graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
-                    }
-                    else if (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip) {
-                        graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
-                    }
+        for (Overlap r : dovetailRecords) {
+            if ((!cutRevCompArtifact || (!artifactCutIndexes.containsKey(r.qName) && !artifactCutIndexes.containsKey(r.tName))) &&
+                    longestSet.contains(r.qName) && longestSet.contains(r.tName)) {
+                if (!dovetailReadNames.contains(r.qName)) {
+                    graph.addVertex(r.qName + "+");
+                    dovetailReadNames.add(r.qName);
+                }
+
+                if (!dovetailReadNames.contains(r.tName)) {
+                    graph.addVertex(r.tName + "+");
+                    dovetailReadNames.add(r.tName);
+                }
+
+                if (r.qEnd >= lengths.get(r.qName) - maxEdgeClip && r.tStart <= maxEdgeClip) {
+                    graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+                }
+                else if (r.tEnd >= lengths.get(r.tName) - maxEdgeClip && r.qStart <= maxEdgeClip) {
+                    graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
                 }
             }
         }
