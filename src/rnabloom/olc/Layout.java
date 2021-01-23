@@ -930,7 +930,7 @@ public class Layout {
         System.out.println("Clusters found: " + numClusters);
         
         int[] maxIDAndSize = clusters.getLargetClusterIDAndSize();
-        System.out.println("Largest cluster: " + maxIDAndSize[0] + " (size=" + maxIDAndSize[1] + ")");
+        System.out.println("Largest cluster: #" + maxIDAndSize[0] + " (size=" + maxIDAndSize[1] + ")");
 
         FastaReader fr = new FastaReader(seqFastaPath);
         
