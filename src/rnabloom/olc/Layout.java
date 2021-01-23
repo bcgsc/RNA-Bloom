@@ -785,6 +785,21 @@ public class Layout {
         public int size() {
             return clusters.size();
         }
+        
+        public int[] getLargetClusterIDAndSize() {
+            int max = 0;
+            int maxID = 0;
+            int id = 1;
+            for (HashSet<String> c : clusters){
+                int s = c.size();
+                if (s > max) {
+                    max = s;
+                    maxID = id;
+                }
+                ++id;
+            }
+            return new int[]{maxID, max};
+        }
     }
     
     public int extractClusters(String outdir, long numReads) throws IOException {
@@ -913,6 +928,9 @@ public class Layout {
         HashMap<String, Integer> cids = clusters.assignIDs();
         int numClusters = clusters.size();
         System.out.println("Clusters found: " + numClusters);
+        
+        int[] maxIDAndSize = clusters.getLargetClusterIDAndSize();
+        System.out.println("Largest cluster: " + maxIDAndSize[0] + " (size=" + maxIDAndSize[1] + ")");
 
         FastaReader fr = new FastaReader(seqFastaPath);
         
