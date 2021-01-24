@@ -777,7 +777,7 @@ public class RNABloom {
     }
     
     public boolean withinMaxFPR(float fpr) {
-        float maxFPR = fpr * 1.5f;
+        float maxFPR = fpr * 2f;
         return (graph.getDbgbf() == null || graph.getDbgbfFPR() <= maxFPR) && 
                 (graph.getCbf() == null || graph.getCbfFPR() <= maxFPR) && 
                 (graph.getRpkbf() == null || graph.getRpkbfFPR() <= maxFPR);
@@ -6268,7 +6268,7 @@ public class RNABloom {
 
                     assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, refFilesList, strandSpecific, revCompLong, numThreads, false, storeReadPairedKmers);
 
-                    if (!assembler.withinMaxFPR(maxFPR)) {
+                    if (!useNTCard && !assembler.withinMaxFPR(maxFPR)) {
                         System.out.println("WARNING: Bloom filter FPR is higher than the maximum allowed FPR (" + maxFPR*100 +"%)!");
 
                         System.out.println("Adjusting Bloom filter sizes...");
