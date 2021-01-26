@@ -827,7 +827,7 @@ public class Layout {
             
             ExtendedPafRecord r = reader.next();
             
-            if ((!stranded || !r.reverseComplemented) && hasGoodOverlap(r) &&
+            if ((!stranded || !r.reverseComplemented) && hasLargeOverlap(r) &&
                     !r.qName.equals(r.tName)) {
                 boolean first = prevName == null;
                 boolean newQuery = !r.qName.equals(prevName);
@@ -967,6 +967,11 @@ public class Layout {
                 else {
                     fw.write(name, seq);
                 }
+                fw.close();
+            }
+            else {
+                FastaWriter fw = new FastaWriter(outdir + File.separator + "orphans" + FASTA_EXT, true);
+                fw.write(name, nameSeq[1]);
                 fw.close();
             }
         }

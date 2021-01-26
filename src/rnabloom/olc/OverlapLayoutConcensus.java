@@ -377,7 +377,7 @@ public class OverlapLayoutConcensus {
         }
         
         boolean status = overlapWithMinimapAndLayout(readsPath, backbonesFa,
-            numThreads, true, minimapOptions, stranded, maxEdgeClip,
+            numThreads, false, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset);
 
