@@ -361,12 +361,12 @@ public class OverlapLayoutConcensus {
             float minAlnId, int minOverlapMatches, int maxIndelSize,
             boolean usePacBioPreset, boolean alignReads, boolean alignBackbones) throws IOException {
         String backbonesFa = tmpPrefix + "_backbones.fa";
-        String polishedFa = tmpPrefix + "_polished.fa";
+        //String polishedFa = tmpPrefix + "_polished.fa";
         String backbonesFa2 = tmpPrefix + "_backbones2.fa";
         String mapPaf = tmpPrefix + "_map.paf.gz";
 
         Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa));
-        Files.deleteIfExists(FileSystems.getDefault().getPath(polishedFa));
+        //Files.deleteIfExists(FileSystems.getDefault().getPath(polishedFa));
         Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa2));
         Files.deleteIfExists(FileSystems.getDefault().getPath(mapPaf));
 
@@ -386,32 +386,27 @@ public class OverlapLayoutConcensus {
             return true;
         }
 
-        // polish backbone
+        if (hasOnlyOneSequence(backbonesFa)) {
+            // polish backbone #1
+            
+            status = mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads, minimapOptions, usePacBioPreset);
+            if (!status) {
+                return false;
+            }
 
-        status = mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads, minimapOptions, usePacBioPreset);
-        if (!status) {
-            return false;
-        }
-
-        status = concensusWithRacon(readsPath, backbonesFa, mapPaf, polishedFa, numThreads);
-        if (!status) {
-            return false;
-        }
-
-        if (hasOnlyOneSequence(polishedFa)) {
-            symlinkRemoveExisting(polishedFa, concensusPath);
+            status = concensusWithRacon(readsPath, backbonesFa, mapPaf, concensusPath, numThreads);
         }
         else {
-            // layout backbone #2 from polished backbone
+            // layout backbone #2
 
-            status = overlapWithMinimapAndLayout(polishedFa, backbonesFa2,
+            status = overlapWithMinimapAndLayout(backbonesFa, backbonesFa2,
                         numThreads, alignBackbones, "-k 9 -r " + minOverlapMatches, stranded, maxEdgeClip,
                         minAlnId, minOverlapMatches, maxIndelSize, false,
                         1, usePacBioPreset);
 
             if (!status) {
                 // either PAF is empty or no backbones can be made
-                symlinkRemoveExisting(polishedFa, concensusPath);
+                symlinkRemoveExisting(backbonesFa2, concensusPath);
                 return true;
             }
 
