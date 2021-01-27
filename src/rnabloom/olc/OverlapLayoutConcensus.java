@@ -406,8 +406,9 @@ public class OverlapLayoutConcensus {
 
             if (!status) {
                 // either PAF is empty or no backbones can be made
-                symlinkRemoveExisting(backbonesFa2, concensusPath);
-                return true;
+//                symlinkRemoveExisting(backbonesFa2, concensusPath);
+//                return true;
+                backbonesFa2 = backbonesFa;
             }
 
             // polish backbone #2

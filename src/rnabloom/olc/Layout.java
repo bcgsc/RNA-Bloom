@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -687,7 +688,7 @@ public class Layout {
     private class ReadClusters {
         private LinkedList<HashSet<String>> clusters = new LinkedList<>();
         
-        public ReadClusters(long numReads) {
+        public ReadClusters() {
         }
         
         public void add(String read1, String read2){
@@ -802,9 +803,62 @@ public class Layout {
         }
     }
     
+    private class Neighbor implements Comparable<Neighbor> {
+        String name;
+        int score;
+        
+        public Neighbor(String name, int score) {
+            this.name = name;
+            this.score = score;
+        }
+        
+        @Override
+        public int compareTo(Neighbor o) {
+            return o.score - this.score; 
+        }
+    }
+    
+    private class BestNeighbors {
+        public int max = 6;
+        
+        public HashMap<String, ArrayList<Neighbor>> neighbors = new HashMap<>();
+        
+        public BestNeighbors() {
+        }
+        
+        public BestNeighbors(int max) {
+            this.max = max;
+        }
+        
+        public void add(String name1, String name2, int score) {
+            addHelper(name1, name2, score);
+            addHelper(name2, name1, score);
+        }
+        
+        private void addHelper(String target, String query, int score) {
+            if (neighbors.containsKey(target)) {
+                ArrayList<Neighbor> arr = neighbors.get(target);
+                if (arr.size() < max) {
+                    arr.add(new Neighbor(query, score));
+                    Collections.sort(arr);
+                }
+                else {
+                    Neighbor worst = arr.get(max-1);
+                    if (score > worst.score) {
+                        arr.set(max-1, new Neighbor(query, score));
+                        Collections.sort(arr);
+                    }
+                }
+            }
+            else {
+                ArrayList<Neighbor> arr = new ArrayList<>();
+                arr.add(new Neighbor(query, score));
+                neighbors.put(target, arr);
+            }
+        }
+    }
+    
     public int[] extractClusters(String outdir, long numReads) throws IOException {
-        ReadClusters clusters = new ReadClusters(numReads);
-
         PafReader reader = new PafReader(overlapPafInputStream);
         
         boolean checkNumAltReads = minNumAltReads > 0;
@@ -814,8 +868,10 @@ public class Layout {
 
         TreeSet<Interval> spans = new TreeSet<>();
         HashMap<String, TreeSet> readIntervalsMap = new HashMap<>();
-        
-        ArrayDeque<String> neighborhood = new ArrayDeque<>();
+
+        BestNeighbors bestNeighbors = new BestNeighbors(6);
+//        ReadClusters clusters = new ReadClusters();        
+//        ArrayDeque<String> neighborhood = new ArrayDeque<>();
         String prevName = null;
                 
         int records = 0;
@@ -832,16 +888,6 @@ public class Layout {
                 boolean first = prevName == null;
                 boolean newQuery = !r.qName.equals(prevName);
                 
-                if (first) {
-                    neighborhood = new ArrayDeque<>();
-                    neighborhood.add(r.qName);
-                }
-                else if (newQuery) {
-                    clusters.add(neighborhood);
-                    neighborhood = new ArrayDeque<>();
-                    neighborhood.add(r.qName);
-                }
-
                 if (checkNumAltReads) {
                     if (!first && newQuery) {
                         if (!spans.isEmpty()) {
@@ -890,8 +936,18 @@ public class Layout {
                     }
                 }
                 
+                bestNeighbors.add(r.qName, r.tName, r.numMatch);
+//                if (first) {
+//                    neighborhood = new ArrayDeque<>();
+//                    neighborhood.add(r.qName);
+//                }
+//                else if (newQuery) {
+//                    clusters.add(neighborhood);
+//                    neighborhood = new ArrayDeque<>();
+//                    neighborhood.add(r.qName);
+//                }
+//                neighborhood.add(r.tName);
                 prevName = r.qName;
-                neighborhood.add(r.tName);
             }
         }
         reader.close();
@@ -923,8 +979,18 @@ public class Layout {
             }
         }
         
-        clusters.add(neighborhood);
-        
+//        clusters.add(neighborhood);
+
+        ReadClusters clusters = new ReadClusters();
+        for (Map.Entry<String, ArrayList<Neighbor>> set : bestNeighbors.neighbors.entrySet()) {
+            ArrayDeque<String> neighborhood = new ArrayDeque<>();
+            neighborhood.add(set.getKey());
+            for (Neighbor n : set.getValue()) {
+                neighborhood.add(n.name);
+            }
+            clusters.add(neighborhood);
+        }
+
         HashMap<String, Integer> cids = clusters.assignIDs();
         int numClusters = clusters.size();
         int[] counts = new int[numClusters];
