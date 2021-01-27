@@ -802,7 +802,7 @@ public class Layout {
         }
     }
     
-    public int extractClusters(String outdir, long numReads) throws IOException {
+    public int[] extractClusters(String outdir, long numReads) throws IOException {
         ReadClusters clusters = new ReadClusters(numReads);
 
         PafReader reader = new PafReader(overlapPafInputStream);
@@ -927,6 +927,7 @@ public class Layout {
         
         HashMap<String, Integer> cids = clusters.assignIDs();
         int numClusters = clusters.size();
+        int[] counts = new int[numClusters];
         System.out.println("Clusters found:  " + numClusters);
         
         int[] maxIDAndSize = clusters.getLargetClusterIDAndSize();
@@ -943,6 +944,7 @@ public class Layout {
             
             if (cids.containsKey(name)) {
                 int cid = cids.get(name);
+                counts[cid-1] += 1;
                 FastaWriter fw = new FastaWriter(outdir + File.separator + cid + FASTA_EXT, true);
 //                ++seqID;
                 String seq = nameSeq[1];
@@ -978,7 +980,7 @@ public class Layout {
         fr.close();
         
         //System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
-        return numClusters;
+        return counts;
     }
     
     private boolean layoutBackbones(String outFastaPath) throws IOException {
