@@ -761,7 +761,12 @@ public class Layout {
         }
         
         public HashMap<String,Integer> assignIDs() {
-            HashMap<String,Integer> m = new HashMap<>();
+            int numSeq = 0;
+            for (HashSet<String> c : clusters) {
+                numSeq += c.size();
+            }
+            
+            HashMap<String,Integer> m = new HashMap<>(numSeq, 1.0f);
             int id = 1;
             for (HashSet<String> c : clusters) {
                 for (String s : c) {
@@ -769,6 +774,7 @@ public class Layout {
                 }
                 ++id;
             }
+            
             return m;
         }
         
@@ -869,7 +875,7 @@ public class Layout {
         TreeSet<Interval> spans = new TreeSet<>();
         HashMap<String, TreeSet> readIntervalsMap = new HashMap<>();
 
-        BestNeighbors bestNeighbors = new BestNeighbors(6);
+        BestNeighbors bestNeighbors = new BestNeighbors(2);
 //        ReadClusters clusters = new ReadClusters();        
 //        ArrayDeque<String> neighborhood = new ArrayDeque<>();
         String prevName = null;
