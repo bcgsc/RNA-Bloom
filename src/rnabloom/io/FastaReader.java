@@ -36,8 +36,8 @@ import static rnabloom.io.Constants.GZIP_EXTENSION;
  * @author Ka Ming Nip
  */
 public class FastaReader implements FastxReaderInterface {
-    private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("^>([^\\s/]+)(?:/[12])?.*$");
-    private final static Pattern RECORD_NAME_COMMENT_PATTERN = Pattern.compile("^>([^\\s/]+)\\s*(.*)?$");
+    private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("([^\\s]+)/[12]");
+    private final static Pattern RECORD_NAME_COMMENT_PATTERN = Pattern.compile("^>([^\\s]+)\\s*(.*)?$");
     private final Iterator<String> itr;
     private final BufferedReader br;
     
@@ -133,9 +133,13 @@ public class FastaReader implements FastxReaderInterface {
         }
         
         String name = null;
-        Matcher m = RECORD_NAME_PATTERN.matcher(header);
+        Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(header);
         if (m.matches()) {
             name = m.group(1);
+            Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
+            if (m2.matches()) {
+                name = m2.group(1);
+            }
         }
         else {
             throw new FileFormatException("Incorrect FASTA header format");
@@ -176,9 +180,13 @@ public class FastaReader implements FastxReaderInterface {
         }
         
         String name = null;
-        Matcher m = RECORD_NAME_PATTERN.matcher(header);
+        Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(header);
         if (m.matches()) {
             name = m.group(1);
+            Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
+            if (m2.matches()) {
+                name = m2.group(1);
+            }
         }
         else {
             throw new FileFormatException("Incorrect FASTA header format");
@@ -222,6 +230,10 @@ public class FastaReader implements FastxReaderInterface {
         if (m.matches()) {
             name = m.group(1);
             comment = m.group(2);
+            Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
+            if (m2.matches()) {
+                name = m2.group(1);
+            }
         }
         else {
             throw new FileFormatException("Incorrect FASTA header format");
@@ -249,5 +261,9 @@ public class FastaReader implements FastxReaderInterface {
     @Override
     public void close() throws IOException {
         br.close();
+    }
+    
+    public static void main(String[] args) {
+        //debug
     }
 }

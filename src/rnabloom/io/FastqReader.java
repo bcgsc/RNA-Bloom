@@ -34,7 +34,8 @@ import static rnabloom.io.Constants.GZIP_EXTENSION;
  * @author Ka Ming Nip
  */
 public final class FastqReader implements FastxReaderInterface {
-    private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("^@([^\\s/]+)(?:/[12])?.*$");
+    private final static Pattern RECORD_NAME_PATTERN = Pattern.compile("([^\\s]+)/[12]");
+    private final static Pattern RECORD_NAME_COMMENT_PATTERN = Pattern.compile("^@([^\\s]+)\\s*(.*)?$");
     private final BufferedReader br;
     private final Iterator<String> itr;
     
@@ -108,9 +109,13 @@ public final class FastqReader implements FastxReaderInterface {
             itr.next();
         }
         
-        Matcher m = RECORD_NAME_PATTERN.matcher(line1);
+        Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
         if (m.matches()) {
             name = m.group(1);
+            Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
+            if (m2.matches()) {
+                name = m2.group(1);
+            }
         }
         else {
             throw new FileFormatException("Line 1 of FASTQ record is expected to start with '@'");
@@ -166,9 +171,13 @@ public final class FastqReader implements FastxReaderInterface {
             fr.qual = itr.next();
         }
         
-        Matcher m = RECORD_NAME_PATTERN.matcher(line1);
+        Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
         if (m.matches()) {
             fr.name = m.group(1);
+            Matcher m2 = RECORD_NAME_PATTERN.matcher(fr.name);
+            if (m2.matches()) {
+                fr.name = m2.group(1);
+            }
         }
         else {
             throw new FileFormatException("Line 1 of a FASTQ record is expected to start with '@'");
@@ -182,5 +191,9 @@ public final class FastqReader implements FastxReaderInterface {
     @Override
     public void close() throws IOException {
         br.close();
+    }
+    
+    public static void main(String[] args) {
+        //debug
     }
 }
