@@ -988,10 +988,10 @@ public class Layout {
 //        clusters.add(neighborhood);
 
         ReadClusters clusters = new ReadClusters();
-        for (Map.Entry<String, ArrayList<Neighbor>> set : bestNeighbors.neighbors.entrySet()) {
+        for (Map.Entry<String, ArrayList<Neighbor>> pair : bestNeighbors.neighbors.entrySet()) {
             ArrayDeque<String> neighborhood = new ArrayDeque<>();
-            neighborhood.add(set.getKey());
-            for (Neighbor n : set.getValue()) {
+            neighborhood.add(pair.getKey());
+            for (Neighbor n : pair.getValue()) {
                 neighborhood.add(n.name);
             }
             clusters.add(neighborhood);
