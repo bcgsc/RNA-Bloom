@@ -862,6 +862,21 @@ public class Layout {
                 neighbors.put(target, arr);
             }
         }
+        
+        public HashSet<String> getConnectedNeighbors(String target, HashSet<String> visited) {
+            visited.add(target);
+            
+            HashSet<String> connectedNeighbors = new HashSet<>();
+            
+            for (Neighbor n : neighbors.get(target)) {
+                connectedNeighbors.add(n.name);
+                if (!visited.contains(n.name)) {
+                    connectedNeighbors.addAll(getConnectedNeighbors(n.name, visited));
+                }
+            }
+            
+            return connectedNeighbors;
+        }
     }
     
     public int[] extractClusters(String outdir, long numReads) throws IOException {
@@ -988,13 +1003,11 @@ public class Layout {
 //        clusters.add(neighborhood);
 
         ReadClusters clusters = new ReadClusters();
-        for (Map.Entry<String, ArrayList<Neighbor>> pair : bestNeighbors.neighbors.entrySet()) {
-            ArrayDeque<String> neighborhood = new ArrayDeque<>();
-            neighborhood.add(pair.getKey());
-            for (Neighbor n : pair.getValue()) {
-                neighborhood.add(n.name);
+        HashSet<String> visited = new HashSet<>(bestNeighbors.neighbors.size(), 1.0f);
+        for (String n : bestNeighbors.neighbors.keySet()) {
+            if (!visited.contains(n)) {
+                clusters.add(bestNeighbors.getConnectedNeighbors(n, visited));
             }
-            clusters.add(neighborhood);
         }
 
         HashMap<String, Integer> cids = clusters.assignIDs();
