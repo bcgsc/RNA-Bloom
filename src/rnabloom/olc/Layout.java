@@ -1014,12 +1014,14 @@ public class Layout {
         }
         System.out.println("\t- multi-seg reads: " + multiSegmentSeqs.size());
 
-        // form clusters by connected neighborhoods
+        // form clusters by connecting neighborhoods
         ReadClusters clusters = new ReadClusters();
         HashSet<String> visited = new HashSet<>(bestNeighbors.neighbors.size(), 1.0f);
         for (String n : bestNeighbors.neighbors.keySet()) {
             if (!visited.contains(n) && !multiSegmentSeqs.contains(n)) {
-                clusters.add(bestNeighbors.getConnectedNeighbors(n, visited, multiSegmentSeqs));
+                HashSet<String> neighborhood = bestNeighbors.getConnectedNeighbors(n, visited, multiSegmentSeqs);
+                neighborhood.add(n);
+                clusters.add(neighborhood);
             }
         }
 
@@ -1046,12 +1048,12 @@ public class Layout {
                         }
                     }
                 }
-                if (congruent) {
+                if (congruent && candidate != null) {
                     cids.put(name, candidate);
                     ++numMultiSegmentSeqsRescued;
                 }
             }
-            System.out.println("\t- rescued:         " + numMultiSegmentSeqsRescued);
+            System.out.println("\t  - rescued:       " + numMultiSegmentSeqsRescued);
         }
         
         int numClusters = clusters.size();
