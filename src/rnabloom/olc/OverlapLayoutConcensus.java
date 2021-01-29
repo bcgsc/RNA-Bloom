@@ -446,11 +446,9 @@ public class OverlapLayoutConcensus {
         int numClusters = clusterSizes.length;
         
         for (int c=0; c<numClusters; ++c) {
-            // do not align READS during AVA overlap if the cluster has to many reads
+            // do not align during AVA overlap if the cluster has to many reads
             boolean alignReads = clusterSizes[c] <= 100000;
-            
-            // do align BACKBONES during AVA overlap
-            boolean alignBackbones = true;
+            boolean alignBackbones = alignReads;
             
             int cid = c+1;
             System.out.println("Processing cluster #" + cid + " of " + numClusters + "...");
