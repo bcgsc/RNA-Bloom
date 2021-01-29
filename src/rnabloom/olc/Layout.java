@@ -863,15 +863,18 @@ public class Layout {
             }
         }
         
-        public HashSet<String> getConnectedNeighbors(String target, HashSet<String> visited) {
+        public HashSet<String> getConnectedNeighbors(String target, 
+                HashSet<String> visited, HashSet<String> ignored) {
             visited.add(target);
             
             HashSet<String> connectedNeighbors = new HashSet<>();
             
             for (Neighbor n : neighbors.get(target)) {
-                connectedNeighbors.add(n.name);
-                if (!visited.contains(n.name)) {
-                    connectedNeighbors.addAll(getConnectedNeighbors(n.name, visited));
+                if (!ignored.contains(n.name)) {
+                    connectedNeighbors.add(n.name);
+                    if (!visited.contains(n.name)) {
+                        connectedNeighbors.addAll(getConnectedNeighbors(n.name, visited, ignored));
+                    }
                 }
             }
             
@@ -1001,22 +1004,62 @@ public class Layout {
         }
         
 //        clusters.add(neighborhood);
+        
+        // count number of multi-segment reads
+        HashSet<String> multiSegmentSeqs = new HashSet<>();
+        for (Map.Entry<String, TreeSet> e : readIntervalsMap.entrySet()) {
+            if (e.getValue().size() > 1) {
+                multiSegmentSeqs.add(e.getKey());
+            }
+        }
+        System.out.println("\t- multi-seg reads: " + multiSegmentSeqs.size());
 
+        // form clusters by connected neighborhoods
         ReadClusters clusters = new ReadClusters();
         HashSet<String> visited = new HashSet<>(bestNeighbors.neighbors.size(), 1.0f);
         for (String n : bestNeighbors.neighbors.keySet()) {
-            if (!visited.contains(n)) {
-                clusters.add(bestNeighbors.getConnectedNeighbors(n, visited));
+            if (!visited.contains(n) && !multiSegmentSeqs.contains(n)) {
+                clusters.add(bestNeighbors.getConnectedNeighbors(n, visited, multiSegmentSeqs));
             }
         }
 
+        // assign cluster IDs
         HashMap<String, Integer> cids = clusters.assignIDs();
+        
+        if (!multiSegmentSeqs.isEmpty()) {
+            // rescue multi-segment reads
+            int numMultiSegmentSeqsRescued = 0;
+            for (String name : multiSegmentSeqs) {
+                Integer candidate = null;
+                boolean congruent = true;
+                for (Neighbor n : bestNeighbors.neighbors.get(name)) {
+                    Integer id = cids.get(n.name);
+                    if (id != null) {
+                        if (candidate == null) { 
+                            candidate = id;
+                        }
+                        else {
+                            if (!candidate.equals(id)) {
+                                congruent = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (congruent) {
+                    cids.put(name, candidate);
+                    ++numMultiSegmentSeqsRescued;
+                }
+            }
+            System.out.println("\t- rescued:         " + numMultiSegmentSeqsRescued);
+        }
+        
         int numClusters = clusters.size();
         int[] counts = new int[numClusters];
-        System.out.println("Clusters found:  " + numClusters);
+        System.out.println("\t- clusters found:  " + numClusters);
         
         int[] maxIDAndSize = clusters.getLargetClusterIDAndSize();
-        System.out.println("Largest cluster: #" + maxIDAndSize[0] + " (" + maxIDAndSize[1] + " reads)");
+        System.out.println("\t- largest cluster: #" + maxIDAndSize[0] + " (" + maxIDAndSize[1] + " reads)");
 
         FastaReader fr = new FastaReader(seqFastaPath);
         
@@ -1027,40 +1070,38 @@ public class Layout {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
             
+            String filePath = null;
             if (cids.containsKey(name)) {
                 int cid = cids.get(name);
                 counts[cid-1] += 1;
-                FastaWriter fw = new FastaWriter(outdir + File.separator + cid + FASTA_EXT, true);
-//                ++seqID;
-                String seq = nameSeq[1];
-                if (checkNumAltReads) { 
-                    spans = readIntervalsMap.get(name);
-                    if (spans != null) {
-                        int numSpans = spans.size();
-                        if (numSpans == 1) {
-                            Interval span = spans.first();
-                            fw.write(name + "_t " + seq.length() + ":" + span.start + "-" + span.end,
-                                    seq.substring(span.start, span.end));
-                        }
-                        else {
-                            int i = 0;
-                            for (Interval span : spans) {
-                                fw.write(name + "_p" + i++ + " " + seq.length() + ":" + span.start + "-" + span.end,
-                                        seq.substring(span.start, span.end));
-                            }
-                        }
-                    }
+                filePath = outdir + File.separator + cid + FASTA_EXT;
+            } 
+            else {
+                filePath = outdir + File.separator + "orphans" + FASTA_EXT;
+            }
+            
+            FastaWriter fw = new FastaWriter(filePath, true);
+            String seq = nameSeq[1];
+            spans = readIntervalsMap.get(name);
+            if (checkNumAltReads && spans != null) { 
+                int numSpans = spans.size();
+                if (numSpans == 1) {
+                    Interval span = spans.first();
+                    fw.write(name + "_t " + seq.length() + ":" + span.start + "-" + span.end,
+                            seq.substring(span.start, span.end));
                 }
                 else {
-                    fw.write(name, seq);
+                    int i = 0;
+                    for (Interval span : spans) {
+                        fw.write(name + "_p" + i++ + " " + seq.length() + ":" + span.start + "-" + span.end,
+                                seq.substring(span.start, span.end));
+                    }
                 }
-                fw.close();
             }
             else {
-                FastaWriter fw = new FastaWriter(outdir + File.separator + "orphans" + FASTA_EXT, true);
-                fw.write(name, nameSeq[1]);
-                fw.close();
+                fw.write(name, seq);
             }
+            fw.close();
         }
         fr.close();
         
