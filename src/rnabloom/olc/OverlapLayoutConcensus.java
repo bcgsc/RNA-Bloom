@@ -266,7 +266,7 @@ public class OverlapLayoutConcensus {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
-        command.add(RACON + " -e 0.1 -t " + numThreads + " " + queryFastaPath + " " + mappingPafPath + " " + targetFastaPath + " > " + concensusFastaPath);
+        command.add(RACON + " -t " + numThreads + " " + queryFastaPath + " " + mappingPafPath + " " + targetFastaPath + " > " + concensusFastaPath);
         //--no-trimming -u
         return runCommand(command, concensusFastaPath + LOG_EXTENSION);
     }
@@ -400,7 +400,7 @@ public class OverlapLayoutConcensus {
             // layout backbone #2
 
             status = overlapWithMinimapAndLayout(backbonesFa, backbonesFa2,
-                        numThreads, alignBackbones, "-k 9 -r " + minOverlapMatches, stranded, maxEdgeClip,
+                        numThreads, alignBackbones, minimapOptions, stranded, maxEdgeClip,
                         minAlnId, minOverlapMatches, maxIndelSize, false,
                         1, usePacBioPreset);
 
