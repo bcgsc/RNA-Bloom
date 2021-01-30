@@ -197,27 +197,20 @@ public class Layout {
     }
         
     private boolean isDovetailPafRecord(ExtendedPafRecord r) {
-        if (r.numMatch >= minOverlapMatches) {
-
-            if (r.reverseComplemented) {
-                return (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip && r.qStart > r.tLen - r.tEnd) ||
-                        (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip && r.qLen - r.qStart > r.tStart);
-            }
-            else {
-                return (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip && r.qStart > r.tStart) ||
-                        (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip && r.tStart > r.qStart);
-            }
-
+        if (r.reverseComplemented) {
+            return (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip && r.qStart > r.tLen - r.tEnd) ||
+                    (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip && r.qLen - r.qStart > r.tStart);
         }
-        
-        return false;
+        else {
+            return (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip && r.qStart > r.tStart) ||
+                    (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip && r.tStart > r.qStart);
+        }
     }
     
     private boolean isStrandedDovetailPafRecord(ExtendedPafRecord r) {
         if (!r.reverseComplemented) {
-            if (r.numMatch >= minOverlapMatches &&
-                ((r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) ||
-                    (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip))) {
+            if ((r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) ||
+                    (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip)) {
                 return true;
             }
         }
@@ -893,7 +886,7 @@ public class Layout {
         TreeSet<Interval> spans = new TreeSet<>();
         HashMap<String, TreeSet> readIntervalsMap = new HashMap<>();
 
-        BestNeighbors bestNeighbors = new BestNeighbors(2);
+        BestNeighbors bestNeighbors = new BestNeighbors(3);
 //        ReadClusters clusters = new ReadClusters();        
 //        ArrayDeque<String> neighborhood = new ArrayDeque<>();
         String prevName = null;
@@ -960,7 +953,9 @@ public class Layout {
                     }
                 }
                 
-                bestNeighbors.add(r.qName, r.tName, r.numMatch);
+                if (isDovetailPafRecord(r) || isContainmentPafRecord(r)) {
+                    bestNeighbors.add(r.qName, r.tName, r.numMatch);
+                }
 //                if (first) {
 //                    neighborhood = new ArrayDeque<>();
 //                    neighborhood.add(r.qName);
@@ -1053,7 +1048,7 @@ public class Layout {
                     ++numMultiSegmentSeqsRescued;
                 }
             }
-            System.out.println("\t  - rescued:       " + numMultiSegmentSeqsRescued);
+            System.out.println("\t  - assigned:      " + numMultiSegmentSeqsRescued);
         }
         
         int numClusters = clusters.size();
