@@ -1029,37 +1029,39 @@ public class Layout {
             for (String name : multiSegmentSeqs) {
                 Integer candidate = null;
                 boolean congruent = true;
-                for (Neighbor n : bestNeighbors.neighbors.get(name)) {
-                    Integer id = cids.get(n.name);
-                    if (id != null) {
-                        if (candidate == null) { 
-                            candidate = id;
-                        }
-                        else {
-                            if (!candidate.equals(id)) {
-                                congruent = false;
-                                break;
+                ArrayList<Neighbor> ns = bestNeighbors.neighbors.get(name);
+                if (ns != null) {
+                    for (Neighbor n : ns) {
+                        Integer id = cids.get(n.name);
+                        if (id != null) {
+                            if (candidate == null) { 
+                                candidate = id;
+                            }
+                            else {
+                                if (!candidate.equals(id)) {
+                                    congruent = false;
+                                    break;
+                                }
                             }
                         }
                     }
-                }
-                if (congruent && candidate != null) {
-                    cids.put(name, candidate);
-                    ++numMultiSegmentSeqsRescued;
+                    if (congruent && candidate != null) {
+                        cids.put(name, candidate);
+                        ++numMultiSegmentSeqsRescued;
+                    }
                 }
             }
             System.out.println("\t  - assigned:      " + numMultiSegmentSeqsRescued);
         }
         
         int numClusters = clusters.size();
-        int[] counts = new int[numClusters];
         System.out.println("\t- clusters found:  " + numClusters);
         
         int[] maxIDAndSize = clusters.getLargetClusterIDAndSize();
         System.out.println("\t- largest cluster: #" + maxIDAndSize[0] + " (" + maxIDAndSize[1] + " reads)");
 
         FastaReader fr = new FastaReader(seqFastaPath);
-        
+        int[] counts = new int[numClusters];
 //        long originalNumSeq = 0;
 //        long seqID = 0;
         while (fr.hasNext()) {
