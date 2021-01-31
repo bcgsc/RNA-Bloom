@@ -863,10 +863,14 @@ public class Layout {
             HashSet<String> connectedNeighbors = new HashSet<>();
             
             for (Neighbor n : neighbors.get(target)) {
-                if (!ignored.contains(n.name)) {
-                    connectedNeighbors.add(n.name);
-                    if (!visited.contains(n.name)) {
-                        connectedNeighbors.addAll(getConnectedNeighbors(n.name, visited, ignored));
+                String name = n.name;
+                if (ignored.contains(name)) {
+                    visited.add(name);
+                }
+                else {
+                    connectedNeighbors.add(name);
+                    if (!visited.contains(name)) {
+                        connectedNeighbors.addAll(getConnectedNeighbors(name, visited, ignored));
                     }
                 }
             }
