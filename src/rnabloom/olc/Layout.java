@@ -638,6 +638,51 @@ public class Layout {
         targets.add(query);
     }
     
+    private static ArrayDeque<Interval> extractEffectiveIntervals(Collection<Interval> spans, int minCoverage, int minIntervalLength) {
+        ArrayDeque<Interval> effIntervals = new ArrayDeque<>();
+        
+        int targetLength = 0;
+        for (Interval s : spans) {
+            if (s.end > targetLength) {
+                targetLength = s.end;
+            }
+        }
+        
+        // extract coverage histogram
+        int[] hist = new int[targetLength];
+        for (Interval s : spans) {
+            for (int i=s.start; i<s.end; ++i) {
+                ++hist[i];
+            }
+        }
+        
+        // extract effective intervals
+        int start = -1;
+        for (int i=0; i<targetLength; ++i) {
+            int c = hist[i];
+            if (c >= minCoverage) {
+                if (start < 0) {
+                    start = i;
+                }
+            }
+            else {
+                if (start >= 0) {
+                    if (minIntervalLength <= i - start) {
+                        effIntervals.add(new Interval(start, i));
+                    }
+                    start = -1;
+                }
+            }
+        }
+
+        // extract last interval
+        if (start >= 0 && minIntervalLength <= targetLength - start) {
+            effIntervals.add(new Interval(start, targetLength));
+        }
+        
+        return effIntervals;
+    }
+    
     private static int getMinCoverage(Collection<Interval> spans, int targetLength, int edgeTolerance, int window) {
         int effectiveLength = targetLength - 2*edgeTolerance;
         int numWindows = effectiveLength / window;
@@ -884,15 +929,12 @@ public class Layout {
         
         boolean checkNumAltReads = minNumAltReads > 0;
         
-//        ArrayList<Interval> spans = new ArrayList<>();
-//        HashMap<String, ArrayList> readIntervalsMap = new HashMap<>();
-
-        TreeSet<Interval> spans = new TreeSet<>();
-        HashMap<String, TreeSet> readIntervalsMap = new HashMap<>();
+        ArrayDeque<Interval> spans = new ArrayDeque<>();
+        HashMap<String, ArrayDeque> readIntervalsMap = new HashMap<>();
+//        TreeSet<Interval> spans = new TreeSet<>();
+//        HashMap<String, TreeSet> readIntervalsMap = new HashMap<>();
 
         BestNeighbors bestNeighbors = new BestNeighbors(3);
-//        ReadClusters clusters = new ReadClusters();        
-//        ArrayDeque<String> neighborhood = new ArrayDeque<>();
         String prevName = null;
                 
         int records = 0;
@@ -913,105 +955,103 @@ public class Layout {
                     if (!first && newQuery) {
                         if (!spans.isEmpty()) {
                             if (readIntervalsMap.containsKey(prevName)) {
-                                TreeSet<Interval> qSpans = readIntervalsMap.get(prevName);
-                                //qSpans.addAll(spans);
-                                //readIntervalsMap.put(prevName, overlapIntervals(qSpans));
-                                overlapIntervals(spans);
-                                if (spans.size() > 1) {
-                                    qSpans.addAll(spans);
-                                    overlapIntervals(qSpans);
-                                }
-                                else {
-                                    overlapIntervals(qSpans, spans.first());
-                                }
+                                readIntervalsMap.get(prevName).addAll(spans);
+//                                TreeSet<Interval> qSpans = readIntervalsMap.get(prevName);
+//                                overlapIntervals(spans);
+//                                if (spans.size() > 1) {
+//                                    qSpans.addAll(spans);
+//                                    overlapIntervals(qSpans);
+//                                }
+//                                else {
+//                                    overlapIntervals(qSpans, spans.first());
+//                                }
                             }
                             else {
-                                //readIntervalsMap.put(prevName, overlapIntervals(spans));
-                                overlapIntervals(spans);
                                 readIntervalsMap.put(prevName, spans);
+//                                overlapIntervals(spans);
+//                                readIntervalsMap.put(prevName, spans);
                             }
                         }
                         
-                        spans = new TreeSet<>();
-//                        spans = new ArrayList<>();
+//                        spans = new TreeSet<>();
+                        spans = new ArrayDeque<>();
                     }
 
-                    if (spans.isEmpty()) {
-                        spans.add(new Interval(r.qStart, r.qEnd));
-                    }
-                    else {
-                        overlapIntervals(spans, new Interval(r.qStart, r.qEnd));
-                    }
+                    spans.add(new Interval(r.qStart, r.qEnd));
+//                    if (spans.isEmpty()) {
+//                        spans.add(new Interval(r.qStart, r.qEnd));
+//                    }
+//                    else {
+//                        overlapIntervals(spans, new Interval(r.qStart, r.qEnd));
+//                    }
                     
                     if (readIntervalsMap.containsKey(r.tName)) {
-                        TreeSet<Interval> tSpans = readIntervalsMap.get(r.tName);
-                        //tSpans.add(new Interval(r.tStart, r.tEnd));
-                        //readIntervalsMap.put(r.tName, overlapIntervals(tSpans));
-                        overlapIntervals(tSpans, new Interval(r.tStart, r.tEnd));
+                        readIntervalsMap.get(r.tName).add(new Interval(r.tStart, r.tEnd));
+//                        TreeSet<Interval> tSpans = readIntervalsMap.get(r.tName);
+//                        overlapIntervals(tSpans, new Interval(r.tStart, r.tEnd));
                     }
                     else {
-                        TreeSet<Interval> tSpans = new TreeSet<>();
+                        ArrayDeque<Interval> tSpans = new ArrayDeque<>();
                         tSpans.add(new Interval(r.tStart, r.tEnd));
-                        //readIntervalsMap.put(r.tName, tSpans);
                         readIntervalsMap.put(r.tName, tSpans);
+//                        TreeSet<Interval> tSpans = new TreeSet<>();
+//                        tSpans.add(new Interval(r.tStart, r.tEnd));
+//                        readIntervalsMap.put(r.tName, tSpans);
                     }
                 }
                 
                 if (isDovetailPafRecord(r) || isContainmentPafRecord(r)) {
                     bestNeighbors.add(r.qName, r.tName, r.numMatch);
                 }
-//                if (first) {
-//                    neighborhood = new ArrayDeque<>();
-//                    neighborhood.add(r.qName);
-//                }
-//                else if (newQuery) {
-//                    clusters.add(neighborhood);
-//                    neighborhood = new ArrayDeque<>();
-//                    neighborhood.add(r.qName);
-//                }
-//                neighborhood.add(r.tName);
                 prevName = r.qName;
             }
         }
         reader.close();
         System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " overlap records.");
         
+        // process final batch of spans
         if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
-//            if (readIntervalsMap.containsKey(prevName)) {
-//                ArrayList<Interval> qSpans = readIntervalsMap.get(prevName);
-//                qSpans.addAll(spans);
-//                readIntervalsMap.put(prevName, overlapIntervals(qSpans));
-//            }
-//            else {
-//                readIntervalsMap.put(prevName, overlapIntervals(spans));
-//            }
             if (readIntervalsMap.containsKey(prevName)) {
-                TreeSet<Interval> qSpans = readIntervalsMap.get(prevName);
-                overlapIntervals(spans);
-                if (spans.size() > 1) {
-                    qSpans.addAll(spans);
-                    overlapIntervals(qSpans);
-                }
-                else {
-                    overlapIntervals(qSpans, spans.first());
-                }
+                readIntervalsMap.get(prevName).addAll(spans);
             }
             else {
-                overlapIntervals(spans);
                 readIntervalsMap.put(prevName, spans);
             }
+//            if (readIntervalsMap.containsKey(prevName)) {
+//                TreeSet<Interval> qSpans = readIntervalsMap.get(prevName);
+//                overlapIntervals(spans);
+//                if (spans.size() > 1) {
+//                    qSpans.addAll(spans);
+//                    overlapIntervals(qSpans);
+//                }
+//                else {
+//                    overlapIntervals(qSpans, spans.first());
+//                }
+//            }
+//            else {
+//                overlapIntervals(spans);
+//                readIntervalsMap.put(prevName, spans);
+//            }
         }
         
-//        clusters.add(neighborhood);
-        
-        // count number of multi-segment reads
+        // extract effective intervals and count multi-segment reads
         HashSet<String> multiSegmentSeqs = new HashSet<>();
-        for (Map.Entry<String, TreeSet> e : readIntervalsMap.entrySet()) {
-            if (e.getValue().size() > 1) {
-                multiSegmentSeqs.add(e.getKey());
+        if (checkNumAltReads) {
+            for (Map.Entry<String, ArrayDeque> e : readIntervalsMap.entrySet()) {
+                spans = e.getValue();
+
+                ArrayDeque<Interval> effSpans = extractEffectiveIntervals(spans, minNumAltReads, minOverlapMatches);
+
+                if (effSpans.size() > 1) {
+                    multiSegmentSeqs.add(e.getKey());
+                }
+
+                // replace read intervals with effective intervals
+                spans.clear();
+                spans.addAll(effSpans);
             }
+            System.out.println("\t- multi-seg reads: " + multiSegmentSeqs.size());
         }
-        System.out.println("\t- multi-seg reads: " + multiSegmentSeqs.size());
 
         // form clusters by connecting neighborhoods
         ReadClusters clusters = new ReadClusters();
@@ -1027,8 +1067,8 @@ public class Layout {
         // assign cluster IDs
         HashMap<String, Integer> cids = clusters.assignIDs();
         
+        // rescue multi-segment reads
         if (!multiSegmentSeqs.isEmpty()) {
-            // rescue multi-segment reads
             int numMultiSegmentSeqsRescued = 0;
             for (String name : multiSegmentSeqs) {
                 Integer candidate = null;
@@ -1064,12 +1104,10 @@ public class Layout {
         int[] maxIDAndSize = clusters.getLargetClusterIDAndSize();
         System.out.println("\t- largest cluster: #" + maxIDAndSize[0] + " (" + maxIDAndSize[1] + " reads)");
 
+        // extract effective regions for each read
         FastaReader fr = new FastaReader(seqFastaPath);
         int[] counts = new int[numClusters];
-//        long originalNumSeq = 0;
-//        long seqID = 0;
         while (fr.hasNext()) {
-//            ++originalNumSeq;
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
             
@@ -1089,7 +1127,7 @@ public class Layout {
             if (checkNumAltReads && spans != null) { 
                 int numSpans = spans.size();
                 if (numSpans == 1) {
-                    Interval span = spans.first();
+                    Interval span = spans.peekFirst();
                     fw.write(name + "_t " + seq.length() + ":" + span.start + "-" + span.end,
                             seq.substring(span.start, span.end));
                 }
