@@ -901,21 +901,35 @@ public class Layout {
             }
         }
         
-        public HashSet<String> getConnectedNeighbors(String target, 
+        public HashSet<String> getConnectedNeighbors(final String target, 
                 HashSet<String> visited, HashSet<String> ignored) {
+            
             visited.add(target);
             
             HashSet<String> connectedNeighbors = new HashSet<>();
             
+            HashSet<String> pending = new HashSet<>();
+            
             for (Neighbor n : neighbors.get(target)) {
                 String name = n.name;
-                if (ignored.contains(name)) {
-                    visited.add(name);
+                if (!ignored.contains(name)) {
+                    pending.add(name);
                 }
-                else {
-                    connectedNeighbors.add(name);
-                    if (!visited.contains(name)) {
-                        connectedNeighbors.addAll(getConnectedNeighbors(name, visited, ignored));
+            }
+            
+            while (!pending.isEmpty()) {
+                Iterator<String> itr = pending.iterator();
+                String name = itr.next();
+                itr.remove();
+                connectedNeighbors.add(name);
+
+                if (!visited.contains(name)) {
+                    visited.add(name);
+
+                    for (Neighbor n : neighbors.get(name)) {
+                        if (!ignored.contains(n.name) && !connectedNeighbors.contains(n.name)) {
+                            pending.add(n.name);
+                        }
                     }
                 }
             }
