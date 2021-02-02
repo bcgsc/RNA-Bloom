@@ -1121,6 +1121,8 @@ public class Layout {
 
         // assign cluster IDs
         HashMap<String, Integer> cids = clusters.assignIDs();
+        int numClusters = clusters.size();
+        int[] maxIDAndSize = clusters.getLargetClusterIDAndSize();
         
         // rescue multi-segment reads
         if (!multiSegmentSeqs.isEmpty()) {
@@ -1153,10 +1155,7 @@ public class Layout {
             System.out.println("\t  - assigned:\t" + numMultiSegmentSeqsRescued);
         }
         
-        int numClusters = clusters.size();
-        System.out.println("\t- clusters:\t" + numClusters);
-        
-        int[] maxIDAndSize = clusters.getLargetClusterIDAndSize();
+        System.out.println("\t- clusters:\t" + numClusters);        
         System.out.println("\t  - largest:\t#" + maxIDAndSize[0] + " (" + maxIDAndSize[1] + " reads)");
 
         // extract effective regions for each read
@@ -1209,6 +1208,7 @@ public class Layout {
         fr.close();
         
         System.out.println("\t- orphans:\t" + numOrphans);
+        System.gc();
         
         //System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
         return counts;
