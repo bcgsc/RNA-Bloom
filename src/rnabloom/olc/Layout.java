@@ -733,23 +733,30 @@ public class Layout {
         return new short[(int)Math.ceil((float)origLength/(float)binSize)];
     }
     
-    private static void updateHistogram(short[] hist, int binSize, int start, int end) {
+    private static void updateHistogram(short[] hist, int binSize, int origLen, int start, int end) {
         if (start > 0) {
-            start = (int) Math.ceil((float)start/(float)binSize);
+            start = (int) Math.ceil((float) start/binSize);
         }
         else {
             start = 0;
         }
         
-        end = (int) Math.ceil((float)end/(float)binSize);
+        if (end < origLen) {
+            end = (int) Math.floor((float) end/binSize);
+        }
+        else {
+            end = hist.length;
+        }
         
         updateHistogram(hist, start, end);
     }
     
     private static void updateHistogram(short[] hist, int start, int end) {
+        short c;
         for (int i=start; i<end; ++i) {
-            if (hist[i] < Short.MAX_VALUE) {
-                ++hist[i];
+            c = hist[i];
+            if (c < Short.MAX_VALUE) {
+                hist[i] = (short) (c + 1);
             }
         }
     }
@@ -1049,7 +1056,7 @@ public class Layout {
         final boolean checkNumAltReads = minNumAltReads > 0;
         
         HashMap<String, short[]> readHistogramMap = new HashMap<>();
-        final int histBinSize = 10;
+        final int histBinSize = 25;
 
         BestNeighbors bestNeighbors = new BestNeighbors(3);
                 
@@ -1071,14 +1078,14 @@ public class Layout {
                         hist = getHistogram(r.qLen, histBinSize);
                         readHistogramMap.put(r.qName, hist);
                     }
-                    updateHistogram(hist, histBinSize, r.qStart, r.qEnd);
+                    updateHistogram(hist, histBinSize, r.qLen, r.qStart, r.qEnd);
                     
                     hist = readHistogramMap.get(r.tName);
                     if (hist == null) {
                         hist = getHistogram(r.tLen, histBinSize);
                         readHistogramMap.put(r.tName, hist);
                     }
-                    updateHistogram(hist, histBinSize, r.tStart, r.tEnd);
+                    updateHistogram(hist, histBinSize, r.tLen, r.tStart, r.tEnd);
                 }
                 
                 if (isDovetailPafRecord(r) || isContainmentPafRecord(r)) {
@@ -1098,7 +1105,7 @@ public class Layout {
                     multiSegmentSeqs.add(e.getKey());
                 }
             }
-            System.out.println("\t- multi-seg reads: " + multiSegmentSeqs.size());
+            System.out.println("\t- multi-segs:\t" + multiSegmentSeqs.size());
         }
 
         // form clusters by connecting neighborhoods
@@ -1143,18 +1150,19 @@ public class Layout {
                     }
                 }
             }
-            System.out.println("\t  - assigned:      " + numMultiSegmentSeqsRescued);
+            System.out.println("\t  - assigned:\t" + numMultiSegmentSeqsRescued);
         }
         
         int numClusters = clusters.size();
-        System.out.println("\t- clusters found:  " + numClusters);
+        System.out.println("\t- clusters:\t" + numClusters);
         
         int[] maxIDAndSize = clusters.getLargetClusterIDAndSize();
-        System.out.println("\t- largest cluster: #" + maxIDAndSize[0] + " (" + maxIDAndSize[1] + " reads)");
+        System.out.println("\t  - largest:\t#" + maxIDAndSize[0] + " (" + maxIDAndSize[1] + " reads)");
 
         // extract effective regions for each read
         FastaReader fr = new FastaReader(seqFastaPath);
         int[] counts = new int[numClusters];
+        int numOrphans = 0;
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
@@ -1166,6 +1174,7 @@ public class Layout {
                 filePath = outdir + File.separator + cid + FASTA_EXT;
             } 
             else {
+                ++numOrphans;
                 filePath = outdir + File.separator + "orphans" + FASTA_EXT;
             }
             
@@ -1198,6 +1207,8 @@ public class Layout {
             fw.close();
         }
         fr.close();
+        
+        System.out.println("\t- orphans:\t" + numOrphans);
         
         //System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
         return counts;
