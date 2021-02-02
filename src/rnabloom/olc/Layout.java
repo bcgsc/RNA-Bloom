@@ -511,14 +511,20 @@ public class Layout {
         
         return sb.toString();
     }
-    
-    private static class Interval implements Comparable<Interval>{
+        
+    private static class Interval {
         public int start;
         public int end;
         
         public Interval(int start, int end) {
             this.start = start;
             this.end = end;
+        }
+    }
+    
+    private static class ComparableInterval extends Interval implements Comparable<Interval>{        
+        public ComparableInterval(int start, int end) {
+            super(start, end);
         }
         
         public boolean merge(Interval other) {
@@ -608,12 +614,12 @@ public class Layout {
     }
     */
     
-    private static void overlapIntervals(TreeSet<Interval> targets) {
+    private static void overlapIntervals(TreeSet<ComparableInterval> targets) {
         if (!targets.isEmpty()) {
-            Iterator<Interval> itr = targets.iterator();
-            Interval prev = itr.next();
+            Iterator<ComparableInterval> itr = targets.iterator();
+            ComparableInterval prev = itr.next();
             while (itr.hasNext()) {
-                Interval i = itr.next();
+                ComparableInterval i = itr.next();
                 if (prev.merge(i)) {
                     itr.remove();
                 }
@@ -624,10 +630,10 @@ public class Layout {
         }
     }
     
-    private static void overlapIntervals(TreeSet<Interval> targets, Interval query) {
-        Iterator<Interval> itr = targets.iterator();
+    private static void overlapIntervals(TreeSet<ComparableInterval> targets, ComparableInterval query) {
+        Iterator<ComparableInterval> itr = targets.iterator();
         while (itr.hasNext()) {
-            Interval i = itr.next();
+            ComparableInterval i = itr.next();
             if (query.merge(i)) {
                 itr.remove();
             }
@@ -637,7 +643,7 @@ public class Layout {
         }
         targets.add(query);
     }
-    
+        
     private static ArrayDeque<Interval> extractEffectiveIntervals(Collection<Interval> spans, int minCoverage, int minIntervalLength) {
         ArrayDeque<Interval> effIntervals = new ArrayDeque<>();
         
@@ -723,6 +729,97 @@ public class Layout {
         return min;
     }
     
+    private static short[] getHistogram(int origLength, int binSize) {
+        return new short[(int)Math.ceil((float)origLength/(float)binSize)];
+    }
+    
+    private static void updateHistogram(short[] hist, int binSize, int start, int end) {
+        if (start > 0) {
+            start = (int) Math.ceil((float)start/(float)binSize);
+        }
+        else {
+            start = 0;
+        }
+        
+        end = (int) Math.ceil((float)end/(float)binSize);
+        
+        updateHistogram(hist, start, end);
+    }
+    
+    private static void updateHistogram(short[] hist, int start, int end) {
+        for (int i=start; i<end; ++i) {
+            if (hist[i] < Short.MAX_VALUE) {
+                ++hist[i];
+            }
+        }
+    }
+    
+    private static boolean isMultiSegmentHistogram(short[] hist, int minCoverage, int minSegmentLength) {
+        int histLength = hist.length;
+        int numSegments = 0;
+        
+        // extract effective intervals
+        int start = -1;
+        for (int i=0; i<histLength; ++i) {
+            int c = hist[i];
+            if (c >= minCoverage) {
+                if (start < 0) {
+                    start = i;
+                }
+            }
+            else {
+                if (start >= 0) {
+                    if (minSegmentLength <= i - start) {
+                        if (++numSegments >= 2) {
+                            return true;
+                        }
+                    }
+                    start = -1;
+                }
+            }
+        }
+
+        // extract last interval
+        if (start >= 0 && minSegmentLength <= histLength - start) {
+            ++numSegments;
+        }
+    
+        return numSegments >= 2;
+    }
+    
+    private static ArrayDeque<Interval> extractEffectiveIntervals(short[] hist, int binSize, int minCoverage, int minIntervalLength) {
+        ArrayDeque<Interval> effIntervals = new ArrayDeque<>();
+        int minHistIntervalLength = (int) Math.floor((float)minIntervalLength/(float)binSize);
+        int histLength = hist.length;
+        
+        // extract effective intervals
+        int start = -1;
+        for (int i=0; i<histLength; ++i) {
+            int c = hist[i];
+            if (c >= minCoverage) {
+                if (start < 0) {
+                    start = i;
+                }
+            }
+            else {
+                if (start >= 0) {
+                    if (minHistIntervalLength <= i - start) {
+                        effIntervals.add(new Interval(start*binSize, i*binSize));
+                    }
+                    start = -1;
+                }
+            }
+        }
+
+        // extract last interval
+        if (start >= 0 && minHistIntervalLength <= histLength - start) {
+            // histLength*binSize can be > actual sequence length
+            effIntervals.add(new Interval(start*binSize, histLength*binSize));
+        }
+        
+        return effIntervals;
+    }
+    
     private class ReadClusters {
         private LinkedList<HashSet<String>> clusters = new LinkedList<>();
         
@@ -769,13 +866,12 @@ public class Layout {
             }
         }
         
-        public void add(Collection<String> neighborhood) {
-            HashSet<String> mySet = new HashSet<>(neighborhood);
+        public void add(HashSet<String> neighborhood) {
             HashSet<String> cluster1 = null;
 
             for (Iterator<HashSet<String>> itr = clusters.iterator(); itr.hasNext(); ) {
                 HashSet<String> c = itr.next();
-                if (mySet.removeAll(c)) {
+                if (neighborhood.removeAll(c)) {
                     if (cluster1 == null) {
                         cluster1 = c;
                     }
@@ -784,17 +880,17 @@ public class Layout {
                         itr.remove();
                     }
 
-                    if (mySet.isEmpty()) {
+                    if (neighborhood.isEmpty()) {
                         break;
                     }
                 }
             }
 
             if (cluster1 == null) {
-                clusters.addFirst(mySet);
+                clusters.addFirst(neighborhood);
             }
             else {
-                cluster1.addAll(mySet);
+                cluster1.addAll(neighborhood);
             }
         }
         
@@ -913,7 +1009,12 @@ public class Layout {
             for (Neighbor n : neighbors.get(target)) {
                 String name = n.name;
                 if (!ignored.contains(name)) {
-                    pending.add(name);
+                    if (visited.contains(name)) {
+                        connectedNeighbors.add(name);
+                    }
+                    else {
+                        pending.add(name);
+                    }
                 }
             }
             
@@ -921,14 +1022,18 @@ public class Layout {
                 Iterator<String> itr = pending.iterator();
                 String name = itr.next();
                 itr.remove();
+                
                 connectedNeighbors.add(name);
+                visited.add(name);
 
-                if (!visited.contains(name)) {
-                    visited.add(name);
-
-                    for (Neighbor n : neighbors.get(name)) {
-                        if (!ignored.contains(n.name) && !connectedNeighbors.contains(n.name)) {
-                            pending.add(n.name);
+                for (Neighbor n : neighbors.get(name)) {
+                    String name2 = n.name;
+                    if (!ignored.contains(name2)) {
+                        if (visited.contains(name2)) {
+                            connectedNeighbors.add(name2);
+                        }
+                        else {
+                            pending.add(name2);
                         }
                     }
                 }
@@ -941,15 +1046,12 @@ public class Layout {
     public int[] extractClusters(String outdir, long numReads) throws IOException {
         PafReader reader = new PafReader(overlapPafInputStream);
         
-        boolean checkNumAltReads = minNumAltReads > 0;
+        final boolean checkNumAltReads = minNumAltReads > 0;
         
-        ArrayDeque<Interval> spans = new ArrayDeque<>();
-        HashMap<String, ArrayDeque> readIntervalsMap = new HashMap<>();
-//        TreeSet<Interval> spans = new TreeSet<>();
-//        HashMap<String, TreeSet> readIntervalsMap = new HashMap<>();
+        HashMap<String, short[]> readHistogramMap = new HashMap<>();
+        final int histBinSize = 10;
 
         BestNeighbors bestNeighbors = new BestNeighbors(3);
-        String prevName = null;
                 
         int records = 0;
         while (reader.hasNext()) {
@@ -960,109 +1062,41 @@ public class Layout {
             
             ExtendedPafRecord r = reader.next();
             
-            if ((!stranded || !r.reverseComplemented) && hasLargeOverlap(r) &&
+            if ((!stranded || !r.reverseComplemented) &&
+                    hasLargeOverlap(r) &&
                     !r.qName.equals(r.tName)) {
-                boolean first = prevName == null;
-                boolean newQuery = !r.qName.equals(prevName);
-                
                 if (checkNumAltReads) {
-                    if (!first && newQuery) {
-                        if (!spans.isEmpty()) {
-                            if (readIntervalsMap.containsKey(prevName)) {
-                                readIntervalsMap.get(prevName).addAll(spans);
-//                                TreeSet<Interval> qSpans = readIntervalsMap.get(prevName);
-//                                overlapIntervals(spans);
-//                                if (spans.size() > 1) {
-//                                    qSpans.addAll(spans);
-//                                    overlapIntervals(qSpans);
-//                                }
-//                                else {
-//                                    overlapIntervals(qSpans, spans.first());
-//                                }
-                            }
-                            else {
-                                readIntervalsMap.put(prevName, spans);
-//                                overlapIntervals(spans);
-//                                readIntervalsMap.put(prevName, spans);
-                            }
-                        }
-                        
-//                        spans = new TreeSet<>();
-                        spans = new ArrayDeque<>();
+                    short[] hist = readHistogramMap.get(r.qName);
+                    if (hist == null) {
+                        hist = getHistogram(r.qLen, histBinSize);
+                        readHistogramMap.put(r.qName, hist);
                     }
-
-                    spans.add(new Interval(r.qStart, r.qEnd));
-//                    if (spans.isEmpty()) {
-//                        spans.add(new Interval(r.qStart, r.qEnd));
-//                    }
-//                    else {
-//                        overlapIntervals(spans, new Interval(r.qStart, r.qEnd));
-//                    }
+                    updateHistogram(hist, histBinSize, r.qStart, r.qEnd);
                     
-                    if (readIntervalsMap.containsKey(r.tName)) {
-                        readIntervalsMap.get(r.tName).add(new Interval(r.tStart, r.tEnd));
-//                        TreeSet<Interval> tSpans = readIntervalsMap.get(r.tName);
-//                        overlapIntervals(tSpans, new Interval(r.tStart, r.tEnd));
+                    hist = readHistogramMap.get(r.tName);
+                    if (hist == null) {
+                        hist = getHistogram(r.tLen, histBinSize);
+                        readHistogramMap.put(r.tName, hist);
                     }
-                    else {
-                        ArrayDeque<Interval> tSpans = new ArrayDeque<>();
-                        tSpans.add(new Interval(r.tStart, r.tEnd));
-                        readIntervalsMap.put(r.tName, tSpans);
-//                        TreeSet<Interval> tSpans = new TreeSet<>();
-//                        tSpans.add(new Interval(r.tStart, r.tEnd));
-//                        readIntervalsMap.put(r.tName, tSpans);
-                    }
+                    updateHistogram(hist, histBinSize, r.tStart, r.tEnd);
                 }
                 
                 if (isDovetailPafRecord(r) || isContainmentPafRecord(r)) {
                     bestNeighbors.add(r.qName, r.tName, r.numMatch);
                 }
-                prevName = r.qName;
             }
         }
         reader.close();
         System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " overlap records.");
-        
-        // process final batch of spans
-        if (checkNumAltReads && !spans.isEmpty() && prevName != null) {
-            if (readIntervalsMap.containsKey(prevName)) {
-                readIntervalsMap.get(prevName).addAll(spans);
-            }
-            else {
-                readIntervalsMap.put(prevName, spans);
-            }
-//            if (readIntervalsMap.containsKey(prevName)) {
-//                TreeSet<Interval> qSpans = readIntervalsMap.get(prevName);
-//                overlapIntervals(spans);
-//                if (spans.size() > 1) {
-//                    qSpans.addAll(spans);
-//                    overlapIntervals(qSpans);
-//                }
-//                else {
-//                    overlapIntervals(qSpans, spans.first());
-//                }
-//            }
-//            else {
-//                overlapIntervals(spans);
-//                readIntervalsMap.put(prevName, spans);
-//            }
-        }
-        
-        // extract effective intervals and count multi-segment reads
+                
+        // identify multi-segment reads
         HashSet<String> multiSegmentSeqs = new HashSet<>();
+        final int minHistSegLen = minOverlapMatches/histBinSize;
         if (checkNumAltReads) {
-            for (Map.Entry<String, ArrayDeque> e : readIntervalsMap.entrySet()) {
-                spans = e.getValue();
-
-                ArrayDeque<Interval> effSpans = extractEffectiveIntervals(spans, minNumAltReads, minOverlapMatches);
-
-                if (effSpans.size() > 1) {
+            for (Map.Entry<String, short[]> e : readHistogramMap.entrySet()) {
+                if (isMultiSegmentHistogram(e.getValue(), minNumAltReads, minHistSegLen)) {
                     multiSegmentSeqs.add(e.getKey());
                 }
-
-                // replace read intervals with effective intervals
-                spans.clear();
-                spans.addAll(effSpans);
             }
             System.out.println("\t- multi-seg reads: " + multiSegmentSeqs.size());
         }
@@ -1137,19 +1171,24 @@ public class Layout {
             
             FastaWriter fw = new FastaWriter(filePath, true);
             String seq = nameSeq[1];
-            spans = readIntervalsMap.get(name);
-            if (checkNumAltReads && spans != null) { 
+            short[] hist = readHistogramMap.get(name);
+            if (checkNumAltReads && hist != null) {
+                ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, histBinSize, minNumAltReads, minHistSegLen);
                 int numSpans = spans.size();
                 if (numSpans == 1) {
                     Interval span = spans.peekFirst();
-                    fw.write(name + "_t " + seq.length() + ":" + span.start + "-" + span.end,
-                            seq.substring(span.start, span.end));
+                    int start = Math.max(0, span.start);
+                    int end = Math.min(span.end, seq.length());
+                    fw.write(name + "_t " + seq.length() + ":" + start + "-" + end,
+                            seq.substring(start, end));
                 }
                 else {
                     int i = 0;
                     for (Interval span : spans) {
-                        fw.write(name + "_p" + i++ + " " + seq.length() + ":" + span.start + "-" + span.end,
-                                seq.substring(span.start, span.end));
+                        int start = Math.max(0, span.start);
+                        int end = Math.min(span.end, seq.length());
+                        fw.write(name + "_p" + i++ + " " + seq.length() + ":" + start + "-" + end,
+                                seq.substring(start, end));
                     }
                 }
             }
