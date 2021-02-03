@@ -106,11 +106,10 @@ public class Layout {
     }
     
     private boolean hasGoodOverlap(PafRecord r) {
-        return r.numMatch >= minOverlapMatches &&
-                r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
+        return r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
                 r.numMatch / (float)(r.tEnd - r.tStart) >= minAlnId;
     }
-    
+        
     private boolean hasAlignment(ExtendedPafRecord record) {
         return record.cigar != null && record.nm >= 0;
     }
@@ -1153,7 +1152,7 @@ public class Layout {
             ExtendedPafRecord r = reader.next();
             
             if ((!stranded || !r.reverseComplemented) &&
-                    hasLargeOverlap(r) &&
+                    hasLargeOverlap(r) && hasGoodOverlap(r) &&
                     !r.qName.equals(r.tName)) {
                 if (checkNumAltReads) {
                     short[] hist = readHistogramMap.get(r.qName);
@@ -1171,9 +1170,10 @@ public class Layout {
                     updateHistogram(hist, histBinSize, r.tLen, r.tStart, r.tEnd);
                 }
                 
-                if (isDovetailPafRecord(r) || isContainmentPafRecord(r)) {
-                    bestNeighbors.add(r.qName, r.tName, r.numMatch);
-                }
+//                if (isDovetailPafRecord(r) || isContainmentPafRecord(r)) {
+//                    bestNeighbors.add(r.qName, r.tName, r.numMatch);
+//                }
+                bestNeighbors.add(r.qName, r.tName, r.numMatch);
             }
         }
         reader.close();
@@ -1346,15 +1346,14 @@ public class Layout {
             lengths.put(r.tName, r.tLen);
             
             if (r.qName.equals(r.tName)) {
-                if (cutRevCompArtifact && 
-                        hasReverseComplementArtifact(r) && 
-                        hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                if (cutRevCompArtifact && hasReverseComplementArtifact(r) && 
+                        hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
                     int cutIndex = getReverseComplementArtifactCutIndex(r);
                     artifactCutIndexes.put(r.qName, cutIndex);
                 }
             }
             else {                
-                if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
+                if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
                     if (isContainmentPafRecord(r)) {
                         String shorter, longer;
                         int longerLen;
@@ -1619,15 +1618,14 @@ public class Layout {
             lengths.put(r.tName, r.tLen);
             
             if (r.qName.equals(r.tName)) {
-                if (cutRevCompArtifact && 
-                        hasReverseComplementArtifact(r) && 
-                        hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                if (cutRevCompArtifact && hasReverseComplementArtifact(r) && 
+                        hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
                     int cutIndex = getReverseComplementArtifactCutIndex(r);
                     artifactCutIndexes.put(r.qName, cutIndex);
                 }
             }
             else {
-                if (hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
                     if (isStrandedContainmentPafRecord(r)) {
                         String shorter, longer;
                         int longerLen;
