@@ -266,7 +266,7 @@ public class OverlapLayoutConcensus {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
-        command.add(RACON + " -t " + numThreads + " " + queryFastaPath + " " + mappingPafPath + " " + targetFastaPath + " > " + concensusFastaPath);
+        command.add(RACON + " --no-trimming -u -t " + numThreads + " " + queryFastaPath + " " + mappingPafPath + " " + targetFastaPath + " > " + concensusFastaPath);
         //--no-trimming -u
         return runCommand(command, concensusFastaPath + LOG_EXTENSION);
     }
