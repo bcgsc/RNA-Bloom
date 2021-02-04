@@ -3072,10 +3072,6 @@ public class RNABloom {
                         continue;
                     }
                     
-                    if (seq.length < minSeqLen) {
-                        continue;
-                    }
-
                     sample.add(seq);
 
                     if (sample.size() == maxSampleSize) {
@@ -3131,10 +3127,6 @@ public class RNABloom {
                         continue;
                     }
                     
-                    if (seq.length < minSeqLen) {
-                        continue;
-                    }
-
                     //String header = Long.toString(++numCorrected) + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
                     ++numCorrected;
                     String header = seq.name + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
