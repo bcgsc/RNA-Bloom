@@ -1142,7 +1142,7 @@ public class Layout {
 
         BestNeighbors bestNeighbors = new BestNeighbors(5);
                 
-        int records = 0;
+        long records = 0;
         while (reader.hasNext()) {
             ++records;
 //            if (++records % 1000000 == 0) {
