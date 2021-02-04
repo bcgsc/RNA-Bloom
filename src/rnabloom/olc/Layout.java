@@ -1140,7 +1140,7 @@ public class Layout {
         HashMap<String, short[]> readHistogramMap = new HashMap<>();
         final int histBinSize = 25;
 
-        BestNeighbors bestNeighbors = new BestNeighbors(5);
+        BestNeighbors bestNeighbors = new BestNeighbors(2);
                 
         long records = 0;
         while (reader.hasNext()) {
