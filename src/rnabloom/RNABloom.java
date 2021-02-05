@@ -86,6 +86,7 @@ import static rnabloom.util.SeqUtils.*;
 import static rnabloom.io.Constants.NBITS_EXT;
 import rnabloom.io.SequenceFileIteratorInterface;
 import static rnabloom.olc.OverlapLayoutConcensus.clusteredOLC;
+import static rnabloom.olc.OverlapLayoutConcensus.mapAndConcensus;
 
 /**
  *
@@ -2794,6 +2795,7 @@ public class RNABloom {
         // combine assembly files
         System.out.println("Combining transcripts from " + numClusters + " clusters...");
         String catFasta = clusterdir + "_cat" + FASTA_EXT;
+        String nrFasta = clusterdir + "_nr" + FASTA_EXT;
         String tmpPrefix = clusterdir + "_tmp";
         FastaWriter fout = new FastaWriter(catFasta, false);
         FastaReader fin;
@@ -2829,9 +2831,19 @@ public class RNABloom {
         fout.close();
         
         System.out.println("Inter-cluster assembly...");
-        boolean ok = overlapLayout(catFasta, tmpPrefix, outFasta,
+        boolean ok = overlapLayout(catFasta, tmpPrefix, nrFasta,
                 numThreads, stranded, minimapOptions,
                 maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize, false, 1, usePacBioPreset);
+
+        if (!ok) {
+            return false;
+        }
+        
+        System.out.println("Polishing assembly...");
+        boolean keepUnpolished = minSeqDepth <= 1;
+        ok = mapAndConcensus(readsPath, nrFasta, tmpPrefix, outFasta, 
+                numThreads, minimapOptions, usePacBioPreset, keepUnpolished);
+
         return ok;
 
 //        System.out.println("Transcripts assembled: " + numTranscripts);
@@ -2859,7 +2871,7 @@ public class RNABloom {
         boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, outFasta, 
                 numThreads, stranded, minimapOptions, maxEdgeClip,
                 minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
-                minSeqDepth, usePacBioPreset);
+                minSeqDepth, usePacBioPreset, false, true);
         
         return ok;
     }

@@ -959,35 +959,54 @@ public class Layout {
             
         }
         
-        public void add(Collection<String> neighborhood) {
-            HashSet<String> cluster = null;
-            
-            for (String n : neighborhood) {
+        public void add(HashSet<String> neighborhood) {
+            HashSet<String> largestCluster = null;
+
+            ArrayDeque<HashSet<String>> clusters = new ArrayDeque<>();
+            HashSet<String> orphans = new HashSet<>();
+
+            // identify the largest matching cluster
+            while (!neighborhood.isEmpty()) {
+                String n = neighborhood.iterator().next();
                 HashSet<String> assigned = assignment.get(n);
-                if (assigned != null) {
-                    if (cluster == null) {
-                        cluster = assigned;
-                    }
-                    else if (assigned != cluster) {
-                        --numClusters;
-                        cluster.addAll(assigned);
-                        for (String o : assigned) {
-                            assignment.put(o, cluster);
-                        }
+                if (assigned == null) {
+                    neighborhood.remove(n);
+                    orphans.add(n);
+                }
+                else {
+                    neighborhood.removeAll(assigned);
+                    clusters.add(assigned);
+                    if (largestCluster == null || largestCluster.size() < assigned.size()) {
+                        largestCluster = assigned;
                     }
                 }
             }
             
-            if (cluster == null) {
+            if (largestCluster == null) {
+                // create a new cluster from this neighborhood
                 ++numClusters;
-                cluster = new HashSet<>(neighborhood);
+                for (String n : orphans) {
+                    assignment.put(n, orphans);
+                }
             }
             else {
-                cluster.addAll(neighborhood);
-            }
-            
-            for (String n : neighborhood) {
-                assignment.put(n, cluster);
+                for (HashSet<String> c : clusters) {
+                    if (c != largestCluster) {
+                        // merge this cluster into the largest cluster
+                        --numClusters;
+                        largestCluster.addAll(c);
+                        for (String n : c) {
+                            assignment.put(n, largestCluster);
+                        }
+                    }
+                }
+                
+                if (!orphans.isEmpty()) {
+                    largestCluster.addAll(orphans);
+                    for (String n : orphans) {
+                        assignment.put(n, largestCluster);
+                    }
+                }
             }
         }
         
@@ -1044,6 +1063,29 @@ public class Layout {
         @Override
         public int compareTo(Neighbor o) {
             return o.score - this.score; 
+        }
+    }
+    
+    private class BestNeighbor {
+        public HashMap<String, Neighbor> neighbors = new HashMap<>();
+        
+        public BestNeighbor() {
+        }
+        
+        public void add(String name1, String name2, int score) {
+            addHelper(name1, name2, score);
+            addHelper(name2, name1, score);
+        }
+        
+        private void addHelper(String target, String query, int score) {
+            Neighbor n = neighbors.get(target);
+            if (n == null) {
+                neighbors.put(target, new Neighbor(query, score));
+            }
+            else if (score > n.score) {
+                n.name = query;
+                n.score = score;
+            }
         }
     }
     
@@ -1140,7 +1182,8 @@ public class Layout {
         HashMap<String, short[]> readHistogramMap = new HashMap<>();
         final int histBinSize = 25;
 
-        BestNeighbors bestNeighbors = new BestNeighbors(2);
+//        BestNeighbors bestNeighbors = new BestNeighbors(2);
+        BestNeighbor bestNeighbors = new BestNeighbor();
                 
         long records = 0;
         while (reader.hasNext()) {
@@ -1193,21 +1236,23 @@ public class Layout {
 
         // form clusters by connecting neighborhoods
         ReadClusters2 clusters = new ReadClusters2();
-        for (Map.Entry<String, ArrayList<Neighbor>> e : bestNeighbors.neighbors.entrySet()) {
-            ArrayDeque<String> neighborhood = new ArrayDeque<>();
-            neighborhood.add(e.getKey());
-            for (Neighbor n : e.getValue()) {
-                neighborhood.add(n.name);
+        for (Map.Entry<String, Neighbor> e : bestNeighbors.neighbors.entrySet()) {
+            String t = e.getKey();
+            String n = e.getValue().name;
+            if (!multiSegmentSeqs.contains(t) && !multiSegmentSeqs.contains(n)) {
+                HashSet<String> neighborhood = new HashSet<>();
+                neighborhood.add(t);
+                neighborhood.add(n);
+                clusters.add(neighborhood);
             }
-            clusters.add(neighborhood);
         }
-//        HashSet<String> visited = new HashSet<>(bestNeighbors.neighbors.size(), 1.0f);
-//        for (String n : bestNeighbors.neighbors.keySet()) {
-//            if (!visited.contains(n) && !multiSegmentSeqs.contains(n)) {
-//                HashSet<String> neighborhood = bestNeighbors.getConnectedNeighbors(n, visited, multiSegmentSeqs);
-//                neighborhood.add(n);
-//                clusters.add(neighborhood);
+//        for (Map.Entry<String, ArrayList<Neighbor>> e : bestNeighbors.neighbors.entrySet()) {
+//            HashSet<String> neighborhood = new HashSet<>();
+//            neighborhood.add(e.getKey());
+//            for (Neighbor n : e.getValue()) {
+//                neighborhood.add(n.name);
 //            }
+//            clusters.add(neighborhood);
 //        }
 
         // assign cluster IDs
@@ -1220,30 +1265,39 @@ public class Layout {
         // rescue multi-segment reads
         if (!multiSegmentSeqs.isEmpty()) {
             int numMultiSegmentSeqsRescued = 0;
+            HashMap<String, Neighbor> neighborsMap = bestNeighbors.neighbors;
             for (String name : multiSegmentSeqs) {
-                Integer candidate = null;
-                boolean congruent = true;
-                ArrayList<Neighbor> ns = bestNeighbors.neighbors.get(name);
-                if (ns != null) {
-                    for (Neighbor n : ns) {
-                        Integer id = cids.get(n.name);
-                        if (id != null) {
-                            if (candidate == null) { 
-                                candidate = id;
-                            }
-                            else {
-                                if (!candidate.equals(id)) {
-                                    congruent = false;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if (congruent && candidate != null) {
-                        cids.put(name, candidate);
+                Neighbor n = neighborsMap.get(name);
+                if (n != null) {
+                    Integer id = cids.get(n.name);
+                    if (id != null) {
+                        cids.put(name, id);
                         ++numMultiSegmentSeqsRescued;
                     }
                 }
+//                Integer candidate = null;
+//                boolean congruent = true;
+//                ArrayList<Neighbor> ns = bestNeighbors.neighbors.get(name);
+//                if (ns != null) {
+//                    for (Neighbor n : ns) {
+//                        Integer id = cids.get(n.name);
+//                        if (id != null) {
+//                            if (candidate == null) { 
+//                                candidate = id;
+//                            }
+//                            else {
+//                                if (!candidate.equals(id)) {
+//                                    congruent = false;
+//                                    break;
+//                                }
+//                            }
+//                        }
+//                    }
+//                    if (congruent && candidate != null) {
+//                        cids.put(name, candidate);
+//                        ++numMultiSegmentSeqsRescued;
+//                    }
+//                }
             }
             System.out.println("\t  - assigned:\t" + numMultiSegmentSeqsRescued);
         }

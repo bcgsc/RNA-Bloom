@@ -262,11 +262,17 @@ public class OverlapLayoutConcensus {
         }
     }
         
-    public static boolean concensusWithRacon(String queryFastaPath, String targetFastaPath, String mappingPafPath, String concensusFastaPath, int numThreads) {
+    public static boolean concensusWithRacon(String queryFastaPath, String targetFastaPath, 
+            String mappingPafPath, String concensusFastaPath, int numThreads, boolean keepUnpolished) {
+        String extraOptions = "";
+        if (keepUnpolished) {
+            extraOptions = " --no-trimming -u ";
+        }
+        
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
-        command.add(RACON + " --no-trimming -u -t " + numThreads + " " + queryFastaPath + " " + mappingPafPath + " " + targetFastaPath + " > " + concensusFastaPath);
+        command.add(RACON + extraOptions + " -t " + numThreads + " " + queryFastaPath + " " + mappingPafPath + " " + targetFastaPath + " > " + concensusFastaPath);
         //--no-trimming -u
         return runCommand(command, concensusFastaPath + LOG_EXTENSION);
     }
@@ -323,10 +329,22 @@ public class OverlapLayoutConcensus {
         return true;
     }
 
+    public static boolean mapAndConcensus(String readsPath, String targetPath, String tmpPrefix, String concensusPath, 
+            int numThreads, String minimapOptions, boolean usePacBioPreset, boolean keepUnpolished) throws IOException {
+        String mapPaf = tmpPrefix + "_map.paf.gz";
+        Files.deleteIfExists(FileSystems.getDefault().getPath(mapPaf));
+        
+        if (!mapWithMinimap(readsPath, targetPath, mapPaf, numThreads, minimapOptions, usePacBioPreset)) {
+            return false;
+        }
+        
+        return concensusWithRacon(readsPath, targetPath, mapPaf, concensusPath, numThreads, keepUnpolished);
+    }
+    
     public static boolean overlapLayoutConcensus(String readsPath, String tmpPrefix, String concensusPath, 
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
-            int minSeqDepth, boolean usePacBioPreset) throws IOException {
+            int minSeqDepth, boolean usePacBioPreset, boolean align, boolean keepUnpolished) throws IOException {
         String backbonesFa = tmpPrefix + "_backbones.fa";
         String mapPaf = tmpPrefix + "_map.paf.gz";
         
@@ -339,7 +357,7 @@ public class OverlapLayoutConcensus {
         }
         
         boolean status = overlapWithMinimapAndLayout(readsPath, backbonesFa,
-            numThreads, false, minimapOptions, stranded, maxEdgeClip,
+            numThreads, align, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
             minSeqDepth, usePacBioPreset);
         
@@ -353,13 +371,13 @@ public class OverlapLayoutConcensus {
             return false;
         }
         
-        return concensusWithRacon(readsPath, backbonesFa, mapPaf, concensusPath, numThreads);
+        return concensusWithRacon(readsPath, backbonesFa, mapPaf, concensusPath, numThreads, keepUnpolished);
     }
     
     public static boolean overlapLayoutConcensus2(String readsPath, String tmpPrefix, String concensusPath, 
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize,
-            boolean usePacBioPreset, boolean alignReads, boolean alignBackbones) throws IOException {
+            boolean usePacBioPreset, boolean alignReads, boolean alignBackbones, boolean keepUnpolished) throws IOException {
         String backbonesFa = tmpPrefix + "_backbones.fa";
         //String polishedFa = tmpPrefix + "_polished.fa";
         String backbonesFa2 = tmpPrefix + "_backbones2.fa";
@@ -394,7 +412,7 @@ public class OverlapLayoutConcensus {
                 return false;
             }
 
-            status = concensusWithRacon(readsPath, backbonesFa, mapPaf, concensusPath, numThreads);
+            status = concensusWithRacon(readsPath, backbonesFa, mapPaf, concensusPath, numThreads, keepUnpolished);
         }
         else {
             // layout backbone #2
@@ -418,7 +436,7 @@ public class OverlapLayoutConcensus {
                 return false;
             }
 
-            status = concensusWithRacon(readsPath, backbonesFa2, mapPaf, concensusPath, numThreads);
+            status = concensusWithRacon(readsPath, backbonesFa2, mapPaf, concensusPath, numThreads, keepUnpolished);
         }
         
         return status;
@@ -443,13 +461,12 @@ public class OverlapLayoutConcensus {
             return -1;
         }
         
-        int numClusters = clusterSizes.length;
+        minSeqDepth = 1;
+        cutRevCompArtifact = false;
+        boolean keepUnpolished = true;
         
-        for (int c=0; c<numClusters; ++c) {
-            // do not align during AVA overlap if the cluster has to many reads
-            boolean alignReads = clusterSizes[c] <= 100000;
-            boolean alignBackbones = alignReads;
-            
+        int numClusters = clusterSizes.length;
+        for (int c=0; c<numClusters; ++c) {            
             int cid = c+1;
             System.out.println("Processing cluster #" + cid + " of " + numClusters + "...");
             
@@ -458,10 +475,13 @@ public class OverlapLayoutConcensus {
             String tmpPrefix = clusterPrefix + "_tmp";
             String concensusPath = clusterPrefix + "_transcripts" + FASTA_EXT;
             
-            boolean status = overlapLayoutConcensus2(clusterPath, tmpPrefix, concensusPath, 
+            // do not align during AVA overlap if the cluster has to many reads
+            boolean align = clusterSizes[c] <= 100000;
+            boolean status = overlapLayoutConcensus(clusterPath, tmpPrefix, concensusPath, 
                             numThreads, stranded, minimapOptions, maxEdgeClip,
-                            minAlnId, minOverlapMatches, maxIndelSize,
-                            usePacBioPreset, alignReads, alignBackbones);
+                            minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth,
+                            usePacBioPreset, align, keepUnpolished);
+            
             if (!status) {
                 throw new IOException("Error processing cluster " + cid);
             }
