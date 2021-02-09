@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jgrapht.Graph;
@@ -1173,7 +1174,7 @@ public class Layout {
             return connectedNeighbors;
         }
     }
-    
+        
     public int[] extractClusters(String outdir, long numReads) throws IOException {
         PafReader reader = new PafReader(overlapPafInputStream);
         
@@ -1222,15 +1223,28 @@ public class Layout {
         reader.close();
         System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " overlap records.");
                 
-        // identify multi-segment reads
-        HashSet<String> multiSegmentSeqs = new HashSet<>();
+        // identify multi-segment reads and extract effective intervals
         final int minHistSegLen = minOverlapMatches/histBinSize;
-        if (checkNumAltReads) {
-            for (Map.Entry<String, short[]> e : readHistogramMap.entrySet()) {
-                if (isMultiSegmentHistogram(e.getValue(), minNumAltReads, minHistSegLen)) {
-                    multiSegmentSeqs.add(e.getKey());
+        HashSet<String> multiSegmentSeqs = new HashSet<>();
+        ConcurrentHashMap<String, ArrayDeque<Interval>> readSpansMap = new ConcurrentHashMap<>();
+        
+        if (checkNumAltReads) {      
+            Set<String> syncSet = Collections.synchronizedSet(multiSegmentSeqs);
+
+            readHistogramMap.entrySet().parallelStream().forEach(
+                e -> {
+                    String name = e.getKey();
+                    short[] hist = e.getValue();
+                    if (hist != null) {
+                        ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, histBinSize, minNumAltReads, minHistSegLen);
+                        readSpansMap.put(name, spans);
+                        if (spans.size() > 1) {
+                            syncSet.add(name);
+                        }
+                    }
                 }
-            }
+            );
+
             System.out.println("\t- multi-segs:\t" + multiSegmentSeqs.size());
         }
 
@@ -1315,8 +1329,8 @@ public class Layout {
             String name = nameSeq[0];
             
             String filePath = null;
-            if (cids.containsKey(name)) {
-                int cid = cids.get(name);
+            Integer cid = cids.get(name);
+            if (cid != null) {
                 counts[cid-1] += 1;
                 filePath = outdir + File.separator + cid + FASTA_EXT;
             } 
@@ -1327,23 +1341,23 @@ public class Layout {
             
             FastaWriter fw = new FastaWriter(filePath, true);
             String seq = nameSeq[1];
-            short[] hist = readHistogramMap.get(name);
-            if (checkNumAltReads && hist != null) {
-                ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, histBinSize, minNumAltReads, minHistSegLen);
+            ArrayDeque<Interval> spans = readSpansMap.get(name);
+            if (checkNumAltReads && spans != null) {
                 int numSpans = spans.size();
+                String seqLength = Integer.toString(seq.length());
                 if (numSpans == 1) {
                     Interval span = spans.peekFirst();
                     int start = Math.max(0, span.start);
                     int end = Math.min(span.end, seq.length());
-                    fw.write(name + "_t " + seq.length() + ":" + start + "-" + end,
+                    fw.write(name + "_t " + seqLength + ":" + start + "-" + end,
                             seq.substring(start, end));
                 }
                 else {
-                    int i = 0;
+                    int i = 1;
                     for (Interval span : spans) {
                         int start = Math.max(0, span.start);
                         int end = Math.min(span.end, seq.length());
-                        fw.write(name + "_p" + i++ + " " + seq.length() + ":" + start + "-" + end,
+                        fw.write(name + "_p" + i++ + " " + seqLength + ":" + start + "-" + end,
                                 seq.substring(start, end));
                     }
                 }
