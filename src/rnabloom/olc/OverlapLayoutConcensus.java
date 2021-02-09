@@ -476,7 +476,7 @@ public class OverlapLayoutConcensus {
             String concensusPath = clusterPrefix + "_transcripts" + FASTA_EXT;
             
             // do not align during AVA overlap if the cluster has to many reads
-            boolean align = clusterSizes[c] <= 100000;
+            boolean align = clusterSizes[c] <= 500000;
             boolean status = overlapLayoutConcensus(clusterPath, tmpPrefix, concensusPath, 
                             numThreads, stranded, minimapOptions, maxEdgeClip,
                             minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth,
