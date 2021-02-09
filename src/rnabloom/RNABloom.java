@@ -3232,7 +3232,7 @@ public class RNABloom {
         
         @Override
         public void run() {
-            boolean stranded = graph.isStranded();
+            //boolean stranded = graph.isStranded();
             
             try {
                 String[] nameSeqPair;
@@ -3264,7 +3264,8 @@ public class RNABloom {
                         }
                         
                         if (!correctedKmers.isEmpty()) {
-                            float cov = getMinMedianKmerCoverage(correctedKmers, 200);
+                            //float cov = getMinMedianKmerCoverage(correctedKmers, 200);
+                            float cov = getMedianKmerCoverage(correctedKmers);
                             boolean isRepeat = isRepeatSequence(correctedKmers, k, 1f/3f) || isLowComplexity(correctedKmers, k, 1f/3f);
                             
                             seq = graph.assemble(correctedKmers);
@@ -3273,11 +3274,11 @@ public class RNABloom {
                             if (!isRepeat && compressHomoPolymers(seq).length() < 1f/3f * seqLength) {
                                 isRepeat = true;
                             }
-                            
-                            int halflen = seqLength/2;
-                            
+
+                            /*
+                            int halflen = seqLength/2;                            
                             String prefix = "";
-                            
+
                             if (!isRepeat) {
                                 if (stranded) {
                                     // find polyA tail and trim trailing sequence
@@ -3355,8 +3356,9 @@ public class RNABloom {
                                     }
                                 }
                             }
+                            */
                             
-                            outputQueue.put(new Sequence(prefix + nameSeqPair[0], seq, seq.length(), cov, isRepeat));
+                            outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov, isRepeat));
                         }
                     }
                 }
