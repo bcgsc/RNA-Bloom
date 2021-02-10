@@ -1226,7 +1226,7 @@ public class Layout {
         // identify multi-segment reads and extract effective intervals
         final int minHistSegLen = minOverlapMatches/histBinSize;
         HashSet<String> multiSegmentSeqs = new HashSet<>();
-        ConcurrentHashMap<String, ArrayDeque<Interval>> readSpansMap = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, ArrayDeque<Interval>> readSpansMap = new ConcurrentHashMap<>(bestNeighbors.neighbors.size(), 1.0f);
         
         if (checkNumAltReads) {      
             Set<String> syncSet = Collections.synchronizedSet(multiSegmentSeqs);
