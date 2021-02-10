@@ -5229,8 +5229,21 @@ public class RNABloom {
                                     .build();
         options.addOption(optPooledAssembly);
         
+        String defaultMinTranscriptLengthLR = "300";
+        String defaultMinOverlapLR = "250";
+        String defaultKmerSizeLR = "17";
+        String defaultMinCoverageLR = "2";
+        String defaultMaxIndelSizeLR = "30";
+        String defaultMaxTipLengthLR = "50";
+        String defaultMaxErrorCorrItrLR = "2";
+        String defaultPercentIdentityLR = "0.7";
+        String defaultLongReadPreset = "-k " + defaultKmerSizeLR + " -c " + defaultMinCoverageLR + 
+                " -indel " + defaultMaxIndelSizeLR + " -e " + defaultMaxErrorCorrItrLR +
+                " -p " + defaultPercentIdentityLR + " -length " + defaultMinTranscriptLengthLR +
+                " -overlap " + defaultMinOverlapLR + " -tip " + defaultMaxTipLengthLR;
         Option optLongReads = Option.builder("long")
-                                    .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `-k 17 -c 2 -indel 30 -e 2 -p 0.7 -length 200 -overlap 200 -tip 50` unless each option is defined otherwise.)")
+                                    .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `" + 
+                                            defaultLongReadPreset + "` unless each option is defined otherwise.)")
                                     .hasArgs()
                                     .argName("FILE")
                                     .build();
@@ -5984,19 +5997,19 @@ public class RNABloom {
                 exitOnError("`-mergepool` option requires `-pool` to be used!");
             }
                         
-            String defaultPercentIdentity = hasLongReadFiles ? "0.7" : optPercentIdentityDefault;
+            String defaultPercentIdentity = hasLongReadFiles ? defaultPercentIdentityLR : optPercentIdentityDefault;
             final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), defaultPercentIdentity));
             
-            String defaultMaxIndelSize = hasLongReadFiles ? "30" : optIndelSizeDefault;
+            String defaultMaxIndelSize = hasLongReadFiles ? defaultMaxIndelSizeLR : optIndelSizeDefault;
             final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), defaultMaxIndelSize));
             
-            String defaultMaxErrCorrItr = hasLongReadFiles ? "2" : optErrCorrItrDefault;
+            String defaultMaxErrCorrItr = hasLongReadFiles ? defaultMaxErrorCorrItrLR : optErrCorrItrDefault;
             final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), defaultMaxErrCorrItr));
             
-            String defaultMinKmerCov = hasLongReadFiles ? "2" : optMinKmerCovDefault;
+            String defaultMinKmerCov = hasLongReadFiles ? defaultMinCoverageLR : optMinKmerCovDefault;
             int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), defaultMinKmerCov));
                         
-            String defaultMaxTipLen = hasLongReadFiles ? "50" : optTipLengthDefault;
+            String defaultMaxTipLen = hasLongReadFiles ? defaultMaxTipLengthLR : optTipLengthDefault;
             final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), defaultMaxTipLen));
             
             final float longReadOverlapProportion = Float.parseFloat(line.getOptionValue(optLongReadOverlapProportion.getOpt(), optLongReadOverlapProportionDefault));
@@ -6028,7 +6041,7 @@ public class RNABloom {
             
             boolean useNTCard = line.hasOption(optNtcard.getOpt());
             
-            String defaultK = hasLongReadFiles ? "17" : optKmerSizeDefault;
+            String defaultK = hasLongReadFiles ? defaultKmerSizeLR : optKmerSizeDefault;
             String kArg = line.getOptionValue(optKmerSize.getOpt(), defaultK);
             int k = Integer.parseInt(defaultK);
             
@@ -6143,7 +6156,7 @@ public class RNABloom {
                 System.out.println("Min k-mer coverage threshold: " + NumberFormat.getInstance().format(minKmerCov));
             }
             
-            String defaultMinOverlap = hasLongReadFiles ? "200" : Integer.toString(k-1);
+            String defaultMinOverlap = hasLongReadFiles ? defaultMinOverlapLR : Integer.toString(k-1);
             final int minOverlap = Integer.parseInt(line.getOptionValue(optOverlap.getOpt(), defaultMinOverlap));
             
             if (expNumKmers > 0) {
@@ -6173,7 +6186,7 @@ public class RNABloom {
             final int lookahead = Integer.parseInt(line.getOptionValue(optLookahead.getOpt(), optLookaheadDefault));
             final float maxCovGradient = Float.parseFloat(line.getOptionValue(optMaxCovGrad.getOpt(), optMaxCovGradDefault));
             
-            String defaultMinTranscriptLength = hasLongReadFiles ? "200" : optMinLengthDefault;
+            String defaultMinTranscriptLength = hasLongReadFiles ? defaultMinTranscriptLengthLR : optMinLengthDefault;
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), defaultMinTranscriptLength));
             
             final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), optPolyATailDefault));
