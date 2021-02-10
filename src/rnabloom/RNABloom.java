@@ -4505,7 +4505,7 @@ public class RNABloom {
         System.out.println(
                 "RNA-Bloom v" + VERSION + "\n" +
                 "Ka Ming Nip, Canada's Michael Smith Genome Sciences Centre, BC Cancer\n" +
-                "Copyright 2018"
+                "Copyright 2018-present"
         );
         
         if (exit) {

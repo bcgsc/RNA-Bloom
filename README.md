@@ -13,7 +13,7 @@
 
 Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
-:copyright: 2018-2020 Canada's Michael Smith Genome Sciences Centre, BC Cancer
+:copyright: 2018-present Canada's Michael Smith Genome Sciences Centre, BC Cancer
 
 --------------------------------------------------------------------------------
 
