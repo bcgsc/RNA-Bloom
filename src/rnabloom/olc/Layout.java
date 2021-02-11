@@ -44,6 +44,7 @@ import org.jgrapht.graph.DefaultEdge;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.FastaReader;
+import rnabloom.io.FastaRecord;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
@@ -1183,8 +1184,8 @@ public class Layout {
         HashMap<String, short[]> readHistogramMap = new HashMap<>();
         final int histBinSize = 25;
 
-//        BestNeighbors bestNeighbors = new BestNeighbors(2);
-        BestNeighbor bestNeighbors = new BestNeighbor();
+        BestNeighbors bestNeighbors = new BestNeighbors(2);
+//        BestNeighbor bestNeighbors = new BestNeighbor();
                 
         long records = 0;
         while (reader.hasNext()) {
@@ -1250,24 +1251,33 @@ public class Layout {
 
         // form clusters by connecting neighborhoods
         ReadClusters2 clusters = new ReadClusters2();
-        for (Map.Entry<String, Neighbor> e : bestNeighbors.neighbors.entrySet()) {
+//        for (Map.Entry<String, Neighbor> e : bestNeighbors.neighbors.entrySet()) {
+//            String t = e.getKey();
+//            String n = e.getValue().name;
+//            if (!multiSegmentSeqs.contains(t) && !multiSegmentSeqs.contains(n)) {
+//                HashSet<String> neighborhood = new HashSet<>();
+//                neighborhood.add(t);
+//                neighborhood.add(n);
+//                clusters.add(neighborhood);
+//            }
+//        }
+        for (Map.Entry<String, ArrayList<Neighbor>> e : bestNeighbors.neighbors.entrySet()) {
             String t = e.getKey();
-            String n = e.getValue().name;
-            if (!multiSegmentSeqs.contains(t) && !multiSegmentSeqs.contains(n)) {
+            if (!multiSegmentSeqs.contains(t)) {
                 HashSet<String> neighborhood = new HashSet<>();
-                neighborhood.add(t);
-                neighborhood.add(n);
-                clusters.add(neighborhood);
+                for (Neighbor n : e.getValue()) {
+                    String q = n.name;
+                    if (!multiSegmentSeqs.contains(q)) {
+                        neighborhood.add(q);
+                    }
+                }
+                
+                if (!neighborhood.isEmpty()) {
+                    neighborhood.add(t);
+                    clusters.add(neighborhood);
+                }
             }
         }
-//        for (Map.Entry<String, ArrayList<Neighbor>> e : bestNeighbors.neighbors.entrySet()) {
-//            HashSet<String> neighborhood = new HashSet<>();
-//            neighborhood.add(e.getKey());
-//            for (Neighbor n : e.getValue()) {
-//                neighborhood.add(n.name);
-//            }
-//            clusters.add(neighborhood);
-//        }
 
         // assign cluster IDs
         HashMap<String, Integer> cids = clusters.assignIDs();
@@ -1279,39 +1289,39 @@ public class Layout {
         // rescue multi-segment reads
         if (!multiSegmentSeqs.isEmpty()) {
             int numMultiSegmentSeqsRescued = 0;
-            HashMap<String, Neighbor> neighborsMap = bestNeighbors.neighbors;
+//            HashMap<String, Neighbor> neighborsMap = bestNeighbors.neighbors;
             for (String name : multiSegmentSeqs) {
-                Neighbor n = neighborsMap.get(name);
-                if (n != null) {
-                    Integer id = cids.get(n.name);
-                    if (id != null) {
-                        cids.put(name, id);
-                        ++numMultiSegmentSeqsRescued;
-                    }
-                }
-//                Integer candidate = null;
-//                boolean congruent = true;
-//                ArrayList<Neighbor> ns = bestNeighbors.neighbors.get(name);
-//                if (ns != null) {
-//                    for (Neighbor n : ns) {
-//                        Integer id = cids.get(n.name);
-//                        if (id != null) {
-//                            if (candidate == null) { 
-//                                candidate = id;
-//                            }
-//                            else {
-//                                if (!candidate.equals(id)) {
-//                                    congruent = false;
-//                                    break;
-//                                }
-//                            }
-//                        }
-//                    }
-//                    if (congruent && candidate != null) {
-//                        cids.put(name, candidate);
+//                Neighbor n = neighborsMap.get(name);
+//                if (n != null) {
+//                    Integer id = cids.get(n.name);
+//                    if (id != null) {
+//                        cids.put(name, id);
 //                        ++numMultiSegmentSeqsRescued;
 //                    }
 //                }
+                Integer candidate = null;
+                boolean congruent = true;
+                ArrayList<Neighbor> ns = bestNeighbors.neighbors.get(name);
+                if (ns != null) {
+                    for (Neighbor n : ns) {
+                        Integer id = cids.get(n.name);
+                        if (id != null) {
+                            if (candidate == null) { 
+                                candidate = id;
+                            }
+                            else {
+                                if (!candidate.equals(id)) {
+                                    congruent = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (congruent && candidate != null) {
+                        cids.put(name, candidate);
+                        ++numMultiSegmentSeqsRescued;
+                    }
+                }
             }
             System.out.println("\t  - assigned:\t" + numMultiSegmentSeqsRescued);
         }
@@ -1324,22 +1334,33 @@ public class Layout {
         FastaReader fr = new FastaReader(seqFastaPath);
         int[] counts = new int[numClusters];
         int numOrphans = 0;
+        int bufferSize = 100000;
+        int numReadsParsed = 0;
+        ArrayDeque<FastaRecord> orphanRecords = new ArrayDeque<>();
+        HashMap<Integer, ArrayDeque<FastaRecord>> clusterRecords = new HashMap<>();
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
             
-            String filePath = null;
+            //String filePath = null;
             Integer cid = cids.get(name);
+            ArrayDeque<FastaRecord> fastaBuffer = null;
             if (cid != null) {
                 counts[cid-1] += 1;
-                filePath = outdir + File.separator + cid + FASTA_EXT;
+                //filePath = outdir + File.separator + cid + FASTA_EXT;
+                fastaBuffer = clusterRecords.get(cid);
+                if (fastaBuffer == null) {
+                    fastaBuffer = new ArrayDeque<>();
+                    clusterRecords.put(cid, fastaBuffer);
+                }
             } 
             else {
                 ++numOrphans;
-                filePath = outdir + File.separator + "orphans" + FASTA_EXT;
+                //filePath = outdir + File.separator + "orphans" + FASTA_EXT;
+                fastaBuffer = orphanRecords;
             }
             
-            FastaWriter fw = new FastaWriter(filePath, true);
+            //FastaWriter fw = new FastaWriter(filePath, true);
             String seq = nameSeq[1];
             ArrayDeque<Interval> spans = readSpansMap.get(name);
             if (checkNumAltReads && spans != null) {
@@ -1349,31 +1370,67 @@ public class Layout {
                     Interval span = spans.peekFirst();
                     int start = Math.max(0, span.start);
                     int end = Math.min(span.end, seq.length());
-                    fw.write(name + "_t " + seqLength + ":" + start + "-" + end,
-                            seq.substring(start, end));
+                    String header = name + "_t " + seqLength + ":" + start + "-" + end;
+                    //fw.write(name + "_t " + seqLength + ":" + start + "-" + end,
+                    //        seq.substring(start, end));
+                    fastaBuffer.add(new FastaRecord(header, seq.substring(start, end)));
                 }
                 else {
                     int i = 1;
                     for (Interval span : spans) {
                         int start = Math.max(0, span.start);
                         int end = Math.min(span.end, seq.length());
-                        fw.write(name + "_p" + i++ + " " + seqLength + ":" + start + "-" + end,
-                                seq.substring(start, end));
+                        String header = name + "_p" + i++ + " " + seqLength + ":" + start + "-" + end;
+                        //fw.write(name + "_p" + i++ + " " + seqLength + ":" + start + "-" + end,
+                        //        seq.substring(start, end));
+                        fastaBuffer.add(new FastaRecord(header, seq.substring(start, end)));
                     }
                 }
             }
             else {
-                fw.write(name, seq);
+                //fw.write(name, seq);
+                fastaBuffer.add(new FastaRecord(name, seq));
             }
-            fw.close();
+            //fw.close();
+            
+            if (++numReadsParsed % bufferSize == 0) {
+                emptyClusterFastaBuffer(clusterRecords, orphanRecords, outdir);
+            }
         }
         fr.close();
+        
+        emptyClusterFastaBuffer(clusterRecords, orphanRecords, outdir);
         
         System.out.println("\t- orphans:\t" + numOrphans);
         System.gc();
         
         //System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
         return counts;
+    }
+    
+    private void emptyClusterFastaBuffer(HashMap<Integer, ArrayDeque<FastaRecord>> clusterRecords, 
+            ArrayDeque<FastaRecord> orphanRecords, String outdir) throws IOException {
+        if (!orphanRecords.isEmpty()) {
+            String filePath = outdir + File.separator + "orphans" + FASTA_EXT;
+            FastaWriter fw = new FastaWriter(filePath, true);
+            for (FastaRecord f : orphanRecords) {
+                fw.write(f.name, f.seq);
+            }
+            fw.close();
+            orphanRecords.clear();
+        }
+
+        if (!clusterRecords.isEmpty()) {
+            for (Map.Entry<Integer, ArrayDeque<FastaRecord>> e : clusterRecords.entrySet()) {
+                String filePath = outdir + File.separator + e.getKey() + FASTA_EXT;
+                FastaWriter fw = new FastaWriter(filePath, true);
+                for (FastaRecord f : e.getValue()) {
+                    fw.write(f.name, f.seq);
+                }
+                fw.close();
+            }
+            clusterRecords.clear();
+        }
     }
     
     private boolean layoutBackbones(String outFastaPath) throws IOException {
