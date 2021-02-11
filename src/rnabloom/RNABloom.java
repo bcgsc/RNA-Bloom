@@ -5229,8 +5229,8 @@ public class RNABloom {
                                     .build();
         options.addOption(optPooledAssembly);
         
-        String defaultMinTranscriptLengthLR = "300";
-        String defaultMinOverlapLR = "250";
+        String defaultMinTranscriptLengthLR = "200";
+        String defaultMinOverlapLR = "150";
         String defaultKmerSizeLR = "17";
         String defaultMinCoverageLR = "2";
         String defaultMaxIndelSizeLR = "30";
