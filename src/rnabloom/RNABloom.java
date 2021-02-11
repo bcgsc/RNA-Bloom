@@ -3478,7 +3478,7 @@ public class RNABloom {
         LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
         
-        int minNumSolidKmers = 100;
+        int minNumSolidKmers = Math.max(1, (int) Math.floor(minSeqLen * percentIdentity) - k + 1);
         FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths);
         
         for (int i=0; i<numThreads; ++i) {
