@@ -831,7 +831,7 @@ public class Layout {
     private class ReadClusters3 {
         private int numClusters = 0;
         private HashMap<String, HashSet<String>> assignment = new HashMap<>();
-        private int mergedClusterMaxSize = 1000;
+        private int mergedClusterMaxSize = 10000;
         private int largestClusterSize = 0;
         private int largestClusterID = -1;
         
