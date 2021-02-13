@@ -2766,7 +2766,6 @@ public class RNABloom {
     public boolean assembleClusteredLongReads(String readsPath, 
                                     String clusterdir, 
                                     String outFasta,
-                                    long numReads,
                                     boolean writeUracil,
                                     int numThreads,
                                     String minimapOptions,
@@ -2778,13 +2777,14 @@ public class RNABloom {
                                     boolean stranded,
                                     boolean removeArtifacts,
                                     int minSeqDepth,
-                                    boolean usePacBioPreset) throws IOException {
+                                    boolean usePacBioPreset,
+                                    int maxMergedClusterSize) throws IOException {
         
         System.out.println("Clustering reads...");
-        int numClusters = clusteredOLC(readsPath, clusterdir, numReads,
+        int numClusters = clusteredOLC(readsPath, clusterdir,
                             numThreads, stranded, minimapOptions, maxEdgeClip,
                             minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
-                            minSeqDepth, usePacBioPreset);
+                            minSeqDepth, usePacBioPreset, maxMergedClusterSize);
         
         if (numClusters <= 0) {
             return false;
@@ -4695,12 +4695,11 @@ public class RNABloom {
     
     private static boolean assembleClusteredLongReads(RNABloom assembler,
             String readsFasta, String clusterdir, String outFasta,
-            long numReads, boolean writeUracil, 
-            int numThreads, boolean forceOverwrite,
+            boolean writeUracil, int numThreads, boolean forceOverwrite,
             String minimapOptions, int minKmerCov,
             int maxEdgeClip, float minAlnId, int minOverlapMatches,
             String txptNamePrefix, boolean stranded, boolean removeArtifacts,
-            int minSeqDepth, boolean usePacBioPreset) throws IOException {
+            int minSeqDepth, boolean usePacBioPreset, int maxMergedClusterSize) throws IOException {
         
         if (forceOverwrite) {
             Files.deleteIfExists(FileSystems.getDefault().getPath(outFasta));
@@ -4718,7 +4717,6 @@ public class RNABloom {
         return assembler.assembleClusteredLongReads(readsFasta, 
                                     clusterdir, 
                                     outFasta,
-                                    numReads,
                                     writeUracil,
                                     numThreads,
                                     minimapOptions,
@@ -4730,7 +4728,8 @@ public class RNABloom {
                                     stranded,
                                     removeArtifacts,
                                     minSeqDepth,
-                                    usePacBioPreset);
+                                    usePacBioPreset,
+                                    maxMergedClusterSize);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -5675,6 +5674,14 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadPacBioPreset);
         
+        final String optLongReadMaxMergedClusterSizeDefault = "10000";
+        Option optLongReadMaxMergedClusterSize = Option.builder("lrmc")
+                                    .desc("max merged cluster size for long-read assembly [" + optLongReadMaxMergedClusterSizeDefault + "]")
+                                    .hasArg(true)
+                                    .argName("INT")
+                                    .build();
+        options.addOption(optLongReadMaxMergedClusterSize);
+        
         Option optDebug = Option.builder("debug")
                                     .desc("print debugging information [false]")
                                     .hasArg(false)
@@ -6014,6 +6021,7 @@ public class RNABloom {
             
             final float longReadOverlapProportion = Float.parseFloat(line.getOptionValue(optLongReadOverlapProportion.getOpt(), optLongReadOverlapProportionDefault));
             final int longReadMinReadDepth = Integer.parseInt(line.getOptionValue(optLongReadMinReadDepth.getOpt(), optLongReadMinReadDepthDefault));
+            final int maxMergedClusterSize = Integer.parseInt(line.getOptionValue(optLongReadMaxMergedClusterSize.getOpt(), optLongReadMaxMergedClusterSizeDefault));
             
             final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
             final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), optBaseQualFragDefault));
@@ -6566,12 +6574,12 @@ public class RNABloom {
                     final String assembledTranscriptsPath = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
                     
                     boolean ok = assembleClusteredLongReads(assembler,
-                            longCorrectedReadsPath, clusteredLongReadsDirectory, assembledTranscriptsPath,
-                            numCorrectedReads, writeUracil, 
+                            longCorrectedReadsPath, clusteredLongReadsDirectory,
+                            assembledTranscriptsPath, writeUracil, 
                             numThreads, forceOverwrite, minimapOptions, minKmerCov, 
                             maxTipLen, longReadOverlapProportion, minOverlap,
                             txptNamePrefix, strandSpecific, !keepArtifact,
-                            longReadMinReadDepth, usePacBioPreset);
+                            longReadMinReadDepth, usePacBioPreset, maxMergedClusterSize);
                     
                     
                     if (ok) {

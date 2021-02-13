@@ -148,9 +148,9 @@ public class OverlapLayoutConcensus {
     }
     
     public static int[] overlapWithMinimapAndExtractClusters(String seqFastaPath, String clusterdir,
-            long numReads, int numThreads, boolean align, String minimapOptions, boolean stranded,
+            int numThreads, boolean align, String minimapOptions, boolean stranded,
             int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
-            int minSeqDepth, boolean usePacBioPreset) {
+            int minSeqDepth, boolean usePacBioPreset, int maxMergedClusterSize) {
         
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
@@ -172,8 +172,8 @@ public class OverlapLayoutConcensus {
             
             Process process = pb.start();
 
-            clusterSizes = extractClusters(seqFastaPath, numReads, process.getInputStream(), clusterdir, stranded, maxEdgeClip, 
-                    minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth);
+            clusterSizes = extractClusters(seqFastaPath, process.getInputStream(), clusterdir, stranded, maxEdgeClip, 
+                    minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth, maxMergedClusterSize);
             
             int exitStatus = process.waitFor();
             if (exitStatus != 0) {
@@ -236,13 +236,13 @@ public class OverlapLayoutConcensus {
         return runCommand(command, outPafPath + LOG_EXTENSION);
     }
     
-    public static int[] extractClusters(String seqFastaPath, long numReads, InputStream overlapPafInputStream, String outdir,
+    public static int[] extractClusters(String seqFastaPath, InputStream overlapPafInputStream, String outdir,
             boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
-            boolean cutRevCompArtifact, int minSeqDepth) {
+            boolean cutRevCompArtifact, int minSeqDepth, int maxMergedClusterSize) {
         try {
             Layout myLayout = new Layout(seqFastaPath, overlapPafInputStream, stranded, maxEdgeClip, minAlnId, 
                     minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth);
-            return myLayout.extractClusters(outdir, numReads);
+            return myLayout.extractClusters(outdir, maxMergedClusterSize);
         } catch (Exception ex) {
             ex.printStackTrace();
             return null;
@@ -442,20 +442,19 @@ public class OverlapLayoutConcensus {
         return status;
     }
     
-    public static int clusteredOLC(String readsPath, String clustersdir, long numReads,
+    public static int clusteredOLC(String readsPath, String clustersdir,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
-            int minSeqDepth, boolean usePacBioPreset) throws IOException {
+            int minSeqDepth, boolean usePacBioPreset, int maxMergedClusterSize) throws IOException {
         
         if (!Files.isDirectory(FileSystems.getDefault().getPath(clustersdir))) {
             Files.createDirectory(FileSystems.getDefault().getPath(clustersdir));
         }
                 
         int[] clusterSizes = overlapWithMinimapAndExtractClusters(readsPath, clustersdir,
-                            numReads,
                             numThreads, false, minimapOptions, stranded, maxEdgeClip,
                             minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
-                            minSeqDepth, usePacBioPreset);
+                            minSeqDepth, usePacBioPreset, maxMergedClusterSize);
         
         if (clusterSizes == null) {
             return -1;

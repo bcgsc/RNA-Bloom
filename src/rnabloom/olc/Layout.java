@@ -1267,7 +1267,7 @@ public class Layout {
         }
     }
         
-    public int[] extractClusters(String outdir, long numReads) throws IOException {
+    public int[] extractClusters(String outdir, int maxMergedClusterSize) throws IOException {
         PafReader reader = new PafReader(overlapPafInputStream);
         
         final boolean checkNumAltReads = minNumAltReads > 0;
@@ -1348,7 +1348,7 @@ public class Layout {
         TreeSet<NeighborPair> neighborPairsSet = new TreeSet<>(neighborPairsList);
         
         // form clusters
-        ReadClusters3 clusters = new ReadClusters3(10000);
+        ReadClusters3 clusters = new ReadClusters3(maxMergedClusterSize);
         ArrayDeque<NeighborPair> multiSegNeigbhorPairs = new ArrayDeque<>();
         for (NeighborPair p : neighborPairsSet) {
             if (!multiSegmentSeqs.contains(p.name1) && !multiSegmentSeqs.contains(p.name2)) {
