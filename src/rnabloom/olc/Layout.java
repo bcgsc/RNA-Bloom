@@ -831,7 +831,7 @@ public class Layout {
     private class ReadClusters3 {
         private int numClusters = 0;
         private HashMap<String, HashSet<String>> assignment = new HashMap<>();
-        private int suggestedMaxClusterSize = 100000;
+        private int mergedClusterMaxSize = 1000;
         private int largestClusterSize = 0;
         private int largestClusterID = -1;
         
@@ -839,8 +839,8 @@ public class Layout {
             
         }
         
-        public ReadClusters3(int suggestedMaxClusterSize) {
-            this.suggestedMaxClusterSize = suggestedMaxClusterSize;
+        public ReadClusters3(int mergedClusterMaxSize) {
+            this.mergedClusterMaxSize = mergedClusterMaxSize;
         }
         
         public void add(String name1, String name2){
@@ -866,7 +866,7 @@ public class Layout {
             else if (cluster1 != cluster2) {
                 int clusterSize1 = cluster1.size();
                 int clusterSize2 = cluster2.size();
-                if (clusterSize1 + clusterSize2 < suggestedMaxClusterSize) {
+                if (clusterSize1 + clusterSize2 < mergedClusterMaxSize) {
                     // merge clusters
                     
                     HashSet<String> larger = cluster1;
@@ -1348,7 +1348,7 @@ public class Layout {
         TreeSet<NeighborPair> neighborPairsSet = new TreeSet<>(neighborPairsList);
         
         // form clusters
-        ReadClusters3 clusters = new ReadClusters3(50000);
+        ReadClusters3 clusters = new ReadClusters3(1000);
         ArrayDeque<NeighborPair> multiSegNeigbhorPairs = new ArrayDeque<>();
         for (NeighborPair p : neighborPairsSet) {
             if (!multiSegmentSeqs.contains(p.name1) && !multiSegmentSeqs.contains(p.name2)) {
