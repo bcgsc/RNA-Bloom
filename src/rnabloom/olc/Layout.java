@@ -1348,7 +1348,7 @@ public class Layout {
         TreeSet<NeighborPair> neighborPairsSet = new TreeSet<>(neighborPairsList);
         
         // form clusters
-        ReadClusters3 clusters = new ReadClusters3(1000);
+        ReadClusters3 clusters = new ReadClusters3(10000);
         ArrayDeque<NeighborPair> multiSegNeigbhorPairs = new ArrayDeque<>();
         for (NeighborPair p : neighborPairsSet) {
             if (!multiSegmentSeqs.contains(p.name1) && !multiSegmentSeqs.contains(p.name2)) {
