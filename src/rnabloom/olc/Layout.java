@@ -828,126 +828,104 @@ public class Layout {
         return effIntervals;
     }
     
-    private class ReadClusters {
-        private LinkedList<HashSet<String>> clusters = new LinkedList<>();
+    private class ReadClusters3 {
+        private int numClusters = 0;
+        private HashMap<String, HashSet<String>> assignment = new HashMap<>();
+        private int suggestedMaxClusterSize = 100000;
+        private int largestClusterSize = 0;
+        private int largestClusterID = -1;
         
-        public ReadClusters() {
+        public ReadClusters3() {
+            
         }
         
-        public void add(String read1, String read2){
-            if (!read1.equals(read2)) {
-                HashSet<String> cluster1 = null;
-                HashSet<String> cluster2 = null;
-                Iterator<HashSet<String>> itr2 = clusters.iterator();
-
-                for (HashSet<String> c : clusters) {
-                    if (c.contains(read1)) {
-                        cluster1 = c;
-                        break;
-                    }
-                }
-
-                for (HashSet<String> c; itr2.hasNext(); ) {
-                    c = itr2.next();
-                    if (c.contains(read2)) {
-                        cluster2 = c;
-                        break;
-                    }
-                }
-
-                if (cluster1 == null && cluster2 == null) {
-                    HashSet<String> c = new HashSet();
-                    c.add(read1);
-                    c.add(read2);
-                    clusters.addFirst(c);
-                }
-                else if (cluster1 == null && cluster2 != null) {
-                    cluster2.add(read1);
-                }
-                else if (cluster1 != null && cluster2 == null) {
-                    cluster1.add(read2);
-                }
-                else if (cluster1 != cluster2) {
-                    itr2.remove();
-                    cluster1.addAll(cluster2);
-                }
-            }
+        public ReadClusters3(int suggestedMaxClusterSize) {
+            this.suggestedMaxClusterSize = suggestedMaxClusterSize;
         }
         
-        public void add(HashSet<String> neighborhood) {
-            HashSet<String> cluster1 = null;
-
-            for (Iterator<HashSet<String>> itr = clusters.iterator(); itr.hasNext(); ) {
-                HashSet<String> c = itr.next();
-                if (neighborhood.removeAll(c)) {
-                    if (cluster1 == null) {
-                        cluster1 = c;
+        public void add(String name1, String name2){
+            HashSet<String> cluster1 = assignment.get(name1);
+            HashSet<String> cluster2 = assignment.get(name2);
+            
+            if (cluster1 == null && cluster2 == null) {
+                HashSet<String> cluster = new HashSet<>();
+                cluster.add(name1);
+                cluster.add(name2);
+                assignment.put(name1, cluster);
+                assignment.put(name2, cluster);
+                ++numClusters;
+            }
+            else if (cluster1 == null) {
+                cluster2.add(name1);
+                assignment.put(name1, cluster2);
+            }
+            else if (cluster2 == null) {
+                cluster1.add(name2);
+                assignment.put(name2, cluster1);
+            }
+            else if (cluster1 != cluster2) {
+                int clusterSize1 = cluster1.size();
+                int clusterSize2 = cluster2.size();
+                if (clusterSize1 + clusterSize2 < suggestedMaxClusterSize) {
+                    // merge clusters
+                    
+                    HashSet<String> larger = cluster1;
+                    HashSet<String> smaller = cluster2;
+                    
+                    if (clusterSize2 > clusterSize1) {
+                        larger = cluster2;
+                        smaller = cluster1;
                     }
-                    else {
-                        cluster1.addAll(c);
-                        itr.remove();
+                    
+                    larger.addAll(smaller);
+                    
+                    for (String r : smaller) {
+                        assignment.put(r, larger);
                     }
-
-                    if (neighborhood.isEmpty()) {
-                        break;
-                    }
+                    
+                    --numClusters;
                 }
-            }
-
-            if (cluster1 == null) {
-                clusters.addFirst(neighborhood);
-            }
-            else {
-                cluster1.addAll(neighborhood);
             }
         }
         
-        public HashMap<String,Integer> assignIDs() {
-            int numSeq = 0;
-            for (HashSet<String> c : clusters) {
-                numSeq += c.size();
+        public HashMap<String, Integer> assignIDs() {
+            HashMap<String, Integer> ids = new HashMap<>(assignment.size());
+            
+            HashSet<String> keys = new HashSet<>(assignment.keySet());
+            
+            int cid = 0;
+            while (!keys.isEmpty()) {
+                ++cid;
+                String key = keys.iterator().next();
+                
+                HashSet<String> cluster = assignment.get(key);
+                for (String n : cluster) {
+                    ids.put(n, cid);
+                }
+                
+                keys.removeAll(cluster);
+                
+                if (cluster.size() > largestClusterSize) {
+                    largestClusterSize = cluster.size();
+                    largestClusterID = cid;
+                }
             }
             
-            HashMap<String,Integer> m = new HashMap<>(numSeq, 1.0f);
-            int id = 1;
-            for (HashSet<String> c : clusters) {
-                for (String s : c) {
-                    m.put(s, id);
-                }
-                ++id;
-            }
+            numClusters = cid;
             
-            return m;
-        }
-        
-        public int getID(String read) {
-            int id = 1;
-            for (HashSet<String> c : clusters){
-                if (c.contains(read)) {
-                    return id;
-                }
-                ++id;
-            }
-            return -1;
+            return ids;
         }
         
         public int size() {
-            return clusters.size();
+            return numClusters;
         }
         
-        public int[] getLargetClusterIDAndSize() {
-            int max = 0;
-            int maxID = 0;
-            int id = 1;
-            for (HashSet<String> c : clusters){
-                int s = c.size();
-                if (s > max) {
-                    max = s;
-                    maxID = id;
-                }
-                ++id;
-            }
-            return new int[]{maxID, max};
+        public int getLargestClusterSize() {
+            return largestClusterSize;
+        }
+        
+        public int getLargestClusterID() {
+            return largestClusterID;
         }
     }
     
@@ -1053,6 +1031,44 @@ public class Layout {
         }
     }
     
+    private class NeighborPair implements Comparable<NeighborPair> {
+        String name1;
+        String name2;
+        int score;
+        
+        public NeighborPair(String name1, String name2, int score) {
+            this.name1 = name1;
+            this.name2 = name2;
+            this.score = score;
+        }
+        
+        public boolean equals(NeighborPair o) {
+            return this.score == o.score && 
+                    ((name1.equals(o.name1) && name2.equals(o.name2)) || 
+                    (name2.equals(o.name1) && name1.equals(o.name2)));
+        }
+                
+        @Override
+        public int compareTo(NeighborPair o) {
+            int diff = o.score - this.score;
+            if (diff != 0) {
+                return diff;
+            }
+            else if (!equals(o)) {
+                diff = o.name1.compareTo(name1);
+                if (diff != 0) {
+                    return diff;
+                }
+                else {
+                    return o.name2.compareTo(name2);
+                }
+            }
+            else {
+                return 0;
+            }
+        }
+    }
+    
     private class Neighbor implements Comparable<Neighbor> {
         String name;
         int score;
@@ -1088,6 +1104,81 @@ public class Layout {
                 n.name = query;
                 n.score = score;
             }
+        }
+    }
+    
+    private class BestNeighborPairs {
+        public int max = 2;
+        private int maxIndex = max-1; 
+        private HashMap<String, ArrayList<NeighborPair>> neighbors = new HashMap<>();
+        
+        public BestNeighborPairs() {
+        }
+        
+        public BestNeighborPairs(int max) {
+            this.max = max;
+            this.maxIndex = max - 1;
+        }
+        
+        public void add(String name1, String name2, int score) {
+            boolean add1 = false;
+            boolean add2 = false;
+            
+            ArrayList<NeighborPair> arr1 = neighbors.get(name1);
+            if (arr1 != null) {
+                if (arr1.size() < max) {
+                    add1 = true;
+                }
+                else {
+                    NeighborPair worst = arr1.get(maxIndex);
+                    if (score > worst.score) {
+                        arr1.remove(max-1);
+                        add1 = true;
+                    }
+                }
+            }
+            else {
+                arr1 = new ArrayList<>();
+                add1 = true;
+                neighbors.put(name1, arr1);
+            }
+            
+            ArrayList<NeighborPair> arr2 = neighbors.get(name2);
+            if (arr2 != null) {
+                if (arr2.size() < max) {
+                    add2 = true;
+                }
+                else {
+                    NeighborPair worst = arr2.get(maxIndex);
+                    if (score > worst.score) {
+                        arr2.remove(max-1);
+                        add2 = true;
+                    }
+                }
+            }
+            else {
+                arr2 = new ArrayList<>();
+                add2 = true;
+                neighbors.put(name2, arr2);
+            }
+            
+            if (add1 || add2) {
+                NeighborPair p = new NeighborPair(name1, name2, score);
+                
+                if (add1) {
+                    arr1.add(p);
+                    if (arr1.size() > 1) {
+                        Collections.sort(arr1);
+                    }
+                }
+
+                if (add2) {
+                    arr2.add(p);
+                    if (arr2.size() > 1) {
+                        Collections.sort(arr2);
+                    }
+                }
+            }            
         }
     }
     
@@ -1183,8 +1274,8 @@ public class Layout {
         
         HashMap<String, short[]> readHistogramMap = new HashMap<>();
         final int histBinSize = 25;
-
-        BestNeighbors bestNeighbors = new BestNeighbors(2);
+        final int maxBestNeighbors = 2;
+        BestNeighborPairs bestNeighbors = new BestNeighborPairs(maxBestNeighbors);
 //        BestNeighbor bestNeighbors = new BestNeighbor();
                 
         long records = 0;
@@ -1248,87 +1339,39 @@ public class Layout {
 
             System.out.println("\t- multi-segs:\t" + multiSegmentSeqs.size());
         }
-
-        // form clusters by connecting neighborhoods
-        ReadClusters2 clusters = new ReadClusters2();
-//        for (Map.Entry<String, Neighbor> e : bestNeighbors.neighbors.entrySet()) {
-//            String t = e.getKey();
-//            String n = e.getValue().name;
-//            if (!multiSegmentSeqs.contains(t) && !multiSegmentSeqs.contains(n)) {
-//                HashSet<String> neighborhood = new HashSet<>();
-//                neighborhood.add(t);
-//                neighborhood.add(n);
-//                clusters.add(neighborhood);
-//            }
-//        }
-        for (Map.Entry<String, ArrayList<Neighbor>> e : bestNeighbors.neighbors.entrySet()) {
-            String t = e.getKey();
-            if (!multiSegmentSeqs.contains(t)) {
-                HashSet<String> neighborhood = new HashSet<>();
-                for (Neighbor n : e.getValue()) {
-                    String q = n.name;
-                    if (!multiSegmentSeqs.contains(q)) {
-                        neighborhood.add(q);
-                    }
-                }
-                
-                if (!neighborhood.isEmpty()) {
-                    neighborhood.add(t);
-                    clusters.add(neighborhood);
-                }
+        
+        ArrayList<NeighborPair> neighborPairsList = new ArrayList<>(bestNeighbors.neighbors.size() * maxBestNeighbors);
+        /**@TODO split list into tiers to avoid list size reaching max Integer value*/
+        for (ArrayList<NeighborPair> a : bestNeighbors.neighbors.values()) {
+            neighborPairsList.addAll(a);
+        }
+        TreeSet<NeighborPair> neighborPairsSet = new TreeSet<>(neighborPairsList);
+        
+        // form clusters
+        ReadClusters3 clusters = new ReadClusters3(50000);
+        ArrayDeque<NeighborPair> multiSegNeigbhorPairs = new ArrayDeque<>();
+        for (NeighborPair p : neighborPairsSet) {
+            if (!multiSegmentSeqs.contains(p.name1) && !multiSegmentSeqs.contains(p.name2)) {
+                clusters.add(p.name1, p.name2);
+            }
+            else {
+                multiSegNeigbhorPairs.add(p);
             }
         }
+        
+        // rescue multi-segment reads
+        for (NeighborPair p : multiSegNeigbhorPairs) {
+            clusters.add(p.name1, p.name2);
+        }
+        
+        int numClusters = clusters.size();
+        System.out.println("\t- clusters:\t" + numClusters);
 
         // assign cluster IDs
         HashMap<String, Integer> cids = clusters.assignIDs();
-        int numClusters = clusters.size();
         int largestClusterID = clusters.getLargestClusterID();
         int largestClusterSize= clusters.getLargestClusterSize();
-//        int[] maxIDAndSize = clusters.getLargetClusterIDAndSize();
-        
-        // rescue multi-segment reads
-        if (!multiSegmentSeqs.isEmpty()) {
-            int numMultiSegmentSeqsRescued = 0;
-//            HashMap<String, Neighbor> neighborsMap = bestNeighbors.neighbors;
-            for (String name : multiSegmentSeqs) {
-//                Neighbor n = neighborsMap.get(name);
-//                if (n != null) {
-//                    Integer id = cids.get(n.name);
-//                    if (id != null) {
-//                        cids.put(name, id);
-//                        ++numMultiSegmentSeqsRescued;
-//                    }
-//                }
-                Integer candidate = null;
-                boolean congruent = true;
-                ArrayList<Neighbor> ns = bestNeighbors.neighbors.get(name);
-                if (ns != null) {
-                    for (Neighbor n : ns) {
-                        Integer id = cids.get(n.name);
-                        if (id != null) {
-                            if (candidate == null) { 
-                                candidate = id;
-                            }
-                            else {
-                                if (!candidate.equals(id)) {
-                                    congruent = false;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if (congruent && candidate != null) {
-                        cids.put(name, candidate);
-                        ++numMultiSegmentSeqsRescued;
-                    }
-                }
-            }
-            System.out.println("\t  - assigned:\t" + numMultiSegmentSeqsRescued);
-        }
-        
-        System.out.println("\t- clusters:\t" + numClusters);
-        System.out.println("\t  - largest:\t#" + largestClusterID + " (" + largestClusterSize + " reads)");        
-//        System.out.println("\t  - largest:\t#" + maxIDAndSize[0] + " (" + maxIDAndSize[1] + " reads)");
+        System.out.println("\t  - largest:\t#" + largestClusterID + " (" + largestClusterSize + " reads)");
 
         // extract effective regions for each read
         FastaReader fr = new FastaReader(seqFastaPath);
