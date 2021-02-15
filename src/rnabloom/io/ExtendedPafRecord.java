@@ -17,6 +17,8 @@ public class ExtendedPafRecord extends PafRecord {
     public int nm = -1; // Total number of mismatches and gaps in the alignment, eg. 2 in "NM:i:2"
     public final static Pattern CIGAR_PATTERN = Pattern.compile("cg:Z:(\\S+)");
     public final static Pattern NM_PATTERN = Pattern.compile("NM:i:(\\d+)");
+    private final Matcher cigarMatcher = CIGAR_PATTERN.matcher("");
+    private final Matcher nmMatcher = NM_PATTERN.matcher("");
     
     @Override
     public void update(String[] cols) {
@@ -27,9 +29,9 @@ public class ExtendedPafRecord extends PafRecord {
             String item = cols[i];
             
             if (nm < 0) {
-                Matcher m = NM_PATTERN.matcher(item);
-                if (m.matches()) {
-                    nm = Integer.parseInt(m.group(1));
+                nmMatcher.reset(item);
+                if (nmMatcher.matches()) {
+                    nm = Integer.parseInt(nmMatcher.group(1));
 
                     if (cigar != null) {
                         break;
@@ -40,9 +42,9 @@ public class ExtendedPafRecord extends PafRecord {
             }
             
             if (cigar == null) {
-                Matcher m = CIGAR_PATTERN.matcher(item);
-                if (m.matches()) {
-                    cigar = m.group(1);
+                cigarMatcher.reset(item);
+                if (cigarMatcher.matches()) {
+                    cigar = cigarMatcher.group(1);
 
                     if (nm >= 0) {
                         break;
