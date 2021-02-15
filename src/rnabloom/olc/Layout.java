@@ -1138,7 +1138,7 @@ public class Layout {
                 }
             }
             else {
-                arr1 = new ArrayList<>();
+                arr1 = new ArrayList<>(max);
                 add1 = true;
                 neighbors.put(name1, arr1);
             }
@@ -1157,7 +1157,7 @@ public class Layout {
                 }
             }
             else {
-                arr2 = new ArrayList<>();
+                arr2 = new ArrayList<>(max);
                 add2 = true;
                 neighbors.put(name2, arr2);
             }
@@ -1279,13 +1279,13 @@ public class Layout {
 //        BestNeighbor bestNeighbors = new BestNeighbor();
                 
         long records = 0;
-        while (reader.hasNext()) {
+        for (PafRecord r = new PafRecord(); reader.hasNext();) {
             ++records;
 //            if (++records % 1000000 == 0) {
 //                System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " overlap records...");
 //            }
             
-            ExtendedPafRecord r = reader.next();
+            reader.next(r);
             
             if ((!stranded || !r.reverseComplemented) &&
                     hasLargeOverlap(r) && hasGoodOverlap(r) &&
@@ -1491,8 +1491,8 @@ public class Layout {
         int prevLen = -1;
         ArrayDeque<String> discardReadIDs = new ArrayDeque<>();
         
-        while (reader.hasNext()) {
-            ExtendedPafRecord r = reader.next();
+        for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
+            reader.next(r);
             /*
             if (checkNumAltReads) {
                 if (!r.qName.equals(prevName)) {
@@ -1763,8 +1763,8 @@ public class Layout {
         int prevLen = -1;
         ArrayDeque<String> discardReadIDs = new ArrayDeque<>();
         
-        while (reader.hasNext()) {
-            ExtendedPafRecord r = reader.next();
+        for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
+            reader.next(r);
             /*
             if (checkNumAltReads && !r.reverseComplemented) {
                 if (!r.qName.equals(prevName)) {

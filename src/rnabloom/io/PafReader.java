@@ -58,6 +58,11 @@ public class PafReader {
         r.update(itr.next().trim().split("\t"));
         return r;
     }
+
+    public void next(PafRecord record) {
+        String[] cols = itr.next().trim().split("\t");
+        record.update(cols);
+    }
     
     public void next(ExtendedPafRecord record) {
         String[] cols = itr.next().trim().split("\t");
