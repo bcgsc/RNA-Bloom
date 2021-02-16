@@ -24,6 +24,10 @@ public class ExtendedPafRecord extends PafRecord {
     public void update(String[] cols) {
         super.update(cols);
         
+        // reset to default values then update
+        nm = -1;
+        cigar = null;
+        
         int numCols = cols.length;
         for (int i=12; i<numCols; ++i) {
             String item = cols[i];
