@@ -5677,7 +5677,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadPacBioPreset);
         
-        final String optLongReadMaxMergedClusterSizeDefault = "10000";
+        final String optLongReadMaxMergedClusterSizeDefault = "1000";
         Option optLongReadMaxMergedClusterSize = Option.builder("lrmc")
                                     .desc("max merged cluster size for long-read assembly [" + optLongReadMaxMergedClusterSizeDefault + "]")
                                     .hasArg(true)
