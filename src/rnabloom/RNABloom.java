@@ -2778,13 +2778,15 @@ public class RNABloom {
                                     boolean removeArtifacts,
                                     int minSeqDepth,
                                     boolean usePacBioPreset,
-                                    int maxMergedClusterSize) throws IOException {
+                                    int maxMergedClusterSize,
+                                    boolean forceOverwrite) throws IOException {
         
         System.out.println("Clustering reads...");
         int numClusters = clusteredOLC(readsPath, clusterdir,
                             numThreads, stranded, minimapOptions, maxEdgeClip,
                             minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
-                            minSeqDepth, usePacBioPreset, maxMergedClusterSize);
+                            minSeqDepth, usePacBioPreset, maxMergedClusterSize,
+                            forceOverwrite);
         
         if (numClusters <= 0) {
             return false;
@@ -4701,18 +4703,18 @@ public class RNABloom {
             String txptNamePrefix, boolean stranded, boolean removeArtifacts,
             int minSeqDepth, boolean usePacBioPreset, int maxMergedClusterSize) throws IOException {
         
+        File outdir = new File(clusterdir);
+        
         if (forceOverwrite) {
             Files.deleteIfExists(FileSystems.getDefault().getPath(outFasta));
-            File outdir = new File(clusterdir);
             if (outdir.exists()) {
                 for (File f : outdir.listFiles()) {
                     f.delete();
                 }
             }
-            else {
-                outdir.mkdirs();
-            }
         }
+        
+        outdir.mkdirs();
         
         return assembler.assembleClusteredLongReads(readsFasta, 
                                     clusterdir, 
@@ -4729,7 +4731,8 @@ public class RNABloom {
                                     removeArtifacts,
                                     minSeqDepth,
                                     usePacBioPreset,
-                                    maxMergedClusterSize);
+                                    maxMergedClusterSize,
+                                    forceOverwrite);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -6225,8 +6228,6 @@ public class RNABloom {
             if (hasLongReadFiles) {
                 sbfGB = 0;
             }
-            
-            printBloomFilterMemoryInfo(dbgGB, cbfGB, pkbfGB, sbfGB);
                         
             RNABloom assembler = new RNABloom(k, qDBG, qFrag, debug);
             assembler.setParams(strandSpecific, maxTipLen, lookahead, maxCovGradient, maxIndelSize, percentIdentity, minNumKmerPairs, minPolyATail);
@@ -6238,7 +6239,7 @@ public class RNABloom {
             if (endstage >= 1 &&
                     ((!txptsDone && !hasLongReadFiles) ||
                     (!fragmentsDone && hasLeftReadFiles && hasRightReadFiles) || 
-                    (hasLongReadFiles && (!longReadsCorrected || !longReadsClustered)))) {
+                    (hasLongReadFiles && !longReadsCorrected))) {
                 
                 if (dbgDone) {
                     System.out.println("WARNING: Graph was already constructed (k=" + k + ")!");
@@ -6252,7 +6253,9 @@ public class RNABloom {
                         assembler.restoreGraph(new File(graphFile), noFragDBG || !fragmentsDone || (outputNrTxpts && !txptsNrDone));
                     }
                 }
-                else {                
+                else {
+                    printBloomFilterMemoryInfo(dbgGB, cbfGB, pkbfGB, sbfGB);
+                    
                     ArrayList<String> forwardFilesList = new ArrayList<>();
                     ArrayList<String> backwardFilesList = new ArrayList<>();
                     ArrayList<String> longFilesList = new ArrayList<>();

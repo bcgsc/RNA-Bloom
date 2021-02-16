@@ -19,7 +19,10 @@ package rnabloom.olc;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -29,9 +32,11 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
+import static rnabloom.RNABloom.touch;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.FastaReader;
 
@@ -442,24 +447,71 @@ public class OverlapLayoutConcensus {
         return status;
     }
     
+    private static void writeIntArrayToFile(File f, int[] arr) throws IOException {
+        BufferedWriter fr = new BufferedWriter(new FileWriter(f, false));
+        for (int i : arr) {
+            fr.write(Integer.toString(i));
+            fr.write('\n');
+        }
+        fr.close();
+    }
+    
+    private static int[] readIntArrayFromFile(File f) throws FileNotFoundException, IOException {
+        ArrayDeque<Integer> tmpQueue = new ArrayDeque<>();
+        BufferedReader br = new BufferedReader(new FileReader(f));
+        for (String line; (line = br.readLine()) != null; ) {
+            tmpQueue.add(Integer.parseInt(line.trim()));
+        }
+        
+        br.close();
+        
+        return tmpQueue.stream().mapToInt(i->i).toArray();
+    }
+    
     public static int clusteredOLC(String readsPath, String clustersdir,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
-            int minSeqDepth, boolean usePacBioPreset, int maxMergedClusterSize) throws IOException {
+            int minSeqDepth, boolean usePacBioPreset, int maxMergedClusterSize, boolean forceOverwrite) throws IOException {
         
-        if (!Files.isDirectory(FileSystems.getDefault().getPath(clustersdir))) {
-            Files.createDirectory(FileSystems.getDefault().getPath(clustersdir));
+        File clusteringSizesFile = new File(clustersdir + File.separator + "cluster_sizes.txt");
+        int[] clusterSizes = null;
+        
+        if (forceOverwrite) {
+            Files.deleteIfExists(clusteringSizesFile.toPath());
+            
+            clusterSizes = overlapWithMinimapAndExtractClusters(readsPath, clustersdir,
+                    numThreads, false, minimapOptions, stranded, maxEdgeClip,
+                    minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
+                    minSeqDepth, usePacBioPreset, maxMergedClusterSize);
+            
+            if (clusterSizes == null || clusterSizes.length == 0) {
+                return -1;
+            }
+            
+            writeIntArrayToFile(clusteringSizesFile, clusterSizes);
+        }
+        else {
+            if (clusteringSizesFile.exists()) {
+                clusterSizes = readIntArrayFromFile(clusteringSizesFile);
+                
+                if (clusterSizes == null || clusterSizes.length == 0) {
+                    return -1;
+                }
+            }
+            else {
+                clusterSizes = overlapWithMinimapAndExtractClusters(readsPath, clustersdir,
+                    numThreads, false, minimapOptions, stranded, maxEdgeClip,
+                    minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
+                    minSeqDepth, usePacBioPreset, maxMergedClusterSize);
+                
+                if (clusterSizes == null || clusterSizes.length == 0) {
+                    return -1;
+                }
+                
+                writeIntArrayToFile(clusteringSizesFile, clusterSizes);
+            }
         }
                 
-        int[] clusterSizes = overlapWithMinimapAndExtractClusters(readsPath, clustersdir,
-                            numThreads, false, minimapOptions, stranded, maxEdgeClip,
-                            minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
-                            minSeqDepth, usePacBioPreset, maxMergedClusterSize);
-        
-        if (clusterSizes == null) {
-            return -1;
-        }
-        
         minSeqDepth = 1;
         cutRevCompArtifact = false;
         boolean keepUnpolished = true;
@@ -467,22 +519,32 @@ public class OverlapLayoutConcensus {
         int numClusters = clusterSizes.length;
         for (int c=0; c<numClusters; ++c) {            
             int cid = c+1;
+            
+            File assemblyDoneStamp = new File(clustersdir + File.separator + cid + ".DONE");
             System.out.println("Processing cluster #" + cid + " of " + numClusters + "...");
             
-            String clusterPrefix = clustersdir + File.separator + cid;
-            String clusterPath = clusterPrefix + FASTA_EXT;
-            String tmpPrefix = clusterPrefix + "_tmp";
-            String concensusPath = clusterPrefix + "_transcripts" + FASTA_EXT;
-            
-            // do not align during AVA overlap if the cluster has to many reads
-            boolean align = clusterSizes[c] <= 500000;
-            boolean status = overlapLayoutConcensus(clusterPath, tmpPrefix, concensusPath, 
-                            numThreads, stranded, minimapOptions, maxEdgeClip,
-                            minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth,
-                            usePacBioPreset, align, keepUnpolished);
-            
-            if (!status) {
-                throw new IOException("Error processing cluster " + cid);
+            if (forceOverwrite || !assemblyDoneStamp.exists()) {
+                String clusterPrefix = clustersdir + File.separator + cid;
+                String clusterPath = clusterPrefix + FASTA_EXT;
+                String tmpPrefix = clusterPrefix + "_tmp";
+                String concensusPath = clusterPrefix + "_transcripts" + FASTA_EXT;
+
+                // do not align during AVA overlap if the cluster has to many reads
+                boolean align = clusterSizes[c] <= 500000;
+                boolean status = overlapLayoutConcensus(clusterPath, tmpPrefix, concensusPath, 
+                                numThreads, stranded, minimapOptions, maxEdgeClip,
+                                minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth,
+                                usePacBioPreset, align, keepUnpolished);
+
+                if (status) {
+                    touch(assemblyDoneStamp);
+                }
+                else {
+                    throw new IOException("Error processing cluster " + cid);
+                }
+            }
+            else {
+                System.out.println("WARNING: cluster #" + cid + " was already processed!");
             }
         }
         
