@@ -1044,8 +1044,7 @@ public class Layout {
         
         public boolean equals(NeighborPair o) {
             return this.score == o.score && 
-                    ((name1.equals(o.name1) && name2.equals(o.name2)) || 
-                    (name2.equals(o.name1) && name1.equals(o.name2)));
+                    name1.equals(o.name1) && name2.equals(o.name2);
         }
                 
         @Override
@@ -1340,28 +1339,40 @@ public class Layout {
             System.out.println("\t- multi-segs:\t" + multiSegmentSeqs.size());
         }
         
-        ArrayList<NeighborPair> neighborPairsList = new ArrayList<>(bestNeighbors.neighbors.size() * maxBestNeighbors);
+        ArrayList<NeighborPair> neighborPairsList = new ArrayList<>((bestNeighbors.neighbors.size() - multiSegmentSeqs.size()) * 2);
+        ArrayList<NeighborPair> multiSegNeighborPairsList = new ArrayList<>(multiSegmentSeqs.size() * 2);
         /**@TODO split list into tiers to avoid list size reaching max Integer value*/
         for (ArrayList<NeighborPair> a : bestNeighbors.neighbors.values()) {
-            neighborPairsList.addAll(a);
+            for (NeighborPair p : a) {
+                if (!multiSegmentSeqs.contains(p.name1) && !multiSegmentSeqs.contains(p.name2)) {
+                    neighborPairsList.add(p);
+                }
+                else {
+                    multiSegNeighborPairsList.add(p);
+                }
+            }
         }
-        TreeSet<NeighborPair> neighborPairsSet = new TreeSet<>(neighborPairsList);
         
+        Collections.sort(neighborPairsList);
+        Collections.sort(multiSegNeighborPairsList);
+                
         // form clusters
         ReadClusters3 clusters = new ReadClusters3(maxMergedClusterSize);
-        ArrayDeque<NeighborPair> multiSegNeigbhorPairs = new ArrayDeque<>();
-        for (NeighborPair p : neighborPairsSet) {
-            if (!multiSegmentSeqs.contains(p.name1) && !multiSegmentSeqs.contains(p.name2)) {
+        
+        NeighborPair last = null; // sorted list may contain duplicates
+        for (NeighborPair p : neighborPairsList) {
+            if (p != last) {
                 clusters.add(p.name1, p.name2);
             }
-            else {
-                multiSegNeigbhorPairs.add(p);
-            }
+            last = p;
         }
         
-        // rescue multi-segment reads
-        for (NeighborPair p : multiSegNeigbhorPairs) {
-            clusters.add(p.name1, p.name2);
+        last = null; // sorted list may contain duplicates
+        for (NeighborPair p : multiSegNeighborPairsList) {
+            if (p != last) {
+                clusters.add(p.name1, p.name2);
+            }
+            last = p;
         }
         
         int numClusters = clusters.size();
