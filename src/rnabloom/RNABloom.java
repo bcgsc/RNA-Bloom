@@ -3465,6 +3465,7 @@ public class RNABloom {
                                                 FastaWriter longSeqWriter,
                                                 FastaWriter shortSeqWriter,
                                                 FastaWriter repeatsSeqWriter,
+                                                int minOverlap,
                                                 int minKmerCov,
                                                 int maxErrCorrItr,
                                                 int numThreads,
@@ -3474,13 +3475,13 @@ public class RNABloom {
                                                 boolean trimArtifact,
                                                 boolean writeUracil) throws InterruptedException, IOException, Exception {
 
+        int minNumSolidKmers = Math.max(0, (int) Math.floor(minOverlap * percentIdentity) - k + 1);
         long numReads = 0;
         ArrayBlockingQueue<Sequence> outputQueue = new ArrayBlockingQueue<>(maxSampleSize);
                 
         LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
         
-        int minNumSolidKmers = Math.max(1, (int) Math.floor(minSeqLen * percentIdentity) - k + 1);
         FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths);
         
         for (int i=0; i<numThreads; ++i) {
@@ -4596,7 +4597,7 @@ public class RNABloom {
     
     private static long correctLongReads(RNABloom assembler, 
             String[] inFastxList, String outLongFasta, String outShortFasta, String outRepeatsFasta,
-            int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, 
+            int maxErrCorrItr, int minOverlap, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, 
             boolean reverseComplement, boolean trimArtifact, boolean writeUracil) throws InterruptedException, IOException, Exception {
         
         FastaWriter longWriter = new FastaWriter(outLongFasta, false);
@@ -4605,6 +4606,7 @@ public class RNABloom {
 
         long numCorrected = assembler.correctLongReadsMultithreaded(inFastxList,
                                                 longWriter, shortWriter, repeatsWriter,
+                                                minOverlap,
                                                 minKmerCov,
                                                 maxErrCorrItr,
                                                 numThreads,
@@ -6495,25 +6497,9 @@ public class RNABloom {
                     numCorrectedReads = Long.parseLong(loadStringFromFile(numCorrectedReadsPath));
                 }
                 else {
-                    /* set up the file writers */
-                    /*
-                    for (String[] row : correctedLongReadFileNames) {
-                        for (String fasta : row) {
-                            Files.deleteIfExists(FileSystems.getDefault().getPath(fasta));
-                        }
-                    }
-                    
-                    Files.deleteIfExists(FileSystems.getDefault().getPath(repeatReadsFileName));
-                    
-                    correctLongReads(assembler,
-                            longReadPaths, correctedLongReadFileNames, repeatReadsFileName,
-                            maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength,
-                            revCompLong, !keepArtifact);
-                    */
-                    
                     numCorrectedReads = correctLongReads(assembler, 
                             longReadPaths, longCorrectedReadsPath, shortCorrectedReadsPath, repeatReadsFileName,
-                            maxErrCorrItr, minKmerCov, numThreads, sampleSize, minTranscriptLength,
+                            maxErrCorrItr, minOverlap, minKmerCov, numThreads, sampleSize, minTranscriptLength,
                             revCompLong, !keepArtifact, writeUracil);
                     
                     saveStringToFile(numCorrectedReadsPath, Long.toString(numCorrectedReads));
