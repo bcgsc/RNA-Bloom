@@ -1388,9 +1388,9 @@ public class Layout {
         FastaReader fr = new FastaReader(seqFastaPath);
         int[] counts = new int[numClusters];
         int numOrphans = 0;
-        int bufferSize = 100000;
-        int numReadsParsed = 0;
-        ArrayDeque<FastaRecord> orphanRecords = new ArrayDeque<>();
+        final int bufferSize = 100000;
+        int numReadsInBuffer = 0;
+        //ArrayDeque<FastaRecord> orphanRecords = new ArrayDeque<>();
         HashMap<Integer, ArrayDeque<FastaRecord>> clusterRecords = new HashMap<>();
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
@@ -1407,11 +1407,13 @@ public class Layout {
                     fastaBuffer = new ArrayDeque<>();
                     clusterRecords.put(cid, fastaBuffer);
                 }
+                ++numReadsInBuffer;
             } 
             else {
                 ++numOrphans;
                 //filePath = outdir + File.separator + "orphans" + FASTA_EXT;
-                fastaBuffer = orphanRecords;
+                //fastaBuffer = orphanRecords;
+                continue;
             }
             
             //FastaWriter fw = new FastaWriter(filePath, true);
@@ -1447,13 +1449,14 @@ public class Layout {
             }
             //fw.close();
             
-            if (++numReadsParsed % bufferSize == 0) {
-                emptyClusterFastaBuffer(clusterRecords, orphanRecords, outdir);
+            if (numReadsInBuffer >= bufferSize) {
+                emptyClusterFastaBuffer(clusterRecords, outdir);
+                numReadsInBuffer = 0;
             }
         }
         fr.close();
         
-        emptyClusterFastaBuffer(clusterRecords, orphanRecords, outdir);
+        emptyClusterFastaBuffer(clusterRecords, outdir);
         
         System.out.println("\t- orphans:\t" + numOrphans);
         System.gc();
@@ -1463,16 +1466,16 @@ public class Layout {
     }
     
     private void emptyClusterFastaBuffer(HashMap<Integer, ArrayDeque<FastaRecord>> clusterRecords, 
-            ArrayDeque<FastaRecord> orphanRecords, String outdir) throws IOException {
-        if (!orphanRecords.isEmpty()) {
-            String filePath = outdir + File.separator + "orphans" + FASTA_EXT;
-            FastaWriter fw = new FastaWriter(filePath, true);
-            for (FastaRecord f : orphanRecords) {
-                fw.write(f.name, f.seq);
-            }
-            fw.close();
-            orphanRecords.clear();
-        }
+            String outdir) throws IOException {
+//        if (!orphanRecords.isEmpty()) {
+//            String filePath = outdir + File.separator + "orphans" + FASTA_EXT;
+//            FastaWriter fw = new FastaWriter(filePath, true);
+//            for (FastaRecord f : orphanRecords) {
+//                fw.write(f.name, f.seq);
+//            }
+//            fw.close();
+//            orphanRecords.clear();
+//        }
 
         if (!clusterRecords.isEmpty()) {
             for (Map.Entry<Integer, ArrayDeque<FastaRecord>> e : clusterRecords.entrySet()) {
