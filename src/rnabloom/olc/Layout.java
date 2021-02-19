@@ -41,6 +41,7 @@ import org.jgrapht.alg.TransitiveReduction;
 import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
+import rnabloom.io.CompressedFastaRecord;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.FastaReader;
@@ -1390,18 +1391,17 @@ public class Layout {
         int numOrphans = 0;
         final int bufferSize = 100000;
         int numReadsInBuffer = 0;
-        //ArrayDeque<FastaRecord> orphanRecords = new ArrayDeque<>();
+        ArrayDeque<CompressedFastaRecord> orphanRecords = new ArrayDeque<>();
         HashMap<Integer, ArrayDeque<FastaRecord>> clusterRecords = new HashMap<>();
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
+            String seq = nameSeq[1];
             
-            //String filePath = null;
             Integer cid = cids.get(name);
             ArrayDeque<FastaRecord> fastaBuffer = null;
             if (cid != null) {
                 counts[cid-1] += 1;
-                //filePath = outdir + File.separator + cid + FASTA_EXT;
                 fastaBuffer = clusterRecords.get(cid);
                 if (fastaBuffer == null) {
                     fastaBuffer = new ArrayDeque<>();
@@ -1411,13 +1411,14 @@ public class Layout {
             } 
             else {
                 ++numOrphans;
-                //filePath = outdir + File.separator + "orphans" + FASTA_EXT;
-                //fastaBuffer = orphanRecords;
+                if (!checkNumAltReads) {
+                    // number of alternate reads requires is 0
+                    // sequences with read depth of 1 (itself) will be kept
+                    orphanRecords.add(new CompressedFastaRecord(name, seq));
+                }
                 continue;
             }
             
-            //FastaWriter fw = new FastaWriter(filePath, true);
-            String seq = nameSeq[1];
             ArrayDeque<Interval> spans = readSpansMap.get(name);
             if (checkNumAltReads && spans != null) {
                 int numSpans = spans.size();
@@ -1427,8 +1428,6 @@ public class Layout {
                     int start = Math.max(0, span.start);
                     int end = Math.min(span.end, seq.length());
                     String header = name + "_t " + seqLength + ":" + start + "-" + end;
-                    //fw.write(name + "_t " + seqLength + ":" + start + "-" + end,
-                    //        seq.substring(start, end));
                     fastaBuffer.add(new FastaRecord(header, seq.substring(start, end)));
                 }
                 else {
@@ -1437,28 +1436,28 @@ public class Layout {
                         int start = Math.max(0, span.start);
                         int end = Math.min(span.end, seq.length());
                         String header = name + "_p" + i++ + " " + seqLength + ":" + start + "-" + end;
-                        //fw.write(name + "_p" + i++ + " " + seqLength + ":" + start + "-" + end,
-                        //        seq.substring(start, end));
                         fastaBuffer.add(new FastaRecord(header, seq.substring(start, end)));
                     }
                 }
             }
             else {
-                //fw.write(name, seq);
                 fastaBuffer.add(new FastaRecord(name, seq));
             }
-            //fw.close();
             
             if (numReadsInBuffer >= bufferSize) {
-                emptyClusterFastaBuffer(clusterRecords, outdir);
+                emptyClusterFastaBuffer(clusterRecords, outdir, true);
                 numReadsInBuffer = 0;
             }
         }
         fr.close();
         
-        emptyClusterFastaBuffer(clusterRecords, outdir);
+        emptyClusterFastaBuffer(clusterRecords, outdir, true);
         
         System.out.println("\t- orphans:\t" + numOrphans);
+        if (!checkNumAltReads) {
+            emptyOrphanRecords(orphanRecords, outdir, false);
+        }
+        
         System.gc();
         
         //System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
@@ -1466,21 +1465,11 @@ public class Layout {
     }
     
     private void emptyClusterFastaBuffer(HashMap<Integer, ArrayDeque<FastaRecord>> clusterRecords, 
-            String outdir) throws IOException {
-//        if (!orphanRecords.isEmpty()) {
-//            String filePath = outdir + File.separator + "orphans" + FASTA_EXT;
-//            FastaWriter fw = new FastaWriter(filePath, true);
-//            for (FastaRecord f : orphanRecords) {
-//                fw.write(f.name, f.seq);
-//            }
-//            fw.close();
-//            orphanRecords.clear();
-//        }
-
+            String outdir, boolean append) throws IOException {
         if (!clusterRecords.isEmpty()) {
             for (Map.Entry<Integer, ArrayDeque<FastaRecord>> e : clusterRecords.entrySet()) {
                 String filePath = outdir + File.separator + e.getKey() + FASTA_EXT;
-                FastaWriter fw = new FastaWriter(filePath, true);
+                FastaWriter fw = new FastaWriter(filePath, append);
                 for (FastaRecord f : e.getValue()) {
                     fw.write(f.name, f.seq);
                 }
@@ -1488,6 +1477,17 @@ public class Layout {
             }
             clusterRecords.clear();
         }
+    }
+    
+    private void emptyOrphanRecords(ArrayDeque<CompressedFastaRecord> records, 
+            String outdir, boolean append) throws IOException {
+        String filePath = outdir + File.separator + "orphans" + FASTA_EXT;
+        FastaWriter fw = new FastaWriter(filePath, append);
+        for (CompressedFastaRecord f : records) {
+            fw.write(f.name, f.seqbits.toString());
+        }
+        fw.close();
+        records.clear();
     }
     
     private boolean layoutBackbones(String outFastaPath) throws IOException {
@@ -1500,9 +1500,9 @@ public class Layout {
         PafReader reader = new PafReader(overlapPafInputStream);
         
         boolean checkNumAltReads = false;//minNumAltReads > 0;
-        ArrayDeque<Interval> spans = new ArrayDeque<>();
-        String prevName = null;
-        int prevLen = -1;
+//        ArrayDeque<Interval> spans = new ArrayDeque<>();
+//        String prevName = null;
+//        int prevLen = -1;
         ArrayDeque<String> discardReadIDs = new ArrayDeque<>();
         
         for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
@@ -1772,9 +1772,9 @@ public class Layout {
         PafReader reader = new PafReader(overlapPafInputStream);
         
         boolean checkNumAltReads = false;//minNumAltReads > 0;
-        ArrayDeque<Interval> spans = new ArrayDeque<>();
-        String prevName = null;
-        int prevLen = -1;
+//        ArrayDeque<Interval> spans = new ArrayDeque<>();
+//        String prevName = null;
+//        int prevLen = -1;
         ArrayDeque<String> discardReadIDs = new ArrayDeque<>();
         
         for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
