@@ -5,9 +5,9 @@
  */
 package rnabloom.util;
 
-import java.util.BitSet;
-import static rnabloom.util.KmerBitsUtils.bitsToSeq;
-import static rnabloom.util.KmerBitsUtils.seqToBits;
+import java.util.Arrays;
+import static rnabloom.util.SeqBitsUtils.bitsToSeq;
+import static rnabloom.util.SeqBitsUtils.seqToBits;
 
 /**
  *
@@ -15,7 +15,7 @@ import static rnabloom.util.KmerBitsUtils.seqToBits;
  */
 public class BitSequence implements Comparable<Object> {
     int length;
-    BitSet bits;
+    byte[] bits;
 
     public BitSequence(String seq) {
         this.length = seq.length();
@@ -24,15 +24,11 @@ public class BitSequence implements Comparable<Object> {
 
     @Override
     public String toString() {
-        return bitsToSeq(this.bits, this.length, false);
-    }
-
-    public String toString(boolean useUracil) {
-        return bitsToSeq(this.bits, this.length, useUracil);
+        return bitsToSeq(this.bits, this.length);
     }
     
     public boolean equals(BitSequence other) {
-        return bits.equals(other.bits);
+        return Arrays.equals(bits, other.bits);
     }
     
     @Override
