@@ -891,23 +891,18 @@ public class Layout {
         
         public HashMap<String, Integer> assignIDs() {
             HashMap<String, Integer> ids = new HashMap<>(assignment.size());
-            
-            HashSet<String> keys = new HashSet<>(assignment.keySet());
-            
+                        
             int cid = 0;
-            while (!keys.isEmpty()) {
+            for (HashSet<String> c : new HashSet<>(assignment.values())) {
                 ++cid;
-                String key = keys.iterator().next();
-                
-                HashSet<String> cluster = assignment.get(key);
-                for (String n : cluster) {
+
+                for (String n : c) {
                     ids.put(n, cid);
                 }
                 
-                keys.removeAll(cluster);
-                
-                if (cluster.size() > largestClusterSize) {
-                    largestClusterSize = cluster.size();
+                int clusterSize = c.size();
+                if (clusterSize > largestClusterSize) {
+                    largestClusterSize = clusterSize;
                     largestClusterID = cid;
                 }
             }
@@ -994,22 +989,17 @@ public class Layout {
         public HashMap<String, Integer> assignIDs() {
             HashMap<String, Integer> ids = new HashMap<>(assignment.size());
             
-            HashSet<String> keys = new HashSet<>(assignment.keySet());
-            
             int cid = 0;
-            while (!keys.isEmpty()) {
+            for (HashSet<String> c : new HashSet<>(assignment.values())) {
                 ++cid;
-                String key = keys.iterator().next();
-                
-                HashSet<String> cluster = assignment.get(key);
-                for (String n : cluster) {
+
+                for (String n : c) {
                     ids.put(n, cid);
                 }
                 
-                keys.removeAll(cluster);
-                
-                if (cluster.size() > largestClusterSize) {
-                    largestClusterSize = cluster.size();
+                int clusterSize = c.size();
+                if (clusterSize > largestClusterSize) {
+                    largestClusterSize = clusterSize;
                     largestClusterID = cid;
                 }
             }
