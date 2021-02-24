@@ -112,6 +112,7 @@ public class OverlapLayoutConcensus {
         while (reader.hasNext()) {
             reader.next();
             if (++numSeq > 1) {
+                reader.close();
                 return false;
             }
         }
