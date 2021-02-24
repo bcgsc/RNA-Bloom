@@ -1379,17 +1379,17 @@ public class Layout {
         FastaReader fr = new FastaReader(seqFastaPath);
         int[] counts = new int[numClusters];
         int numOrphans = 0;
-        final int bufferSize = 100000;
+        final int bufferSize = 400000;
         int numReadsInBuffer = 0;
         ArrayDeque<CompressedFastaRecord> orphanRecords = new ArrayDeque<>();
-        HashMap<Integer, ArrayDeque<FastaRecord>> clusterRecords = new HashMap<>();
+        HashMap<Integer, ArrayDeque<CompressedFastaRecord>> clusterRecords = new HashMap<>();
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
             String seq = nameSeq[1];
             
             Integer cid = cids.get(name);
-            ArrayDeque<FastaRecord> fastaBuffer = null;
+            ArrayDeque<CompressedFastaRecord> fastaBuffer = null;
             if (cid != null) {
                 counts[cid-1] += 1;
                 fastaBuffer = clusterRecords.get(cid);
@@ -1418,7 +1418,7 @@ public class Layout {
                     int start = Math.max(0, span.start);
                     int end = Math.min(span.end, seq.length());
                     String header = name + "_t " + seqLength + ":" + start + "-" + end;
-                    fastaBuffer.add(new FastaRecord(header, seq.substring(start, end)));
+                    fastaBuffer.add(new CompressedFastaRecord(header, seq.substring(start, end)));
                 }
                 else {
                     int i = 1;
@@ -1426,12 +1426,12 @@ public class Layout {
                         int start = Math.max(0, span.start);
                         int end = Math.min(span.end, seq.length());
                         String header = name + "_p" + i++ + " " + seqLength + ":" + start + "-" + end;
-                        fastaBuffer.add(new FastaRecord(header, seq.substring(start, end)));
+                        fastaBuffer.add(new CompressedFastaRecord(header, seq.substring(start, end)));
                     }
                 }
             }
             else {
-                fastaBuffer.add(new FastaRecord(name, seq));
+                fastaBuffer.add(new CompressedFastaRecord(name, seq));
             }
             
             if (numReadsInBuffer >= bufferSize) {
@@ -1454,14 +1454,14 @@ public class Layout {
         return counts;
     }
     
-    private void emptyClusterFastaBuffer(HashMap<Integer, ArrayDeque<FastaRecord>> clusterRecords, 
+    private void emptyClusterFastaBuffer(HashMap<Integer, ArrayDeque<CompressedFastaRecord>> clusterRecords, 
             String outdir, boolean append) throws IOException {
         if (!clusterRecords.isEmpty()) {
-            for (Map.Entry<Integer, ArrayDeque<FastaRecord>> e : clusterRecords.entrySet()) {
+            for (Map.Entry<Integer, ArrayDeque<CompressedFastaRecord>> e : clusterRecords.entrySet()) {
                 String filePath = outdir + File.separator + e.getKey() + FASTA_EXT;
                 FastaWriter fw = new FastaWriter(filePath, append);
-                for (FastaRecord f : e.getValue()) {
-                    fw.write(f.name, f.seq);
+                for (CompressedFastaRecord f : e.getValue()) {
+                    fw.write(f.name, f.seqbits.toString());
                 }
                 fw.close();
             }
