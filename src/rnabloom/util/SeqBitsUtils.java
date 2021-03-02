@@ -5,7 +5,9 @@
  */
 package rnabloom.util;
 
+import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 
 /**
  *
@@ -124,6 +126,33 @@ public class SeqBitsUtils {
             int offset = seqLen - numExtraBases;
             for (int i=0; i<numExtraBases; ++i) {
                 b |= (byte) (getIndex(seq.charAt(i + offset)) << bitShifts[i]);
+            }
+            bytes[numFullBytes] = b;
+        }
+        
+        return bytes;
+    }
+    
+    private final static int[] BIT_SHIFTS = new int[]{6, 4, 2, 0};
+    
+    public static byte[] seqToBitsParallelized(String seq) {
+        int seqLen = seq.length();
+        int numFullBytes = seqLen / 4;
+        int numExtraBases = seqLen % 4;
+        boolean hasExtra = numExtraBases > 0;
+        int bLen = hasExtra ? numFullBytes + 1 : numFullBytes;
+        byte[] bytes = new byte[bLen]; 
+        
+        IntStream.range(0, numFullBytes).parallel().forEach(e -> {
+            int i = e * 4;
+            bytes[e] = BYTE_LOOKUP_TABLE[getIndex(seq.charAt(i))][getIndex(seq.charAt(i+1))][getIndex(seq.charAt(i+2))][getIndex(seq.charAt(i+3))];
+        });
+        
+        if (hasExtra) {
+            byte b = 0;
+            int offset = seqLen - numExtraBases;
+            for (int i=0; i<numExtraBases; ++i) {
+                b |= (byte) (getIndex(seq.charAt(i + offset)) << BIT_SHIFTS[i]);
             }
             bytes[numFullBytes] = b;
         }
