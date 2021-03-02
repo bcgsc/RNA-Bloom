@@ -1379,7 +1379,7 @@ public class Layout {
         FastaReader fr = new FastaReader(seqFastaPath);
         int[] counts = new int[numClusters];
         int numOrphans = 0;
-        final int bufferSize = 400000;
+        final int bufferSize = 1000000;
         int numReadsInBuffer = 0;
         ArrayDeque<CompressedFastaRecord> orphanRecords = new ArrayDeque<>();
         HashMap<Integer, ArrayDeque<CompressedFastaRecord>> clusterRecords = new HashMap<>();
