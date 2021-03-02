@@ -1412,20 +1412,26 @@ public class Layout {
             ArrayDeque<Interval> spans = readSpansMap.get(name);
             if (checkNumAltReads && spans != null) {
                 int numSpans = spans.size();
-                String seqLength = Integer.toString(seq.length());
+                int seqLen = seq.length();
+                String seqLenStr = Integer.toString(seqLen);
                 if (numSpans == 1) {
                     Interval span = spans.peekFirst();
                     int start = Math.max(0, span.start);
-                    int end = Math.min(span.end, seq.length());
-                    String header = name + "_t " + seqLength + ":" + start + "-" + end;
-                    fastaBuffer.add(new CompressedFastaRecord(header, seq.substring(start, end)));
+                    int end = Math.min(span.end, seqLen);
+                    String header = name + "_t " + seqLenStr + ":" + start + "-" + end;
+                    if (start == 0 && end == seqLen) {
+                        fastaBuffer.add(new CompressedFastaRecord(header, seq));
+                    }
+                    else {
+                        fastaBuffer.add(new CompressedFastaRecord(header, seq.substring(start, end)));
+                    }
                 }
                 else {
                     int i = 1;
                     for (Interval span : spans) {
                         int start = Math.max(0, span.start);
-                        int end = Math.min(span.end, seq.length());
-                        String header = name + "_p" + i++ + " " + seqLength + ":" + start + "-" + end;
+                        int end = Math.min(span.end, seqLen);
+                        String header = name + "_p" + i++ + " " + seqLenStr + ":" + start + "-" + end;
                         fastaBuffer.add(new CompressedFastaRecord(header, seq.substring(start, end)));
                     }
                 }
