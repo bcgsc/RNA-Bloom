@@ -7,7 +7,8 @@ package rnabloom.io;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import static rnabloom.util.NucleotideBitsUtils.seqToByteArray;
+import static rnabloom.util.SeqBitsUtils.intToFourBytes;
+import static rnabloom.util.SeqBitsUtils.seqToBitsParallelized;
 
 /**
  *
@@ -21,8 +22,10 @@ public class NucleotideBitsWriter {
     }
     
     public void write(String seq) throws IOException {
-        byte[] bytes = seqToByteArray(seq);
+        byte[] lenBytes = intToFourBytes(seq.length());
+        byte[] bytes = seqToBitsParallelized(seq);
         synchronized(this) {
+            out.write(lenBytes);
             out.write(bytes);
         }
     }

@@ -8,19 +8,20 @@ package rnabloom.io;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import static rnabloom.util.NucleotideBitsUtils.byteArrayToSeq;
+import static rnabloom.util.SeqBitsUtils.bitsToSeq;
+import static rnabloom.util.SeqBitsUtils.seqLenToNumBytes;
+import static rnabloom.util.SeqBitsUtils.fourBytesToInt;
 
 /**
  *
  * @author kmnip
  */
 public class NucleotideBitsReader implements SequenceFileIteratorInterface {
-    private FileInputStream fin;
-    private byte[] seqLenBytes = new byte[4];
+    private final FileInputStream fin;
+    private final byte[] seqLenBytes = new byte[4];
     
     public NucleotideBitsReader(String path) throws FileNotFoundException, IOException {
         fin = new FileInputStream(path);
@@ -28,10 +29,10 @@ public class NucleotideBitsReader implements SequenceFileIteratorInterface {
         
     public synchronized String next() throws IOException {
         if (fin.read(seqLenBytes) > 0) {
-            int seqLen = ByteBuffer.wrap(Arrays.copyOfRange(seqLenBytes, 0, 4)).getInt();
-            byte[] seqBytes = new byte[seqLen % 4 > 0 ? seqLen/4+1 : seqLen/4];
+            int seqLen = fourBytesToInt(seqLenBytes);
+            byte[] seqBytes = new byte[seqLenToNumBytes(seqLen)];
             if (fin.read(seqBytes) > 0) {
-                return byteArrayToSeq(seqLen, seqBytes);
+                return bitsToSeq(seqBytes, seqLen);
             }
         }
         

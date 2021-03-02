@@ -5,7 +5,7 @@
  */
 package rnabloom.util;
 
-import java.util.Arrays;
+import java.nio.ByteBuffer;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
@@ -106,8 +106,21 @@ public class SeqBitsUtils {
         return lookupTable;
     }
     
+    public static int seqLenToNumBytes(int seqLen) {
+        return seqLen % 4 > 0 ? seqLen/4+1 : seqLen/4;
+    }
+    
+    public static byte[] intToFourBytes(int i) {
+        return ByteBuffer.allocate(4).putInt(i).array();
+    }
+    
+    public static int fourBytesToInt(byte[] b) {
+        return ByteBuffer.wrap(b).getInt();
+    }
+    
+    private final static int[] BIT_SHIFTS = new int[]{6, 4, 2, 0};
+    
     public static byte[] seqToBits(String seq) {
-        final int[] bitShifts = new int[]{6, 4, 2, 0};
         int seqLen = seq.length();
         int numFullBytes = seqLen / 4;
         int numExtraBases = seqLen % 4;
@@ -125,16 +138,14 @@ public class SeqBitsUtils {
             byte b = 0;
             int offset = seqLen - numExtraBases;
             for (int i=0; i<numExtraBases; ++i) {
-                b |= (byte) (getIndex(seq.charAt(i + offset)) << bitShifts[i]);
+                b |= (byte) (getIndex(seq.charAt(i + offset)) << BIT_SHIFTS[i]);
             }
             bytes[numFullBytes] = b;
         }
         
         return bytes;
     }
-    
-    private final static int[] BIT_SHIFTS = new int[]{6, 4, 2, 0};
-    
+        
     public static byte[] seqToBitsParallelized(String seq) {
         int seqLen = seq.length();
         int numFullBytes = seqLen / 4;
