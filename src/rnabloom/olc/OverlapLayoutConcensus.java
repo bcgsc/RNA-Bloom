@@ -19,26 +19,23 @@ package rnabloom.olc;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.lang.ProcessBuilder.Redirect;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
-import static rnabloom.RNABloom.touch;
 import static rnabloom.io.Constants.FASTA_EXT;
-import rnabloom.io.FastaReader;
+import static rnabloom.util.FileUtils.deleteIfExists;
+import static rnabloom.util.FileUtils.hasOnlyOneSequence;
+import static rnabloom.util.FileUtils.readIntArrayFromFile;
+import static rnabloom.util.FileUtils.symlinkRemoveExisting;
+import static rnabloom.util.FileUtils.touch;
+import static rnabloom.util.FileUtils.writeIntArrayToFile;
 
 /**
  *
@@ -105,22 +102,7 @@ public class OverlapLayoutConcensus {
             return false;
         }        
     }
-    
-    public static boolean hasOnlyOneSequence(String fasta) throws IOException {
-        FastaReader reader = new FastaReader(fasta);
-        int numSeq = 0;
-        while (reader.hasNext()) {
-            reader.next();
-            if (++numSeq > 1) {
-                reader.close();
-                return false;
-            }
-        }
-        reader.close();
         
-        return numSeq == 1;
-    }
-    
     public static boolean hasMinimap2() {
         ArrayList<String> command = new ArrayList<>();
         command.add(MINIMAP2);
@@ -272,7 +254,7 @@ public class OverlapLayoutConcensus {
             String mappingPafPath, String concensusFastaPath, int numThreads, boolean keepUnpolished) {
         String extraOptions = "";
         if (keepUnpolished) {
-            extraOptions = " --no-trimming -u ";
+            extraOptions += " --no-trimming -u ";
         }
         
         ArrayList<String> command = new ArrayList<>();
@@ -283,35 +265,6 @@ public class OverlapLayoutConcensus {
         return runCommand(command, concensusFastaPath + LOG_EXTENSION);
     }
         
-    public static String[] findLongestSequence(String fasta) throws IOException {
-        FastaReader reader = new FastaReader(fasta);
-        
-        String[] longestNameSeq = null;
-        int longestLength = -1;
-        
-        while (reader.hasNext()) {
-            String[] nameSeq = reader.nextWithName();
-            int length = nameSeq[1].length();
-            if (longestLength < length) {
-                longestNameSeq = nameSeq;
-                longestLength = length;
-            }
-        }
-        
-        reader.close();
-        
-        return longestNameSeq;
-    }
-    
-    private static void symlinkRemoveExisting(String target, String link) throws IOException {
-        Path targetPath = Paths.get(target);
-        Path linkPath = Paths.get(link);
-        
-        Files.deleteIfExists(linkPath);
-        
-        Files.createSymbolicLink(linkPath, linkPath.getParent().relativize(targetPath));
-    }
-    
     public static boolean overlapLayout(String readsPath, String tmpPrefix, String layoutPath,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
@@ -338,7 +291,7 @@ public class OverlapLayoutConcensus {
     public static boolean mapAndConcensus(String readsPath, String targetPath, String tmpPrefix, String concensusPath, 
             int numThreads, String minimapOptions, boolean usePacBioPreset, boolean keepUnpolished) throws IOException {
         String mapPaf = tmpPrefix + "_map.paf.gz";
-        Files.deleteIfExists(FileSystems.getDefault().getPath(mapPaf));
+        deleteIfExists(mapPaf);
         
         if (!mapWithMinimap(readsPath, targetPath, mapPaf, numThreads, minimapOptions, usePacBioPreset)) {
             return false;
@@ -354,13 +307,8 @@ public class OverlapLayoutConcensus {
         String backbonesFa = tmpPrefix + "_backbones.fa";
         String mapPaf = tmpPrefix + "_map.paf.gz";
         
-        Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa));
-        Files.deleteIfExists(FileSystems.getDefault().getPath(mapPaf));
-        
-        if (hasOnlyOneSequence(readsPath)) {
-            symlinkRemoveExisting(readsPath, concensusPath);
-            return true;
-        }
+        deleteIfExists(backbonesFa);
+        deleteIfExists(mapPaf);
         
         boolean status = overlapWithMinimapAndLayout(readsPath, backbonesFa,
             numThreads, align, minimapOptions, stranded, maxEdgeClip,
@@ -389,15 +337,15 @@ public class OverlapLayoutConcensus {
         String backbonesFa2 = tmpPrefix + "_backbones2.fa";
         String mapPaf = tmpPrefix + "_map.paf.gz";
 
-        Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa));
-        //Files.deleteIfExists(FileSystems.getDefault().getPath(polishedFa));
-        Files.deleteIfExists(FileSystems.getDefault().getPath(backbonesFa2));
-        Files.deleteIfExists(FileSystems.getDefault().getPath(mapPaf));
+        deleteIfExists(backbonesFa);
+        //deleteIfExists(polishedFa);
+        deleteIfExists(backbonesFa2);
+        deleteIfExists(mapPaf);
 
-        if (hasOnlyOneSequence(readsPath)) {
-            symlinkRemoveExisting(readsPath, concensusPath);
-            return true;
-        }
+//        if (hasOnlyOneSequence(readsPath)) {
+//            symlinkRemoveExisting(readsPath, concensusPath);
+//            return true;
+//        }
         
         boolean status = overlapWithMinimapAndLayout(readsPath, backbonesFa,
             numThreads, alignReads, minimapOptions, stranded, maxEdgeClip,
@@ -447,28 +395,7 @@ public class OverlapLayoutConcensus {
         
         return status;
     }
-    
-    private static void writeIntArrayToFile(File f, int[] arr) throws IOException {
-        BufferedWriter fr = new BufferedWriter(new FileWriter(f, false));
-        for (int i : arr) {
-            fr.write(Integer.toString(i));
-            fr.write('\n');
-        }
-        fr.close();
-    }
-    
-    private static int[] readIntArrayFromFile(File f) throws FileNotFoundException, IOException {
-        ArrayDeque<Integer> tmpQueue = new ArrayDeque<>();
-        BufferedReader br = new BufferedReader(new FileReader(f));
-        for (String line; (line = br.readLine()) != null; ) {
-            tmpQueue.add(Integer.parseInt(line.trim()));
-        }
         
-        br.close();
-        
-        return tmpQueue.stream().mapToInt(i->i).toArray();
-    }
-    
     public static int clusteredOLC(String readsPath, String clustersdir,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,

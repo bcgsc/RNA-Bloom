@@ -87,6 +87,12 @@ import static rnabloom.io.Constants.NBITS_EXT;
 import rnabloom.io.SequenceFileIteratorInterface;
 import static rnabloom.olc.OverlapLayoutConcensus.clusteredOLC;
 import static rnabloom.olc.OverlapLayoutConcensus.mapAndConcensus;
+import static rnabloom.util.FileUtils.deleteIfExists;
+import static rnabloom.util.FileUtils.hasOnlyOneSequence;
+import static rnabloom.util.FileUtils.loadStringFromFile;
+import static rnabloom.util.FileUtils.saveStringToFile;
+import static rnabloom.util.FileUtils.symlinkRemoveExisting;
+import static rnabloom.util.FileUtils.touch;
 import rnabloom.util.Timer;
 
 /**
@@ -2382,7 +2388,7 @@ public class RNABloom {
             }
             reader.close();
             
-            Files.deleteIfExists(FileSystems.getDefault().getPath(path));
+            deleteIfExists(path);
         }
         writer.close();
     }
@@ -2871,10 +2877,17 @@ public class RNABloom {
 //        float minAlnId = 0.4f;
 //        int minOverlapMatches = 200;
         
-        boolean ok = overlapLayoutConcensus(readsPath, tmpPrefix, outFasta, 
+        boolean ok = false;
+        if (hasOnlyOneSequence(readsPath)) {
+            symlinkRemoveExisting(readsPath, outFasta);
+            ok = true;
+        }
+        else {
+            ok = overlapLayoutConcensus(readsPath, tmpPrefix, outFasta, 
                 numThreads, stranded, minimapOptions, maxEdgeClip,
                 minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
                 minSeqDepth, usePacBioPreset, false, true);
+        }
         
         return ok;
     }
@@ -4413,25 +4426,6 @@ public class RNABloom {
         System.out.println("Screening Bloom filter FPR:      " + screeningBf.getFPR() * 100 + " %");
     }
     
-    public static void touch(File f) throws IOException {
-        f.getParentFile().mkdirs();
-        if (!f.createNewFile()){
-            f.setLastModified(System.currentTimeMillis());
-        }
-    }
-    
-    public static void saveStringToFile(String path, String str) throws IOException {
-        FileWriter writer = new FileWriter(path, false);
-        writer.write(str);
-        writer.close();
-    }
-    
-    public static String loadStringFromFile(String path) throws FileNotFoundException, IOException {
-        BufferedReader br = new BufferedReader(new FileReader(path));
-        String line = br.readLine().strip();
-        return line;
-    }
-    
     public static void printHelp(Options options, boolean error) {
         printVersionInfo(false);
         System.out.println();
@@ -4652,7 +4646,7 @@ public class RNABloom {
         File outdir = new File(clusterdir);
         
         if (forceOverwrite) {
-            Files.deleteIfExists(FileSystems.getDefault().getPath(outFasta));
+            deleteIfExists(outFasta);
             if (outdir.exists()) {
                 for (File f : outdir.listFiles()) {
                     f.delete();
@@ -4801,8 +4795,8 @@ public class RNABloom {
         
         splitFastaByLength(reducedFasta, outLongFasta, outShortFasta, txptLengthThreshold);
         
-        Files.deleteIfExists(FileSystems.getDefault().getPath(concatenatedFasta));
-        Files.deleteIfExists(FileSystems.getDefault().getPath(reducedFasta));
+        deleteIfExists(concatenatedFasta);
+        deleteIfExists(reducedFasta);
         
         return ok;
     }
@@ -4819,7 +4813,7 @@ public class RNABloom {
             String nrTranscriptsFasta      = outdir + File.separator + name + ".transcripts.nr" + FASTA_EXT;
             String shortNrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr.short" + FASTA_EXT;
 
-            Files.deleteIfExists(FileSystems.getDefault().getPath(nrTranscriptsFasta));
+            deleteIfExists(nrTranscriptsFasta);
 
             System.out.println("Reducing redundancy in assembled transcripts...");
             Timer timer = new Timer();
@@ -4925,8 +4919,8 @@ public class RNABloom {
             }
 
             
-            Files.deleteIfExists(FileSystems.getDefault().getPath(transcriptsFasta));
-            Files.deleteIfExists(FileSystems.getDefault().getPath(shortTranscriptsFasta));
+            deleteIfExists(transcriptsFasta);
+            deleteIfExists(shortTranscriptsFasta);
 
             System.out.println("Assembling transcripts...");
             timer.start();
@@ -5000,8 +4994,8 @@ public class RNABloom {
         
         splitFastaByLength(reducedFasta, outLongFasta, outShortFasta, txptLengthThreshold);
         
-        Files.deleteIfExists(FileSystems.getDefault().getPath(concatenatedFasta));
-        Files.deleteIfExists(FileSystems.getDefault().getPath(reducedFasta));
+        deleteIfExists(concatenatedFasta);
+        deleteIfExists(reducedFasta);
         
         return ok;
     }
