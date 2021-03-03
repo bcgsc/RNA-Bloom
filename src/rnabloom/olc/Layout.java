@@ -52,6 +52,7 @@ import rnabloom.io.PafRecord;
 import static rnabloom.util.SeqUtils.stringToBytes;
 import static rnabloom.util.SeqUtils.bytesToString;
 import static rnabloom.util.SeqUtils.reverseComplement;
+import rnabloom.util.Timer;
 
 
 /**
@@ -1258,6 +1259,7 @@ public class Layout {
     }
         
     public int[] extractClusters(String outdir, int maxMergedClusterSize) throws IOException {
+        Timer timer = new Timer();
         PafReader reader = new PafReader(overlapPafInputStream);
         
         final boolean checkNumAltReads = minNumAltReads > 0;
@@ -1303,14 +1305,15 @@ public class Layout {
             }
         }
         reader.close();
-        System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " overlap records.");
-                
+        System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " overlap records in " + timer.elapsedDHMS());
+        
         // identify multi-segment reads and extract effective intervals
         final int minHistSegLen = minOverlapMatches/histBinSize;
         HashSet<String> multiSegmentSeqs = new HashSet<>();
         ConcurrentHashMap<String, ArrayDeque<Interval>> readSpansMap = new ConcurrentHashMap<>(bestNeighbors.neighbors.size(), 1.0f);
         
-        if (checkNumAltReads) {      
+        if (checkNumAltReads) {
+            timer.start();
             Set<String> syncSet = Collections.synchronizedSet(multiSegmentSeqs);
 
             readHistogramMap.entrySet().parallelStream().forEach(
@@ -1327,9 +1330,11 @@ public class Layout {
                 }
             );
 
+            System.out.println("Effective intervals identified in " + timer.elapsedDHMS());
             System.out.println("\t- multi-segs:\t" + multiSegmentSeqs.size());
         }
         
+        timer.start();
         ArrayList<NeighborPair> neighborPairsList = new ArrayList<>((bestNeighbors.neighbors.size() - multiSegmentSeqs.size()) * 2);
         ArrayList<NeighborPair> multiSegNeighborPairsList = new ArrayList<>(multiSegmentSeqs.size() * 2);
         /**@TODO split list into tiers to avoid list size reaching max Integer value*/
@@ -1346,8 +1351,10 @@ public class Layout {
         
         Collections.sort(neighborPairsList);
         Collections.sort(multiSegNeighborPairsList);
-                
+        System.out.println("Overlaps sorted in " + timer.elapsedDHMS());
+
         // form clusters
+        timer.start();
         ReadClusters3 clusters = new ReadClusters3(maxMergedClusterSize);
         
         NeighborPair last = null; // sorted list may contain duplicates
@@ -1367,15 +1374,19 @@ public class Layout {
         }
         
         int numClusters = clusters.size();
+        System.out.println("Clusters formed in " + timer.elapsedDHMS());
         System.out.println("\t- clusters:\t" + numClusters);
 
         // assign cluster IDs
+        timer.start();
         HashMap<String, Integer> cids = clusters.assignIDs();
         int largestClusterID = clusters.getLargestClusterID();
         int largestClusterSize= clusters.getLargestClusterSize();
-        System.out.println("\t  - largest:\t#" + largestClusterID + " (" + largestClusterSize + " reads)");
+        System.out.println("Cluster IDs assigned in " + timer.elapsedDHMS());
+        System.out.println("\t- largest:\t#" + largestClusterID + " (" + largestClusterSize + " reads)");
 
         // extract effective regions for each read
+        timer.start();
         FastaReader fr = new FastaReader(seqFastaPath);
         int[] counts = new int[numClusters];
         int numOrphans = 0;
@@ -1454,6 +1465,8 @@ public class Layout {
             emptyOrphanRecords(orphanRecords, outdir, false);
         }
         
+        System.out.println("Clustered reads written in " + timer.elapsedDHMS());
+        System.out.println("Clustering completed in " + timer.totalElapsedDHMS());
         System.gc();
         
         //System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
