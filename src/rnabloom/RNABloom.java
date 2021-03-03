@@ -87,6 +87,7 @@ import static rnabloom.io.Constants.NBITS_EXT;
 import rnabloom.io.SequenceFileIteratorInterface;
 import static rnabloom.olc.OverlapLayoutConcensus.clusteredOLC;
 import static rnabloom.olc.OverlapLayoutConcensus.mapAndConcensus;
+import rnabloom.util.Timer;
 
 /**
  *
@@ -4411,63 +4412,6 @@ public class RNABloom {
         System.out.println("Parsed " + NumberFormat.getInstance().format(numFragmentsParsed) + " fragments.");
         System.out.println("Screening Bloom filter FPR:      " + screeningBf.getFPR() * 100 + " %");
     }
-            
-    private static class MyTimer {
-        private final long globalStartTime;
-        private long startTime;
-        
-        public MyTimer() {
-            globalStartTime = System.currentTimeMillis();
-            startTime = globalStartTime;
-        }
-        
-        public void start() {
-            startTime = System.currentTimeMillis();
-        }
-        
-        public long elapsedMillis() {
-            return System.currentTimeMillis() - startTime;
-        }
-                
-        public long totalElapsedMillis() {
-            return System.currentTimeMillis() - globalStartTime;
-        }
-        
-        public static String hmsFormat(long millis) {
-            long seconds = millis / 1000;
-            
-            long hours = seconds / 3600;
-            
-            seconds = seconds % 3600;
-            
-            long minutes = seconds / 60;
-            
-            seconds = seconds % 60;
-            
-            StringBuilder sb = new StringBuilder();
-            
-            if (hours > 0) {
-                sb.append(hours);
-                sb.append("h ");
-            }
-            
-            if (minutes > 0 || hours > 0) {
-                sb.append(minutes);
-                sb.append("m ");
-            }
-                        
-            if (hours == 0 && minutes == 0) {
-                sb.append(millis/1000f);
-                sb.append("s");
-            }
-            else {
-                sb.append(seconds);
-                sb.append("s");
-            }
-            
-            return sb.toString();
-        }
-    }
     
     public static void touch(File f) throws IOException {
         f.getParentFile().mkdirs();
@@ -4878,7 +4822,7 @@ public class RNABloom {
             Files.deleteIfExists(FileSystems.getDefault().getPath(nrTranscriptsFasta));
 
             System.out.println("Reducing redundancy in assembled transcripts...");
-            MyTimer timer = new MyTimer();
+            Timer timer = new Timer();
             timer.start();
 
             boolean ok = assembler.generateNonRedundantTranscripts(transcriptsFasta, shortTranscriptsFasta,
@@ -4886,7 +4830,7 @@ public class RNABloom {
                     usePacBioPreset);
 
             if (ok) {
-                System.out.println("Redundancy reduced in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                System.out.println("Redundancy reduced in " + timer.elapsedDHMS());
                 touch(nrTxptsDoneStamp);
             }
             else {
@@ -4911,7 +4855,7 @@ public class RNABloom {
         final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
         
         if (forceOverwrite || !txptsDoneStamp.exists()) {
-            MyTimer timer = new MyTimer();
+            Timer timer = new Timer();
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                                 
                 assembler.assembleSingleEndReads(readPaths,
@@ -4925,7 +4869,7 @@ public class RNABloom {
                                     txptNamePrefix,
                                     minKmerCov,
                                     writeUracil);
-            System.out.println("Transcripts assembled in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+            System.out.println("Transcripts assembled in " + timer.elapsedDHMS());
 
             touch(txptsDoneStamp);
 
@@ -4954,7 +4898,7 @@ public class RNABloom {
         final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
                 
         if (forceOverwrite || !txptsDoneStamp.exists()) {
-            MyTimer timer = new MyTimer();
+            Timer timer = new Timer();
 
             FragmentPaths fragPaths = new FragmentPaths(outdir, name);
             
@@ -4977,7 +4921,7 @@ public class RNABloom {
                         refTranscriptPaths == null ? new ArrayList<>() : Arrays.asList(refTranscriptPaths),
                         restorePairedKmers, numThreads);
                 
-                System.out.println("Graph rebuilt in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                System.out.println("Graph rebuilt in " + timer.elapsedDHMS());
             }
 
             
@@ -5004,7 +4948,7 @@ public class RNABloom {
                                                         branchFreeExtensionThreshold,
                                                         writeUracil);
             
-            System.out.println("Transcripts assembled in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+            System.out.println("Transcripts assembled in " + timer.elapsedDHMS());
 
             touch(txptsDoneStamp);
 
@@ -5201,7 +5145,7 @@ public class RNABloom {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws IOException {        
-        MyTimer timer = new MyTimer();
+        Timer timer = new Timer();
                     
         // Based on: http://commons.apache.org/proper/commons-cli/usage.html
         CommandLineParser parser = new DefaultParser();
@@ -6162,7 +6106,7 @@ public class RNABloom {
                     exitOnError("Cannot get number of unique k-mers from ntCard! (" + expNumKmers + ")");
                 }
                 
-                System.out.println("K-mer counting completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));                
+                System.out.println("K-mer counting completed in " + timer.elapsedDHMS());                
             }
             else {
                 expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt(), "-1"));
@@ -6350,10 +6294,10 @@ public class RNABloom {
                         touch(dbgDoneStamp);
                     }
 
-                    System.out.println("> Stage 1 completed in " + MyTimer.hmsFormat(timer.elapsedMillis()));
+                    System.out.println("> Stage 1 completed in " + timer.elapsedDHMS());
 
                     if (endstage <= 1) {
-                        System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+                        System.out.println("Total runtime: " + timer.totalElapsedDHMS());
                         System.exit(0);
                     }
                 }
@@ -6365,7 +6309,7 @@ public class RNABloom {
                 int sampleId = 0;
                 
                 System.out.println("\n> Stage 2: Assemble fragments for " + numSamples + " samples");
-                MyTimer stageTimer = new MyTimer();
+                Timer stageTimer = new Timer();
                 stageTimer.start();
                 
                 String[] sampleNames = new String[numSamples];
@@ -6387,7 +6331,7 @@ public class RNABloom {
                     new File(sampleOutdir).mkdirs();
                     
                     
-                    MyTimer sampleTimer = new MyTimer();
+                    Timer sampleTimer = new Timer();
                     sampleTimer.start();
                     
                     assembleFragments(assembler, forceOverwrite,
@@ -6395,15 +6339,15 @@ public class RNABloom {
                                     sbfSize, pkbfSize, sbfNumHash, pkbfNumHash, numThreads,
                                     bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments, minKmerCov, keepArtifact);
                     
-                    System.out.println(">> Fragments assembled in " + MyTimer.hmsFormat(sampleTimer.elapsedMillis()) + "\n");
+                    System.out.println(">> Fragments assembled in " + sampleTimer.elapsedDHMS() + "\n");
                 }
                 
-                System.out.println("> Stage 2 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                System.out.println("> Stage 2 completed in " + stageTimer.elapsedDHMS());
                 
                 touch(fragsDoneStamp);
                 
                 if (endstage <= 2) {
-                    System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+                    System.out.println("Total runtime: " + timer.totalElapsedDHMS());
                     System.exit(0);
                 }
                 
@@ -6439,7 +6383,7 @@ public class RNABloom {
                         System.out.println("WARNING: Assemblies were already merged!");
                     }
                     else {
-                        MyTimer mergeTimer = new MyTimer();
+                        Timer mergeTimer = new Timer();
                         mergeTimer.start();
                         
                         boolean ok = mergePooledAssemblies(outdir, name, sampleNames, 
@@ -6450,7 +6394,7 @@ public class RNABloom {
                         
                         if (ok) {
                             System.out.println("Merged assembly at `" + outdir + File.separator + name + ".transcripts.fa`");
-                            System.out.println(">> Merging completed in " + MyTimer.hmsFormat(mergeTimer.elapsedMillis()));
+                            System.out.println(">> Merging completed in " + mergeTimer.elapsedDHMS());
                         }
                         else {
                             exitOnError("Error during assembly merging!");
@@ -6460,7 +6404,7 @@ public class RNABloom {
                     touch(txptsNrDoneStamp);
                 }
                 
-                System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));                
+                System.out.println("> Stage 3 completed in " + stageTimer.elapsedDHMS());                
                 
                 touch(txptsDoneStamp);
             }
@@ -6489,7 +6433,7 @@ public class RNABloom {
                 long numCorrectedReads = 0;
                 
                 System.out.println("\n> Stage 2: Correct long reads for \"" + name + "\"");
-                MyTimer stageTimer = new MyTimer();
+                Timer stageTimer = new Timer();
                 stageTimer.start();
                 
                 if (longReadsCorrected) {
@@ -6507,10 +6451,10 @@ public class RNABloom {
                     touch(longReadsCorrectedStamp);
                 }
                 
-                System.out.println("> Stage 2 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                System.out.println("> Stage 2 completed in " + stageTimer.elapsedDHMS());
                 
                 if (endstage <= 2) {
-                    System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+                    System.out.println("Total runtime: " + timer.totalElapsedDHMS());
                     System.exit(0);
                 }
                 
@@ -6583,14 +6527,14 @@ public class RNABloom {
 //                    generateNonRedundantTranscripts(assembler, forceOverwrite, outdir, name, sbfSize, sbfNumHash);
 //                }
                 
-                System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                System.out.println("> Stage 3 completed in " + stageTimer.elapsedDHMS());
             }
             else if (hasLeftReadFiles && !hasRightReadFiles) {
                 // Note: no stage 2
                 System.out.println("\n> Skipping Stage 2 for single-end reads.");
                 
                 System.out.println("\n> Stage 3: Assemble transcripts for \"" + name + "\"");
-                MyTimer stageTimer = new MyTimer();
+                Timer stageTimer = new Timer();
                 stageTimer.start();
                 
                 assembleTranscriptsSE(assembler, forceOverwrite,
@@ -6601,7 +6545,7 @@ public class RNABloom {
                                     minKmerCov,
                                     outputNrTxpts, writeUracil, usePacBioPreset);
                 
-                System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                System.out.println("> Stage 3 completed in " + stageTimer.elapsedDHMS());
             }
             else {
                 FastxFilePair[] fqPairs = new FastxFilePair[leftReadPaths.length];
@@ -6610,7 +6554,7 @@ public class RNABloom {
                 }
 
                 System.out.println("\n> Stage 2: Assemble fragments for \"" + name + "\"");
-                MyTimer stageTimer = new MyTimer();
+                Timer stageTimer = new Timer();
                 stageTimer.start();
                 
                 assembleFragments(assembler, forceOverwrite,
@@ -6618,10 +6562,10 @@ public class RNABloom {
                                     sbfSize, pkbfSize, sbfNumHash, pkbfNumHash, numThreads,
                                     bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments, minKmerCov, keepArtifact);
                 
-                System.out.println("> Stage 2 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                System.out.println("> Stage 2 completed in " + stageTimer.elapsedDHMS());
                 
                 if (endstage <= 2) {
-                    System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+                    System.out.println("Total runtime: " + timer.totalElapsedDHMS());
                     System.exit(0);
                 }
 
@@ -6636,13 +6580,13 @@ public class RNABloom {
                                 branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0, writeUracil,
                                 refTranscriptPaths, usePacBioPreset);
                 
-                System.out.println("> Stage 3 completed in " + MyTimer.hmsFormat(stageTimer.elapsedMillis()));
+                System.out.println("> Stage 3 completed in " + stageTimer.elapsedDHMS());
             }      
         }
         catch (Exception exp) {
             handleException(exp);
         }
         
-        System.out.println("Total runtime: " + MyTimer.hmsFormat(timer.totalElapsedMillis()));
+        System.out.println("Total runtime: " + timer.totalElapsedDHMS());
     }
 }
