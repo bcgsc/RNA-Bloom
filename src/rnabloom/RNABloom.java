@@ -74,10 +74,10 @@ import rnabloom.io.FastxSequenceIterator;
 import rnabloom.io.FileFormatException;
 import rnabloom.io.NucleotideBitsReader;
 import rnabloom.io.NucleotideBitsWriter;
-import static rnabloom.olc.OverlapLayoutConcensus.hasMinimap2;
-import static rnabloom.olc.OverlapLayoutConcensus.hasRacon;
-import static rnabloom.olc.OverlapLayoutConcensus.overlapLayout;
-import static rnabloom.olc.OverlapLayoutConcensus.overlapLayoutConcensus;
+import static rnabloom.olc.OverlapLayoutConsensus.hasMinimap2;
+import static rnabloom.olc.OverlapLayoutConsensus.hasRacon;
+import static rnabloom.olc.OverlapLayoutConsensus.overlapLayout;
+import static rnabloom.olc.OverlapLayoutConsensus.overlapLayoutConsensus;
 import rnabloom.util.BitSequence;
 import rnabloom.util.GraphUtils;
 import static rnabloom.util.GraphUtils.*;
@@ -85,8 +85,8 @@ import rnabloom.util.NTCardHistogram;
 import static rnabloom.util.SeqUtils.*;
 import static rnabloom.io.Constants.NBITS_EXT;
 import rnabloom.io.SequenceFileIteratorInterface;
-import static rnabloom.olc.OverlapLayoutConcensus.clusteredOLC;
-import static rnabloom.olc.OverlapLayoutConcensus.mapAndConcensus;
+import static rnabloom.olc.OverlapLayoutConsensus.clusteredOLC;
+import static rnabloom.olc.OverlapLayoutConsensus.mapAndConsensus;
 import static rnabloom.util.FileUtils.deleteIfExists;
 import static rnabloom.util.FileUtils.hasOnlyOneSequence;
 import static rnabloom.util.FileUtils.loadStringFromFile;
@@ -2696,12 +2696,12 @@ public class RNABloom {
             if (!stampFile.exists()) {
                 String readsPath = clusteredLongReadsDirectory + File.separator + clusterID + FASTA_EXT;
                 String tmpPrefix = assembledLongReadsDirectory + File.separator + clusterID;
-                String concensusPath = assembledLongReadsDirectory + File.separator + clusterID + "_transcripts" + FASTA_EXT;
+                String consensusPath = assembledLongReadsDirectory + File.separator + clusterID + "_transcripts" + FASTA_EXT;
 
                 System.out.println("Assembling cluster `" + clusterID + "`...");
 
-                boolean ok = overlapLayoutConcensus(readsPath, 
-                        tmpPrefix, concensusPath, numThreads, stranded, minimapOptions, 
+                boolean ok = overlapLayoutConsensus(readsPath, 
+                        tmpPrefix, consensusPath, numThreads, stranded, minimapOptions, 
                         maxTipLength, 0.4f, 150, maxIndelSize, removeArtifacts, 1, usePacBioPreset);
                 if (!ok) {
                     System.out.println("*** Error assembling cluster `" + clusterID + "`!!! ***");
@@ -2850,7 +2850,7 @@ public class RNABloom {
         
         System.out.println("Polishing assembly...");
         boolean keepUnpolished = minSeqDepth <= 1;
-        ok = mapAndConcensus(readsPath, nrFasta, tmpPrefix, outFasta, 
+        ok = mapAndConsensus(readsPath, nrFasta, tmpPrefix, outFasta, 
                 numThreads, minimapOptions, usePacBioPreset, keepUnpolished);
 
         return ok;
@@ -2883,7 +2883,7 @@ public class RNABloom {
             ok = true;
         }
         else {
-            ok = overlapLayoutConcensus(readsPath, tmpPrefix, outFasta, 
+            ok = overlapLayoutConsensus(readsPath, tmpPrefix, outFasta, 
                 numThreads, stranded, minimapOptions, maxEdgeClip,
                 minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
                 minSeqDepth, usePacBioPreset, false, true);
