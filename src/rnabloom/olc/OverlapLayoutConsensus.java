@@ -52,6 +52,8 @@ public class OverlapLayoutConsensus {
     private final static String PRESET_PACBIO = "pb";
     private final static String PRESET_ONT = "ont";
     
+    public static enum STATUS {SUCCESS, EMPTY, FAIL};
+    
     private static boolean runCommand(List<String> command, String logPath) {
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -175,7 +177,7 @@ public class OverlapLayoutConsensus {
         return clusterSizes;
     }
     
-    public static boolean overlapWithMinimapAndLayout(String seqFastaPath, String layoutFastaPath,
+    public static STATUS overlapWithMinimapAndLayout(String seqFastaPath, String layoutFastaPath,
             int numThreads, boolean align, String minimapOptions, boolean stranded, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
             int minSeqDepth, boolean usePacBioPreset) {
@@ -199,16 +201,23 @@ public class OverlapLayoutConsensus {
             
             Process process = pb.start();
 
-            if (!layout(seqFastaPath, process.getInputStream(), layoutFastaPath, stranded, maxEdgeClip, 
-                    minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth)) {
-                return false;
-            }
+            boolean reduced = layout(seqFastaPath, process.getInputStream(), layoutFastaPath, stranded, maxEdgeClip, 
+                    minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth);
             
             int exitStatus = process.waitFor();
-            return exitStatus == 0;
+            
+            if (exitStatus != 0) {
+                return STATUS.FAIL;
+            }
+            else if (!reduced) {
+                return STATUS.EMPTY;
+            }
+            else {
+                return STATUS.SUCCESS;
+            }
         }
         catch (IOException | InterruptedException e) {
-            return false;
+            return STATUS.FAIL;
         }
     }
     
@@ -275,14 +284,16 @@ public class OverlapLayoutConsensus {
             return true;
         }
         
-        boolean status = overlapWithMinimapAndLayout(readsPath, layoutPath,
+        STATUS s = overlapWithMinimapAndLayout(readsPath, layoutPath,
             numThreads, true, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
             minSeqDepth, usePacBioPreset);
         
-        if (!status) {
-            // PAF is empty
-            symlinkRemoveExisting(readsPath, layoutPath);
+        switch (s) {
+            case FAIL:
+                return false;
+            case EMPTY:
+                symlinkRemoveExisting(readsPath, layoutPath);
         }
         
         return true;
@@ -310,12 +321,12 @@ public class OverlapLayoutConsensus {
         deleteIfExists(backbonesFa);
         deleteIfExists(mapPaf);
         
-        boolean status = overlapWithMinimapAndLayout(readsPath, backbonesFa,
+        STATUS s = overlapWithMinimapAndLayout(readsPath, backbonesFa,
             numThreads, align, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
             minSeqDepth, usePacBioPreset);
         
-        if (!status) {
+        if (s == STATUS.EMPTY) {
             // PAF is empty
             symlinkRemoveExisting(readsPath, consensusPath);
             return true;
@@ -347,12 +358,12 @@ public class OverlapLayoutConsensus {
 //            return true;
 //        }
         
-        boolean status = overlapWithMinimapAndLayout(readsPath, backbonesFa,
+        STATUS s = overlapWithMinimapAndLayout(readsPath, backbonesFa,
             numThreads, alignReads, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset);
 
-        if (!status) {
+        if (s == STATUS.EMPTY) {
             // either PAF is empty or no backbones can be made
             symlinkRemoveExisting(readsPath, consensusPath);
             return true;
@@ -361,22 +372,22 @@ public class OverlapLayoutConsensus {
         if (hasOnlyOneSequence(backbonesFa)) {
             // polish backbone #1
             
-            status = mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads, minimapOptions, usePacBioPreset);
+            boolean status = mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads, minimapOptions, usePacBioPreset);
             if (!status) {
                 return false;
             }
 
-            status = consensusWithRacon(readsPath, backbonesFa, mapPaf, consensusPath, numThreads, keepUnpolished);
+            return consensusWithRacon(readsPath, backbonesFa, mapPaf, consensusPath, numThreads, keepUnpolished);
         }
         else {
             // layout backbone #2
 
-            status = overlapWithMinimapAndLayout(backbonesFa, backbonesFa2,
+            s = overlapWithMinimapAndLayout(backbonesFa, backbonesFa2,
                         numThreads, alignBackbones, minimapOptions, stranded, maxEdgeClip,
                         minAlnId, minOverlapMatches, maxIndelSize, false,
                         1, usePacBioPreset);
 
-            if (!status) {
+            if (s == STATUS.EMPTY) {
                 // either PAF is empty or no backbones can be made
 //                symlinkRemoveExisting(backbonesFa2, consensusPath);
 //                return true;
@@ -385,15 +396,13 @@ public class OverlapLayoutConsensus {
 
             // polish backbone #2
 
-            status = mapWithMinimap(readsPath, backbonesFa2, mapPaf, numThreads, minimapOptions, usePacBioPreset);
+            boolean status = mapWithMinimap(readsPath, backbonesFa2, mapPaf, numThreads, minimapOptions, usePacBioPreset);
             if (!status) {
                 return false;
             }
 
-            status = consensusWithRacon(readsPath, backbonesFa2, mapPaf, consensusPath, numThreads, keepUnpolished);
+            return consensusWithRacon(readsPath, backbonesFa2, mapPaf, consensusPath, numThreads, keepUnpolished);
         }
-        
-        return status;
     }
         
     public static int clusteredOLC(String readsPath, String clustersdir,
@@ -453,7 +462,7 @@ public class OverlapLayoutConsensus {
             
             if (forceOverwrite || !assemblyDoneStamp.exists()) {
                 String clusterPrefix = clustersdir + File.separator + cid;
-                String clusterPath = clusterPrefix + FASTA_EXT;
+                String inFastaPath = clusterPrefix + FASTA_EXT;
                 String tmpPrefix = clusterPrefix + "_tmp";
                 String finalFastaPath = clusterPrefix + "_transcripts" + FASTA_EXT;
 
@@ -462,16 +471,28 @@ public class OverlapLayoutConsensus {
                 boolean align = numReads <= 500000;
                 boolean status = false;
                 if (numReads >= 3) {
-                    status = overlapLayoutConsensus(clusterPath, tmpPrefix, finalFastaPath, 
+                    status = overlapLayoutConsensus(inFastaPath, tmpPrefix, finalFastaPath, 
                                     numThreads, stranded, minimapOptions, maxEdgeClip,
                                     minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth,
                                     usePacBioPreset, align, keepUnpolished);
                 }
                 else {
-                    status = overlapWithMinimapAndLayout(clusterPath, finalFastaPath, 
+                    STATUS s = overlapWithMinimapAndLayout(inFastaPath, finalFastaPath, 
                                     numThreads, align, minimapOptions, stranded, maxEdgeClip,
                                     minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth,
                                     usePacBioPreset);
+                    switch (s) {
+                        case SUCCESS:
+                            status = true;
+                            break;
+                        case FAIL:
+                            status = false;
+                            break;
+                        case EMPTY:
+                            status = true;
+                            symlinkRemoveExisting(inFastaPath, finalFastaPath);
+                            break;
+                    }
                 }
                 
                 if (status) {
