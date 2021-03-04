@@ -27,14 +27,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.jgrapht.Graph;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.TransitiveReduction;
@@ -45,10 +42,10 @@ import rnabloom.io.CompressedFastaRecord;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.FastaReader;
-import rnabloom.io.FastaRecord;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
+import static rnabloom.util.PafUtils.*;
 import static rnabloom.util.SeqUtils.stringToBytes;
 import static rnabloom.util.SeqUtils.bytesToString;
 import static rnabloom.util.SeqUtils.reverseComplement;
@@ -61,7 +58,6 @@ import rnabloom.util.Timer;
  */
 public class Layout {
     
-    private final static Pattern CIGAR_OP_PATTERN = Pattern.compile("(\\d+)([MIDNSHPX=])");
     private DefaultDirectedGraph<String, OverlapEdge> graph;
     private InputStream overlapPafInputStream;
     private String seqFastaPath;
@@ -105,60 +101,19 @@ public class Layout {
     }
 
     private boolean hasLargeOverlap(PafRecord r) {
-        return (r.qEnd - r.qStart) >= minOverlapMatches &&
-               (r.tEnd - r.tStart) >= minOverlapMatches;
+        return rnabloom.util.PafUtils.hasLargeOverlap(r, minOverlapMatches);
     }
     
     private boolean hasGoodOverlap(PafRecord r) {
-        return r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
-                r.numMatch / (float)(r.tEnd - r.tStart) >= minAlnId;
+        return rnabloom.util.PafUtils.hasGoodOverlap(r, minAlnId);
     }
         
-    private boolean hasAlignment(ExtendedPafRecord record) {
-        return record.cigar != null && record.nm >= 0;
-    }
-    
-    private boolean hasGoodAlignment(ExtendedPafRecord record) {
-        int numMatch = 0;
-        int numDel = 0;
-        int numIns = 0;
-                
-        Matcher m = CIGAR_OP_PATTERN.matcher(record.cigar);
-        while (m.find()) {
-            int opSize = Integer.parseInt(m.group(1));
-            char op = m.group(2).charAt(0);
-            switch (op) {
-                case 'M':
-                    numMatch += opSize;
-                    break;
-                case 'I':
-                    if (opSize > maxIndelSize) {
-                        return false;
-                    }
-                    numIns += opSize;
-                    break;
-                case 'D':
-                    if (opSize > maxIndelSize) {
-                        return false;
-                    }
-                    numDel += opSize;
-                    break;
-            }
-        }
-        
-        float alnId = (numMatch - record.nm)/(float)(numMatch + numDel + numIns);
-        
-        return alnId >= minAlnId;
+    private boolean hasGoodAlignment(ExtendedPafRecord r) {
+        return rnabloom.util.PafUtils.hasGoodAlignment(r, maxIndelSize, minAlnId);
     }
     
     private boolean hasReverseComplementArtifact(ExtendedPafRecord r) {
-        if (r.qName.equals(r.tName) && r.reverseComplemented) {
-            if (r.qStart <= maxEdgeClip || r.qLen - r.qEnd <= maxEdgeClip) {
-                return true;
-            }
-        }
-        
-        return false;
+        return rnabloom.util.PafUtils.hasReverseComplementArtifact(r, maxEdgeClip);
     }
     
     private int getReverseComplementArtifactCutIndex(ExtendedPafRecord r) {
@@ -191,8 +146,7 @@ public class Layout {
     }
     
     private boolean isContainmentPafRecord(ExtendedPafRecord r) {
-        return ((r.qStart <= maxEdgeClip && r.qLen - r.qEnd <= maxEdgeClip) ||
-            (r.tStart <= maxEdgeClip && r.tLen - r.tEnd <= maxEdgeClip));
+        return rnabloom.util.PafUtils.isContainmentPafRecord(r, maxEdgeClip);
     }
     
     private boolean isStrandedContainmentPafRecord(ExtendedPafRecord r) {
@@ -200,25 +154,11 @@ public class Layout {
     }
         
     private boolean isDovetailPafRecord(ExtendedPafRecord r) {
-        if (r.reverseComplemented) {
-            return (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip && r.qStart > r.tLen - r.tEnd) ||
-                    (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip && r.qLen - r.qStart > r.tStart);
-        }
-        else {
-            return (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip && r.qStart > r.tStart) ||
-                    (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip && r.tStart > r.qStart);
-        }
+        return rnabloom.util.PafUtils.isDovetailPafRecord(r, maxEdgeClip);
     }
     
-    private boolean isStrandedDovetailPafRecord(ExtendedPafRecord r) {
-        if (!r.reverseComplemented) {
-            if ((r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) ||
-                    (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip)) {
-                return true;
-            }
-        }
-        
-        return false;
+    private boolean isStrandedDovetailPafRecord(ExtendedPafRecord r) { 
+        return rnabloom.util.PafUtils.isStrandedDovetailPafRecord(r, maxEdgeClip);
     }
     
     private static String getVertexName(String vid) {

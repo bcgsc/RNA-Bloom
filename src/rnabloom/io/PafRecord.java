@@ -23,7 +23,7 @@ package rnabloom.io;
 public class PafRecord {
     public String qName = null, tName = null;
     public boolean reverseComplemented = false;
-    public int qLen, tLen, qStart, qEnd, tStart, tEnd, numMatch = -1;
+    public int qLen, tLen, qStart, qEnd, tStart, tEnd, numMatch, blockLen, qual = -1;
 
     public PafRecord() {
     }
@@ -39,5 +39,7 @@ public class PafRecord {
         tStart = Integer.parseInt(cols[7]);
         tEnd = Integer.parseInt(cols[8]);
         numMatch = Integer.parseInt(cols[9]);
+        blockLen = Integer.parseInt(cols[10]);
+        qual = Integer.parseInt(cols[11]);
     }
 }

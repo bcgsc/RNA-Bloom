@@ -24,18 +24,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.lang.ProcessBuilder.Redirect;
+import static java.lang.System.in;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 import static rnabloom.io.Constants.FASTA_EXT;
+import rnabloom.io.ExtendedPafRecord;
+import rnabloom.io.PafReader;
 import static rnabloom.util.FileUtils.deleteIfExists;
 import static rnabloom.util.FileUtils.hasOnlyOneSequence;
 import static rnabloom.util.FileUtils.readIntArrayFromFile;
 import static rnabloom.util.FileUtils.symlinkRemoveExisting;
 import static rnabloom.util.FileUtils.touch;
 import static rnabloom.util.FileUtils.writeIntArrayToFile;
+import static rnabloom.util.PafUtils.hasGoodAlignment;
+import static rnabloom.util.PafUtils.hasLargeOverlap;
 
 /**
  *
@@ -233,6 +239,55 @@ public class OverlapLayoutConsensus {
         return runCommand(command, outPafPath + LOG_EXTENSION);
     }
     
+    public static STATUS mapWithMinimapFiltered(String queryFastaPath, String targetFastaPath, String outPafPath,
+            int numThreads, String options, boolean usePacBioPreset, boolean stranded, int maxIndelSize, int minOverlapMatches, float minAlnId) {
+        ArrayList<String> command = new ArrayList<>();
+        command.add("/bin/sh");
+        command.add("-c");
+
+        String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
+        command.add(MINIMAP2 + " -x map-" + preset + " -c " + options + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+
+        try {
+            Writer bw = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(outPafPath, false)), "UTF-8");
+            ProcessBuilder pb = new ProcessBuilder(command);
+
+            File logFile = new File(outPafPath + LOG_EXTENSION);
+            pb.redirectError(Redirect.to(logFile));
+            
+            Process process = pb.start();
+
+            long numGoodRecords = 0;
+            ExtendedPafRecord record = new ExtendedPafRecord();
+            BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            for (String line; (line = br.readLine()) != null; ) {
+                record.update(line.trim().split("\t"));
+                if (!stranded || !record.reverseComplemented) {
+                    if (hasLargeOverlap(record, minOverlapMatches) &&
+                            hasGoodAlignment(record, maxIndelSize, minAlnId)) {
+                        bw.write(line);
+                        ++numGoodRecords;
+                    }
+                }
+            }
+            br.close();
+            bw.close();
+            
+            int exitStatus = process.waitFor();
+            if (exitStatus != 0) {
+                return STATUS.FAIL;
+            }
+            else if (numGoodRecords == 0) {
+                return STATUS.EMPTY;
+            }
+        }
+        catch (IOException | InterruptedException e) {
+            return STATUS.FAIL;
+        }
+        
+        return STATUS.SUCCESS;
+    }
+    
     public static int[] extractClusters(String seqFastaPath, InputStream overlapPafInputStream, String outdir,
             boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
             boolean cutRevCompArtifact, int minSeqDepth, int maxMergedClusterSize) {
@@ -332,9 +387,21 @@ public class OverlapLayoutConsensus {
             return true;
         }
         
-        if (!mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads, minimapOptions, usePacBioPreset)) {
+        if (!mapWithMinimap(readsPath, backbonesFa, mapPaf, numThreads,
+                minimapOptions, usePacBioPreset)) {
             return false;
         }
+        
+//        s = mapWithMinimapFiltered(readsPath, backbonesFa, mapPaf, numThreads,
+//                minimapOptions, usePacBioPreset, stranded, maxIndelSize, 
+//                minOverlapMatches, minAlnId);
+//        switch(s) {
+//            case FAIL:
+//                return false;
+//            case EMPTY:
+//                symlinkRemoveExisting(readsPath, consensusPath);
+//                return true;
+//        }
         
         return consensusWithRacon(readsPath, backbonesFa, mapPaf, consensusPath, numThreads, keepUnpolished);
     }
