@@ -35,6 +35,7 @@ import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
+import rnabloom.olc.Interval;
 import static rnabloom.util.SeqUtils.*;
 
 /**
@@ -3638,7 +3639,33 @@ public final class GraphUtils {
         
         return null;
     }
+    
+    public ArrayList<Interval> findGaps(ArrayList<Kmer> kmers,
+                                                    BloomFilterDeBruijnGraph graph,
+                                                    float covThreshold,
+                                                    int minGapSize) {
+        ArrayList<Interval> gaps = new ArrayList<>();
+        int numBadKmersSince = 0;
+        int numKmers = kmers.size();
+        for (int i=0; i<numKmers; ++i) {
+            if (kmers.get(i).count < covThreshold) {
+                ++numBadKmersSince;
+            }
+            else {
+                if (numBadKmersSince >= minGapSize) {
+                    gaps.add(new Interval(i-numBadKmersSince, i-1));
+                }
+                numBadKmersSince = 0;
+            }
+        }
         
+        if (numBadKmersSince > 0) {
+            gaps.add(new Interval(numKmers-numBadKmersSince, numKmers-1));
+        }
+        
+        return gaps;
+    }
+    
     public static ArrayList<Kmer> correctErrorHelper(ArrayList<Kmer> kmers,
                                                     BloomFilterDeBruijnGraph graph, 
                                                     int lookahead,
