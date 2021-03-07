@@ -3138,6 +3138,51 @@ public final class GraphUtils {
     public static ArrayList<Kmer> correctLongSequence(ArrayList<Kmer> kmers, 
                                                     BloomFilterDeBruijnGraph graph, 
                                                     int maxErrCorrItr, 
+                                                    int lookahead, 
+                                                    int maxIndelSize, 
+                                                    float percentIdentity, 
+                                                    int minKmerCov,
+                                                    int minNumSolidKmers) {
+        int numNeeded = minNumSolidKmers;
+        for (Kmer kmer : kmers) {
+            if (kmer.count >= minKmerCov) {
+                if (--numNeeded <= 0) {
+                    break;
+                }
+            }
+        }
+
+        if (numNeeded <= 0) {
+            ArrayList<Kmer> in = kmers;
+            ArrayList<Kmer> out = null;
+            for (int itr=0; itr<maxErrCorrItr; ++itr) {
+                out = correctInternalErrors(in,
+                                        graph, 
+                                        lookahead,
+                                        maxIndelSize,
+                                        minKmerCov,
+                                        percentIdentity,
+                                        minKmerCov);
+                if (out == null) {
+                    out = in;
+                    break;
+                }
+            }
+            
+            if (out == null) {
+                return kmers;
+            }
+            else {
+                return out;
+            }
+        }
+        
+        return null;
+    }
+    
+    public static ArrayList<Kmer> correctLongSequenceWindowed(ArrayList<Kmer> kmers, 
+                                                    BloomFilterDeBruijnGraph graph, 
+                                                    int maxErrCorrItr, 
                                                     float maxCovGradient, 
                                                     int lookahead, 
                                                     int maxIndelSize, 
@@ -3527,20 +3572,20 @@ public final class GraphUtils {
                         // find path between left and right kmers
                         ArrayDeque<Kmer> altPath = getMaxCoveragePath(graph, bestLeftKmer, bestRightKmer, numBadKmersSince + maxLengthDifference, lookahead, minKmerCov);
                         
-                        if (altPath == null) {
+                        if (altPath == null || altPath.isEmpty()) {
                             // fill with original sequence
                             for (int j=i-numBadKmersSince; j<i; ++j) {
                                 kmers2.add(kmers.get(j));
                             }
                         }
                         else {
-                            float altPathMinCov = getMinimumKmerCoverage(altPath);
-                            float oriPathMinCov = getMinimumKmerCoverage(kmers, i-numBadKmersSince, i);
+                            float altPathCov = getMinimumKmerCoverage(altPath);
+                            float oriPathCov = getMinimumKmerCoverage(kmers, i-numBadKmersSince, i);
                             
                             int altPathLen = altPath.size();
 
-                            if (oriPathMinCov < altPathMinCov &&
-                                    //(oriPathMinCov < minKmerCov && altPathMinCov >= minKmerCov) ||
+                            if (oriPathCov * 2 < altPathCov &&
+                                    //(oriPathCov < minKmerCov && altPathCov > minKmerCov) ||
                                     (numBadKmersSince-maxLengthDifference <= altPathLen && altPathLen <= numBadKmersSince+maxLengthDifference && 
                                         (altPathLen <= k+maxIndelSize ||
                                             getPercentIdentity(graph.assemble(altPath), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity))) {
@@ -3593,7 +3638,7 @@ public final class GraphUtils {
         
         return null;
     }
-    
+        
     public static ArrayList<Kmer> correctErrorHelper(ArrayList<Kmer> kmers,
                                                     BloomFilterDeBruijnGraph graph, 
                                                     int lookahead,

@@ -3257,8 +3257,8 @@ public class RNABloom {
                     String seq = reverseComplement ? reverseComplement(nameSeqPair[1]) : nameSeqPair[1];
                     
                     ArrayList<Kmer> kmers = graph.getKmers(seq);
-                    
-                    ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
+                                        
+                    ArrayList<Kmer> correctedKmers = correctLongSequenceWindowed(kmers, 
                                                                         graph, 
                                                                         maxErrCorrItr, 
                                                                         maxCovGradient, 
@@ -3553,7 +3553,7 @@ public class RNABloom {
     public String polishSequence(String seq, int maxErrCorrItr, int minKmerCov, int minNumSolidKmers) {
         ArrayList<Kmer> kmers = graph.getKmers(seq);
 
-        ArrayList<Kmer> correctedKmers = correctLongSequence(kmers, 
+        ArrayList<Kmer> correctedKmers = correctLongSequenceWindowed(kmers, 
                                                             graph, 
                                                             maxErrCorrItr, 
                                                             maxCovGradient, 
