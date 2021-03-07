@@ -156,6 +156,10 @@ public class OverlapLayoutConsensus {
             minimapOptions = "-c " + minimapOptions;
         }
         
+        if (!minimapOptions.contains("-g")) {
+            minimapOptions += " -g " + 2 * maxIndelSize;
+        }
+        
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
         command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
         
