@@ -84,6 +84,7 @@ import static rnabloom.util.GraphUtils.*;
 import rnabloom.util.NTCardHistogram;
 import static rnabloom.util.SeqUtils.*;
 import static rnabloom.io.Constants.NBITS_EXT;
+import rnabloom.io.FastaRecord;
 import rnabloom.io.SequenceFileIteratorInterface;
 import static rnabloom.olc.OverlapLayoutConsensus.clusteredOLC;
 import static rnabloom.olc.OverlapLayoutConsensus.mapAndConsensus;
@@ -2799,8 +2800,6 @@ public class RNABloom {
             return false;
         }
         
-        Pattern raconRcPattern = Pattern.compile("RC:i:(\\d+)");
-
         // combine assembly files
         System.out.println("Combining transcripts from " + numClusters + " clusters...");
         String catFasta = clusterdir + "_cat" + FASTA_EXT;
@@ -2809,14 +2808,14 @@ public class RNABloom {
         FastaWriter fout = new FastaWriter(catFasta, false);
         FastaReader fin;
 //        int numTranscripts = 0;
+        FastaRecord record = new FastaRecord();
         for (int clusterID = 1; clusterID<=numClusters; ++clusterID) {
             String clusterAssemblyPath = clusterdir + File.separator + clusterID + "_transcripts" + FASTA_EXT;
             fin = new FastaReader(clusterAssemblyPath);
             while(fin.hasNext()) {
 //                ++numTranscripts;
-                String[] nameCommentSeq = fin.nextWithComment();
-                String comment = nameCommentSeq[1];
-                String seq = nameCommentSeq[2];
+                fin.nextWithName(record);
+                String seq = record.seq;
 
                 if (writeUracil) {
                     seq = seq.replace('T', 'U');
@@ -2824,16 +2823,8 @@ public class RNABloom {
 
                 String length = Integer.toString(seq.length());
 
-                String coverage = "1";
-                if (!comment.isEmpty()) {
-                    Matcher m = raconRcPattern.matcher(comment);
-                    if (m.find()) {
-                        coverage = m.group(1);
-                    }
-                }
-
-                fout.write(txptNamePrefix + clusterID + "_" + nameCommentSeq[0] +
-                        " l=" + length + " c=" + coverage, seq);
+                fout.write(txptNamePrefix + clusterID + "_" + record.name +
+                        " l=" + length, seq);
             }
             fin.close();
         }
@@ -2850,6 +2841,9 @@ public class RNABloom {
         
         System.out.println("Polishing assembly...");
         boolean keepUnpolished = minSeqDepth <= 1;
+        if (!minimapOptions.contains("-g ")) {
+            minimapOptions += " -g " + 2 * maxIndelSize;
+        }
         ok = mapAndConsensus(readsPath, nrFasta, tmpPrefix, outFasta, 
                 numThreads, minimapOptions, usePacBioPreset, keepUnpolished);
 

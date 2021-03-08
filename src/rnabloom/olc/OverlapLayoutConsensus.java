@@ -156,7 +156,7 @@ public class OverlapLayoutConsensus {
             minimapOptions = "-c " + minimapOptions;
         }
         
-        if (!minimapOptions.contains("-g")) {
+        if (!minimapOptions.contains("-g ")) {
             minimapOptions += " -g " + 2 * maxIndelSize;
         }
         
@@ -522,7 +522,7 @@ public class OverlapLayoutConsensus {
                 
         minSeqDepth = 1;
         cutRevCompArtifact = false;
-        boolean keepUnpolished = true;
+//        boolean keepUnpolished = true;
         
         int numClusters = clusterSizes.length;
         for (int c=0; c<numClusters; ++c) {            
@@ -534,20 +534,20 @@ public class OverlapLayoutConsensus {
             if (forceOverwrite || !assemblyDoneStamp.exists()) {
                 String clusterPrefix = clustersdir + File.separator + cid;
                 String inFastaPath = clusterPrefix + FASTA_EXT;
-                String tmpPrefix = clusterPrefix + "_tmp";
+//                String tmpPrefix = clusterPrefix + "_tmp";
                 String finalFastaPath = clusterPrefix + "_transcripts" + FASTA_EXT;
 
                 // do not align during AVA overlap if the cluster has to many reads
                 int numReads = clusterSizes[c];
                 boolean align = numReads <= 500000;
                 boolean status = false;
-                if (numReads >= 3) {
-                    status = overlapLayoutConsensus(inFastaPath, tmpPrefix, finalFastaPath, 
-                                    numThreads, stranded, minimapOptions, maxEdgeClip,
-                                    minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth,
-                                    usePacBioPreset, align, keepUnpolished);
-                }
-                else {
+//                if (numReads >= 3) {
+//                    status = overlapLayoutConsensus(inFastaPath, tmpPrefix, finalFastaPath, 
+//                                    numThreads, stranded, minimapOptions, maxEdgeClip,
+//                                    minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth,
+//                                    usePacBioPreset, align, keepUnpolished);
+//                }
+//                else {
                     STATUS s = overlapWithMinimapAndLayout(inFastaPath, finalFastaPath, 
                                     numThreads, align, minimapOptions, stranded, maxEdgeClip,
                                     minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth,
@@ -564,7 +564,7 @@ public class OverlapLayoutConsensus {
                             symlinkRemoveExisting(inFastaPath, finalFastaPath);
                             break;
                     }
-                }
+//                }
                 
                 if (status) {
                     touch(assemblyDoneStamp);
