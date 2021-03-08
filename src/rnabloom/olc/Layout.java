@@ -783,18 +783,19 @@ public class Layout {
             }
         }
         
-        public HashMap<String, Integer> assignIDs() {
-            HashMap<String, Integer> ids = new HashMap<>(assignment.size());
+        public ConcurrentHashMap<String, Integer> assignIDs() {
+            ConcurrentHashMap<String, Integer> ids = new ConcurrentHashMap<>(assignment.size(), 1.0f);
                         
             int cid = 0;
-            for (HashSet<String> c : new HashSet<>(assignment.values())) {
-                ++cid;
-
-                for (String n : c) {
-                    ids.put(n, cid);
-                }
+            for (HashSet<String> cluster : new HashSet<>(assignment.values())) {
+                final int myCid = ++cid;
+                cluster.parallelStream().forEach(
+                    name -> {
+                        ids.put(name, myCid);
+                    }
+                );
                 
-                int clusterSize = c.size();
+                int clusterSize = cluster.size();
                 if (clusterSize > largestClusterSize) {
                     largestClusterSize = clusterSize;
                     largestClusterID = cid;
@@ -1272,7 +1273,7 @@ public class Layout {
 
         // assign cluster IDs
         timer.start();
-        HashMap<String, Integer> cids = clusters.assignIDs();
+        ConcurrentHashMap<String, Integer> cids = clusters.assignIDs();
         int largestClusterID = clusters.getLargestClusterID();
         int largestClusterSize= clusters.getLargestClusterSize();
         System.out.println("Cluster IDs assigned in " + timer.elapsedDHMS());
