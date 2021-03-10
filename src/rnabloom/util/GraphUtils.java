@@ -3640,7 +3640,7 @@ public final class GraphUtils {
         return null;
     }
     
-    public ArrayList<Interval> findGaps(ArrayList<Kmer> kmers,
+    public static ArrayList<Interval> findGaps(ArrayList<Kmer> kmers,
                                                     BloomFilterDeBruijnGraph graph,
                                                     float covThreshold,
                                                     int minGapSize) {
