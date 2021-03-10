@@ -2804,6 +2804,10 @@ public class RNABloom {
         System.out.println("Combining transcripts from " + numClusters + " clusters...");
         String catFasta = clusterdir + "_cat" + FASTA_EXT;
         String nrFasta = clusterdir + "_nr" + FASTA_EXT;
+        deleteIfExists(catFasta);
+        deleteIfExists(nrFasta);
+        deleteIfExists(outFasta);
+        
         String tmpPrefix = clusterdir + "_tmp";
         FastaWriter fout = new FastaWriter(catFasta, false);
         FastaReader fin;
