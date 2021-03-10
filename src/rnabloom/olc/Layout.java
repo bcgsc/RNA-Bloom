@@ -723,9 +723,14 @@ public class Layout {
         return effIntervals;
     }
     
+    private class ReadGroup {
+        public int id = -1;
+        private HashSet<String> names = new HashSet<>();
+    }
+    
     private class ReadClusters3 {
         private int numClusters = 0;
-        private HashMap<String, HashSet<String>> assignment = new HashMap<>();
+        private HashMap<String, ReadGroup> assignment = new HashMap<>();
         private int mergedClusterMaxSize = 10000;
         private int largestClusterSize = 0;
         private int largestClusterID = -1;
@@ -739,42 +744,42 @@ public class Layout {
         }
         
         public void add(String name1, String name2){
-            HashSet<String> cluster1 = assignment.get(name1);
-            HashSet<String> cluster2 = assignment.get(name2);
+            ReadGroup cluster1 = assignment.get(name1);
+            ReadGroup cluster2 = assignment.get(name2);
             
             if (cluster1 == null && cluster2 == null) {
-                HashSet<String> cluster = new HashSet<>();
-                cluster.add(name1);
-                cluster.add(name2);
+                ReadGroup cluster = new ReadGroup();
+                cluster.names.add(name1);
+                cluster.names.add(name2);
                 assignment.put(name1, cluster);
                 assignment.put(name2, cluster);
                 ++numClusters;
             }
             else if (cluster1 == null) {
-                cluster2.add(name1);
+                cluster2.names.add(name1);
                 assignment.put(name1, cluster2);
             }
             else if (cluster2 == null) {
-                cluster1.add(name2);
+                cluster1.names.add(name2);
                 assignment.put(name2, cluster1);
             }
             else if (cluster1 != cluster2) {
-                int clusterSize1 = cluster1.size();
-                int clusterSize2 = cluster2.size();
+                int clusterSize1 = cluster1.names.size();
+                int clusterSize2 = cluster2.names.size();
                 if (clusterSize1 + clusterSize2 < mergedClusterMaxSize) {
                     // merge clusters
                     
-                    HashSet<String> larger = cluster1;
-                    HashSet<String> smaller = cluster2;
+                    ReadGroup larger = cluster1;
+                    ReadGroup smaller = cluster2;
                     
                     if (clusterSize2 > clusterSize1) {
                         larger = cluster2;
                         smaller = cluster1;
                     }
                     
-                    larger.addAll(smaller);
+                    larger.names.addAll(smaller.names);
                     
-                    for (String r : smaller) {
+                    for (String r : smaller.names) {
                         assignment.put(r, larger);
                     }
                     
@@ -783,125 +788,29 @@ public class Layout {
             }
         }
         
-        public ConcurrentHashMap<String, Integer> assignIDs() {
-            ConcurrentHashMap<String, Integer> ids = new ConcurrentHashMap<>(assignment.size(), 1.0f);
-                        
+        public void assignIDs() {                        
             int cid = 0;
-            for (HashSet<String> cluster : new HashSet<>(assignment.values())) {
-                final int myCid = ++cid;
-                cluster.parallelStream().forEach(
-                    name -> {
-                        ids.put(name, myCid);
+            for (ReadGroup c : assignment.values()) {
+                if (c.id < 0) {
+                    c.id = ++cid;
+                    
+                    int clusterSize = c.names.size();
+                    if (clusterSize > largestClusterSize) {
+                        largestClusterSize = clusterSize;
+                        largestClusterID = cid;
                     }
-                );
-                
-                int clusterSize = cluster.size();
-                if (clusterSize > largestClusterSize) {
-                    largestClusterSize = clusterSize;
-                    largestClusterID = cid;
                 }
             }
             
             numClusters = cid;
-            
-            return ids;
         }
         
-        public int size() {
-            return numClusters;
-        }
-        
-        public int getLargestClusterSize() {
-            return largestClusterSize;
-        }
-        
-        public int getLargestClusterID() {
-            return largestClusterID;
-        }
-    }
-    
-    private class ReadClusters2 {
-        private int numClusters = 0;
-        private HashMap<String, HashSet<String>> assignment = new HashMap<>();
-        private int largestClusterSize = 0;
-        private int largestClusterID = -1;
-        
-        public ReadClusters2() {
-            
-        }
-        
-        public void add(HashSet<String> neighborhood) {
-            HashSet<String> largestCluster = null;
-
-            ArrayDeque<HashSet<String>> clusters = new ArrayDeque<>();
-            HashSet<String> orphans = new HashSet<>();
-
-            // identify the largest matching cluster
-            while (!neighborhood.isEmpty()) {
-                String n = neighborhood.iterator().next();
-                HashSet<String> assigned = assignment.get(n);
-                if (assigned == null) {
-                    neighborhood.remove(n);
-                    orphans.add(n);
-                }
-                else {
-                    neighborhood.removeAll(assigned);
-                    clusters.add(assigned);
-                    if (largestCluster == null || largestCluster.size() < assigned.size()) {
-                        largestCluster = assigned;
-                    }
-                }
+        public int getID(String name) {
+            ReadGroup r = assignment.get(name);
+            if (r == null) {
+                return -1;
             }
-            
-            if (largestCluster == null) {
-                // create a new cluster from this neighborhood
-                ++numClusters;
-                for (String n : orphans) {
-                    assignment.put(n, orphans);
-                }
-            }
-            else {
-                for (HashSet<String> c : clusters) {
-                    if (c != largestCluster) {
-                        // merge this cluster into the largest cluster
-                        --numClusters;
-                        largestCluster.addAll(c);
-                        for (String n : c) {
-                            assignment.put(n, largestCluster);
-                        }
-                    }
-                }
-                
-                if (!orphans.isEmpty()) {
-                    largestCluster.addAll(orphans);
-                    for (String n : orphans) {
-                        assignment.put(n, largestCluster);
-                    }
-                }
-            }
-        }
-        
-        public HashMap<String, Integer> assignIDs() {
-            HashMap<String, Integer> ids = new HashMap<>(assignment.size());
-            
-            int cid = 0;
-            for (HashSet<String> c : new HashSet<>(assignment.values())) {
-                ++cid;
-
-                for (String n : c) {
-                    ids.put(n, cid);
-                }
-                
-                int clusterSize = c.size();
-                if (clusterSize > largestClusterSize) {
-                    largestClusterSize = clusterSize;
-                    largestClusterID = cid;
-                }
-            }
-            
-            numClusters = cid;
-            
-            return ids;
+            return r.id;
         }
         
         public int size() {
@@ -1204,7 +1113,7 @@ public class Layout {
         // identify multi-segment reads and extract effective intervals
         final int minHistSegLen = minOverlapMatches/histBinSize;
         HashSet<String> multiSegmentSeqs = new HashSet<>();
-        ConcurrentHashMap<String, ArrayDeque<Interval>> readSpansMap = new ConcurrentHashMap<>(bestNeighbors.neighbors.size(), 1.0f);
+        ConcurrentHashMap<String, ArrayDeque<Interval>> readSpansMap = new ConcurrentHashMap<>(bestNeighbors.neighbors.size());
         
         if (checkNumAltReads) {
             timer.start();
@@ -1273,7 +1182,7 @@ public class Layout {
 
         // assign cluster IDs
         timer.start();
-        ConcurrentHashMap<String, Integer> cids = clusters.assignIDs();
+        clusters.assignIDs();
         int largestClusterID = clusters.getLargestClusterID();
         int largestClusterSize= clusters.getLargestClusterSize();
         System.out.println("Cluster IDs assigned in " + timer.elapsedDHMS());
@@ -1284,18 +1193,18 @@ public class Layout {
         FastaReader fr = new FastaReader(seqFastaPath);
         int[] counts = new int[numClusters];
         int numOrphans = 0;
-        final int bufferSize = 1000000;
+        final int maxBufferSize = 1000000;
         int numReadsInBuffer = 0;
         ArrayDeque<CompressedFastaRecord> orphanRecords = new ArrayDeque<>();
-        HashMap<Integer, ArrayDeque<CompressedFastaRecord>> clusterRecords = new HashMap<>();
+        HashMap<Integer, ArrayDeque<CompressedFastaRecord>> clusterRecords = new HashMap<>(Math.min(numClusters, maxBufferSize));
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
             String seq = nameSeq[1];
             
-            Integer cid = cids.get(name);
+            int cid = clusters.getID(name);
             ArrayDeque<CompressedFastaRecord> fastaBuffer = null;
-            if (cid != null) {
+            if (cid > 0) {
                 counts[cid-1] += 1;
                 fastaBuffer = clusterRecords.get(cid);
                 if (fastaBuffer == null) {
@@ -1345,7 +1254,7 @@ public class Layout {
                 fastaBuffer.add(new CompressedFastaRecord(name, seq));
             }
             
-            if (numReadsInBuffer >= bufferSize) {
+            if (numReadsInBuffer >= maxBufferSize) {
                 emptyClusterFastaBuffer(clusterRecords, outdir, true);
                 numReadsInBuffer = 0;
             }
