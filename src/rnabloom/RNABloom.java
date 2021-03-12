@@ -3265,8 +3265,9 @@ public class RNABloom {
                                                                         percentIdentity, 
                                                                         minKmerCov,
                                                                         minNumSolidKmers,
-                                                                        false);
-                                        
+                                                                        false,
+                                                                        500);
+                    
                     if (correctedKmers != null && !correctedKmers.isEmpty()) {
                         if (trimArtifact) {
                             ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
@@ -3560,7 +3561,8 @@ public class RNABloom {
                                                             percentIdentity, 
                                                             minKmerCov,
                                                             minNumSolidKmers,
-                                                            false);
+                                                            false,
+                                                            500);
         
         if (correctedKmers != null && !correctedKmers.isEmpty()) {
             return graph.assemble(correctedKmers);

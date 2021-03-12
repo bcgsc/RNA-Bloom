@@ -3190,7 +3190,8 @@ public final class GraphUtils {
                                                     float percentIdentity, 
                                                     int minKmerCov,
                                                     int minNumSolidKmers,
-                                                    boolean trimLowCovEdges) {
+                                                    boolean trimLowCovEdges,
+                                                    int windowSize) {
 
         int numNeeded = minNumSolidKmers;
         for (Kmer kmer : kmers) {
@@ -3203,7 +3204,6 @@ public final class GraphUtils {
 
         if (numNeeded <= 0) {
             // use each window's median kmer coverage as threshold
-            int windowSize = 500;
             int shift = windowSize/2;
             
             // trim head and tail
@@ -3220,7 +3220,7 @@ public final class GraphUtils {
                 boolean corrected = false;
                 
                 int numKmers = testKmers.size();
-                ArrayList<Kmer> correctedKmers = new ArrayList<>();
+                ArrayList<Kmer> correctedKmers = new ArrayList<>(numKmers * 3/2);
 
                 int end = 0;
                 for (int i=0; i<numKmers; i=end) {
@@ -3484,7 +3484,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int expectedGapSize = k-1;
         
-        ArrayList<Kmer> kmers2 = new ArrayList<>(numKmers + maxIndelSize);
+        ArrayList<Kmer> kmers2 = new ArrayList<>(numKmers * 3/2);
         int numBadKmersSince = 0;
         Kmer kmer;
         for (int i=0; i<numKmers; ++i) {
