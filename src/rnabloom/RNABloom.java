@@ -88,6 +88,7 @@ import rnabloom.io.FastaRecord;
 import rnabloom.io.SequenceFileIteratorInterface;
 import static rnabloom.olc.OverlapLayoutConsensus.clusteredOLC;
 import static rnabloom.olc.OverlapLayoutConsensus.mapAndConsensus;
+import static rnabloom.olc.OverlapLayoutConsensus.uniqueOLC;
 import static rnabloom.util.FileUtils.deleteIfExists;
 import static rnabloom.util.FileUtils.hasOnlyOneSequence;
 import static rnabloom.util.FileUtils.loadStringFromFile;
@@ -2835,7 +2836,7 @@ public class RNABloom {
         fout.close();
         
         System.out.println("Inter-cluster assembly...");
-        boolean ok = overlapLayout(catFasta, tmpPrefix, nrFasta,
+        boolean ok = overlapLayout(catFasta, nrFasta,
                 numThreads, stranded, minimapOptions,
                 maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize, false, 1, usePacBioPreset);
 
@@ -2871,9 +2872,6 @@ public class RNABloom {
                                     boolean removeArtifacts,
                                     int minSeqDepth,
                                     boolean usePacBioPreset) throws IOException {
-//        int maxEdgeClip = 100;
-//        float minAlnId = 0.4f;
-//        int minOverlapMatches = 200;
         
         boolean ok = false;
         if (hasOnlyOneSequence(readsPath)) {
@@ -2881,10 +2879,15 @@ public class RNABloom {
             ok = true;
         }
         else {
-            ok = overlapLayoutConsensus(readsPath, tmpPrefix, outFasta, 
+//            ok = overlapLayoutConsensus(readsPath, tmpPrefix, outFasta, 
+//                numThreads, stranded, minimapOptions, maxEdgeClip,
+//                minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
+//                minSeqDepth, usePacBioPreset, false, true);
+            
+            ok = uniqueOLC(readsPath, tmpPrefix, outFasta,
                 numThreads, stranded, minimapOptions, maxEdgeClip,
-                minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
-                minSeqDepth, usePacBioPreset, false, true);
+                minAlnId, minOverlapMatches, maxIndelSize,
+                minSeqDepth, usePacBioPreset);
         }
         
         return ok;
@@ -4789,7 +4792,7 @@ public class RNABloom {
         }
         fout.close();
 
-        boolean ok = overlapLayout(concatenatedFasta, tmpPrefix, reducedFasta, numThreads,
+        boolean ok = overlapLayout(concatenatedFasta, reducedFasta, numThreads,
                         stranded, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, 2*k,
                         maxIndelSize, removeArtifacts, 1, usePacBioPreset);
         
@@ -4988,7 +4991,7 @@ public class RNABloom {
         
         fout.close();
         
-        boolean ok = overlapLayout(concatenatedFasta, tmpPrefix, reducedFasta, 
+        boolean ok = overlapLayout(concatenatedFasta, reducedFasta, 
                         numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize),
                         maxTipLength, percentIdentity, 2*k, maxIndelSize, removeArtifacts, 1, usePacBioPreset);
         
@@ -5175,9 +5178,9 @@ public class RNABloom {
         String defaultMinOverlapLR = "150";
         String defaultKmerSizeLR = "17";
         String defaultMinCoverageLR = "2";
-        String defaultMaxIndelSizeLR = "30";
+        String defaultMaxIndelSizeLR = "50";
         String defaultMaxTipLengthLR = "50";
-        String defaultMaxErrorCorrItrLR = "2";
+        String defaultMaxErrorCorrItrLR = "1";
         String defaultPercentIdentityLR = "0.7";
         String defaultLongReadPreset = "-k " + defaultKmerSizeLR + " -c " + defaultMinCoverageLR + 
                 " -indel " + defaultMaxIndelSizeLR + " -e " + defaultMaxErrorCorrItrLR +
@@ -6489,24 +6492,34 @@ public class RNABloom {
                 else {
                     assembler.destroyAllBf();
                     
-                    /*
-                    final String assembledLongReadsDirectory = outdir + File.separator + name + ".longreads.assembly";
-                    final String assembledLongReadsCombinedFile = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
-                    boolean ok = assembleLongReads(assembler,
-                            clusteredLongReadsDirectory, assembledLongReadsDirectory, assembledLongReadsCombinedFile,
-                            numThreads, forceOverwrite, writeUracil, minimapOptions, minKmerCov, txptNamePrefix, strandSpecific, minTranscriptLength, !keepArtifact);
-                    */
-
-                    final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
+                    final String tmpFilePathPrefix = outdir + File.separator + name + ".tmp.";
                     final String assembledTranscriptsPath = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
                     
-                    boolean ok = assembleClusteredLongReads(assembler,
-                            longCorrectedReadsPath, clusteredLongReadsDirectory,
-                            assembledTranscriptsPath, writeUracil, 
-                            numThreads, forceOverwrite, minimapOptions, minKmerCov, 
-                            maxTipLen, longReadOverlapProportion, minOverlap,
-                            txptNamePrefix, strandSpecific, !keepArtifact,
-                            longReadMinReadDepth, usePacBioPreset, maxMergedClusterSize);
+                    boolean ok = assembler.assembleUnclusteredLongReads(longCorrectedReadsPath, 
+                                    tmpFilePathPrefix, 
+                                    assembledTranscriptsPath,
+                                    numThreads,
+                                    minimapOptions,
+                                    minKmerCov,
+                                    maxTipLen,
+                                    longReadOverlapProportion,
+                                    minOverlap,
+                                    txptNamePrefix,
+                                    strandSpecific,
+                                    !keepArtifact,
+                                    longReadMinReadDepth,
+                                    usePacBioPreset);
+
+//                    final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
+//                    final String assembledTranscriptsPath = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
+//                    
+//                    boolean ok = assembleClusteredLongReads(assembler,
+//                            longCorrectedReadsPath, clusteredLongReadsDirectory,
+//                            assembledTranscriptsPath, writeUracil, 
+//                            numThreads, forceOverwrite, minimapOptions, minKmerCov, 
+//                            maxTipLen, longReadOverlapProportion, minOverlap,
+//                            txptNamePrefix, strandSpecific, !keepArtifact,
+//                            longReadMinReadDepth, usePacBioPreset, maxMergedClusterSize);
                     
                     
                     if (ok) {

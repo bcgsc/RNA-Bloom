@@ -42,6 +42,7 @@ import rnabloom.io.CompressedFastaRecord;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.FastaReader;
+import rnabloom.io.FastaRecord;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
@@ -145,19 +146,19 @@ public class Layout {
         return -1;
     }
     
-    private boolean isContainmentPafRecord(ExtendedPafRecord r) {
+    private boolean isContainmentPafRecord(PafRecord r) {
         return rnabloom.util.PafUtils.isContainmentPafRecord(r, maxEdgeClip);
     }
     
-    private boolean isStrandedContainmentPafRecord(ExtendedPafRecord r) {
+    private boolean isStrandedContainmentPafRecord(PafRecord r) {
         return !r.reverseComplemented && isContainmentPafRecord(r);
     }
         
-    private boolean isDovetailPafRecord(ExtendedPafRecord r) {
+    private boolean isDovetailPafRecord(PafRecord r) {
         return rnabloom.util.PafUtils.isDovetailPafRecord(r, maxEdgeClip);
     }
     
-    private boolean isStrandedDovetailPafRecord(ExtendedPafRecord r) { 
+    private boolean isStrandedDovetailPafRecord(PafRecord r) { 
         return rnabloom.util.PafUtils.isStrandedDovetailPafRecord(r, maxEdgeClip);
     }
     
@@ -624,7 +625,7 @@ public class Layout {
         
         return min;
     }
-    
+        
     private static short[] getHistogram(int origLength, int binSize) {
         return new short[(int)Math.ceil((float)origLength/(float)binSize)];
     }
@@ -1060,7 +1061,188 @@ public class Layout {
             return connectedNeighbors;
         }
     }
+    
+    private String getContained(Overlap2 r,
+            int qMinStart, int qMaxEnd,
+            int tMinStart, int tMaxEnd,
+            int qLen, int tLen) {
         
+        boolean qContained = r.qStart <= qMinStart + maxEdgeClip && qMaxEnd - r.qEnd <= maxEdgeClip;
+        boolean tContained = r.tStart <= tMinStart + maxEdgeClip && tMaxEnd - r.tEnd <= maxEdgeClip;
+        
+        if (qContained && tContained) {
+            if (qLen < tLen) {
+                return r.qName;
+            }
+            else if (qLen == tLen) {
+                if (r.qName.compareTo(r.tName) < 0) {
+                    return r.qName;
+                }
+                else {
+                    return r.tName;
+                }
+            }
+            else {
+                return r.tName;
+            }
+        }
+        else if (qContained) {
+            return r.qName;
+        }
+        else if (tContained) {
+            return r.tName;
+        }
+        
+        return null;
+    }
+    
+    private void findContained(ArrayDeque<Overlap2> records, int qMinStart,
+            int qMaxEnd, HashSet<String> contained) {
+        for (Overlap2 r : records) {
+            String c = getContained(r, qMinStart, qMaxEnd, 
+                    r.tStart, r.tEnd, r.qLen, r.tLen);
+            if (c != null) {
+                contained.add(c);
+            }
+        }
+    }
+    
+    public long extractUnique(String outFastaPath) throws IOException {
+        Timer timer = new Timer();
+        
+        //HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
+        HashSet<String> contained = new HashSet<>();
+        HashMap<String, Integer> lengths = new HashMap<>();
+        HashMap<String, short[]> readHistogramMap = new HashMap<>();
+        final int histBinSize = 25;
+        final int minSegmentLength = 100;
+        
+        PafReader reader = new PafReader(overlapPafInputStream);
+        final boolean checkNumAltReads = minNumAltReads > 0;
+        long numRecords = 0;
+        
+        ArrayDeque<Overlap2> currRecords = new ArrayDeque<>();
+        String currName = null;
+        int currLen = -1;
+        int currMinStart = -1;
+        int currMaxEnd = -1;
+        
+        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+            ++numRecords;
+            reader.next(r);
+            
+            if ((!stranded || !r.reverseComplemented)&&
+                    !r.qName.equals(r.tName) &&
+                    hasLargeOverlap(r) && hasGoodOverlap(r)) {
+                
+                if (!r.qName.equals(currName)) {
+                    findContained(currRecords, currMinStart, currMaxEnd, contained);
+                    currRecords.clear();
+                    
+                    currName = r.qName;
+                    currLen = r.qLen;
+                    lengths.put(currName, currLen);
+                    
+                    short[] hist = readHistogramMap.get(r.qName);
+                    if (hist != null) {
+                        ArrayDeque<Interval> intervals = extractEffectiveIntervals(hist, histBinSize, 1, minSegmentLength);
+                        currMinStart = intervals.getFirst().start;
+                        currMaxEnd = Math.min(intervals.getLast().end, r.qLen);
+                    }
+                    else {
+                        currMinStart = r.qStart;
+                        currMaxEnd = r.qEnd;
+                    }
+                }
+
+                currRecords.add(pafToOverlap2(r));
+                currMinStart = Math.min(currMinStart, r.qStart);
+                currMaxEnd = Math.max(currMaxEnd, r.qEnd);
+                
+                short[] hist = readHistogramMap.get(r.qName);
+                if (hist == null) {
+                    hist = getHistogram(r.qLen, histBinSize);
+                    readHistogramMap.put(r.qName, hist);
+                }
+                updateHistogram(hist, histBinSize, r.qLen, r.qStart, r.qEnd);
+
+                hist = readHistogramMap.get(r.tName);
+                if (hist == null) {
+                    hist = getHistogram(r.tLen, histBinSize);
+                    readHistogramMap.put(r.tName, hist);
+                }
+                updateHistogram(hist, histBinSize, r.tLen, r.tStart, r.tEnd);
+                
+                lengths.put(r.tName, r.tLen);
+            }
+        }
+        reader.close();
+        
+        findContained(currRecords, currMinStart, currMaxEnd, contained);
+        currRecords.clear();
+        
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
+        
+        // look for unique reads
+        timer.start();
+        HashSet<String> uniqueReads = new HashSet<>(lengths.keySet());
+        uniqueReads.removeAll(contained);
+                
+        FastaReader fr = new FastaReader(seqFastaPath);
+        FastaWriter fw = new FastaWriter(outFastaPath, false);
+        long seqID = 0;
+        long originalNumSeq = 0;
+        long numMultiSeqs = 0;
+        for (FastaRecord record = new FastaRecord(); fr.hasNext();) {
+            ++originalNumSeq;
+            fr.nextWithName(record);
+            
+            if (uniqueReads.contains(record.name)) {
+                if (checkNumAltReads) {
+                    short[] hist = readHistogramMap.get(record.name);
+                    if (hist != null) {
+                        ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, histBinSize, minNumAltReads, minSegmentLength);
+                        if (!spans.isEmpty()) {
+                            ++seqID;
+                            int seqLen = record.seq.length();
+                            if (spans.size() > 1) {
+                                ++numMultiSeqs;
+                                String namePrefix = seqID + "_p";
+                                int segmentID = 1;
+                                for (Interval i : spans) {
+                                    int start = Math.max(0, i.start);
+                                    int end = Math.min(i.end, seqLen);
+                                    String header = namePrefix + segmentID + " " + record.seq.length() + ":" + start + "-" + end;
+                                    fw.write(header, record.seq.substring(start, end));
+                                    ++segmentID;
+                                }
+                            }
+                            else {
+                                Interval i = spans.peekFirst();
+                                int start = Math.max(0, i.start);
+                                int end = Math.min(i.end, seqLen);
+                                String header = Long.toString(seqID) + " " + record.seq.length() + ":" + start + "-" + end;
+                                fw.write(header, record.seq.substring(start, end));
+                            }
+                        }
+                    }
+                }
+                else {
+                    fw.write(Long.toString(++seqID), record.seq);
+                }
+            }
+        }
+        fr.close();
+        fw.close();
+        
+        System.out.println("total reads:    " + NumberFormat.getInstance().format(originalNumSeq));
+        System.out.println(" - unique:      " + NumberFormat.getInstance().format(seqID));
+        System.out.println("   - multi-seg: " + NumberFormat.getInstance().format(numMultiSeqs));
+        System.out.println("Unique reads extracted in " + timer.elapsedDHMS());
+        
+        return seqID;
+    }
+    
     public int[] extractClusters(String outdir, int maxMergedClusterSize) throws IOException {
         Timer timer = new Timer();
         PafReader reader = new PafReader(overlapPafInputStream);
@@ -1305,7 +1487,7 @@ public class Layout {
     private boolean layoutBackbones(String outFastaPath) throws IOException {
         HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
         HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
-        ArrayDeque<ExtendedOverlap> dovetailRecords = new ArrayDeque<>();
+        ArrayDeque<StrandedOverlap> dovetailRecords = new ArrayDeque<>();
         HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id -> cut index
                
         // look for containment and dovetails
@@ -1377,7 +1559,7 @@ public class Layout {
                     else if ((!longestAlts.containsKey(r.qName) ||
                             !longestAlts.containsKey(r.tName)) &&
                             isDovetailPafRecord(r)) {
-                        dovetailRecords.add(pafToExtendedOverlap(r));
+                        dovetailRecords.add(pafToStrandedOverlap(r));
                     }
                 }
             }
@@ -1416,7 +1598,7 @@ public class Layout {
         
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(Math.min(longestSet.size(), 2*dovetailRecords.size()));
-        for (ExtendedOverlap r : dovetailRecords) {                
+        for (StrandedOverlap r : dovetailRecords) {                
             if ((!cutRevCompArtifact || (!artifactCutIndexes.containsKey(r.qName) && !artifactCutIndexes.containsKey(r.tName))) &&
                     longestSet.contains(r.qName) && longestSet.contains(r.tName)) {
                 if (!dovetailReadNames.contains(r.qName)) {
@@ -1542,12 +1724,30 @@ public class Layout {
         return originalNumSeq > seqID;
     }
     
+    private class Overlap2 {
+        String qName, tName;
+        int qStart, qEnd, tStart, tEnd, qLen, tLen;
+    }
+    
+    private Overlap2 pafToOverlap2(PafRecord r) {
+        Overlap2 o = new Overlap2();
+        o.qName = r.qName;
+        o.tName = r.tName;
+        o.qStart = r.qStart;
+        o.qEnd = r.qEnd;
+        o.tStart = r.tStart;
+        o.tEnd = r.tEnd;
+        o.qLen = r.qLen;
+        o.tLen = r.tLen;
+        return o;
+    }
+    
     private class Overlap {
         String qName, tName;
         int qStart, qEnd, tStart, tEnd;
     }
     
-    private class ExtendedOverlap extends Overlap {
+    private class StrandedOverlap extends Overlap {
         boolean reverseComplemented;
     }
     
@@ -1562,8 +1762,8 @@ public class Layout {
         return o;
     }
     
-    private ExtendedOverlap pafToExtendedOverlap(PafRecord r) {
-        ExtendedOverlap o = new ExtendedOverlap();
+    private StrandedOverlap pafToStrandedOverlap(PafRecord r) {
+        StrandedOverlap o = new StrandedOverlap();
         o.qName = r.qName;
         o.tName = r.tName;
         o.qStart = r.qStart;

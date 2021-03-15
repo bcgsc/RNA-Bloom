@@ -26,14 +26,12 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.lang.ProcessBuilder.Redirect;
-import static java.lang.System.in;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
-import rnabloom.io.PafReader;
 import static rnabloom.util.FileUtils.deleteIfExists;
 import static rnabloom.util.FileUtils.hasOnlyOneSequence;
 import static rnabloom.util.FileUtils.readIntArrayFromFile;
@@ -143,6 +141,53 @@ public class OverlapLayoutConsensus {
         return runCommand(command, outPafPath + LOG_EXTENSION);
     }
     
+    public static STATUS overlapWithMinimapAndExtractUnique(String seqFastaPath, String uniqueFastaPath,
+            int numThreads, boolean align, String minimapOptions, boolean stranded,
+            int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
+            int minSeqDepth, boolean usePacBioPreset) {
+        
+        ArrayList<String> command = new ArrayList<>();
+        command.add("/bin/sh");
+        command.add("-c");
+        
+        if (align) {
+            minimapOptions = "-c " + minimapOptions;
+        }
+                
+        String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
+        command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
+        
+        STATUS status = STATUS.FAIL;
+        try {            
+            ProcessBuilder pb = new ProcessBuilder(command);
+
+            File logFile = new File(uniqueFastaPath + LOG_EXTENSION);
+            pb.redirectError(Redirect.to(logFile));
+            
+            Process process = pb.start();
+
+            Layout myLayout = new Layout(seqFastaPath, process.getInputStream(), stranded, maxEdgeClip, minAlnId, 
+                    minOverlapMatches, maxIndelSize, false, minSeqDepth);
+            long numUnique = myLayout.extractUnique(uniqueFastaPath);
+            if (numUnique <= 0) {
+                return STATUS.EMPTY;
+            }
+            
+            int exitStatus = process.waitFor();
+            if (exitStatus == 0) {
+                status = STATUS.SUCCESS;
+            }
+            else {
+                status = STATUS.FAIL;
+            }
+        }
+        catch (IOException | InterruptedException e) {
+            status = STATUS.FAIL;
+        }
+        
+        return status;
+    }
+    
     public static int[] overlapWithMinimapAndExtractClusters(String seqFastaPath, String clusterdir,
             int numThreads, boolean align, String minimapOptions, boolean stranded,
             int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
@@ -171,9 +216,10 @@ public class OverlapLayoutConsensus {
             pb.redirectError(Redirect.to(logFile));
             
             Process process = pb.start();
-
-            clusterSizes = extractClusters(seqFastaPath, process.getInputStream(), clusterdir, stranded, maxEdgeClip, 
-                    minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth, maxMergedClusterSize);
+            
+            Layout myLayout = new Layout(seqFastaPath, process.getInputStream(), stranded, maxEdgeClip, minAlnId, 
+                    minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth);
+            clusterSizes = myLayout.extractClusters(clusterdir, maxMergedClusterSize);
             
             int exitStatus = process.waitFor();
             if (exitStatus != 0) {
@@ -270,6 +316,7 @@ public class OverlapLayoutConsensus {
                     if (hasLargeOverlap(record, minOverlapMatches) &&
                             hasGoodAlignment(record, maxIndelSize, minAlnId)) {
                         bw.write(line);
+                        bw.write('\n');
                         ++numGoodRecords;
                     }
                 }
@@ -291,20 +338,7 @@ public class OverlapLayoutConsensus {
         
         return STATUS.SUCCESS;
     }
-    
-    public static int[] extractClusters(String seqFastaPath, InputStream overlapPafInputStream, String outdir,
-            boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
-            boolean cutRevCompArtifact, int minSeqDepth, int maxMergedClusterSize) {
-        try {
-            Layout myLayout = new Layout(seqFastaPath, overlapPafInputStream, stranded, maxEdgeClip, minAlnId, 
-                    minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth);
-            return myLayout.extractClusters(outdir, maxMergedClusterSize);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            return null;
-        }
-    }
-    
+        
     public static boolean layout(String seqFastaPath, InputStream overlapPafInputStream, String backboneFastaPath,
             boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
             boolean cutRevCompArtifact, int minSeqDepth) {
@@ -333,7 +367,7 @@ public class OverlapLayoutConsensus {
         return runCommand(command, consensusFastaPath + LOG_EXTENSION);
     }
         
-    public static boolean overlapLayout(String readsPath, String tmpPrefix, String layoutPath,
+    public static boolean overlapLayout(String readsPath, String layoutPath,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
             int minSeqDepth, boolean usePacBioPreset) throws IOException {
@@ -475,7 +509,59 @@ public class OverlapLayoutConsensus {
             return consensusWithRacon(readsPath, backbonesFa2, mapPaf, consensusPath, numThreads, keepUnpolished);
         }
     }
+    
+    public static boolean uniqueOLC(String readsPath, String tmpPrefix, String outFastaPath,
+            int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
+            float minAlnId, int minOverlapMatches, int maxIndelSize,
+            int minSeqDepth, boolean usePacBioPreset) throws IOException {
+
+        String uniqueFastaPath = tmpPrefix + "_nr" + FASTA_EXT;
+        String readsToUniquePafPath = tmpPrefix + "_r2nr.paf.gz";
+        String polishedFastaPath = tmpPrefix + "_nr2" + FASTA_EXT;
         
+        deleteIfExists(uniqueFastaPath);
+        deleteIfExists(readsToUniquePafPath);
+        deleteIfExists(polishedFastaPath);
+        deleteIfExists(outFastaPath);
+        
+//        String minimapOptionsNoGaps = minimapOptions;
+//        if (!minimapOptionsNoGaps.contains("-g ")) {
+//            minimapOptionsNoGaps += " -g " + 2 * maxIndelSize;
+//        }
+        
+        // overlap all reads and extract unique reads
+        STATUS status = overlapWithMinimapAndExtractUnique(readsPath, uniqueFastaPath,
+            numThreads, false, minimapOptions, stranded,
+            maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
+            minSeqDepth, usePacBioPreset);
+        if (status != STATUS.SUCCESS) {
+            return false;
+        }
+        
+        // map all reads to unique reads
+        status = mapWithMinimapFiltered(readsPath, uniqueFastaPath, readsToUniquePafPath,
+            numThreads, minimapOptions, usePacBioPreset, stranded, maxIndelSize,
+            minOverlapMatches, minAlnId);
+        if (status != STATUS.SUCCESS) {
+            return false;
+        }
+        
+        // derive concensus for unique reads
+        boolean success = consensusWithRacon(readsPath, uniqueFastaPath, 
+            readsToUniquePafPath, polishedFastaPath, numThreads, true);
+        if (!success) {
+            return false;
+        }
+        
+        // overlap concensus unique reads and layout
+        success = overlapLayout(polishedFastaPath, outFastaPath,
+            numThreads, stranded, minimapOptions, maxEdgeClip,
+            minAlnId, minOverlapMatches, maxIndelSize, false,
+            minSeqDepth, usePacBioPreset);
+        
+        return success;
+    }
+    
     public static int clusteredOLC(String readsPath, String clustersdir,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,

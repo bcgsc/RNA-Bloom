@@ -77,7 +77,7 @@ public class PafUtils {
         return alnId >= minAlnId;
     }
     
-    public static boolean hasReverseComplementArtifact(ExtendedPafRecord r, int maxEdgeClip) {
+    public static boolean hasReverseComplementArtifact(PafRecord r, int maxEdgeClip) {
         if (r.qName.equals(r.tName) && r.reverseComplemented) {
             if (r.qStart <= maxEdgeClip || r.qLen - r.qEnd <= maxEdgeClip) {
                 return true;
@@ -87,16 +87,16 @@ public class PafUtils {
         return false;
     }
     
-    public static boolean isContainmentPafRecord(ExtendedPafRecord r, int maxEdgeClip) {
+    public static boolean isContainmentPafRecord(PafRecord r, int maxEdgeClip) {
         return ((r.qStart <= maxEdgeClip && r.qLen - r.qEnd <= maxEdgeClip) ||
             (r.tStart <= maxEdgeClip && r.tLen - r.tEnd <= maxEdgeClip));
     }
-    
-    public static boolean isStrandedContainmentPafRecord(ExtendedPafRecord r, int maxEdgeClip) {
+        
+    public static boolean isStrandedContainmentPafRecord(PafRecord r, int maxEdgeClip) {
         return !r.reverseComplemented && isContainmentPafRecord(r, maxEdgeClip);
     }
         
-    public static boolean isDovetailPafRecord(ExtendedPafRecord r, int maxEdgeClip) {
+    public static boolean isDovetailPafRecord(PafRecord r, int maxEdgeClip) {
         if (r.reverseComplemented) {
             return (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip && r.qStart > r.tLen - r.tEnd) ||
                     (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip && r.qLen - r.qStart > r.tStart);
@@ -107,7 +107,7 @@ public class PafUtils {
         }
     }
     
-    public static boolean isStrandedDovetailPafRecord(ExtendedPafRecord r, int maxEdgeClip) {
+    public static boolean isStrandedDovetailPafRecord(PafRecord r, int maxEdgeClip) {
         if (!r.reverseComplemented) {
             if ((r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) ||
                     (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip)) {
