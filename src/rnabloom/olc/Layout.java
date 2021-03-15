@@ -46,6 +46,7 @@ import rnabloom.io.FastaRecord;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
+import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.PafUtils.*;
 import static rnabloom.util.SeqUtils.stringToBytes;
 import static rnabloom.util.SeqUtils.bytesToString;
@@ -625,9 +626,43 @@ public class Layout {
         
         return min;
     }
+    
+    private class Histogram {
+        int length, minStart, maxEnd;
+        short[] bars;
         
-    private static short[] getHistogram(int origLength, int binSize) {
+        public Histogram(int length, int minStart, int maxEnd, int binSize) {
+            this.length = length;
+            this.minStart = minStart;
+            this.maxEnd = maxEnd;
+            this.bars = initHistogram(length, binSize);
+        }
+        
+    }
+    
+    private static short[] initHistogram(int origLength, int binSize) {
         return new short[(int)Math.ceil((float)origLength/(float)binSize)];
+    }
+    
+    private static void updateHistogram(Histogram h, int start, int end, int binSize) {
+        h.minStart = Math.min(h.minStart, start);
+        h.maxEnd = Math.max(h.maxEnd, end);
+
+        if (start > 0) {
+            start = (int) Math.ceil((float) start/binSize);
+        }
+        else {
+            start = 0;
+        }
+
+        if (end < h.length) {
+            end = (int) Math.floor((float) end/binSize);
+        }
+        else {
+            end = h.bars.length;
+        }
+
+        updateHistogram(h.bars, start, end);
     }
     
     private static void updateHistogram(short[] hist, int binSize, int origLen, int start, int end) {
@@ -689,6 +724,26 @@ public class Layout {
         }
     
         return numSegments >= 2;
+    }
+    
+    private static ArrayDeque<Interval> extractEffectiveIntervals(Histogram hist, int binSize, int minCoverage, int minIntervalLength) {
+        ArrayDeque<Interval> intervals = extractEffectiveIntervals(hist.bars, binSize, minCoverage, minIntervalLength);
+        
+        Interval first = intervals.getFirst();
+        Interval last = intervals.getLast();
+        
+        if (first.start < hist.minStart + binSize) {
+            first.start = hist.minStart;
+        }
+        
+        if (last.end > hist.length) {
+            last.end = hist.length;
+        }
+        else if (last.end > hist.maxEnd - binSize) {
+            last.end = hist.maxEnd;
+        }
+        
+        return intervals;
     }
     
     private static ArrayDeque<Interval> extractEffectiveIntervals(short[] hist, int binSize, int minCoverage, int minIntervalLength) {
@@ -1062,10 +1117,9 @@ public class Layout {
         }
     }
     
-    private String getContained(Overlap2 r,
-            int qMinStart, int qMaxEnd,
-            int tMinStart, int tMaxEnd,
-            int qLen, int tLen) {
+    private String getContained(Overlap r,
+            int qMinStart, int qMaxEnd, int qLen,
+            int tMinStart, int tMaxEnd, int tLen) {
         
         boolean qContained = r.qStart <= qMinStart + maxEdgeClip && qMaxEnd - r.qEnd <= maxEdgeClip;
         boolean tContained = r.tStart <= tMinStart + maxEdgeClip && tMaxEnd - r.tEnd <= maxEdgeClip;
@@ -1096,24 +1150,24 @@ public class Layout {
         return null;
     }
     
-    private void findContained(ArrayDeque<Overlap2> records, int qMinStart,
-            int qMaxEnd, HashSet<String> contained) {
-        for (Overlap2 r : records) {
-            String c = getContained(r, qMinStart, qMaxEnd, 
-                    r.tStart, r.tEnd, r.qLen, r.tLen);
+    private void findContained(ArrayDeque<Overlap> records, int qLen, int qMinStart,
+            int qMaxEnd, Set<String> contained, HashMap<String, Histogram> histogramMap) {
+        records.parallelStream().forEach(r -> {
+            Histogram tHist = histogramMap.get(r.tName);
+            String c = getContained(r, qMinStart, qMaxEnd, qLen,
+                    tHist.minStart, tHist.maxEnd, tHist.length);
             if (c != null) {
                 contained.add(c);
             }
-        }
+        });
     }
     
     public long extractUnique(String outFastaPath) throws IOException {
         Timer timer = new Timer();
         
-        //HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
-        HashSet<String> contained = new HashSet<>();
-        HashMap<String, Integer> lengths = new HashMap<>();
-        HashMap<String, short[]> readHistogramMap = new HashMap<>();
+        //HashMap<String, String> longestAlts = new HashMap<>(); // read id : longest read id
+        Set<String> contained = Collections.synchronizedSet(new HashSet<>());
+        HashMap<String, Histogram> histogramMap = new HashMap<>(100000);
         final int histBinSize = 25;
         final int minSegmentLength = 100;
         
@@ -1121,11 +1175,9 @@ public class Layout {
         final boolean checkNumAltReads = minNumAltReads > 0;
         long numRecords = 0;
         
-        ArrayDeque<Overlap2> currRecords = new ArrayDeque<>();
+        ArrayDeque<Overlap> currRecords = new ArrayDeque<>();
         String currName = null;
-        int currLen = -1;
-        int currMinStart = -1;
-        int currMaxEnd = -1;
+        Histogram currHist = null;
         
         for (PafRecord r = new PafRecord(); reader.hasNext();) {
             ++numRecords;
@@ -1136,57 +1188,47 @@ public class Layout {
                     hasLargeOverlap(r) && hasGoodOverlap(r)) {
                 
                 if (!r.qName.equals(currName)) {
-                    findContained(currRecords, currMinStart, currMaxEnd, contained);
+                    if (currHist != null) {
+                        findContained(currRecords, currHist.length, currHist.minStart,
+                            currHist.maxEnd, contained, histogramMap);
+                    }
+                    
                     currRecords.clear();
+                    currName = r.qName; 
                     
-                    currName = r.qName;
-                    currLen = r.qLen;
-                    lengths.put(currName, currLen);
-                    
-                    short[] hist = readHistogramMap.get(r.qName);
-                    if (hist != null) {
-                        ArrayDeque<Interval> intervals = extractEffectiveIntervals(hist, histBinSize, 1, minSegmentLength);
-                        currMinStart = intervals.getFirst().start;
-                        currMaxEnd = Math.min(intervals.getLast().end, r.qLen);
-                    }
-                    else {
-                        currMinStart = r.qStart;
-                        currMaxEnd = r.qEnd;
+                    currHist = histogramMap.get(currName);
+                    if (currHist == null) {
+                        currHist = new Histogram(r.qLen, r.qStart, r.qEnd, histBinSize);
+                        histogramMap.put(currName, currHist);
                     }
                 }
-
-                currRecords.add(pafToOverlap2(r));
-                currMinStart = Math.min(currMinStart, r.qStart);
-                currMaxEnd = Math.max(currMaxEnd, r.qEnd);
                 
-                short[] hist = readHistogramMap.get(r.qName);
-                if (hist == null) {
-                    hist = getHistogram(r.qLen, histBinSize);
-                    readHistogramMap.put(r.qName, hist);
-                }
-                updateHistogram(hist, histBinSize, r.qLen, r.qStart, r.qEnd);
+                updateHistogram(currHist, r.qStart, r.qEnd, histBinSize);
 
-                hist = readHistogramMap.get(r.tName);
-                if (hist == null) {
-                    hist = getHistogram(r.tLen, histBinSize);
-                    readHistogramMap.put(r.tName, hist);
+                Histogram tHist = histogramMap.get(r.tName);
+                if (tHist == null) {
+                    tHist = new Histogram(r.tLen, r.tStart, r.tEnd, histBinSize);
+                    histogramMap.put(r.tName, tHist);
                 }
-                updateHistogram(hist, histBinSize, r.tLen, r.tStart, r.tEnd);
                 
-                lengths.put(r.tName, r.tLen);
+                updateHistogram(tHist, r.tStart, r.tEnd, histBinSize);
+                
+                currRecords.add(pafToOverlap(r));
             }
         }
         reader.close();
         
-        findContained(currRecords, currMinStart, currMaxEnd, contained);
+        if (currHist != null) {
+            findContained(currRecords, currHist.length, currHist.minStart,
+                currHist.maxEnd, contained, histogramMap);
+        }
         currRecords.clear();
         
         System.out.println("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
         
         // look for unique reads
         timer.start();
-        HashSet<String> uniqueReads = new HashSet<>(lengths.keySet());
-        uniqueReads.removeAll(contained);
+        Set<String> readsWithOverlap = histogramMap.keySet();
                 
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
@@ -1196,33 +1238,31 @@ public class Layout {
         for (FastaRecord record = new FastaRecord(); fr.hasNext();) {
             ++originalNumSeq;
             fr.nextWithName(record);
-            
-            if (uniqueReads.contains(record.name)) {
+            String seqName = record.name;
+            if (!contained.contains(seqName)) {
                 if (checkNumAltReads) {
-                    short[] hist = readHistogramMap.get(record.name);
-                    if (hist != null) {
-                        ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, histBinSize, minNumAltReads, minSegmentLength);
-                        if (!spans.isEmpty()) {
-                            ++seqID;
-                            int seqLen = record.seq.length();
-                            if (spans.size() > 1) {
-                                ++numMultiSeqs;
-                                String namePrefix = seqID + "_p";
-                                int segmentID = 1;
-                                for (Interval i : spans) {
-                                    int start = Math.max(0, i.start);
-                                    int end = Math.min(i.end, seqLen);
-                                    String header = namePrefix + segmentID + " " + record.seq.length() + ":" + start + "-" + end;
-                                    fw.write(header, record.seq.substring(start, end));
-                                    ++segmentID;
+                    if (readsWithOverlap.contains(seqName)) {
+                        Histogram hist = histogramMap.get(seqName);
+                        if (hist != null) {
+                            ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, histBinSize, minNumAltReads, minSegmentLength);
+                            if (!spans.isEmpty()) {
+                                ++seqID;
+                                int seqLen = record.seq.length();
+                                if (spans.size() > 1) {
+                                    ++numMultiSeqs;
+                                    String namePrefix = seqID + "_p";
+                                    int segmentID = 1;
+                                    for (Interval i : spans) {
+                                        String header = namePrefix + segmentID + " " + seqLen + ":" + i.start + "-" + i.end + " " + seqName;
+                                        fw.write(header, record.seq.substring(i.start, i.end));
+                                        ++segmentID;
+                                    }
                                 }
-                            }
-                            else {
-                                Interval i = spans.peekFirst();
-                                int start = Math.max(0, i.start);
-                                int end = Math.min(i.end, seqLen);
-                                String header = Long.toString(seqID) + " " + record.seq.length() + ":" + start + "-" + end;
-                                fw.write(header, record.seq.substring(start, end));
+                                else {
+                                    Interval i = spans.peekFirst();
+                                    String header = Long.toString(seqID) + " " + seqLen + ":" + i.start + "-" + i.end  + " " + seqName;
+                                    fw.write(header, record.seq.substring(i.start, i.end));
+                                }
                             }
                         }
                     }
@@ -1236,7 +1276,7 @@ public class Layout {
         fw.close();
         
         System.out.println("total reads:    " + NumberFormat.getInstance().format(originalNumSeq));
-        System.out.println(" - unique:      " + NumberFormat.getInstance().format(seqID));
+        System.out.println(" - unique:      " + NumberFormat.getInstance().format(seqID) + "\t(" + convertToRoundedPercent(seqID/(float)originalNumSeq) + " %)");
         System.out.println("   - multi-seg: " + NumberFormat.getInstance().format(numMultiSeqs));
         System.out.println("Unique reads extracted in " + timer.elapsedDHMS());
         
@@ -1270,14 +1310,14 @@ public class Layout {
                 if (checkNumAltReads) {
                     short[] hist = readHistogramMap.get(r.qName);
                     if (hist == null) {
-                        hist = getHistogram(r.qLen, histBinSize);
+                        hist = initHistogram(r.qLen, histBinSize);
                         readHistogramMap.put(r.qName, hist);
                     }
                     updateHistogram(hist, histBinSize, r.qLen, r.qStart, r.qEnd);
                     
                     hist = readHistogramMap.get(r.tName);
                     if (hist == null) {
-                        hist = getHistogram(r.tLen, histBinSize);
+                        hist = initHistogram(r.tLen, histBinSize);
                         readHistogramMap.put(r.tName, hist);
                     }
                     updateHistogram(hist, histBinSize, r.tLen, r.tStart, r.tEnd);
@@ -1485,10 +1525,10 @@ public class Layout {
     }
     
     private boolean layoutBackbones(String outFastaPath) throws IOException {
-        HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
-        HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
+        HashMap<String, Integer> lengths = new HashMap<>(); // read id : length
+        HashMap<String, String> longestAlts = new HashMap<>(); // read id : longest read id
         ArrayDeque<StrandedOverlap> dovetailRecords = new ArrayDeque<>();
-        HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id -> cut index
+        HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id : cut index
                
         // look for containment and dovetails
         PafReader reader = new PafReader(overlapPafInputStream);
@@ -1723,25 +1763,7 @@ public class Layout {
         
         return originalNumSeq > seqID;
     }
-    
-    private class Overlap2 {
-        String qName, tName;
-        int qStart, qEnd, tStart, tEnd, qLen, tLen;
-    }
-    
-    private Overlap2 pafToOverlap2(PafRecord r) {
-        Overlap2 o = new Overlap2();
-        o.qName = r.qName;
-        o.tName = r.tName;
-        o.qStart = r.qStart;
-        o.qEnd = r.qEnd;
-        o.tStart = r.tStart;
-        o.tEnd = r.tEnd;
-        o.qLen = r.qLen;
-        o.tLen = r.tLen;
-        return o;
-    }
-    
+        
     private class Overlap {
         String qName, tName;
         int qStart, qEnd, tStart, tEnd;
@@ -1775,10 +1797,10 @@ public class Layout {
     }
     
     private boolean layoutStrandedBackbones(String outFastaPath) throws IOException {
-        HashMap<String, Integer> lengths = new HashMap<>(); // read id -> length
-        HashMap<String, String> longestAlts = new HashMap<>(); // read id -> longest read id
+        HashMap<String, Integer> lengths = new HashMap<>(); // read id : length
+        HashMap<String, String> longestAlts = new HashMap<>(); // read id : longest read id
         ArrayDeque<Overlap> dovetailRecords = new ArrayDeque<>();
-        HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id -> cut index
+        HashMap<String, Integer> artifactCutIndexes = new HashMap<>(); // read id : cut index
         
         // look for containment and overlaps
         PafReader reader = new PafReader(overlapPafInputStream);
