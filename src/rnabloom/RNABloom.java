@@ -61,6 +61,7 @@ import rnabloom.bloom.hash.PairedNTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
 import rnabloom.graph.Kmer;
 import static rnabloom.io.Constants.FASTA_EXT;
+import static rnabloom.io.Constants.GZIP_EXTENSION;
 import rnabloom.io.FastaFilteredSequenceIterator;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
@@ -6423,9 +6424,9 @@ public class RNABloom {
                 }
                 */
                 
-                String longCorrectedReadsPath = correctedLongReadFilePrefix + ".long" + FASTA_EXT;
-                String shortCorrectedReadsPath = correctedLongReadFilePrefix + ".short" + FASTA_EXT;
-                String repeatReadsFileName = correctedLongReadFilePrefix + ".repeats" + FASTA_EXT;
+                String longCorrectedReadsPath = correctedLongReadFilePrefix + ".long" + FASTA_EXT + GZIP_EXTENSION;
+                String shortCorrectedReadsPath = correctedLongReadFilePrefix + ".short" + FASTA_EXT + GZIP_EXTENSION;
+                String repeatReadsFileName = correctedLongReadFilePrefix + ".repeats" + FASTA_EXT + GZIP_EXTENSION;
                 String numCorrectedReadsPath = correctedLongReadFilePrefix + ".count";
                 long numCorrectedReads = 0;
                 
