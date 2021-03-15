@@ -515,9 +515,9 @@ public class OverlapLayoutConsensus {
             float minAlnId, int minOverlapMatches, int maxIndelSize,
             int minSeqDepth, boolean usePacBioPreset) throws IOException {
 
-        String uniqueFastaPath = tmpPrefix + "_nr1" + FASTA_EXT + GZIP_EXTENSION;
-        String readsToUniquePafPath = tmpPrefix + "_nr1.paf.gz";
-        String polishedFastaPath = tmpPrefix + "_nr2" + FASTA_EXT;
+        String uniqueFastaPath = tmpPrefix + "nr1" + FASTA_EXT + GZIP_EXTENSION;
+        String readsToUniquePafPath = tmpPrefix + "nr1.paf.gz";
+        String polishedFastaPath = tmpPrefix + "nr2" + FASTA_EXT;
         
         deleteIfExists(uniqueFastaPath);
         deleteIfExists(readsToUniquePafPath);
