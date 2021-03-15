@@ -77,7 +77,6 @@ import rnabloom.io.NucleotideBitsWriter;
 import static rnabloom.olc.OverlapLayoutConsensus.hasMinimap2;
 import static rnabloom.olc.OverlapLayoutConsensus.hasRacon;
 import static rnabloom.olc.OverlapLayoutConsensus.overlapLayout;
-import static rnabloom.olc.OverlapLayoutConsensus.overlapLayoutConsensus;
 import rnabloom.util.BitSequence;
 import rnabloom.util.GraphUtils;
 import static rnabloom.util.GraphUtils.*;
@@ -96,6 +95,7 @@ import static rnabloom.util.FileUtils.saveStringToFile;
 import static rnabloom.util.FileUtils.symlinkRemoveExisting;
 import static rnabloom.util.FileUtils.touch;
 import rnabloom.util.Timer;
+import static rnabloom.util.Common.convertToRoundedPercent;
 
 /**
  *
@@ -264,15 +264,15 @@ public class RNABloom {
 
         if (loadDbgBits) {
             dbgFPR = graph.getDbgbfFPR();
-            System.out.println("DBG Bloom filter FPR:                " + dbgFPR * 100 + " %");
+            System.out.println("DBG Bloom filter FPR:                " + convertToRoundedPercent(dbgFPR) + " %");
         }
 
         covFPR = graph.getCbfFPR();
-        System.out.println("Counting Bloom filter FPR:           " + covFPR * 100 + " %");
+        System.out.println("Counting Bloom filter FPR:           " + convertToRoundedPercent(covFPR) + " %");
         
         PairedKeysBloomFilter rpkbf = graph.getRpkbf();
         if (rpkbf != null) {
-            System.out.println("Read paired k-mers Bloom filter FPR: " + rpkbf.getFPR() * 100 + " %");
+            System.out.println("Read paired k-mers Bloom filter FPR: " + convertToRoundedPercent(rpkbf.getFPR()) + " %");
         }
     }
     
@@ -777,11 +777,11 @@ public class RNABloom {
         dbgFPR = graph.getDbgbf().getFPR();
         covFPR = graph.getCbf().getFPR();
         
-        System.out.println(    "DBG Bloom filter FPR:                 " + dbgFPR * 100 + " %");
-        System.out.println(    "Counting Bloom filter FPR:            " + covFPR * 100 + " %");
+        System.out.println("DBG Bloom filter FPR:                 " + convertToRoundedPercent(dbgFPR) + " %");
+        System.out.println("Counting Bloom filter FPR:            " + convertToRoundedPercent(covFPR) + " %");
         
         if (graph.getReadPairedKmerDistance() > 0) {
-            System.out.println("Reads paired k-mers Bloom filter FPR: " + graph.getRpkbf().getFPR() * 100 + " %");
+            System.out.println("Reads paired k-mers Bloom filter FPR: " + convertToRoundedPercent(graph.getRpkbf().getFPR()) + " %");
         }
 //        System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
     }
@@ -1006,9 +1006,9 @@ public class RNABloom {
         
         dbgFPR = graph.getDbgbfFPR();
 
-        System.out.println("DBG Bloom filter FPR:                     " + dbgFPR * 100 + " %");
-        System.out.println("Reads paired k-mers Bloom filter FPR:     " + graph.getRpkbf().getFPR() * 100 + " %");
-        System.out.println("Fragments paired k-mers Bloom filter FPR: " + graph.getFpkbf().getFPR() * 100 + " %");
+        System.out.println("DBG Bloom filter FPR:                     " + convertToRoundedPercent(dbgFPR) + " %");
+        System.out.println("Reads paired k-mers Bloom filter FPR:     " + convertToRoundedPercent(graph.getRpkbf().getFPR()) + " %");
+        System.out.println("Fragments paired k-mers Bloom filter FPR: " + convertToRoundedPercent(graph.getFpkbf().getFPR()) + " %");
 //        covFPR = graph.getCbfFPR();
     }
         
@@ -3542,8 +3542,8 @@ public class RNABloom {
         System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
         long numCorrected = writerWorker.getNumCorrected();
         long numDiscarded = numReads - numCorrected;
-        System.out.println("\tKept:      " + NumberFormat.getInstance().format(numCorrected) + "\t(" + numCorrected * 100f/numReads + "%)");
-        System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "\t(" + numDiscarded * 100f/numReads + "%)");
+        System.out.println("\tKept:      " + NumberFormat.getInstance().format(numCorrected) + "\t(" + convertToRoundedPercent(numCorrected/(float)numReads) + " %)");
+        System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "\t(" + convertToRoundedPercent(numDiscarded/(float)numReads) + " %)");
         
         if (numArtifacts > 0) { 
             System.out.println("\tArtifacts: " + NumberFormat.getInstance().format(numArtifacts) + "\t(" + numArtifacts * 100f/numReads + "%)");
