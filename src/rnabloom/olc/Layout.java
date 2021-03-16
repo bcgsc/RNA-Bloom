@@ -628,8 +628,9 @@ public class Layout {
     }
     
     private class Histogram {
-        int length, minStart, maxEnd;
-        short[] bars;
+        int length, minStart, maxEnd = -1;
+        short[] bars = null;
+        ArrayDeque<QueryOverlap> pendingQueries = null;
         boolean seenAsQuery = false;
         
         public Histogram(int length, int minStart, int maxEnd, int binSize) {
@@ -664,6 +665,10 @@ public class Layout {
         }
 
         updateHistogram(h.bars, start, end);
+    }
+    
+    private boolean isFullyCovered(Histogram h) {
+        return h.minStart <= maxEdgeClip && h.maxEnd >= h.length - maxEdgeClip;
     }
     
     private static void updateHistogram(short[] hist, int binSize, int origLen, int start, int end) {
@@ -730,18 +735,20 @@ public class Layout {
     private static ArrayDeque<Interval> extractEffectiveIntervals(Histogram hist, int binSize, int minCoverage, int minIntervalLength) {
         ArrayDeque<Interval> intervals = extractEffectiveIntervals(hist.bars, binSize, minCoverage, minIntervalLength);
         
-        Interval first = intervals.getFirst();
-        Interval last = intervals.getLast();
-        
-        if (first.start < hist.minStart + binSize) {
-            first.start = hist.minStart;
-        }
-        
-        if (last.end > hist.length) {
-            last.end = hist.length;
-        }
-        else if (last.end > hist.maxEnd - binSize) {
-            last.end = hist.maxEnd;
+        if (!intervals.isEmpty()) {
+            Interval first = intervals.getFirst();
+            Interval last = intervals.getLast();
+
+            if (first.start < hist.minStart + binSize) {
+                first.start = hist.minStart;
+            }
+
+            if (last.end > hist.length) {
+                last.end = hist.length;
+            }
+            else if (last.end > hist.maxEnd - binSize) {
+                last.end = hist.maxEnd;
+            }
         }
         
         return intervals;
@@ -1118,34 +1125,34 @@ public class Layout {
         }
     }
     
-    private String getContained(Overlap r,
-            int qMinStart, int qMaxEnd, int qLen,
-            int tMinStart, int tMaxEnd, int tLen) {
+    private String getContained(OverlapCoords r,
+            String qName, int qMinStart, int qMaxEnd, int qLen,
+            String tName, int tMinStart, int tMaxEnd, int tLen) {
         
         boolean qContained = r.qStart <= qMinStart + maxEdgeClip && qMaxEnd - r.qEnd <= maxEdgeClip;
         boolean tContained = r.tStart <= tMinStart + maxEdgeClip && tMaxEnd - r.tEnd <= maxEdgeClip;
         
         if (qContained && tContained) {
             if (qLen < tLen) {
-                return r.qName;
+                return qName;
             }
             else if (qLen == tLen) {
-                if (r.qName.compareTo(r.tName) < 0) {
-                    return r.qName;
+                if (qName.compareTo(tName) < 0) {
+                    return qName;
                 }
                 else {
-                    return r.tName;
+                    return tName;
                 }
             }
             else {
-                return r.tName;
+                return tName;
             }
         }
         else if (qContained) {
-            return r.qName;
+            return qName;
         }
         else if (tContained) {
-            return r.tName;
+            return tName;
         }
         
         return null;
@@ -1155,8 +1162,32 @@ public class Layout {
         records.parallelStream().forEach(r -> {
             Histogram qHist = histogramMap.get(r.qName);
             Histogram tHist = histogramMap.get(r.tName);
-            String c = getContained(r, qHist.minStart, qHist.maxEnd, qHist.length,
-                    tHist.minStart, tHist.maxEnd, tHist.length);
+            String c = getContained(r, r.qName, qHist.minStart, qHist.maxEnd, qHist.length,
+                    r.tName, tHist.minStart, tHist.maxEnd, tHist.length);
+            if (c != null) {
+                contained.add(c);
+            }
+        });
+    }
+    
+    private void findContainedTargetOverlaps(String qName, int qMinStart, int qMaxEnd, int qLen,
+            ArrayDeque<TargetOverlap> records, Set<String> contained, HashMap<String, Histogram> histogramMap) {
+        records.parallelStream().forEach(r -> {
+            Histogram tHist = histogramMap.get(r.tName);
+            String c = getContained(r, qName, qMinStart, qMaxEnd, qLen,
+                    r.tName, tHist.minStart, tHist.maxEnd, tHist.length);
+            if (c != null) {
+                contained.add(c);
+            }
+        });
+    }
+    
+    private void findContainedQueryOverlaps(String tName, int tMinStart, int tMaxEnd, int tLen,
+            ArrayDeque<QueryOverlap> records, Set<String> contained, HashMap<String, Histogram> histogramMap) {
+        records.parallelStream().forEach(r -> {
+            Histogram qHist = histogramMap.get(r.qName);
+            String c = getContained(r, r.qName, qHist.minStart, qHist.maxEnd, qHist.length,
+                    tName, tMinStart, tMaxEnd, tLen);
             if (c != null) {
                 contained.add(c);
             }
@@ -1176,8 +1207,7 @@ public class Layout {
         final boolean checkNumAltReads = minNumAltReads > 0;
         long numRecords = 0;
         
-        ArrayDeque<Overlap> currRecords = new ArrayDeque<>();
-        HashMap<String, ArrayDeque<Overlap>> pendingRecords = new HashMap<>();
+        ArrayDeque<TargetOverlap> currRecords = new ArrayDeque<>();
         String currName = null;
         Histogram currHist = null;
         
@@ -1191,14 +1221,17 @@ public class Layout {
                 
                 if (!r.qName.equals(currName)) {
                     if (currName != null) {
-                        if (!currRecords.isEmpty()) {
-                            findContained(currRecords, contained, histogramMap);
+                        if (!currRecords.isEmpty() && currHist != null) {
+                            findContainedTargetOverlaps(currName, currHist.minStart, currHist.maxEnd,
+                                    currHist.length, currRecords, contained, histogramMap);
                             currRecords.clear();
                         }
 
-                        ArrayDeque<Overlap> pending = pendingRecords.remove(currName);
+                        ArrayDeque<QueryOverlap> pending = currHist.pendingQueries;
                         if (pending != null) {
-                            findContained(pending, contained, histogramMap);
+                            findContainedQueryOverlaps(currName, currHist.minStart, currHist.maxEnd,
+                                    currHist.length, pending, contained, histogramMap);
+                            currHist.pendingQueries = null;
                         }
                     }
                     
@@ -1222,30 +1255,35 @@ public class Layout {
                 
                 updateHistogram(tHist, r.tStart, r.tEnd, histBinSize);
                 
-                if (tHist.seenAsQuery) {
-                    currRecords.add(pafToOverlap(r));
+                if (tHist.seenAsQuery || isFullyCovered(tHist)) {
+                    currRecords.add(pafToTargetOverlap(r));
                 }
                 else {
-                    ArrayDeque<Overlap> pending = pendingRecords.get(r.tName);
+                    ArrayDeque<QueryOverlap> pending = tHist.pendingQueries;
                     if (pending == null) {
                         pending = new ArrayDeque<>();
-                        pendingRecords.put(r.tName, pending);
+                        tHist.pendingQueries = pending;
                     }
-                    pending.add(pafToOverlap(r));
+                    pending.add(pafToQueryOverlap(r));
                 }
             }
         }
         reader.close();
         
-        if (currHist != null) {
-            findContained(currRecords, contained, histogramMap);
+        if (!currRecords.isEmpty() && currHist != null) {
+            findContainedTargetOverlaps(currName, currHist.minStart, currHist.maxEnd,
+                    currHist.length, currRecords, contained, histogramMap);
             currRecords.clear();
         }
         
-        for (ArrayDeque<Overlap> pending : pendingRecords.values()) {
-            findContained(pending, contained, histogramMap);
+        for (Histogram h : histogramMap.values()) {
+            ArrayDeque<QueryOverlap> pending = h.pendingQueries;
+            if (pending != null) {
+                findContainedQueryOverlaps(currName, h.minStart, h.maxEnd,
+                        h.length, pending, contained, histogramMap);
+                h.pendingQueries = null;
+            }
         }
-        pendingRecords.clear();
         
         System.out.println("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
         
@@ -1787,19 +1825,20 @@ public class Layout {
         return originalNumSeq > seqID;
     }
 
-    private class TargetOverlap {
+    private class OverlapCoords {
+        int qStart, qEnd, tStart, tEnd;
+    }
+    
+    private class TargetOverlap extends OverlapCoords {
         String tName;
-        int qStart, qEnd, tStart, tEnd;
     }
     
-    private class QueryOverlap {
+    private class QueryOverlap extends OverlapCoords {
         String qName;
-        int qStart, qEnd, tStart, tEnd;
     }
     
-    private class Overlap {
+    private class Overlap extends OverlapCoords {
         String qName, tName;
-        int qStart, qEnd, tStart, tEnd;
     }
     
     private class StrandedOverlap extends Overlap {
