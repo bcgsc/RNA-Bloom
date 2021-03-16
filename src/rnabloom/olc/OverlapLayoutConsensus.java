@@ -515,13 +515,17 @@ public class OverlapLayoutConsensus {
             float minAlnId, int minOverlapMatches, int maxIndelSize,
             int minSeqDepth, boolean usePacBioPreset) throws IOException {
 
-        String uniqueFastaPath = tmpPrefix + "nr1" + FASTA_EXT + GZIP_EXTENSION;
-        String readsToUniquePafPath = tmpPrefix + "nr1.paf.gz";
-        String polishedFastaPath = tmpPrefix + "nr2" + FASTA_EXT;
+        String uniqueFastaPath = tmpPrefix + "1.nr" + FASTA_EXT + GZIP_EXTENSION;
+        String readsToUniquePafPath = tmpPrefix + "2.map.paf.gz";
+        String polishedUniqueFastaPath = tmpPrefix + "3.pol" + FASTA_EXT;
+        String backboneFastaPath = tmpPrefix + "4.backbone" + FASTA_EXT + GZIP_EXTENSION;
+        String readsToBackbonePafPath = tmpPrefix + "5.map.paf.gz";
         
         deleteIfExists(uniqueFastaPath);
         deleteIfExists(readsToUniquePafPath);
-        deleteIfExists(polishedFastaPath);
+        deleteIfExists(polishedUniqueFastaPath);
+        deleteIfExists(backboneFastaPath);
+        deleteIfExists(readsToBackbonePafPath);
         deleteIfExists(outFastaPath);
         
 //        String minimapOptionsNoGaps = minimapOptions;
@@ -548,16 +552,31 @@ public class OverlapLayoutConsensus {
         
         // derive concensus for unique reads
         boolean success = consensusWithRacon(readsPath, uniqueFastaPath, 
-            readsToUniquePafPath, polishedFastaPath, numThreads, true);
+            readsToUniquePafPath, polishedUniqueFastaPath, numThreads, true);
         if (!success) {
             return false;
         }
         
         // overlap concensus unique reads and layout
-        success = overlapLayout(polishedFastaPath, outFastaPath,
+        success = overlapLayout(polishedUniqueFastaPath, backboneFastaPath,
             numThreads, stranded, minimapOptions, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             minSeqDepth, usePacBioPreset);
+        if (!success) {
+            return false;
+        }
+        
+        // map all reads to backbone
+        status = mapWithMinimapFiltered(readsPath, backboneFastaPath, readsToBackbonePafPath,
+            numThreads, minimapOptions, usePacBioPreset, stranded, maxIndelSize,
+            minOverlapMatches, minAlnId);
+        if (status != STATUS.SUCCESS) {
+            return false;
+        }
+        
+        // derive concensus for unique reads
+        success = consensusWithRacon(readsPath, backboneFastaPath, 
+            readsToBackbonePafPath, outFastaPath, numThreads, true);
         
         return success;
     }
