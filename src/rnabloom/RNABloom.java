@@ -6493,7 +6493,7 @@ public class RNABloom {
                 else {
                     assembler.destroyAllBf();
                     
-                    final String tmpFilePathPrefix = outdir + File.separator + name + ".tmp.";
+                    final String tmpFilePathPrefix = outdir + File.separator + name + ".longreads.assembly";
                     final String assembledTranscriptsPath = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
                     
                     boolean ok = assembler.assembleUnclusteredLongReads(longCorrectedReadsPath, 
