@@ -630,6 +630,7 @@ public class Layout {
     private class Histogram {
         int length, minStart, maxEnd;
         short[] bars;
+        boolean seenAsQuery = false;
         
         public Histogram(int length, int minStart, int maxEnd, int binSize) {
             this.length = length;
@@ -1149,12 +1150,12 @@ public class Layout {
         
         return null;
     }
-    
-    private void findContained(ArrayDeque<Overlap> records, int qLen, int qMinStart,
-            int qMaxEnd, Set<String> contained, HashMap<String, Histogram> histogramMap) {
+
+    private void findContained(ArrayDeque<Overlap> records, Set<String> contained, HashMap<String, Histogram> histogramMap) {
         records.parallelStream().forEach(r -> {
+            Histogram qHist = histogramMap.get(r.qName);
             Histogram tHist = histogramMap.get(r.tName);
-            String c = getContained(r, qMinStart, qMaxEnd, qLen,
+            String c = getContained(r, qHist.minStart, qHist.maxEnd, qHist.length,
                     tHist.minStart, tHist.maxEnd, tHist.length);
             if (c != null) {
                 contained.add(c);
@@ -1168,14 +1169,15 @@ public class Layout {
         //HashMap<String, String> longestAlts = new HashMap<>(); // read id : longest read id
         Set<String> contained = Collections.synchronizedSet(new HashSet<>());
         HashMap<String, Histogram> histogramMap = new HashMap<>(100000);
-        final int histBinSize = 25;
-        final int minSegmentLength = 100;
+        final int histBinSize = 50;
+        final int minSegmentLength = Math.max(histBinSize, minOverlapMatches);
         
         PafReader reader = new PafReader(overlapPafInputStream);
         final boolean checkNumAltReads = minNumAltReads > 0;
         long numRecords = 0;
         
         ArrayDeque<Overlap> currRecords = new ArrayDeque<>();
+        HashMap<String, ArrayDeque<Overlap>> pendingRecords = new HashMap<>();
         String currName = null;
         Histogram currHist = null;
         
@@ -1188,12 +1190,18 @@ public class Layout {
                     hasLargeOverlap(r) && hasGoodOverlap(r)) {
                 
                 if (!r.qName.equals(currName)) {
-                    if (currHist != null) {
-                        findContained(currRecords, currHist.length, currHist.minStart,
-                            currHist.maxEnd, contained, histogramMap);
+                    if (currName != null) {
+                        if (!currRecords.isEmpty()) {
+                            findContained(currRecords, contained, histogramMap);
+                            currRecords.clear();
+                        }
+
+                        ArrayDeque<Overlap> pending = pendingRecords.remove(currName);
+                        if (pending != null) {
+                            findContained(pending, contained, histogramMap);
+                        }
                     }
                     
-                    currRecords.clear();
                     currName = r.qName; 
                     
                     currHist = histogramMap.get(currName);
@@ -1201,6 +1209,7 @@ public class Layout {
                         currHist = new Histogram(r.qLen, r.qStart, r.qEnd, histBinSize);
                         histogramMap.put(currName, currHist);
                     }
+                    currHist.seenAsQuery = true;
                 }
                 
                 updateHistogram(currHist, r.qStart, r.qEnd, histBinSize);
@@ -1213,16 +1222,30 @@ public class Layout {
                 
                 updateHistogram(tHist, r.tStart, r.tEnd, histBinSize);
                 
-                currRecords.add(pafToOverlap(r));
+                if (tHist.seenAsQuery) {
+                    currRecords.add(pafToOverlap(r));
+                }
+                else {
+                    ArrayDeque<Overlap> pending = pendingRecords.get(r.tName);
+                    if (pending == null) {
+                        pending = new ArrayDeque<>();
+                        pendingRecords.put(r.tName, pending);
+                    }
+                    pending.add(pafToOverlap(r));
+                }
             }
         }
         reader.close();
         
         if (currHist != null) {
-            findContained(currRecords, currHist.length, currHist.minStart,
-                currHist.maxEnd, contained, histogramMap);
+            findContained(currRecords, contained, histogramMap);
+            currRecords.clear();
         }
-        currRecords.clear();
+        
+        for (ArrayDeque<Overlap> pending : pendingRecords.values()) {
+            findContained(pending, contained, histogramMap);
+        }
+        pendingRecords.clear();
         
         System.out.println("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
         
@@ -1763,7 +1786,17 @@ public class Layout {
         
         return originalNumSeq > seqID;
     }
-        
+
+    private class TargetOverlap {
+        String tName;
+        int qStart, qEnd, tStart, tEnd;
+    }
+    
+    private class QueryOverlap {
+        String qName;
+        int qStart, qEnd, tStart, tEnd;
+    }
+    
     private class Overlap {
         String qName, tName;
         int qStart, qEnd, tStart, tEnd;
@@ -1793,6 +1826,26 @@ public class Layout {
         o.tStart = r.tStart;
         o.tEnd = r.tEnd;
         o.reverseComplemented = r.reverseComplemented;
+        return o;
+    }
+    
+    private QueryOverlap pafToQueryOverlap(PafRecord r) {
+        QueryOverlap o = new QueryOverlap();
+        o.qName = r.qName;
+        o.qStart = r.qStart;
+        o.qEnd = r.qEnd;
+        o.tStart = r.tStart;
+        o.tEnd = r.tEnd;
+        return o;
+    }
+    
+    private TargetOverlap pafToTargetOverlap(PafRecord r) {
+        TargetOverlap o = new TargetOverlap();
+        o.tName = r.tName;
+        o.qStart = r.qStart;
+        o.qEnd = r.qEnd;
+        o.tStart = r.tStart;
+        o.tEnd = r.tEnd;
         return o;
     }
     
