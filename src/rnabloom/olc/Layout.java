@@ -627,6 +627,21 @@ public class Layout {
         return min;
     }
     
+    private int getHistogramBinSize(int length) {
+        if (length <= 250) {
+            return Math.min(25, minOverlapMatches);
+        }
+        else if (length <= 500) {
+            return Math.min(50, minOverlapMatches);
+        }
+        else if (length <= 1000) {
+            return Math.min(100, minOverlapMatches);
+        }
+        else {
+            return Math.min(200, minOverlapMatches);
+        }
+    }
+    
     private class Histogram {
         int length, minStart, maxEnd = -1;
         short[] bars = null;
@@ -1200,8 +1215,7 @@ public class Layout {
         //HashMap<String, String> longestAlts = new HashMap<>(); // read id : longest read id
         Set<String> contained = Collections.synchronizedSet(new HashSet<>());
         HashMap<String, Histogram> histogramMap = new HashMap<>(100000);
-        final int histBinSize = 50;
-        final int minSegmentLength = Math.max(histBinSize, minOverlapMatches);
+        final int minSegmentLength = minOverlapMatches;
         
         PafReader reader = new PafReader(overlapPafInputStream);
         final boolean checkNumAltReads = minNumAltReads > 0;
@@ -1210,6 +1224,7 @@ public class Layout {
         ArrayDeque<TargetOverlap> currRecords = new ArrayDeque<>();
         String currName = null;
         Histogram currHist = null;
+        int currHistBinSize = -1;
         
         for (PafRecord r = new PafRecord(); reader.hasNext();) {
             ++numRecords;
@@ -1238,22 +1253,24 @@ public class Layout {
                     currName = r.qName; 
                     
                     currHist = histogramMap.get(currName);
+                    currHistBinSize = getHistogramBinSize(r.qLen);
                     if (currHist == null) {
-                        currHist = new Histogram(r.qLen, r.qStart, r.qEnd, histBinSize);
+                        currHist = new Histogram(r.qLen, r.qStart, r.qEnd, currHistBinSize);
                         histogramMap.put(currName, currHist);
                     }
                     currHist.seenAsQuery = true;
                 }
                 
-                updateHistogram(currHist, r.qStart, r.qEnd, histBinSize);
+                updateHistogram(currHist, r.qStart, r.qEnd, currHistBinSize);
 
                 Histogram tHist = histogramMap.get(r.tName);
+                int tHistBinSize = getHistogramBinSize(r.tLen);
                 if (tHist == null) {
-                    tHist = new Histogram(r.tLen, r.tStart, r.tEnd, histBinSize);
+                    tHist = new Histogram(r.tLen, r.tStart, r.tEnd, tHistBinSize);
                     histogramMap.put(r.tName, tHist);
                 }
                 
-                updateHistogram(tHist, r.tStart, r.tEnd, histBinSize);
+                updateHistogram(tHist, r.tStart, r.tEnd, tHistBinSize);
                 
                 if (tHist.seenAsQuery || isFullyCovered(tHist)) {
                     currRecords.add(pafToTargetOverlap(r));
@@ -1305,7 +1322,7 @@ public class Layout {
                     if (readsWithOverlap.contains(seqName)) {
                         Histogram hist = histogramMap.get(seqName);
                         if (hist != null) {
-                            ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, histBinSize, minNumAltReads, minSegmentLength);
+                            ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, getHistogramBinSize(hist.length), minNumAltReads, minSegmentLength);
                             if (!spans.isEmpty()) {
                                 ++seqID;
                                 int seqLen = record.seq.length();
