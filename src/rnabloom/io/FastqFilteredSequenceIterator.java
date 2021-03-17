@@ -16,7 +16,7 @@ import static rnabloom.util.SeqUtils.reverseComplement;
 
 /**
  *
- * @author gengar
+ * @author Ka Ming Nip
  */
 public class FastqFilteredSequenceIterator {
     private final Pattern seqPattern;

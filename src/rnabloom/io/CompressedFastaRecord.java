@@ -9,7 +9,7 @@ import rnabloom.util.BitSequence;
 
 /**
  *
- * @author gengar
+ * @author Ka Ming Nip
  */
 public class CompressedFastaRecord {
     public String name;

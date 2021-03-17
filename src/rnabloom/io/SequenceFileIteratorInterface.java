@@ -9,7 +9,7 @@ import java.io.IOException;
 
 /**
  *
- * @author gengar
+ * @author Ka Ming Nip
  */
 public interface SequenceFileIteratorInterface {
     public String next() throws IOException;

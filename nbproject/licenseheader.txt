@@ -2,7 +2,7 @@
 ${licenseFirst}
 </#if>
 ${licensePrefix}RNA-Bloom
-${licensePrefix}Copyright 2018 BC Cancer, Genome Sciences Centre
+${licensePrefix}Copyright 2018-present BC Cancer, Genome Sciences Centre
 <#if licenseLast??>
 ${licenseLast}
 </#if>

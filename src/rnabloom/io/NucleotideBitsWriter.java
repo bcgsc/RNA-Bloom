@@ -12,7 +12,7 @@ import static rnabloom.util.SeqBitsUtils.seqToBitsParallelized;
 
 /**
  *
- * @author kmnip
+ * @author Ka Ming Nip
  */
 public class NucleotideBitsWriter {
     private final FileOutputStream out;

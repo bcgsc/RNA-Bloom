@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018 BC Cancer Genome Sciences Centre
+ * Copyright (C) 2018-present BC Cancer Genome Sciences Centre
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ import java.io.IOException;
 
 /**
  *
- * @author kmnip
+ * @author Ka Ming Nip
  */
 public class NTCardHistogram {
     public static final int MAX_MULTIPLICITY = 65535;

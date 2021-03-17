@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018 BC Cancer Genome Sciences Centre
+ * Copyright (C) 2018-present BC Cancer Genome Sciences Centre
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ import static rnabloom.io.Constants.GZIP_EXTENSION;
 
 /**
  *
- * @author kmnip
+ * @author Ka Ming Nip
  */
 public class PafReader {
     private final Iterator<String> itr;

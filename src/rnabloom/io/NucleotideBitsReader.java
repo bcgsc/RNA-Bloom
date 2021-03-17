@@ -17,7 +17,7 @@ import static rnabloom.util.SeqBitsUtils.fourBytesToInt;
 
 /**
  *
- * @author kmnip
+ * @author Ka Ming Nip
  */
 public class NucleotideBitsReader implements SequenceFileIteratorInterface {
     private final FileInputStream fin;

@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018 BC Cancer Genome Sciences Centre
+ * Copyright (C) 2018-present BC Cancer Genome Sciences Centre
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 
 /**
  *
- * @author gengar
+ * @author Ka Ming Nip
  */
 public class FastxPairSequenceIterator {
     private final FastxFilePair[] fastxPairs;

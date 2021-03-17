@@ -7,7 +7,7 @@ package rnabloom.olc;
 
 /**
  *
- * @author gengar
+ * @author Ka Ming Nip
  */
 public class ComparableInterval extends Interval implements Comparable<Interval> {
     public ComparableInterval(int start, int end) {

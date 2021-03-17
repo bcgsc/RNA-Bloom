@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018 BC Cancer Genome Sciences Centre
+ * Copyright (C) 2018-present BC Cancer Genome Sciences Centre
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.jgrapht.Graph;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.TransitiveReduction;
@@ -58,7 +57,7 @@ import rnabloom.util.Timer;
 
 /**
  *
- * @author kmnip
+ * @author Ka Ming Nip
  */
 public class Layout {
     

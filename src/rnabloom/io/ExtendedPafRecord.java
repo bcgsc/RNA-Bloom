@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 
 /**
  *
- * @author kmnip
+ * @author Ka Ming Nip
  */
 public class ExtendedPafRecord extends PafRecord {
     public String cigar = null; // CIGAR string, eg. "129M" in "cg:Z:129M"
