@@ -30,8 +30,6 @@ import rnabloom.bloom.buffer.LargeByteBuffer;
 import static java.lang.Math.exp;
 import static java.lang.Math.log;
 import static java.lang.Math.pow;
-import static java.lang.Math.random;
-import static java.lang.Math.scalb;
 import rnabloom.bloom.buffer.BufferComparator;
 import rnabloom.bloom.hash.HashFunction;
 
@@ -45,10 +43,6 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     protected long size;
     protected HashFunction hashFunction;
     protected long popcount = -1;
-        
-    private static final byte MANTISSA = 3;
-    private static final byte MANTI_MASK = 0xFF >> (8 - MANTISSA);
-    private static final byte ADD_MASK = 0x80 >> (7 - MANTISSA);
     
     public CountingBloomFilter(long size, int numHash, HashFunction hashFunction) {
         this.size = size;
@@ -144,11 +138,10 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         }
         
         // increment the smallest count
-        if (min <= MANTI_MASK ||
-                (min < Byte.MAX_VALUE &&
-                (int) (random() * Integer.MAX_VALUE) % (1 << ((min >> MANTISSA) - 1)) == 0)) {
-            byte updated = (byte) (min + 1);
-            
+        
+        byte updated = MiniFloat.increment(min);
+        
+        if (updated != min) {
             // update min count only
             for (h=0; h<numHash; ++h) {
                 counts.compareAndSwap(getIndex(hashVals[h]), min, updated);
@@ -182,11 +175,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         }
         
         // return the float value
-        if (min <= MANTI_MASK) {
-            return (float) min;
-        }
-        
-        return scalb((min & MANTI_MASK) | ADD_MASK, (min >> MANTISSA) - 1);
+        return MiniFloat.toFloat(min);
     }
 
     @Override
