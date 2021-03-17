@@ -39,6 +39,7 @@ import org.jgrapht.alg.TransitiveReduction;
 import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
+import rnabloom.util.MiniFloat;
 import rnabloom.io.CompressedFastaRecord;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
@@ -645,7 +646,7 @@ public class Layout {
     
     private class Histogram {
         int length, minStart, maxEnd = -1;
-        short[] bars = null;
+        byte[] bars = null;
         ArrayDeque<QueryOverlap> pendingQueries = null;
         boolean seenAsQuery = false;
         
@@ -653,12 +654,16 @@ public class Layout {
             this.length = length;
             this.minStart = minStart;
             this.maxEnd = maxEnd;
-            this.bars = initHistogram(length, binSize);
+            this.bars = initByteHistogram(length, binSize);
         }
         
     }
     
-    private static short[] initHistogram(int origLength, int binSize) {
+    private static byte[] initByteHistogram(int origLength, int binSize) {
+        return new byte[(int)Math.ceil((float)origLength/(float)binSize)];
+    }
+
+    private static short[] initShortHistogram(int origLength, int binSize) {
         return new short[(int)Math.ceil((float)origLength/(float)binSize)];
     }
     
@@ -714,6 +719,13 @@ public class Layout {
             if (c < Short.MAX_VALUE) {
                 hist[i] = (short) (c + 1);
             }
+        }
+    }
+
+    private static void updateHistogram(byte[] hist, int start, int end) {
+        short c;
+        for (int i=start; i<end; ++i) {
+            hist[i] = MiniFloat.increment(hist[i]);
         }
     }
     
@@ -781,6 +793,39 @@ public class Layout {
         int start = -1;
         for (int i=0; i<histLength; ++i) {
             int c = hist[i];
+            if (c >= minCoverage) {
+                if (start < 0) {
+                    start = i;
+                }
+            }
+            else {
+                if (start >= 0) {
+                    if (minHistIntervalLength <= i - start) {
+                        effIntervals.add(new Interval(start*binSize, i*binSize));
+                    }
+                    start = -1;
+                }
+            }
+        }
+
+        // extract last interval
+        if (start >= 0 && minHistIntervalLength <= histLength - start) {
+            // histLength*binSize can be > actual sequence length
+            effIntervals.add(new Interval(start*binSize, histLength*binSize));
+        }
+        
+        return effIntervals;
+    }
+    
+    private static ArrayDeque<Interval> extractEffectiveIntervals(byte[] hist, int binSize, int minCoverage, int minIntervalLength) {
+        ArrayDeque<Interval> effIntervals = new ArrayDeque<>();
+        int minHistIntervalLength = (int) Math.floor((float)minIntervalLength/(float)binSize);
+        int histLength = hist.length;
+        
+        // extract effective intervals
+        int start = -1;
+        for (int i=0; i<histLength; ++i) {
+            float c = MiniFloat.toFloat(hist[i]);
             if (c >= minCoverage) {
                 if (start < 0) {
                     start = i;
@@ -1402,14 +1447,14 @@ public class Layout {
                 if (checkNumAltReads) {
                     short[] hist = readHistogramMap.get(r.qName);
                     if (hist == null) {
-                        hist = initHistogram(r.qLen, histBinSize);
+                        hist = initShortHistogram(r.qLen, histBinSize);
                         readHistogramMap.put(r.qName, hist);
                     }
                     updateHistogram(hist, histBinSize, r.qLen, r.qStart, r.qEnd);
                     
                     hist = readHistogramMap.get(r.tName);
                     if (hist == null) {
-                        hist = initHistogram(r.tLen, histBinSize);
+                        hist = initShortHistogram(r.tLen, histBinSize);
                         readHistogramMap.put(r.tName, hist);
                     }
                     updateHistogram(hist, histBinSize, r.tLen, r.tStart, r.tEnd);
