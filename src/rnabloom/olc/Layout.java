@@ -1239,14 +1239,19 @@ public class Layout {
             String c = getContained(r, qName, qHist.minStart, qHist.maxEnd, qHist.length,
                     r.tName, tHist.minStart, tHist.maxEnd, tHist.length);
             if (c != null) {
-                contained.add(c);
-                
-                // histogram of contained sequence is not needed anymore
                 if (c.equals(r.tName)) {
-                    tHist.bars = null;
+                    // designate as "contained" only if the other is unique, i.e. not "contained"
+                    if (!contained.contains(qName)) {
+                        contained.add(c);
+                        // histogram of "contained" becomes irrelevant as it will not be evaluated
+                        tHist.bars = null;
+                    }
                 }
                 else {
-                    qHist.bars = null;
+                    if (!contained.contains(r.tName)) {
+                        contained.add(c);
+                        qHist.bars = null;
+                    }
                 }
             }
         });
@@ -1259,14 +1264,19 @@ public class Layout {
             String c = getContained(r, r.qName, qHist.minStart, qHist.maxEnd, qHist.length,
                     tName, tHist.minStart, tHist.maxEnd, tHist.length);
             if (c != null) {
-                contained.add(c);
-                
-                // histogram of contained sequence is not needed anymore
                 if (c.equals(r.qName)) {
-                    qHist.bars = null;
+                    // designate as "contained" only if the other is unique, i.e. not "contained"
+                    if (!contained.contains(tName)) {
+                        contained.add(c);
+                        // histogram of "contained" becomes irrelevant as it will not be evaluated
+                        qHist.bars = null;
+                    }
                 }
                 else {
-                    tHist.bars = null;
+                    if (!contained.contains(r.qName)) {
+                        contained.add(c);
+                        tHist.bars = null;
+                    }
                 }
             }
         });
