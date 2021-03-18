@@ -3285,7 +3285,8 @@ public class RNABloom {
                         if (!correctedKmers.isEmpty()) {
                             //float cov = getMinMedianKmerCoverage(correctedKmers, 200);
                             float cov = getMedianKmerCoverage(correctedKmers);
-                            boolean isRepeat = isRepeatSequence(correctedKmers, k, 1f/3f) || isLowComplexity(correctedKmers, k, 1f/3f);
+                            //boolean isRepeat = isRepeatSequence(correctedKmers, k, 1f/3f) || isLowComplexity(correctedKmers, k, 1f/3f);
+                            boolean isRepeat = isLowComplexity(correctedKmers, k, 1f/3f);
                             
                             seq = graph.assemble(correctedKmers);
                             
@@ -3482,7 +3483,6 @@ public class RNABloom {
                                                 FastaWriter longSeqWriter,
                                                 FastaWriter shortSeqWriter,
                                                 FastaWriter repeatsSeqWriter,
-                                                int minOverlap,
                                                 int minKmerCov,
                                                 int maxErrCorrItr,
                                                 int numThreads,
@@ -3492,7 +3492,7 @@ public class RNABloom {
                                                 boolean trimArtifact,
                                                 boolean writeUracil) throws InterruptedException, IOException, Exception {
 
-        int minNumSolidKmers = Math.max(0, (int) Math.floor(minOverlap * percentIdentity) - k + 1);
+        int minNumSolidKmers = Math.max(0, (int) Math.floor(minSeqLen * percentIdentity * percentIdentity) - k + 1);
         long numReads = 0;
         ArrayBlockingQueue<Sequence> outputQueue = new ArrayBlockingQueue<>(maxSampleSize);
                 
@@ -4539,7 +4539,7 @@ public class RNABloom {
     
     private static long correctLongReads(RNABloom assembler, 
             String[] inFastxList, String outLongFasta, String outShortFasta, String outRepeatsFasta,
-            int maxErrCorrItr, int minOverlap, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, 
+            int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, 
             boolean reverseComplement, boolean trimArtifact, boolean writeUracil) throws InterruptedException, IOException, Exception {
         
         FastaWriter longWriter = new FastaWriter(outLongFasta, false);
@@ -4548,7 +4548,6 @@ public class RNABloom {
 
         long numCorrected = assembler.correctLongReadsMultithreaded(inFastxList,
                                                 longWriter, shortWriter, repeatsWriter,
-                                                minOverlap,
                                                 minKmerCov,
                                                 maxErrCorrItr,
                                                 numThreads,
@@ -6441,7 +6440,7 @@ public class RNABloom {
                 else {
                     numCorrectedReads = correctLongReads(assembler, 
                             longReadPaths, longCorrectedReadsPath, shortCorrectedReadsPath, repeatReadsFileName,
-                            maxErrCorrItr, minOverlap, minKmerCov, numThreads, sampleSize, minTranscriptLength,
+                            maxErrCorrItr, minKmerCov, numThreads, sampleSize, minOverlap,
                             revCompLong, !keepArtifact, writeUracil);
                     
                     saveStringToFile(numCorrectedReadsPath, Long.toString(numCorrectedReads));
