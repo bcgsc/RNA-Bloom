@@ -362,7 +362,7 @@ public class OverlapLayoutConsensus {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
-        command.add(RACON + extraOptions + " -t " + numThreads + " " + queryFastaPath + " " + mappingPafPath + " " + targetFastaPath + " > " + consensusFastaPath);
+        command.add(RACON + extraOptions + " -f -t " + numThreads + " " + queryFastaPath + " " + mappingPafPath + " " + targetFastaPath + " > " + consensusFastaPath);
         //--no-trimming -u
         return runCommand(command, consensusFastaPath + LOG_EXTENSION);
     }
@@ -576,7 +576,7 @@ public class OverlapLayoutConsensus {
         
         // derive concensus for unique reads
         success = consensusWithRacon(readsPath, backboneFastaPath, 
-            readsToBackbonePafPath, outFastaPath, numThreads, true);
+            readsToBackbonePafPath, outFastaPath, numThreads, minSeqDepth <= 1);
         
         return success;
     }
