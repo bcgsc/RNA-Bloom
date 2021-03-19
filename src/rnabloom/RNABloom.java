@@ -5598,7 +5598,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optMinimapOptions);
 
-        final String optLongReadOverlapProportionDefault = "0.45";
+        final String optLongReadOverlapProportionDefault = "0.40";
         Option optLongReadOverlapProportion = Option.builder("lrop")
                                     .desc("minimum proportion of matching bases within long-read overlaps [" + optLongReadOverlapProportionDefault + "]")
                                     .hasArg(true)
