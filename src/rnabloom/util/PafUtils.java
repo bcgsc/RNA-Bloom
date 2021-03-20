@@ -87,6 +87,33 @@ public class PafUtils {
         return false;
     }
     
+    public static enum CONTAIN_STATUS {QUERY, TARGET, NEITHER};
+    
+    public static CONTAIN_STATUS getContained(PafRecord r, int maxEdgeClip) {
+        
+        boolean qContained = r.qStart <= maxEdgeClip && r.qLen - r.qEnd <= maxEdgeClip;
+        boolean tContained = r.tStart <= maxEdgeClip && r.tLen - r.tEnd <= maxEdgeClip;
+        
+        if (qContained && tContained) {
+            int qLeftOver = r.qStart + (r.qLen - r.qEnd);
+            int tLeftOver = r.tStart + (r.tLen - r.tEnd);
+            if (qLeftOver < tLeftOver) {
+                return CONTAIN_STATUS.QUERY;
+            }
+            else {
+                return CONTAIN_STATUS.TARGET;
+            }
+        }
+        else if (qContained) {
+            return CONTAIN_STATUS.QUERY;
+        }
+        else if (tContained) {
+            return CONTAIN_STATUS.TARGET;
+        }
+        
+        return CONTAIN_STATUS.NEITHER;
+    }
+    
     public static boolean isContainmentPafRecord(PafRecord r, int maxEdgeClip) {
         return ((r.qStart <= maxEdgeClip && r.qLen - r.qEnd <= maxEdgeClip) ||
             (r.tStart <= maxEdgeClip && r.tLen - r.tEnd <= maxEdgeClip));
