@@ -47,6 +47,7 @@ import rnabloom.io.FastaRecord;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
+import rnabloom.util.BitSequence;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.PafUtils.*;
 import static rnabloom.util.SeqUtils.stringToBytes;
@@ -412,30 +413,30 @@ public class Layout {
         }
     }
     
-    private String assemblePath(ArrayDeque<String> path, HashMap<String, byte[]> sequences) {
+    private String assemblePath(ArrayDeque<String> path, HashMap<String, BitSequence> sequences) {
         StringBuilder sb = new StringBuilder();
         
         Iterator<String> itr = path.iterator();
         String vid = itr.next();
         
         boolean reverseComplement = isVertexSignReverseComplement(vid);
-        byte[] bytes = sequences.get(getVertexName(vid));
+        BitSequence bitseq = sequences.get(getVertexName(vid));
         int start = 0;
-        int end = bytes.length;
+        int end = bitseq.length;
         
         while (itr.hasNext()) {
             String vid2 = itr.next();
             
             OverlapEdge edge = graph.getEdge(vid, vid2);
             if (reverseComplement) {
-                sb.append(reverseComplement(bytes, edge.sourceEnd, end));
+                sb.append(bitseq.subStringRevComp(edge.sourceEnd, end));
             }
             else {
-                sb.append(bytesToString(bytes, start, edge.sourceStart));
+                sb.append(bitseq.subString(start, edge.sourceStart));
             }
             
             vid = vid2;
-            bytes = sequences.get(getVertexName(vid));
+            bitseq = sequences.get(getVertexName(vid));
             reverseComplement = isVertexSignReverseComplement(vid);
             
             if (reverseComplement) {
@@ -444,15 +445,15 @@ public class Layout {
             }
             else {
                 start = edge.sinkStart;
-                end = bytes.length;
+                end = bitseq.length;
             }
         }
         
         if (reverseComplement) {
-            sb.append(reverseComplement(bytes, start, end));
+            sb.append(bitseq.subStringRevComp(start, end));
         }
         else {
-            sb.append(bytesToString(bytes, start, end));
+            sb.append(bitseq.subString(start, end));
         }
         
         return sb.toString();
@@ -1685,10 +1686,7 @@ public class Layout {
         for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
             reader.next(r);            
             if (!r.qName.equals(r.tName)) {
-                if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
-                    lengths.put(r.qName, r.qLen);
-                    lengths.put(r.tName, r.tLen);
-                    
+                if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
                     CONTAIN_STATUS c = getContained(r);
                     switch (c) {
                         case QUERY:
@@ -1705,6 +1703,8 @@ public class Layout {
                             if (!containedSet.contains(r.qName) &&
                                 !containedSet.contains(r.tName) &&
                                 isDovetailPafRecord(r)) {
+                                lengths.put(r.qName, r.qLen);
+                                lengths.put(r.tName, r.tLen);
                                 dovetailRecords.add(pafToStrandedOverlap(r));
                             }
                             break;
@@ -1713,7 +1713,6 @@ public class Layout {
             }
         }
         reader.close();
-        System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
         
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(2*dovetailRecords.size());
@@ -1754,8 +1753,12 @@ public class Layout {
             }
         }
         
+        if (!containedSet.isEmpty()) {
+            System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
+        }
+        
         if (!dovetailReadNames.isEmpty()) {
-            System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
         }
         
         int numEdges = graph.edgeSet().size();
@@ -1776,7 +1779,7 @@ public class Layout {
         }
         
         // extract longest read sequences
-        HashMap<String, byte[]> dovetailReadSeqs = new HashMap<>(lengths.size() - containedSet.size());
+        HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(dovetailReadNames.size());
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
         long seqID = 0;
@@ -1786,7 +1789,7 @@ public class Layout {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
             if (dovetailReadNames.contains(name)) {
-                dovetailReadSeqs.put(name, stringToBytes(nameSeq[1], lengths.get(name)));
+                dovetailReadSeqs.put(name, new BitSequence(nameSeq[1]));
             }
             else if (!containedSet.contains(name)) {
                 // this sequence either contains shorter sequences or it has no overlaps with others
@@ -1903,10 +1906,7 @@ public class Layout {
         for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
             reader.next(r);            
             if (!r.reverseComplemented && !r.qName.equals(r.tName)) {
-                if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
-                    lengths.put(r.qName, r.qLen);
-                    lengths.put(r.tName, r.tLen);
-                    
+                if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
                     CONTAIN_STATUS c = getContained(r);
                     switch (c) {
                         case QUERY:
@@ -1923,6 +1923,8 @@ public class Layout {
                             if (!containedSet.contains(r.qName) &&
                                 !containedSet.contains(r.tName) &&
                                 isDovetailPafRecord(r)) {
+                                lengths.put(r.qName, r.qLen);
+                                lengths.put(r.tName, r.tLen);
                                 dovetailRecords.add(pafToOverlap(r));
                             }
                             break;
@@ -1931,8 +1933,6 @@ public class Layout {
             }
         }
         reader.close();
-
-        System.out.println("Overlapped sequences: " + NumberFormat.getInstance().format(lengths.size()));
                 
         // construct overlap graph
         HashSet<String> dovetailReadNames = new HashSet<>(2*dovetailRecords.size());
@@ -1957,8 +1957,12 @@ public class Layout {
             }
         }
         
+        if (!containedSet.isEmpty()) {
+            System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
+        }
+        
         if (!dovetailReadNames.isEmpty()) {
-            System.out.println("         - dovetail:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
         }
         
         int numEdges = graph.edgeSet().size();
@@ -1979,7 +1983,7 @@ public class Layout {
         }
         
         // extract longest read sequences
-        HashMap<String, byte[]> dovetailReadSeqs = new HashMap<>(dovetailReadNames.size());
+        HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(dovetailReadNames.size());
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
         long seqID = 0;
@@ -1990,7 +1994,7 @@ public class Layout {
             String name = nameSeq[0];
             if (dovetailReadNames.contains(name)) {
                 String seq = nameSeq[1];
-                dovetailReadSeqs.put(name, stringToBytes(seq, seq.length()));
+                dovetailReadSeqs.put(name, new BitSequence(seq));
             }
             else if (!containedSet.contains(name)) {
                 // this sequence either contains shorter sequences or it has no overlaps with others

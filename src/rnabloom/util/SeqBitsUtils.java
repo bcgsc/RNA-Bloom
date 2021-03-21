@@ -27,6 +27,7 @@ import java.util.stream.IntStream;
 public class SeqBitsUtils {
     private static final byte[][][][] BYTE_LOOKUP_TABLE = getByteLookupTable();
     private static final String[] TETRAMER_LOOKUP_TABLE = getTetramerLookupTable();
+    private static final byte[] REVERSE_COMPLEMENT_BYTES = getRevCompBytes();
     
     private static byte[][][][] getByteLookupTable() {
         byte[][][][] lookupTable = new byte[4][4][4][4];
@@ -45,6 +46,37 @@ public class SeqBitsUtils {
                         b |= b1;
                         b |= b0;
                         lookupTable[h][i][j][k] = b;
+                    }
+                }
+            }
+        }
+        return lookupTable;
+    }
+    
+    private static byte[] getRevCompBytes() {
+        byte[] lookupTable = new byte[256];
+        for (int h=0; h<4; ++h) {
+            // XX 00 00 00
+            byte b0 = (byte) (h << 6);
+            byte b0RC = (byte) (3-h);
+            for (int i=0; i<4; ++i) {
+                // 00 XX 00 00
+                byte b1 = (byte) (i << 4);
+                byte b1RC = (byte) ((3-i) << 2);
+                for (int j=0; j<4; ++j) {
+                    // 00 00 XX 00
+                    byte b2 = (byte) (j << 2);
+                    byte b2RC = (byte) ((3-j) << 4);
+                    for (int k=0; k<4; ++k) {
+                        byte b = (byte) k;
+                        b |= b2;
+                        b |= b1;
+                        b |= b0;
+                        byte bRC = (byte) ((3-k) << 6);
+                        bRC |= b0RC;
+                        bRC |= b1RC;
+                        bRC |= b2RC;
+                        lookupTable[b + 128] = bRC;
                     }
                 }
             }
@@ -115,6 +147,14 @@ public class SeqBitsUtils {
             }
         }
         return lookupTable;
+    }
+    
+    public static String getTetramer(byte b) {
+        return TETRAMER_LOOKUP_TABLE[b + 128];
+    }
+    
+    public static byte reverseComplement(byte b) {
+        return REVERSE_COMPLEMENT_BYTES[b + 128];
     }
     
     public static int seqLenToNumBytes(int seqLen) {
@@ -188,13 +228,77 @@ public class SeqBitsUtils {
         
         StringBuilder sb = new StringBuilder(seqLen);
         for (int i=0; i<numFullBytes; ++i) {
-            sb.append(TETRAMER_LOOKUP_TABLE[bytes[i] + 128]);
+            sb.append(getTetramer(bytes[i]));
         }
         
         if (numExtraBases > 0) {
-            sb.append(TETRAMER_LOOKUP_TABLE[bytes[numFullBytes] + 128].substring(0, numExtraBases));
+            sb.append(getTetramer(bytes[numFullBytes]).substring(0, numExtraBases));
         }
         
+        return sb.toString();
+    }
+    
+    public static String bitsToSeq(byte[] bytes, int seqLen, int seqStart, int seqEnd) {
+        int numFullBytes = seqLen / 4;
+        int numExtraBases = seqLen % 4;
+        
+        int startIndex = seqStart / 4;
+        int startExtraBases = seqStart % 4;
+
+        int endIndex = seqEnd / 4;
+        int endExtraBases = seqEnd % 4;
+        if (endIndex == numFullBytes) {
+            endExtraBases = Math.min(endExtraBases, numExtraBases);
+        }
+
+        StringBuilder sb = new StringBuilder(seqEnd - seqStart);
+        if (startExtraBases == 0) {
+            sb.append(getTetramer(bytes[startIndex]));
+        }
+        else {
+            sb.append(getTetramer(bytes[startIndex]).substring(startExtraBases));
+        }
+        
+        for (int i=startIndex+1; i<endIndex; ++i) {
+            sb.append(getTetramer(bytes[i]));
+        }
+        
+        if (endExtraBases > 0) {
+            sb.append(getTetramer(bytes[endIndex]).substring(0, endExtraBases));
+        }
+        
+        return sb.toString();
+    }
+    
+    public static String bitsToRevCompSeq(byte[] bytes, int seqLen, int seqStart, int seqEnd) {
+        int numFullBytes = seqLen / 4;
+        int numExtraBases = seqLen % 4;
+        
+        int startIndex = seqStart / 4;
+        int startExtraBases = seqStart % 4;
+
+        int endIndex = seqEnd / 4;
+        int endExtraBases = seqEnd % 4;
+        if (endIndex == numFullBytes) {
+            endExtraBases = Math.min(endExtraBases, numExtraBases);
+        }
+
+        StringBuilder sb = new StringBuilder(seqEnd - seqStart);
+        if (endExtraBases > 0) {
+            sb.append(getTetramer(reverseComplement(bytes[endIndex])).substring(4-endExtraBases));
+        }
+
+        for (int i=endIndex-1; i>startIndex; --i) {
+            sb.append(getTetramer(reverseComplement(bytes[i])));
+        }
+        
+        if (startExtraBases == 0) {
+            sb.append(getTetramer(reverseComplement(bytes[startIndex])));
+        }
+        else {
+            sb.append(getTetramer(reverseComplement(bytes[startIndex])).substring(0, 4-startExtraBases));
+        }
+                
         return sb.toString();
     }
     

@@ -6,6 +6,7 @@
 package rnabloom.util;
 
 import java.util.Arrays;
+import static rnabloom.util.SeqBitsUtils.bitsToRevCompSeq;
 import static rnabloom.util.SeqBitsUtils.bitsToSeq;
 import static rnabloom.util.SeqBitsUtils.seqToBits;
 import static rnabloom.util.SeqBitsUtils.seqToBitsParallelized;
@@ -15,8 +16,8 @@ import static rnabloom.util.SeqBitsUtils.seqToBitsParallelized;
  * @author Ka Ming Nip
  */
 public class BitSequence implements Comparable<Object> {
-    int length;
-    byte[] bits;
+    public int length;
+    private byte[] bits;
 
     public BitSequence(String seq) {
         this.length = seq.length();
@@ -26,6 +27,14 @@ public class BitSequence implements Comparable<Object> {
     @Override
     public String toString() {
         return bitsToSeq(this.bits, this.length);
+    }
+    
+    public String subString(int start, int end) {
+        return bitsToSeq(this.bits, this.length, start, end);
+    }
+
+    public String subStringRevComp(int start, int end) {
+        return bitsToRevCompSeq(this.bits, this.length, start, end);
     }
     
     public boolean equals(BitSequence other) {
