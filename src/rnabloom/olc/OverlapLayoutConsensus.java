@@ -576,7 +576,7 @@ public class OverlapLayoutConsensus {
         
         // derive concensus for unique reads
         success = consensusWithRacon(readsPath, backboneFastaPath, 
-            readsToBackbonePafPath, outFastaPath, numThreads, minSeqDepth <= 1);
+            readsToBackbonePafPath, outFastaPath, numThreads, true /*minSeqDepth <= 1*/);
         
         return success;
     }
