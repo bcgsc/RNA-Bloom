@@ -1676,11 +1676,74 @@ public class Layout {
         records.clear();
     }
     
+    private void removeVertex(String name) {
+        removeVertexStranded(name + '+');
+        removeVertexStranded(name + '-');
+    }
+    
+    private void removeVertexStranded(String strandedName) {
+        if (graph.containsVertex(strandedName)) {
+            graph.removeAllEdges(graph.edgesOf(strandedName));
+            graph.removeVertex(strandedName);
+        }
+    }
+    
+    private void addVertex(String name) {
+        addVertexStranded(name + '+');
+        addVertexStranded(name + '-');
+    }
+    
+    private void addVertexStranded(String strandedName) {
+        if (!graph.containsVertex(strandedName)) {
+            graph.addVertex(strandedName);
+        }
+    }
+    
+    private void addEdges(PafRecord r) {
+        if (r.reverseComplemented) {
+            if (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip) {
+                addVertex(r.qName);
+                addVertex(r.tName);
+                graph.addEdge(r.tName+"+", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+                graph.addEdge(r.qName+"+", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+            }
+            else if (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip) {
+                addVertex(r.qName);
+                addVertex(r.tName);
+                graph.addEdge(r.qName+"-", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+                graph.addEdge(r.tName+"-", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+            }
+        }
+        else {
+            if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
+                addVertex(r.qName);
+                addVertex(r.tName);
+                graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+                graph.addEdge(r.tName+"-", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+            }
+            else if (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip) {
+                addVertex(r.qName);
+                addVertex(r.tName);
+                graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+                graph.addEdge(r.qName+"-", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+            }
+        }
+    }
+    
+    private void addForwardEdges(PafRecord r) {
+        if (!r.reverseComplemented) {
+            if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
+                graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+            }
+            else if (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip) {
+                graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+            }
+        }
+    }
+    
     private boolean layoutBackbones(String outFastaPath) throws IOException {
-        HashMap<String, Integer> lengths = new HashMap<>(); // read id : length
         HashSet<String> containedSet = new HashSet<>();
-        ArrayDeque<StrandedOverlap> dovetailRecords = new ArrayDeque<>();
-               
+        
         // look for containment and dovetails
         PafReader reader = new PafReader(overlapPafInputStream);        
         for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
@@ -1692,20 +1755,19 @@ public class Layout {
                         case QUERY:
                             if (!containedSet.contains(r.tName)) {
                                 containedSet.add(r.qName);
+                                removeVertex(r.qName);
                             }
                             break;
                         case TARGET:
                             if (!containedSet.contains(r.qName)) {
                                 containedSet.add(r.tName);
+                                removeVertex(r.tName);
                             }
                             break;
                         case NEITHER:
                             if (!containedSet.contains(r.qName) &&
-                                !containedSet.contains(r.tName) &&
-                                isDovetailPafRecord(r)) {
-                                lengths.put(r.qName, r.qLen);
-                                lengths.put(r.tName, r.tLen);
-                                dovetailRecords.add(pafToStrandedOverlap(r));
+                                !containedSet.contains(r.tName)) {
+                                addEdges(r);
                             }
                             break;
                     }
@@ -1714,51 +1776,17 @@ public class Layout {
         }
         reader.close();
         
-        // construct overlap graph
-        HashSet<String> dovetailReadNames = new HashSet<>(2*dovetailRecords.size());
-        for (StrandedOverlap r : dovetailRecords) {                
-            if (!containedSet.contains(r.qName) && !containedSet.contains(r.tName)) {
-                if (!dovetailReadNames.contains(r.qName)) {
-                    graph.addVertex(r.qName + "+");
-                    graph.addVertex(r.qName + "-");
-                    dovetailReadNames.add(r.qName);
-                }
-                
-                if (!dovetailReadNames.contains(r.tName)) {
-                    graph.addVertex(r.tName + "+");
-                    graph.addVertex(r.tName + "-");
-                    dovetailReadNames.add(r.tName);
-                }
-                                
-                if (r.reverseComplemented) {
-                    if (r.qEnd >= lengths.get(r.qName) - maxEdgeClip && r.tEnd >= lengths.get(r.tName) - maxEdgeClip) {
-                        graph.addEdge(r.tName+"+", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
-                        graph.addEdge(r.qName+"+", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
-                    }
-                    else if (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip) {
-                        graph.addEdge(r.qName+"-", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
-                        graph.addEdge(r.tName+"-", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
-                    }
-                }
-                else {
-                    if (r.qEnd >= lengths.get(r.qName) - maxEdgeClip && r.tStart <= maxEdgeClip) {
-                        graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
-                        graph.addEdge(r.tName+"-", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
-                    }
-                    else if (r.tEnd >= lengths.get(r.tName) - maxEdgeClip && r.qStart <= maxEdgeClip) {
-                        graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
-                        graph.addEdge(r.qName+"-", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
-                    }
-                }
-            }
+        for (String c : containedSet) {
+            removeVertex(c);
         }
         
         if (!containedSet.isEmpty()) {
             System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
         }
         
-        if (!dovetailReadNames.isEmpty()) {
-            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+        Set<String> vertexSet = graph.vertexSet();
+        if (!vertexSet.isEmpty()) {
+            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(vertexSet.size()/2));
         }
         
         int numEdges = graph.edgeSet().size();
@@ -1778,8 +1806,8 @@ public class Layout {
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
         }
         
-        // extract longest read sequences
-        HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(dovetailReadNames.size());
+        // extract read sequences
+        HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size()/2);
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
         long seqID = 0;
@@ -1788,7 +1816,7 @@ public class Layout {
             ++originalNumSeq;
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
-            if (dovetailReadNames.contains(name)) {
+            if (vertexSet.contains(name + '+')) {
                 dovetailReadSeqs.put(name, new BitSequence(nameSeq[1]));
             }
             else if (!containedSet.contains(name)) {
@@ -1799,10 +1827,9 @@ public class Layout {
         fr.close();
         
         // layout unambiguous paths
-        HashSet<String> visitedReadNames = new HashSet<>(dovetailReadNames.size());
-        for (String n : dovetailReadNames) {
-            if (!visitedReadNames.contains(n)) {
-                n += "+";
+        HashSet<String> visitedReadNames = new HashSet<>(vertexSet.size()/2);
+        for (String n : vertexSet) {
+            if (!visitedReadNames.contains(getVertexName(n))) {
                 
                 ArrayDeque<String> path = getUnambiguousLeftExtension(n);
                 path.add(n);
@@ -1897,9 +1924,7 @@ public class Layout {
     }
     
     private boolean layoutStrandedBackbones(String outFastaPath) throws IOException {
-        HashMap<String, Integer> lengths = new HashMap<>(); // read id : length
-        HashSet<String> containedSet = new HashSet<>(); // read id : longest read id
-        ArrayDeque<Overlap> dovetailRecords = new ArrayDeque<>();
+        HashSet<String> containedSet = new HashSet<>();
         
         // look for containment and overlaps
         PafReader reader = new PafReader(overlapPafInputStream);
@@ -1912,20 +1937,19 @@ public class Layout {
                         case QUERY:
                             if (!containedSet.contains(r.tName)) {
                                 containedSet.add(r.qName);
+                                removeVertexStranded(r.qName + '+');
                             }
                             break;
                         case TARGET:
                             if (!containedSet.contains(r.qName)) {
                                 containedSet.add(r.tName);
+                                removeVertexStranded(r.tName + '+');
                             }
                             break;
                         case NEITHER:
                             if (!containedSet.contains(r.qName) &&
-                                !containedSet.contains(r.tName) &&
-                                isDovetailPafRecord(r)) {
-                                lengths.put(r.qName, r.qLen);
-                                lengths.put(r.tName, r.tLen);
-                                dovetailRecords.add(pafToOverlap(r));
+                                !containedSet.contains(r.tName)) {
+                                addForwardEdges(r);
                             }
                             break;
                     }
@@ -1934,35 +1958,18 @@ public class Layout {
         }
         reader.close();
                 
-        // construct overlap graph
-        HashSet<String> dovetailReadNames = new HashSet<>(2*dovetailRecords.size());
-        for (Overlap r : dovetailRecords) {
-            if (!containedSet.contains(r.qName) && !containedSet.contains(r.tName)) {
-                if (!dovetailReadNames.contains(r.qName)) {
-                    graph.addVertex(r.qName + "+");
-                    dovetailReadNames.add(r.qName);
-                }
 
-                if (!dovetailReadNames.contains(r.tName)) {
-                    graph.addVertex(r.tName + "+");
-                    dovetailReadNames.add(r.tName);
-                }
-
-                if (r.qEnd >= lengths.get(r.qName) - maxEdgeClip && r.tStart <= maxEdgeClip) {
-                    graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
-                }
-                else if (r.tEnd >= lengths.get(r.tName) - maxEdgeClip && r.qStart <= maxEdgeClip) {
-                    graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
-                }
-            }
+        for (String c : containedSet) {
+            removeVertexStranded(c + '+');
         }
         
         if (!containedSet.isEmpty()) {
             System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
         }
         
-        if (!dovetailReadNames.isEmpty()) {
-            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(dovetailReadNames.size()));
+        Set<String> vertexSet = graph.vertexSet();
+        if (!vertexSet.isEmpty()) {
+            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(vertexSet.size()));
         }
         
         int numEdges = graph.edgeSet().size();
@@ -1982,8 +1989,8 @@ public class Layout {
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
         }
         
-        // extract longest read sequences
-        HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(dovetailReadNames.size());
+        // extract read sequences
+        HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size());
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
         long seqID = 0;
@@ -1992,7 +1999,7 @@ public class Layout {
             ++originalNumSeq;
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
-            if (dovetailReadNames.contains(name)) {
+            if (vertexSet.contains(name + '+')) {
                 String seq = nameSeq[1];
                 dovetailReadSeqs.put(name, new BitSequence(seq));
             }
@@ -2004,11 +2011,9 @@ public class Layout {
         fr.close();
         
         // layout unambiguous paths
-        HashSet<String> visitedReadNames = new HashSet<>(dovetailReadNames.size());
-        for (String n : dovetailReadNames) {
-            if (!visitedReadNames.contains(n)) {
-                n += "+";
-                
+        HashSet<String> visitedReadNames = new HashSet<>(vertexSet.size());
+        for (String n : vertexSet) {
+            if (!visitedReadNames.contains(getVertexName(n))) {                
                 ArrayDeque<String> path = getUnambiguousLeftExtension(n);
                 path.add(n);
                 if (!graph.containsEdge(n, path.getFirst())) {
