@@ -1077,7 +1077,7 @@ public class RNABloom {
                 threads[i].start();
             }
 
-            System.out.println("Initialized " + numThreads + " worker(s).");
+            //System.out.println("Initialized " + numThreads + " worker(s).");
 
             for (Thread t : threads) {
                 t.join();
@@ -1176,33 +1176,42 @@ public class RNABloom {
         }
         
         long numReads = 0;
+        int numReadFiles = 0;
            
         for (String path : forwardReadPaths) {
+            ++numReadFiles;
             numReads += populateGraphHelper(path, numThreads, false,
                             addCountsOnly, storeReadKmerPairs);
         }
 
         for (String path : reverseReadPaths) {
+            ++numReadFiles;
             numReads += populateGraphHelper(path, numThreads, true,
                             addCountsOnly, storeReadKmerPairs);
         }
         
         for (String path : longReadPaths) {
+            ++numReadFiles;
             numReads += populateGraphHelper(path, numThreads, reverseComplementLong,
                             addCountsOnly, false);
         }
         
-        System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads in total.");
+        if (numReadFiles > 1) {
+            System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences from " + numReadFiles + " files.");
+        }
         
         if (!refTranscriptsPaths.isEmpty()) {
             System.out.println("Augmenting graph with reference transcripts...");
             long numRefs = 0;
-            
+            int numRefFiles = 0;
             for (String path : refTranscriptsPaths) {
+                ++numRefFiles;
                 populateGraphPairedKmersHelper(path, numThreads, true);
             }
             
-            System.out.println("Parsed " + NumberFormat.getInstance().format(numRefs) + " reference sequences in total.");
+            if (numRefFiles > 1) {
+                System.out.println("Parsed " + NumberFormat.getInstance().format(numRefs) + " sequences from " + numRefFiles + " reference files.");
+            }
         }
         
         dbgFPR = graph.getDbgbf().getFPR();
@@ -3937,14 +3946,14 @@ public class RNABloom {
             threads[i] = new Thread(worker);
             threads[i].start();
         }
-        System.out.println("Initialized " + numThreads + " worker(s).");
+        //System.out.println("Initialized " + numThreads + " worker(s).");
         
         CorrectedLongReadsWriterWorker2 writerWorker = new CorrectedLongReadsWriterWorker2(outputQueue, 
                 longSeqWriter, shortSeqWriter, repeatsSeqWriter,
                 maxSampleSize, minSeqLen, writeUracil);
         Thread writerThread = new Thread(writerWorker);
         writerThread.start();
-        System.out.println("Initialized writer.");
+        //System.out.println("Initialized writer.");
         
         for (Thread t : threads) {
             t.join();
