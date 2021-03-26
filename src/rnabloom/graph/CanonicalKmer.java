@@ -317,6 +317,68 @@ public class CanonicalKmer extends Kmer {
     }
     
     @Override
+    public Kmer getMaxCovSuccessor(int k, int numHash, BloomFilterDeBruijnGraph graph, float minKmerCov) {
+        CanonicalSuccessorsNTHashIterator itr = new CanonicalSuccessorsNTHashIterator(k, numHash);
+        itr.start(fHashVal, rHashVal, bytes[0]);
+        long[] hVals = itr.hVals;
+        
+        float bestCount = -1;
+        long bestFHash = -1;
+        long bestRHash = -1;
+        byte bestChar = -1;
+        
+        while (itr.hasNext()) {
+            itr.next();
+            float myCount = graph.getCount(hVals);
+            if (myCount >= minKmerCov && myCount > bestCount) {
+                bestCount = myCount;
+                bestFHash = itr.fHashVal;
+                bestRHash = itr.rHashVal;
+                bestChar = itr.currentChar();
+            }
+        }
+        
+        if (bestCount != -1) {
+            byte[] myBytes = shiftLeft(this.bytes, k);
+            myBytes[k-1] = bestChar;
+            return new CanonicalKmer(myBytes, bestCount, bestFHash, bestRHash);
+        }
+        
+        return null;
+    }
+    
+    @Override
+    public Kmer getMaxCovPredecessor(int k, int numHash, BloomFilterDeBruijnGraph graph, float minKmerCov) {
+        CanonicalPredecessorsNTHashIterator itr = new CanonicalPredecessorsNTHashIterator(k, numHash);
+        itr.start(fHashVal, rHashVal, bytes[k-1]);
+        long[] hVals = itr.hVals;
+        
+        float bestCount = -1;
+        long bestFHash = -1;
+        long bestRHash = -1;
+        byte bestChar = -1;
+        
+        while (itr.hasNext()) {
+            itr.next();
+            float myCount = graph.getCount(hVals);
+            if (myCount >= minKmerCov && myCount > bestCount) {
+                bestCount = myCount;
+                bestFHash = itr.fHashVal;
+                bestRHash = itr.rHashVal;
+                bestChar = itr.currentChar();
+            }
+        }
+        
+        if (bestCount != -1) {
+            byte[] myBytes = shiftRight(this.bytes, k);
+            myBytes[0] = bestChar;
+            return new CanonicalKmer(myBytes, bestCount, bestFHash, bestRHash);
+        }
+        
+        return null;
+    }
+    
+    @Override
     public ArrayDeque<Kmer> getLeftVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
         return getLeftVariants(k, numHash, graph, 1);
     }

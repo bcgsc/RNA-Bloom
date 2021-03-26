@@ -298,6 +298,62 @@ public class Kmer {
         return result;
     }
     
+    public Kmer getMaxCovSuccessor(int k, int numHash, BloomFilterDeBruijnGraph graph, float minKmerCov) {
+        SuccessorsNTHashIterator itr = new SuccessorsNTHashIterator(k, numHash);
+        itr.start(fHashVal, bytes[0]);
+        long[] hVals = itr.hVals;
+        
+        float bestCount = -1;
+        long bestHash = -1;
+        byte bestChar = -1;
+        
+        while (itr.hasNext()) {
+            itr.next();
+            float myCount = graph.getCount(hVals);
+            if (myCount >= minKmerCov && myCount > bestCount) {
+                bestCount = myCount;
+                bestHash = hVals[0];
+                bestChar = itr.currentChar();
+            }
+        }
+        
+        if (bestCount != -1) {
+            byte[] myBytes = shiftLeft(this.bytes, k);
+            myBytes[k-1] = bestChar;
+            return new Kmer(myBytes, bestCount, bestHash);
+        }
+        
+        return null;
+    }
+    
+    public Kmer getMaxCovPredecessor(int k, int numHash, BloomFilterDeBruijnGraph graph, float minKmerCov) {
+        PredecessorsNTHashIterator itr = new PredecessorsNTHashIterator(k, numHash);
+        itr.start(fHashVal, bytes[k-1]);
+        long[] hVals = itr.hVals;
+        
+        float bestCount = -1;
+        long bestHash = -1;
+        byte bestChar = -1;
+        
+        while (itr.hasNext()) {
+            itr.next();
+            float myCount = graph.getCount(hVals);
+            if (myCount >= minKmerCov && myCount > bestCount) {
+                bestCount = myCount;
+                bestHash = hVals[0];
+                bestChar = itr.currentChar();
+            }
+        }
+        
+        if (bestCount != -1) {
+            byte[] myBytes = shiftRight(this.bytes, k);
+            myBytes[0] = bestChar;
+            return new Kmer(myBytes, bestCount, bestHash);
+        }
+        
+        return null;
+    }
+    
     public ArrayDeque<Kmer> getLeftVariants(int k, int numHash, BloomFilterDeBruijnGraph graph) {
         return getLeftVariants(k, numHash, graph, 1);
     }

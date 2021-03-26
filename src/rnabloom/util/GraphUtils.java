@@ -1617,36 +1617,18 @@ public final class GraphUtils {
         
         HashSet<Kmer> leftPathKmers = new HashSet<>(bound);
         
-        /* extend right */
+        /* greedy extend right */
         ArrayDeque<Kmer> leftPath = new ArrayDeque<>(bound);
         Kmer best;
-        ArrayDeque<Kmer> neighbors;
         
         best = left;
 
         for (int depth=0; depth < bound; ++depth) {
-            neighbors = best.getSuccessors(k, numHash, graph, minKmerCov);
-//            best.successors = null; // clear cache
-
-            if (neighbors.isEmpty()) {
+            best = best.getMaxCovSuccessor(k, numHash, graph, minKmerCov);
+            if (best == null) {
                 break;
             }
             else {
-                if (neighbors.size() == 1) {
-                    best = neighbors.peek();
-                }
-                else {
-                    //best = greedyExtendRightOnce(graph, neighbors, lookahead);
-                    Iterator<Kmer> itr = neighbors.iterator();
-                    best = itr.next();
-                    for (Kmer n; itr.hasNext();) {
-                        n = itr.next();
-                        if (n.count >= best.count) {
-                            best = n;
-                        }
-                    }
-                }
-
                 if (best.equals(right)) {
                     return leftPath;
                 }
@@ -1668,28 +1650,12 @@ public final class GraphUtils {
         ArrayDeque<Kmer> rightPath = new ArrayDeque<>(bound);
         best = right;
         for (int depth=0; depth < bound; ++depth) {
-            neighbors = best.getPredecessors(k, numHash, graph, minKmerCov);
-//            best.predecessors = null; // clear cache
+            best = best.getMaxCovPredecessor(k, numHash, graph, minKmerCov);
             
-            if (neighbors.isEmpty()) {
+            if (best == null) {
                 break;
             }
             else {
-                if (neighbors.size() == 1) {
-                    best = neighbors.peek();
-                }
-                else {
-                    //best = greedyExtendLeftOnce(graph, neighbors, lookahead);
-                    Iterator<Kmer> itr = neighbors.iterator();
-                    best = itr.next();
-                    for (Kmer n; itr.hasNext();) {
-                        n = itr.next();
-                        if (n.count >= best.count) {
-                            best = n;
-                        }
-                    }
-                }
-                
                 if (best.equals(left)) {
                     return rightPath;
                 }
