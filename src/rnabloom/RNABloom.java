@@ -334,6 +334,78 @@ public class RNABloom {
         }
     }
     
+    public class FastaPairedKmersToGraphWorker implements Runnable {
+        private FastaReader fr;
+        private PairedNTHashIterator pitr = null;
+        private long numReads = 0;
+        private boolean successful = false;
+        private boolean existingKmersOnly = false;
+        
+        public FastaPairedKmersToGraphWorker(FastaReader fr, boolean existingKmersOnly) {
+            this.fr = fr;
+            this.existingKmersOnly = existingKmersOnly;
+            this.pitr = graph.getPairedHashIterator(graph.getReadPairedKmerDistance());
+        }
+        
+        @Override
+        public void run() {            
+            try {
+                Matcher mSeq = seqPattern.matcher("");
+
+                long[] lHashVals = pitr.hVals1;
+                long[] rHashVals = pitr.hVals2;
+                long[] pHashVals = pitr.hVals3;
+
+                if (existingKmersOnly) {
+                    for (String seq; (seq = fr.next()) != null;) {
+                        mSeq.reset(seq);
+
+                        while (mSeq.find()) {
+                            if (pitr.start(seq, mSeq.start(), mSeq.end())) {
+                                while (pitr.hasNext()) {
+                                    pitr.next();
+                                    if (graph.contains(lHashVals) && graph.contains(rHashVals)) {
+                                        graph.addReadSingleKmerPair(pHashVals);
+                                    }
+                                }
+                            }
+                        }
+
+                        ++numReads;
+                    }
+                }
+                else {
+                    for (String seq; (seq = fr.next()) != null;) {
+                        mSeq.reset(seq);
+
+                        while (mSeq.find()) {
+                            if (pitr.start(seq, mSeq.start(), mSeq.end())) {
+                                while (pitr.hasNext()) {
+                                    pitr.next();
+                                    graph.addReadSingleKmerPair(pHashVals);
+                                }
+                            }
+                        }
+
+                        ++numReads;
+                    }
+                }
+                
+                successful = true;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        
+        public boolean isSuccessful() {
+            return successful;
+        }
+        
+        public long getReadCount() {
+            return numReads;
+        }
+    }
+    
     public class PairedKmersToGraphWorker implements Runnable {
         private final int id;
         private final String path;
@@ -405,11 +477,209 @@ public class RNABloom {
                     fr.close();
                 }
                 else {
-                    throw new RuntimeException("Unsupported file format detected in input file `" + path + "`. Only FASTA and FASTQ formats are supported.");
+                    throw new RuntimeException("Unsupported file format detected in input file `" + path + "`. Only FASTA format is supported.");
                 }
                 
                 successful = true;
                 System.out.println("[" + id + "] Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        
+        public boolean isSuccessful() {
+            return successful;
+        }
+        
+        public long getReadCount() {
+            return numReads;
+        }
+    }
+    
+    public class FastqToGraphWorker implements Runnable {
+        private NTHashIterator itr;
+        private PairedNTHashIterator pitr = null;
+        private long numReads = 0;
+        private boolean successful = false;
+        private final Consumer<long[]> addFunction;
+        private boolean storeReadPairedKmers = false;
+        private FastqReader fr = null;
+
+        public FastqToGraphWorker(FastqReader fr, boolean reverseComplement, boolean incrementIfPresent, boolean storeReadPairedKmers) {
+            this.fr = fr;
+            this.storeReadPairedKmers = storeReadPairedKmers;
+            
+            int numHash = graph.getMaxNumHash();
+            this.itr = reverseComplement ? graph.getReverseComplementHashIterator(numHash) : graph.getHashIterator(numHash);
+            
+            if (storeReadPairedKmers) {
+                int kmerPairDistance = graph.getReadPairedKmerDistance();
+                this.pitr = reverseComplement ? graph.getReverseComplementPairedHashIterator(kmerPairDistance) : graph.getPairedHashIterator(kmerPairDistance);
+            }
+            
+            this.addFunction = incrementIfPresent ? graph::addCountIfPresent : graph::add;
+        }
+        
+        @Override
+        public void run() {
+            try {
+                Matcher mSeq = seqPattern.matcher("");
+                Matcher mQual = qualPatternDBG.matcher("");
+                FastqRecord record = new FastqRecord();
+                long[] hashVals = itr.hVals;
+                
+                if (storeReadPairedKmers) {
+                    long[] phashVals = pitr.hVals3;
+
+                    while (true) {
+                        fr.nextWithoutName(record);
+                        if (record.seq == null) {
+                            break;
+                        }
+                        
+                        mQual.reset(record.qual);
+                        mSeq.reset(record.seq);
+
+                        while (mQual.find()) {
+                            mSeq.region(mQual.start(), mQual.end());
+                            while (mSeq.find()) {
+                                int start = mSeq.start();
+                                int end = mSeq.end();
+
+                                if (itr.start(record.seq, start, end)) {
+                                    while (itr.hasNext()) {
+                                        itr.next();
+                                        addFunction.accept(hashVals);
+                                    }
+
+                                    if (pitr.start(record.seq, start, end)) {
+                                        while (pitr.hasNext()) {
+                                            pitr.next();
+                                            graph.addReadSingleKmerPair(phashVals);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        ++numReads;
+                    }
+                }
+                else {
+                    while (true) {
+                        fr.nextWithoutName(record);
+                        if (record.seq == null) {
+                            break;
+                        }
+                        
+                        mQual.reset(record.qual);
+                        mSeq.reset(record.seq);
+
+                        while (mQual.find()) {
+                            mSeq.region(mQual.start(), mQual.end());
+                            while (mSeq.find()) {
+                                if (itr.start(record.seq, mSeq.start(), mSeq.end())) {
+                                    while (itr.hasNext()) {
+                                        itr.next();
+                                        addFunction.accept(hashVals);
+                                    }
+                                }
+                            }
+                        }
+
+                        ++numReads;
+                    }
+                }
+                successful = true;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        
+        public boolean isSuccessful() {
+            return successful;
+        }
+        
+        public long getReadCount() {
+            return numReads;
+        }
+    }
+    
+    public class FastaToGraphWorker implements Runnable {
+        private NTHashIterator itr;
+        private PairedNTHashIterator pitr = null;
+        private long numReads = 0;
+        private boolean successful = false;
+        private final Consumer<long[]> addFunction;
+        private boolean storeReadPairedKmers = false;
+        private FastaReader fr = null;
+        
+        public FastaToGraphWorker(FastaReader fr, boolean reverseComplement, boolean addCountsOnly, boolean storeReadPairedKmers) {
+            this.fr = fr;
+            this.storeReadPairedKmers = storeReadPairedKmers;
+            
+            int numHash = graph.getMaxNumHash();
+            this.itr = reverseComplement ? graph.getReverseComplementHashIterator(numHash) : graph.getHashIterator(numHash);
+            
+            if (storeReadPairedKmers) {
+                int kmerPairDistance = graph.getReadPairedKmerDistance();
+                this.pitr = reverseComplement ? graph.getReverseComplementPairedHashIterator(kmerPairDistance) : graph.getPairedHashIterator(kmerPairDistance);
+            }
+            
+            this.addFunction = addCountsOnly ? graph::addCountIfPresent : graph::add;
+        }
+        
+        @Override
+        public void run() {
+            try {
+                Matcher mSeq = seqPattern.matcher("");
+                long[] hashVals = itr.hVals;
+
+                if (storeReadPairedKmers) {
+                    long[] phashVals = pitr.hVals3;
+                    for (String seq; (seq = fr.next()) != null;) {
+                        mSeq.reset(seq);
+
+                        while (mSeq.find()) {
+                            int start = mSeq.start();
+                            int end = mSeq.end();
+
+                            if (itr.start(seq, start, end)) {
+                                while (itr.hasNext()) {
+                                    itr.next();
+                                    addFunction.accept(hashVals);
+                                }
+
+                                if (pitr.start(seq, start, end)) {
+                                    while (pitr.hasNext()) {
+                                        pitr.next();
+                                        graph.addReadSingleKmerPair(phashVals);
+                                    }
+                                }
+                            }
+                        }
+
+                        ++numReads;
+                    }
+                }
+                else {
+                    for (String seq; (seq = fr.next()) != null;) {
+                        mSeq.reset(seq);
+
+                        while (mSeq.find()) {
+                            if (itr.start(seq, mSeq.start(), mSeq.end())) {
+                                while (itr.hasNext()) {
+                                    itr.next();
+                                    addFunction.accept(hashVals);
+                                }
+                            }
+                        }
+
+                        ++numReads;
+                    }
+                }
+                
+                successful = true;
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -713,7 +983,6 @@ public class RNABloom {
                             Collection<String> reverseReadPaths,
                             Collection<String> longReadPaths,
                             Collection<String> refTranscriptsPaths,
-                            boolean strandSpecific,
                             boolean reverseComplementLong,
                             int numThreads,
                             boolean addCountsOnly,
@@ -785,6 +1054,166 @@ public class RNABloom {
             System.out.println("Reads paired k-mers Bloom filter FPR: " + convertToRoundedPercent(graph.getRpkbf().getFPR()) + " %");
         }
 //        System.out.println("Screening Bloom filter FPR:  " + screeningBf.getFPR() * 100 + " %");
+    }
+    
+    private long populateGraphHelper(String path,
+                            int numThreads,
+                            boolean reverseComplement,
+                            boolean addCountsOnly,
+                            boolean storeReadKmerPairs) throws IOException, InterruptedException {
+        System.out.println("Parsing `" + path + "`...");
+        long numReads = 0;
+        
+        if (FastaReader.isCorrectFormat(path)) {
+            Thread[] threads = new Thread[numThreads];
+
+            FastaReader fr = new FastaReader(path);
+            FastaToGraphWorker[] workers = new FastaToGraphWorker[numThreads];
+
+            for (int i=0; i<numThreads; ++i) {
+                FastaToGraphWorker worker = new FastaToGraphWorker(fr, reverseComplement, addCountsOnly, storeReadKmerPairs);
+                workers[i] = worker;
+                threads[i] = new Thread(worker);
+                threads[i].start();
+            }
+
+            System.out.println("Initialized " + numThreads + " worker(s).");
+
+            for (Thread t : threads) {
+                t.join();
+            }
+
+            fr.close();
+            
+            for (FastaToGraphWorker w : workers) {
+                numReads += w.getReadCount();
+            }
+        }
+        else if (FastqReader.isCorrectFormat(path)) {
+            Thread[] threads = new Thread[numThreads];
+
+            FastqReader fr = new FastqReader(path);
+            FastqToGraphWorker[] workers = new FastqToGraphWorker[numThreads];
+
+            for (int i=0; i<numThreads; ++i) {
+                FastqToGraphWorker worker = new FastqToGraphWorker(fr, reverseComplement, addCountsOnly, storeReadKmerPairs);
+                workers[i] = worker;
+                threads[i] = new Thread(worker);
+                threads[i].start();
+            }
+
+            System.out.println("Initialized " + numThreads + " worker(s).");
+
+            for (Thread t : threads) {
+                t.join();
+            }
+
+            fr.close();
+            
+            for (FastqToGraphWorker w : workers) {
+                numReads += w.getReadCount();
+            }
+        }
+        else {
+            throw new RuntimeException("Unsupported file format detected in input file `" + path + "`. Only FASTA and FASTQ formats are supported.");
+        }
+        
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
+
+        return numReads;
+    }
+    
+    public long populateGraphPairedKmersHelper(String path,
+                                    int numThreads,
+                                    boolean existingKmersOnly) throws IOException, InterruptedException {
+        System.out.println("Parsing `" + path + "`...");
+        long numReads = 0;
+        
+        if (FastaReader.isCorrectFormat(path)) {
+            Thread[] threads = new Thread[numThreads];
+
+            FastaReader fr = new FastaReader(path);
+            FastaPairedKmersToGraphWorker[] workers = new FastaPairedKmersToGraphWorker[numThreads];
+
+            for (int i=0; i<numThreads; ++i) {
+                FastaPairedKmersToGraphWorker worker = new FastaPairedKmersToGraphWorker(fr, existingKmersOnly);
+                workers[i] = worker;
+                threads[i] = new Thread(worker);
+                threads[i].start();
+            }
+
+            System.out.println("Initialized " + numThreads + " worker(s).");
+
+            for (Thread t : threads) {
+                t.join();
+            }
+
+            fr.close();
+            
+            for (FastaPairedKmersToGraphWorker w : workers) {
+                numReads += w.getReadCount();
+            }
+        }
+        else {
+            throw new RuntimeException("Unsupported file format detected in input file `" + path + "`. Only FASTA format is supported.");
+        }
+        
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
+        
+        return numReads;
+    }
+    
+    public void populateGraph2(Collection<String> forwardReadPaths,
+                            Collection<String> reverseReadPaths,
+                            Collection<String> longReadPaths,
+                            Collection<String> refTranscriptsPaths,
+                            boolean reverseComplementLong,
+                            int numThreads,
+                            boolean addCountsOnly,
+                            boolean storeReadKmerPairs) throws IOException, InterruptedException {
+        if (storeReadKmerPairs) {
+            setReadKmerDistance(forwardReadPaths, reverseReadPaths);
+        }
+        
+        long numReads = 0;
+           
+        for (String path : forwardReadPaths) {
+            numReads += populateGraphHelper(path, numThreads, false,
+                            addCountsOnly, storeReadKmerPairs);
+        }
+
+        for (String path : reverseReadPaths) {
+            numReads += populateGraphHelper(path, numThreads, true,
+                            addCountsOnly, storeReadKmerPairs);
+        }
+        
+        for (String path : longReadPaths) {
+            numReads += populateGraphHelper(path, numThreads, reverseComplementLong,
+                            addCountsOnly, false);
+        }
+        
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " reads in total.");
+        
+        if (!refTranscriptsPaths.isEmpty()) {
+            System.out.println("Augmenting graph with reference transcripts...");
+            long numRefs = 0;
+            
+            for (String path : refTranscriptsPaths) {
+                populateGraphPairedKmersHelper(path, numThreads, true);
+            }
+            
+            System.out.println("Parsed " + NumberFormat.getInstance().format(numRefs) + " reference sequences in total.");
+        }
+        
+        dbgFPR = graph.getDbgbf().getFPR();
+        covFPR = graph.getCbf().getFPR();
+        
+        System.out.println("DBG Bloom filter FPR:                 " + convertToRoundedPercent(dbgFPR) + " %");
+        System.out.println("Counting Bloom filter FPR:            " + convertToRoundedPercent(covFPR) + " %");
+        
+        if (graph.getReadPairedKmerDistance() > 0) {
+            System.out.println("Reads paired k-mers Bloom filter FPR: " + convertToRoundedPercent(graph.getRpkbf().getFPR()) + " %");
+        }
     }
     
     public boolean withinMaxFPR(float fpr) {
@@ -980,12 +1409,12 @@ public class RNABloom {
         }
     }
     
-    public void populateGraphFromFragments(Collection<String> fastas, Collection<String> refFastas, boolean loadPairedKmers, int numThreads) throws InterruptedException {        
+    public void populateGraphFromFragments(Collection<String> fragPaths, Collection<String> refFastas, boolean loadPairedKmers, int numThreads) throws InterruptedException {        
         ExecutorService service = Executors.newFixedThreadPool(numThreads);
         
         int threadId = 0;
         
-        for (String path : fastas) {
+        for (String path : fragPaths) {
             service.submit(new FragmentsToGraphWorker(++threadId, path, loadPairedKmers));
         }
                 
@@ -6241,7 +6670,7 @@ public class RNABloom {
                         assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                     }
 
-                    assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, refFilesList, strandSpecific, revCompLong, numThreads, false, storeReadPairedKmers);
+                    assembler.populateGraph2(forwardFilesList, backwardFilesList, longFilesList, refFilesList, revCompLong, numThreads, false, storeReadPairedKmers);
 
                     if (!useNTCard && !assembler.withinMaxFPR(maxFPR)) {
                         System.out.println("WARNING: Bloom filter FPR is higher than the maximum allowed FPR (" + maxFPR*100 +"%)!");
@@ -6282,7 +6711,7 @@ public class RNABloom {
 
                         System.out.println("Repopulate graph...");
 
-                        assembler.populateGraph(forwardFilesList, backwardFilesList, longFilesList, refFilesList, strandSpecific, revCompLong, numThreads, false, storeReadPairedKmers);
+                        assembler.populateGraph2(forwardFilesList, backwardFilesList, longFilesList, refFilesList, revCompLong, numThreads, false, storeReadPairedKmers);
                     }    
 
                     if (saveGraph) {
