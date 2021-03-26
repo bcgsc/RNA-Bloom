@@ -269,7 +269,10 @@ public final class GraphUtils {
     }
     
     public static float getMaxMedianCoverageRight(final BloomFilterDeBruijnGraph graph, final Kmer source, final int lookahead) {
-        ArrayDeque<Kmer> neighbors = source.getSuccessors(graph.getK(), graph.getMaxNumHash(), graph);
+        int k = graph.getK();
+        int numHash = graph.getCbfNumHash();
+        
+        ArrayDeque<Kmer> neighbors = source.getSuccessors(k, numHash, graph);
         
         if (neighbors.isEmpty()) {
             if (lookahead > 0) {
@@ -293,7 +296,7 @@ public final class GraphUtils {
 
             while (!frontier.isEmpty()) {
                 if (path.size() < lookahead) {
-                    neighbors = cursor.getSuccessors(graph.getK(), graph.getMaxNumHash(), graph);;
+                    neighbors = cursor.getSuccessors(k, numHash, graph);
                     if (!neighbors.isEmpty()) {
                         cursor = neighbors.removeFirst();
                         path.add(cursor);
@@ -392,7 +395,10 @@ public final class GraphUtils {
     }
 
     public static float getMaxMedianCoverageLeft(final BloomFilterDeBruijnGraph graph, final Kmer source, final int lookahead) {
-        ArrayDeque<Kmer> neighbors = source.getPredecessors(graph.getK(), graph.getMaxNumHash(), graph);
+        int k = graph.getK();
+        int numHash = graph.getCbfNumHash();
+        
+        ArrayDeque<Kmer> neighbors = source.getPredecessors(k, numHash, graph);
         
         if (neighbors.isEmpty()) {
             if (lookahead > 0) {
@@ -416,7 +422,7 @@ public final class GraphUtils {
 
             while (!frontier.isEmpty()) {
                 if (path.size() < lookahead) {
-                    neighbors = cursor.getPredecessors(graph.getK(), graph.getMaxNumHash(), graph);
+                    neighbors = cursor.getPredecessors(k, numHash, graph);
                     if (!neighbors.isEmpty()) {
                         cursor = neighbors.removeFirst();
                         path.add(cursor);
@@ -1630,7 +1636,15 @@ public final class GraphUtils {
                     best = neighbors.peek();
                 }
                 else {
-                    best = greedyExtendRightOnce(graph, neighbors, lookahead);
+                    //best = greedyExtendRightOnce(graph, neighbors, lookahead);
+                    Iterator<Kmer> itr = neighbors.iterator();
+                    best = itr.next();
+                    for (Kmer n; itr.hasNext();) {
+                        n = itr.next();
+                        if (n.count >= best.count) {
+                            best = n;
+                        }
+                    }
                 }
 
                 if (best.equals(right)) {
@@ -1665,7 +1679,15 @@ public final class GraphUtils {
                     best = neighbors.peek();
                 }
                 else {
-                    best = greedyExtendLeftOnce(graph, neighbors, lookahead);
+                    //best = greedyExtendLeftOnce(graph, neighbors, lookahead);
+                    Iterator<Kmer> itr = neighbors.iterator();
+                    best = itr.next();
+                    for (Kmer n; itr.hasNext();) {
+                        n = itr.next();
+                        if (n.count >= best.count) {
+                            best = n;
+                        }
+                    }
                 }
                 
                 if (best.equals(left)) {
