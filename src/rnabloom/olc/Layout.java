@@ -29,14 +29,17 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.jgrapht.Graph;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.TransitiveReduction;
 import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
+import org.jgrapht.graph.DefaultDirectedWeightedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import rnabloom.util.MiniFloat;
 import rnabloom.io.CompressedFastaRecord;
@@ -62,7 +65,7 @@ import rnabloom.util.Timer;
  */
 public class Layout {
     
-    private DefaultDirectedGraph<String, OverlapEdge> graph;
+    private DefaultDirectedWeightedGraph<String, OverlapEdge> graph;
     private InputStream overlapPafInputStream;
     private String seqFastaPath;
     private boolean stranded;
@@ -74,7 +77,7 @@ public class Layout {
     private int minNumAltReads = 0;
     
     public Layout(String seqFile, InputStream overlapPafInputStream, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact, int minSeqDepth) {
-        this.graph = new DefaultDirectedGraph<>(OverlapEdge.class);
+        this.graph = new DefaultDirectedWeightedGraph<>(OverlapEdge.class);
         this.overlapPafInputStream = overlapPafInputStream;
         this.seqFastaPath = seqFile;
         this.stranded = stranded;
@@ -235,7 +238,105 @@ public class Layout {
         
         return numEdgesRemoved;
     }
+    
+    private ArrayDeque removeRedundantNodes() {
+        ArrayDeque<String> removed = new ArrayDeque<>();
         
+        for (String name : new ArrayDeque<>(graph.vertexSet())) {
+            if (isRedundantNode(name)) {
+                removeVertexStranded(name);
+                removed.add(name);
+            }
+        }
+        
+        return removed;
+    }
+    
+    private boolean isRedundantNode(String name) {
+        Set<OverlapEdge> inEdgeSet = graph.incomingEdgesOf(name);
+        if (inEdgeSet.isEmpty()) {
+            // this node is a leaf
+            return false;
+        }
+        
+        Set<OverlapEdge> outEdgeSet = graph.outgoingEdgesOf(name);
+        if (outEdgeSet.isEmpty()) {
+            // this node is a leaf
+            return false;
+        }
+        
+        ArrayList<OverlapEdge> inEdges = new ArrayList<>(inEdgeSet);
+        ArrayList<OverlapEdge> outEdges = new ArrayList<>(outEdgeSet);
+        
+        Collections.sort(inEdges);
+        Collections.sort(outEdges);
+                
+        String closetPredecessor = graph.getEdgeSource(inEdges.get(0));
+        String closetSuccessor = graph.getEdgeTarget(outEdges.get(0));
+        
+        OverlapEdge bridgeEdge = graph.getEdge(closetPredecessor, closetSuccessor);
+        
+        if (bridgeEdge == null) {
+            // this node is not redundant
+            return false;
+        }
+        
+        int numPredecessors = inEdges.size();
+        int numSuccessors = outEdges.size();
+        
+        HashSet<String> predecessorSet = new HashSet<>(numPredecessors);
+        for (OverlapEdge e : inEdges) {
+            String p = graph.getEdgeSource(e);
+            predecessorSet.add(p);
+        }
+        
+        HashSet<String> successorSet = new HashSet<>(numSuccessors);
+        for (OverlapEdge e : outEdges) {
+            String s = graph.getEdgeTarget(e);
+            successorSet.add(s);
+        }
+                
+        // each predecessor must have one outgoing edges leading to another predecessor/successor
+        for (String p : predecessorSet) {
+            boolean found = false;
+            Set<OverlapEdge> edges = graph.outgoingEdgesOf(p);
+            for (OverlapEdge e : edges) {
+                if (!inEdgeSet.contains(e)) {
+                    String s = graph.getEdgeTarget(e);
+                    if (predecessorSet.contains(s) || successorSet.contains(s)) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!found) {
+                return false;
+            }
+        }
+        
+        // each successor must have one incoming edge coming from another successor/predecessor
+        for (String s : successorSet) {
+            boolean found = false;
+            Set<OverlapEdge> edges = graph.incomingEdgesOf(s);
+            for (OverlapEdge e : edges) {
+                if (!outEdges.contains(e)) {
+                    String p = graph.getEdgeSource(e);
+                    if (predecessorSet.contains(p) || successorSet.contains(p)) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!found) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
     private void resolveJunctions() {        
         ArrayList<OverlapEdge> edges = new ArrayList<>(graph.edgeSet());
         Collections.sort(edges);
@@ -342,6 +443,58 @@ public class Layout {
         }
     }
     
+    private ArrayDeque<String> getUnambiguousExtension(String vid) {
+        ArrayDeque<String> path = new ArrayDeque<>();
+        HashSet<String> visited = new HashSet<>();
+        visited.add(vid);
+        
+        // extend left
+        String n = vid;
+        while (true) {
+            List<String> predecessor = Graphs.predecessorListOf(graph, n);
+            
+            if (predecessor.size() != 1) {
+                break;
+            }
+            else {
+                n = predecessor.get(0);
+                List<String> successors = Graphs.successorListOf(graph, n);
+                if (successors.size() > 1 || visited.contains(n)) {
+                    break;
+                }
+                else {
+                    path.addFirst(n);
+                    visited.add(n);
+                }
+            }
+        }
+        
+        path.add(vid);
+        
+        // extend right
+        n = vid;
+        while (true) {
+            List<String> successors = Graphs.successorListOf(graph, n);
+            
+            if (successors.size() != 1) {
+                break;
+            }
+            else {
+                n = successors.get(0);
+                List<String> predecessors = Graphs.predecessorListOf(graph, n);
+                if (predecessors.size() > 1 || visited.contains(n)) {
+                    break;
+                }
+                else {
+                    path.add(n);
+                    visited.add(n);
+                }
+            }
+        }
+        
+        return path;
+    }
+    
     private ArrayDeque<String> getUnambiguousRightExtension(String id) {
         ArrayDeque<String> path = new ArrayDeque<>();
         HashSet<String> visited = new HashSet<>();
@@ -398,20 +551,20 @@ public class Layout {
         return path;
     }
     
-    /**
-     * 
-     * @param outFastaPath
-     * @return boolean whether number of sequences have reduced
-     * @throws IOException 
-     */
-    public boolean writeBackboneSequences(String outFastaPath) throws IOException {
-        if (stranded) {
-            return layoutStrandedBackbones(outFastaPath);
-        }
-        else {
-            return layoutBackbones(outFastaPath);
-        }
-    }
+//    /**
+//     * 
+//     * @param outFastaPath
+//     * @return boolean whether number of sequences have reduced
+//     * @throws IOException 
+//     */
+//    public boolean writeBackboneSequences(String outFastaPath) throws IOException {
+//        if (stranded) {
+//            return layoutStrandedBackbones(outFastaPath);
+//        }
+//        else {
+//            return layoutBackbones(outFastaPath);
+//        }
+//    }
     
     private String assemblePath(ArrayDeque<String> path, HashMap<String, BitSequence> sequences) {
         StringBuilder sb = new StringBuilder();
@@ -1741,44 +1894,101 @@ public class Layout {
         }
     }
     
-    private boolean layoutBackbones(String outFastaPath) throws IOException {
-        HashSet<String> containedSet = new HashSet<>();
+    private void printGraph() {
+        for (OverlapEdge e : graph.edgeSet()) {
+            System.out.println(graph.getEdgeSource(e) + " -> " + graph.getEdgeTarget(e) +
+                    " [o=" + (e.sinkEnd-e.sinkStart + e.sourceEnd-e.sourceStart)/2 + "]");
+        }
+    }
+    
+    private HashSet<String> populateGraphFromOverlaps() throws IOException {
+        Timer timer = new Timer();
+        long numRecords = 0;
         
-        // look for containment and dovetails
-        PafReader reader = new PafReader(overlapPafInputStream);        
-        for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
-            reader.next(r);            
-            if (!r.qName.equals(r.tName)) {
-                if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
-                    CONTAIN_STATUS c = getContained(r);
-                    switch (c) {
-                        case QUERY:
-                            if (!containedSet.contains(r.tName)) {
-                                containedSet.add(r.qName);
-                                removeVertex(r.qName);
-                            }
-                            break;
-                        case TARGET:
-                            if (!containedSet.contains(r.qName)) {
-                                containedSet.add(r.tName);
-                                removeVertex(r.tName);
-                            }
-                            break;
-                        case NEITHER:
-                            if (!containedSet.contains(r.qName) &&
-                                !containedSet.contains(r.tName)) {
-                                addEdges(r);
-                            }
-                            break;
+        HashSet<String> containedSet = new HashSet<>();
+        PafReader reader = new PafReader(overlapPafInputStream);
+        
+        // look for containment and overlaps
+        if (stranded) {
+            for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
+                ++numRecords;
+                reader.next(r);            
+                if (!r.reverseComplemented && !r.qName.equals(r.tName)) {
+                    if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
+                        CONTAIN_STATUS c = getContained(r);
+                        switch (c) {
+                            case QUERY:
+                                if (!containedSet.contains(r.tName)) {
+                                    containedSet.add(r.qName);
+                                    removeVertexStranded(r.qName + '+');
+                                }
+                                break;
+                            case TARGET:
+                                if (!containedSet.contains(r.qName)) {
+                                    containedSet.add(r.tName);
+                                    removeVertexStranded(r.tName + '+');
+                                }
+                                break;
+                            case NEITHER:
+                                if (!containedSet.contains(r.qName) &&
+                                    !containedSet.contains(r.tName)) {
+                                    addForwardEdges(r);
+                                }
+                                break;
+                        }
                     }
                 }
             }
+            reader.close();
+
+            for (String c : containedSet) {
+                removeVertexStranded(c + '+');
+            }
         }
-        reader.close();
+        else {
+            for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
+                ++numRecords;
+                reader.next(r);            
+                if (!r.qName.equals(r.tName)) {
+                    if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
+                        CONTAIN_STATUS c = getContained(r);
+                        switch (c) {
+                            case QUERY:
+                                if (!containedSet.contains(r.tName)) {
+                                    containedSet.add(r.qName);
+                                    removeVertex(r.qName);
+                                }
+                                break;
+                            case TARGET:
+                                if (!containedSet.contains(r.qName)) {
+                                    containedSet.add(r.tName);
+                                    removeVertex(r.tName);
+                                }
+                                break;
+                            case NEITHER:
+                                if (!containedSet.contains(r.qName) &&
+                                    !containedSet.contains(r.tName)) {
+                                    addEdges(r);
+                                }
+                                break;
+                        }
+                    }
+                }
+            }
+            reader.close();
+
+            for (String c : containedSet) {
+                removeVertex(c);
+            }
+        }
         
-        for (String c : containedSet) {
-            removeVertex(c);
-        }
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
+        
+        return containedSet;
+    }
+    
+    public void extractGreedyPaths(String outFastaPath, String mappingPafPath) throws IOException {
+        HashSet<String> containedSet = populateGraphFromOverlaps();
         
         if (!containedSet.isEmpty()) {
             System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
@@ -1786,28 +1996,219 @@ public class Layout {
         
         Set<String> vertexSet = graph.vertexSet();
         if (!vertexSet.isEmpty()) {
-            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(vertexSet.size()/2));
+            int numDovetailReads = vertexSet.size();
+            if (!stranded) {
+                numDovetailReads /= 2;
+            }
+            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(numDovetailReads));
         }
         
-        int numEdges = graph.edgeSet().size();
-//        if (numEdges > 2) {
-//            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+        Set<OverlapEdge> edgeSet = graph.edgeSet();
+        
+        if (edgeSet.size() > 1) {
+            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+
+            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
+            for (String n : redundantNodeNames) {
+                containedSet.add(getVertexName(n));
+            }
+            
+            //printGraph();
+            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+        }
+                
+        // extract read count from mapping
+        HashSet<String> vertexNames = new HashSet<>(vertexSet.size());
+        for (String vid : vertexSet) {
+            String name = getVertexName(vid);
+            vertexNames.add(name.substring(0, name.length()-1)); // remove "r" suffix
+        }
+        
+        HashMap<String, Integer> readCounts = getReadCounts(mappingPafPath, vertexNames, maxEdgeClip);
+        
+        // assign read count to edge
+        for (OverlapEdge e : edgeSet) {
+            String source = getVertexName(graph.getEdgeSource(e));
+            String target = getVertexName(graph.getEdgeTarget(e));
+            Integer sCount = readCounts.get(source.substring(0, source.length()-1));
+            Integer tCount = readCounts.get(target.substring(0, target.length()-1));
+            int w = 0;
+            if (sCount != null && tCount != null) {
+                w = Math.min(sCount, tCount);
+            }
+            else if (sCount != null) {
+                w = sCount;
+            }
+            else if (tCount != null) {
+                w = tCount;
+            }
+            graph.setEdgeWeight(e, w);
+        }
+        
+        HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size());
+        FastaReader fr = new FastaReader(seqFastaPath);
+        FastaWriter fw = new FastaWriter(outFastaPath, false);
+        long seqID = 0;
+        long originalNumSeq = 0;
+        while (fr.hasNext()) {
+            ++originalNumSeq;
+            String[] nameSeq = fr.nextWithName();
+            String name = nameSeq[0];
+            if (vertexSet.contains(name + '+')) {
+                dovetailReadSeqs.put(name, new BitSequence(nameSeq[1]));
+            }
+            else if (!containedSet.contains(name)) {
+                // this sequence either contains shorter sequences or it has no overlaps with others
+                fw.write(Long.toString(++seqID), nameSeq[1]);
+            }
+        }
+        fr.close();
+        
+        // extract paths
+        HashSet<String> visited = new HashSet<>();
+        
+        for (Iterator<Entry<String, Integer>> itr = readCounts.entrySet().stream().
+                sorted(Entry.<String,Integer>comparingByValue().reversed()).iterator();
+                itr.hasNext();) {
+            Entry<String, Integer> e = itr.next();
+            int count = e.getValue();
+            String seed = e.getKey() + "r";
+            if (!visited.contains(seed)) {
+                String header = Long.toString(++seqID);
+                
+                ArrayDeque<String> path;
+                if (count > minNumAltReads) { // use `>` instead of `>=` because `count` includes seed read
+                    path = getMaxWeightExtension(seed + '+');
+                }
+                else {
+                    path = getUnambiguousExtension(seed + '+');
+                }
+
+                if (path.size() > 1) {
+                    header += " path=[" + String.join(",", path) + "]";
+                }
+                
+                fw.write(header, assemblePath(path, dovetailReadSeqs));
+
+                for (String vid : path) {
+                    visited.add(getVertexName(vid));
+                }
+            }
+        }
+        
+        fw.close();
+        
+        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+    }
+
+    private String getMaxWeightPredecessor(String vid) {
+        double maxWeight = Double.MIN_VALUE;
+        OverlapEdge maxWeightEdge = null;
+        for (OverlapEdge e : graph.incomingEdgesOf(vid)) {
+            double w = graph.getEdgeWeight(e);
+            if (w > maxWeight) {
+                maxWeight = w;
+                maxWeightEdge = e;
+            }
+        }
+        
+        if (maxWeightEdge != null) {
+            return graph.getEdgeSource(maxWeightEdge);
+        }
+        return null;
+    }
+    
+    private String getMaxWeightSuccessor(String vid) {
+        double maxWeight = Double.MIN_VALUE;
+        OverlapEdge maxWeightEdge = null;
+        for (OverlapEdge e : graph.outgoingEdgesOf(vid)) {
+            double w = graph.getEdgeWeight(e);
+            if (w > maxWeight) {
+                maxWeight = w;
+                maxWeightEdge = e;
+            }
+        }
+        
+        if (maxWeightEdge != null) {
+            return graph.getEdgeTarget(maxWeightEdge);
+        }
+        return null;
+    }
+    
+    private ArrayDeque<String> getMaxWeightExtension(String seedVid) {
+        HashSet<String> visited = new HashSet<>();
+        visited.add(seedVid);
+        
+        
+        String cursor = seedVid;
+        ArrayDeque<String> path = new ArrayDeque<>();
+                
+        // extend left
+        cursor = seedVid;
+        while ((cursor = getMaxWeightPredecessor(cursor)) != null) {
+            if (visited.contains(cursor)) {
+                break;
+            }
+            path.addFirst(cursor);
+            visited.add(cursor);
+        }
+        
+        path.add(seedVid);
+        
+        // extend right
+        cursor = seedVid;
+        while ((cursor = getMaxWeightSuccessor(cursor)) != null) {
+            if (visited.contains(cursor)) {
+                break;
+            }
+            path.add(cursor);
+            visited.add(cursor);
+        }
+        
+        return path;
+    }
+    
+    public boolean layoutBackbones(String outFastaPath) throws IOException {
+        HashSet<String> containedSet = populateGraphFromOverlaps();
+        
+        if (!containedSet.isEmpty()) {
+            System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
+        }
+        
+        Set<String> vertexSet = graph.vertexSet();
+        if (!vertexSet.isEmpty()) {
+            int numDovetailReads = vertexSet.size();
+            if (!stranded) {
+                numDovetailReads = numDovetailReads/2;
+            }
+            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(numDovetailReads));
+        }
+        
+        Set<OverlapEdge> edgeSet = graph.edgeSet();
+        
+        if (edgeSet.size() > 1) {
+            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+
+//            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
+//            for (String n : redundantNodeNames) {
+//                containedSet.add(getVertexName(n));
+//            }
 //            
-//            reduceTransitively();
+//            printGraph();
 //            numEdges = graph.edgeSet().size();
 //            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
-//        }
-        
-        if (numEdges > 1) {
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
-            //resolveJunctions(dovetailReadNames, false);
+
             resolveJunctions();
-            numEdges = graph.edgeSet().size();
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
         }
         
         // extract read sequences
-        HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size()/2);
+        int numVertexReads = vertexSet.size();
+        if (!stranded) {
+            numVertexReads = numVertexReads/2;
+        }
+        
+        HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(numVertexReads);
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
         long seqID = 0;
@@ -1827,7 +2228,7 @@ public class Layout {
         fr.close();
         
         // layout unambiguous paths
-        HashSet<String> visitedReadNames = new HashSet<>(vertexSet.size()/2);
+        HashSet<String> visitedReadNames = new HashSet<>(numVertexReads);
         for (String n : vertexSet) {
             if (!visitedReadNames.contains(getVertexName(n))) {
                 
@@ -1924,44 +2325,7 @@ public class Layout {
     }
     
     private boolean layoutStrandedBackbones(String outFastaPath) throws IOException {
-        HashSet<String> containedSet = new HashSet<>();
-        
-        // look for containment and overlaps
-        PafReader reader = new PafReader(overlapPafInputStream);
-        for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
-            reader.next(r);            
-            if (!r.reverseComplemented && !r.qName.equals(r.tName)) {
-                if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
-                    CONTAIN_STATUS c = getContained(r);
-                    switch (c) {
-                        case QUERY:
-                            if (!containedSet.contains(r.tName)) {
-                                containedSet.add(r.qName);
-                                removeVertexStranded(r.qName + '+');
-                            }
-                            break;
-                        case TARGET:
-                            if (!containedSet.contains(r.qName)) {
-                                containedSet.add(r.tName);
-                                removeVertexStranded(r.tName + '+');
-                            }
-                            break;
-                        case NEITHER:
-                            if (!containedSet.contains(r.qName) &&
-                                !containedSet.contains(r.tName)) {
-                                addForwardEdges(r);
-                            }
-                            break;
-                    }
-                }
-            }
-        }
-        reader.close();
-                
-
-        for (String c : containedSet) {
-            removeVertexStranded(c + '+');
-        }
+        HashSet<String> containedSet = populateGraphFromOverlaps();
         
         if (!containedSet.isEmpty()) {
             System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
@@ -1972,18 +2336,17 @@ public class Layout {
             System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(vertexSet.size()));
         }
         
-        int numEdges = graph.edgeSet().size();
-//        if (numEdges > 2) {
-//            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
-//            
-//            reduceTransitively();
-//            numEdges = graph.edgeSet().size();
-//            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
-//        }
-        
+        int numEdges = graph.edgeSet().size();        
         if (numEdges > 1) {
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
-            //resolveJunctions(dovetailReadNames, true);
+            
+//            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
+//            for (String n : redundantNodeNames) {
+//                containedSet.add(getVertexName(n));
+//            }
+//            numEdges = graph.edgeSet().size();
+//            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));           
+            
             resolveJunctions();
             numEdges = graph.edgeSet().size();
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));

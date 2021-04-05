@@ -16,10 +16,20 @@
  */
 package rnabloom.util;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import rnabloom.io.ExtendedPafRecord;
+import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
+import rnabloom.olc.ComparableInterval;
+import rnabloom.olc.Interval;
 
 /**
  *
@@ -143,5 +153,109 @@ public class PafUtils {
         }
         
         return false;
+    }
+    
+    private static String getBestPartner(HashMap<String, Interval> map, Interval source, int tolerance) {
+        String bestPartner = null;
+        int bestScore = 0;
+        
+        for (Entry<String, Interval> e : map.entrySet()) {
+            Interval merged = ComparableInterval.merge(source, e.getValue());
+            if (merged != null) {
+                int score = (merged.end - source.end) + (source.start - merged.start);
+                if (score > bestScore && score >= tolerance) {
+                    bestScore = score;
+                    bestPartner = e.getKey();
+                }
+            }
+        }
+        
+        return bestPartner;
+    }
+    
+    public static HashMap<String, Integer> getReadCounts(String pafPath, Set<String> targets, int tolerance) throws IOException {
+        HashMap<String, Integer> counts = new HashMap<>(targets.size());
+        
+        PafReader reader = new PafReader(pafPath);
+        
+        String prevName = null;
+        int largestOverlapSize = 0;
+        Interval largestOverlap = null;
+        String bestTarget = null;
+        HashMap<String, Interval> targetNameQueryIntervalMap = new HashMap<>();
+        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+            reader.next(r);
+            
+            if (targets.contains(r.tName)) {
+                if (!r.qName.equals(prevName)) {
+                    if (prevName != null) {
+                        if (counts.containsKey(bestTarget)) {
+                            int c = counts.get(bestTarget);
+                            counts.put(bestTarget, c+1);
+                        }
+                        else {
+                            counts.put(bestTarget, 1);
+                        }
+
+                        targetNameQueryIntervalMap.remove(bestTarget);
+
+                        String partner = getBestPartner(targetNameQueryIntervalMap, largestOverlap, tolerance);
+                        if (partner != null) {
+                            // TODO: consider using best-partner as key
+                            if (counts.containsKey(partner)) {
+                                int c = counts.get(partner);
+                                counts.put(partner, c+1);
+                            }
+                            else {
+                                counts.put(partner, 1);
+                            }
+                        }
+                    }
+                    
+                    prevName = r.qName;
+                    largestOverlapSize = 0;
+                    bestTarget = null;
+                }
+                
+                Interval i = new Interval(r.qStart, r.qEnd);
+                targetNameQueryIntervalMap.put(r.tName, i);
+                
+                int overlapSize = r.qEnd - r.qStart;
+                if (overlapSize > largestOverlapSize) {
+                    largestOverlapSize = overlapSize;
+                    bestTarget = r.tName;
+                    largestOverlap = i;
+                }
+            }
+        }
+        
+        reader.close();
+        
+        if (counts.containsKey(bestTarget)) {
+            int c = counts.get(bestTarget);
+            counts.put(bestTarget, c+1);
+        }
+        else {
+            counts.put(bestTarget, 1);
+        }
+        
+        targetNameQueryIntervalMap.remove(bestTarget);
+
+        String partner = getBestPartner(targetNameQueryIntervalMap, largestOverlap, tolerance);
+        if (partner != null) {
+            if (counts.containsKey(partner)) {
+                int c = counts.get(partner);
+                counts.put(partner, c+1);
+            }
+            else {
+                counts.put(partner, 1);
+            }
+        }
+        
+        return counts;
+    }
+    
+    public static void main(String[] args) {
+        //debug
     }
 }

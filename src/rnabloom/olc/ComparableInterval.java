@@ -14,6 +14,22 @@ public class ComparableInterval extends Interval implements Comparable<Interval>
         super(start, end);
     }
 
+    public static Interval merge(Interval a, Interval b) {
+        if (a.start >= b.start && a.start <= b.end) {
+            return new Interval(b.start, Math.max(a.end, b.end));
+        }
+        else if (a.end >= b.start && a.end <= b.end) {
+            return new Interval(Math.min(a.start, b.start), b.end);
+        }
+        else if (b.start >= a.start && b.start <= a.end) {
+            return new Interval(a.start, Math.max(a.end, b.end));
+        }
+        else if (b.end >= a.start && b.end <= a.end) {
+            return new Interval(Math.min(a.start, b.start), b.end);
+        }
+        return null; // not merged
+    }
+    
     public boolean merge(Interval other) {
         if (start >= other.start && start <= other.end) {
             start = other.start;
