@@ -6038,7 +6038,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optMinimapOptions);
 
-        final String optLongReadOverlapProportionDefault = "0.40";
+        final String optLongReadOverlapProportionDefault = "0.70";
         Option optLongReadOverlapProportion = Option.builder("lrop")
                                     .desc("minimum proportion of matching bases within long-read overlaps [" + optLongReadOverlapProportionDefault + "]")
                                     .hasArg(true)
@@ -6938,7 +6938,7 @@ public class RNABloom {
                     
                     
                     SeqSubsampler.minimizerBased(longCorrectedReadsPath, subSampledReadsPath,
-                            dbgbfSize, k, 2*k-1, dbgbfNumHash, strandSpecific, 3, longReadOverlapProportion);
+                            dbgbfSize, k, 2*k-1, dbgbfNumHash, strandSpecific, 2, longReadOverlapProportion);
                     
                     boolean ok = assembler.assembleUnclusteredLongReads(longCorrectedReadsPath,
                                     subSampledReadsPath,
