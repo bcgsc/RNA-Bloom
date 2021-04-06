@@ -97,6 +97,7 @@ import static rnabloom.util.FileUtils.symlinkRemoveExisting;
 import static rnabloom.util.FileUtils.touch;
 import rnabloom.util.Timer;
 import static rnabloom.util.Common.convertToRoundedPercent;
+import rnabloom.util.SeqSubsampler;
 
 /**
  *
@@ -3297,9 +3298,10 @@ public class RNABloom {
 //        return true;
     }
     
-    public boolean assembleUnclusteredLongReads(String readsPath, 
-                                    String tmpPrefix, 
+    public boolean assembleUnclusteredLongReads(String readsPath,
+                                    String inFasta,
                                     String outFasta,
+                                    String tmpPrefix, 
                                     int numThreads,
                                     String minimapOptions,
                                     int minKmerCov,
@@ -3323,7 +3325,7 @@ public class RNABloom {
 //                minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
 //                minSeqDepth, usePacBioPreset, false, true);
             
-            ok = uniqueOLC(readsPath, tmpPrefix, outFasta,
+            ok = uniqueOLC(readsPath, inFasta, outFasta, tmpPrefix,
                 numThreads, stranded, minimapOptions, maxEdgeClip,
                 minAlnId, minOverlapMatches, maxIndelSize,
                 minSeqDepth, usePacBioPreset);
@@ -6930,12 +6932,18 @@ public class RNABloom {
                 else {
                     assembler.destroyAllBf();
                     
+                    String subSampledReadsPath = correctedLongReadFilePrefix + ".long.subsampled" + FASTA_EXT + GZIP_EXTENSION;
                     final String tmpFilePathPrefix = outdir + File.separator + name + ".longreads.assembly";
                     final String assembledTranscriptsPath = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
                     
-                    boolean ok = assembler.assembleUnclusteredLongReads(longCorrectedReadsPath, 
-                                    tmpFilePathPrefix, 
+                    
+                    SeqSubsampler.minimizerBased(longCorrectedReadsPath, subSampledReadsPath,
+                            dbgbfSize, k, 2*k-1, dbgbfNumHash, strandSpecific, 3, longReadOverlapProportion);
+                    
+                    boolean ok = assembler.assembleUnclusteredLongReads(longCorrectedReadsPath,
+                                    subSampledReadsPath,
                                     assembledTranscriptsPath,
+                                    tmpFilePathPrefix,
                                     numThreads,
                                     minimapOptions,
                                     minKmerCov,

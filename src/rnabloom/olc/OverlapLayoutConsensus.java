@@ -346,7 +346,7 @@ public class OverlapLayoutConsensus {
         command.add("-c");
 
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x map-" + preset + " -c -p 0.1 -N 100 " + options + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+        command.add(MINIMAP2 + " -x map-" + preset + " -c -p 0.2 -N 100 " + options + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
 
         try {
             Writer bw = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(outPafPath, false)), "UTF-8");
@@ -584,7 +584,8 @@ public class OverlapLayoutConsensus {
         }
     }
     
-    public static boolean uniqueOLC(String readsPath, String tmpPrefix, String outFastaPath,
+    public static boolean uniqueOLC(String readsPath, String inFastaPath,
+            String outFastaPath, String tmpPrefix,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize,
             int minSeqDepth, boolean usePacBioPreset) throws IOException {
@@ -608,7 +609,7 @@ public class OverlapLayoutConsensus {
         }
         
         // overlap all reads and extract unique reads
-        STATUS status = overlapWithMinimapAndExtractUnique(readsPath, uniqueFastaPath,
+        STATUS status = overlapWithMinimapAndExtractUnique(inFastaPath, uniqueFastaPath,
             numThreads, false, minimapOptionsNoGaps, stranded,
             maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
             minSeqDepth, usePacBioPreset);
