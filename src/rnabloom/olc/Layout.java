@@ -1459,7 +1459,7 @@ public class Layout {
             
             if ((!stranded || !r.reverseComplemented)&&
                     !r.qName.equals(r.tName) &&
-                    hasLargeOverlap(r) && hasGoodOverlap(r)) {
+                    hasLargeOverlap(r)) {
                 
                 if (!r.qName.equals(currName)) {
                     if (currName != null && currHist != null) {
@@ -1498,7 +1498,7 @@ public class Layout {
                 
                 updateHistogram(tHist, r.tStart, r.tEnd, tHistBinSize);
                 
-                if (!currContained || !containedSet.contains(r.tName)) {
+                if (hasGoodOverlap(r) && (!currContained || !containedSet.contains(r.tName))) {
                     // look for containment only if the other is not already "contained"
                     if (tHist.seenAsQuery || isFullyCovered(tHist)) {
                         currRecords.add(pafToTargetOverlap(r));

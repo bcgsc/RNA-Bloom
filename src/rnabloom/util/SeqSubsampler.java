@@ -99,7 +99,7 @@ public class SeqSubsampler {
                     }
                 }
                 
-                if (maxConsecutiveMissing > maxNonMatchingChainLength || (float)numMinimizersSeen/(float)numMinimizers <= minMatchingProportion) {
+                if (maxConsecutiveMissing > maxNonMatchingChainLength || (float)numMinimizersSeen/(float)numMinimizers < minMatchingProportion) {
                     fw.write(Integer.toString(++seqID), seq);
                 }
             }
