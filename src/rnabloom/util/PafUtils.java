@@ -43,6 +43,10 @@ public class PafUtils {
                (r.tEnd - r.tStart) >= minOverlapMatches;
     }
     
+    public static boolean hasSimilarSizedOverlap(PafRecord r, int tolerance) {
+        return Math.abs((r.qEnd - r.qStart) - (r.tEnd - r.tStart)) <= tolerance;
+    }
+    
     public static boolean hasGoodOverlap(PafRecord r, float minAlnId) {
         return r.numMatch / (float) r.blockLen >= minAlnId;
 //        return r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
@@ -231,12 +235,14 @@ public class PafUtils {
         
         reader.close();
         
-        if (counts.containsKey(bestTarget)) {
-            int c = counts.get(bestTarget);
-            counts.put(bestTarget, c+1);
-        }
-        else {
-            counts.put(bestTarget, 1);
+        if (bestTarget != null) {
+            if (counts.containsKey(bestTarget)) {
+                int c = counts.get(bestTarget);
+                counts.put(bestTarget, c+1);
+            }
+            else {
+                counts.put(bestTarget, 1);
+            }
         }
         
         targetNameQueryIntervalMap.remove(bestTarget);

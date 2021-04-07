@@ -1438,6 +1438,7 @@ public class Layout {
         Set<String> containedSet = Collections.synchronizedSet(new HashSet<>());
         HashMap<String, Histogram> histogramMap = new HashMap<>(100000);
         final int minSegmentLength = minOverlapMatches;
+        final int maxOverlapSizeDiff = 2 * maxIndelSize;
         
         PafReader reader = new PafReader(overlapPafInputStream);
         final boolean checkNumAltReads = minNumAltReads > 0;
@@ -1494,7 +1495,8 @@ public class Layout {
                 
                 updateHistogram(tHist, r.tStart, r.tEnd, tHistBinSize);
                 
-                if (hasGoodOverlap(r) && (!currContained || !containedSet.contains(r.tName))) {
+                if (hasGoodOverlap(r) && hasSimilarSizedOverlap(r, maxOverlapSizeDiff) &&
+                        (!currContained || !containedSet.contains(r.tName))) {
                     // look for containment only if the other is not already "contained"
                     if (tHist.seenAsQuery || isFullyCovered(tHist)) {
                         currRecords.add(pafToTargetOverlap(r));

@@ -662,7 +662,7 @@ public class OverlapLayoutConsensus {
         
         String minimapOptionsNoGaps = minimapOptions;
         if (!minimapOptionsNoGaps.contains("-g ")) {
-            minimapOptionsNoGaps += " -g " + 150;
+            minimapOptionsNoGaps += " -g " + 200;
         }
         
         // 1. overlap all reads and extract unique reads
