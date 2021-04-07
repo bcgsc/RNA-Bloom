@@ -149,6 +149,35 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
             }
         }
     }
+    
+    public float incrementAndGet(final long[] hashVals) {
+        // find the smallest count at all hash positions
+        byte min = counts.get(getIndex(hashVals[0]));
+        byte c;
+        int h;
+        for (h=1; h<numHash; ++h) {
+            c = counts.get(getIndex(hashVals[h]));
+            if (c < min) {
+                min = c;
+            }
+            if (min == 0) {
+                break;
+            }
+        }
+        
+        // increment the smallest count
+        
+        byte updated = MiniFloat.increment(min);
+        
+        if (updated != min) {
+            // update min count only
+            for (h=0; h<numHash; ++h) {
+                counts.compareAndSwap(getIndex(hashVals[h]), min, updated);
+            }
+        }
+        
+        return MiniFloat.toFloat(updated);
+    }
 
     @Override
     public float getCount(String key) {

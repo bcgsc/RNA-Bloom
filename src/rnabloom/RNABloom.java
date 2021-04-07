@@ -6938,7 +6938,8 @@ public class RNABloom {
                     
                     
                     SeqSubsampler.minimizerBased(longCorrectedReadsPath, subSampledReadsPath,
-                            dbgbfSize, k, 2*k-1, dbgbfNumHash, strandSpecific, 2, longReadOverlapProportion);
+                            cbfSize, k, 2*k-1, dbgbfNumHash, strandSpecific,
+                            2, longReadOverlapProportion, Math.max(2, longReadMinReadDepth));
                     
                     boolean ok = assembler.assembleUnclusteredLongReads(longCorrectedReadsPath,
                                     subSampledReadsPath,

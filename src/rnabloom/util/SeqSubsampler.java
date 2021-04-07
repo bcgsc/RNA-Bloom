@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import rnabloom.bloom.CascadingBloomFilter;
+import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.MinimizerHashIterator;
@@ -36,8 +36,9 @@ public class SeqSubsampler {
     
     public static void minimizerBased(String inFasta, String outFasta,
             long bfSize, int k, int w, int numHash, boolean stranded, 
-            int maxNonMatchingChainLength, float minMatchingProportion) throws IOException {
-        System.out.println("Subsampling reads...");
+            int maxNonMatchingChainLength, float minMatchingProportion,
+            int maxMultiplicity) throws IOException {
+        System.out.println("Subsampling sequences...");
         Timer timer = new Timer();
         
         // read all sequences
@@ -61,7 +62,7 @@ public class SeqSubsampler {
         }
         
         MinimizerHashIterator itr = new MinimizerHashIterator(k, w, h.getHashIterator(1));
-        CascadingBloomFilter bf = new CascadingBloomFilter(bfSize, numHash, h, 2);
+        CountingBloomFilter bf = new CountingBloomFilter(bfSize, numHash, h);
         
         FastaWriter fw  = new FastaWriter(outFasta, false);
         int seqID = 0;
@@ -78,7 +79,7 @@ public class SeqSubsampler {
                     long prev = itr.next();
                     ++numMinimizers;
                     itr.getMultipleHashValues(prev, hVals);
-                    if (bf.lookupThenAdd(hVals)) {
+                    if (bf.incrementAndGet(hVals) > maxMultiplicity) {
                         ++numMinimizersSeen;
                     }
                     
@@ -87,7 +88,7 @@ public class SeqSubsampler {
                         if (mm != prev) {
                             ++numMinimizers;
                             itr.getMultipleHashValues(mm, hVals);
-                            if (bf.lookupThenAdd(hVals)) {
+                            if (bf.incrementAndGet(hVals) > maxMultiplicity) {
                                 ++numMinimizersSeen;
                                 consecutiveMissing = 0;
                             }
@@ -109,9 +110,7 @@ public class SeqSubsampler {
         }
         fw.close();
         
-        System.out.println("Bloom filter FPR:\t" +
-                convertToRoundedPercent(bf.getFPR(0)) + " % , " +
-                convertToRoundedPercent(bf.getFPR(1)) + " %");
+        System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(bf.getFPR()) + " %");
         
         bf.destroy();
         

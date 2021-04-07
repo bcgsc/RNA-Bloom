@@ -155,10 +155,6 @@ public class OverlapLayoutConsensus {
         if (align) {
             minimapOptions = "-c " + minimapOptions;
         }
-        
-        if (!minimapOptions.contains("-g ")) {
-            minimapOptions += " -g " + 2 * maxIndelSize;
-        }
                 
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
         command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
@@ -264,6 +260,51 @@ public class OverlapLayoutConsensus {
             Process process = pb.start();
 
             boolean reduced = layout(seqFastaPath, process.getInputStream(), layoutFastaPath, stranded, maxEdgeClip, 
+                    minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth);
+            
+            int exitStatus = process.waitFor();
+            
+            if (exitStatus != 0) {
+                return STATUS.FAIL;
+            }
+            else if (!reduced) {
+                return STATUS.EMPTY;
+            }
+            else {
+                return STATUS.SUCCESS;
+            }
+        }
+        catch (IOException | InterruptedException e) {
+            return STATUS.FAIL;
+        }
+    }
+
+    public static STATUS overlapWithMinimapAndLayoutSimple(String seqFastaPath, String layoutFastaPath,
+            int numThreads, boolean align, String minimapOptions, boolean stranded, int maxEdgeClip,
+            float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
+            int minSeqDepth, boolean usePacBioPreset) {
+        System.out.println("Overlapping sequences...");
+        
+        ArrayList<String> command = new ArrayList<>();
+        command.add("/bin/sh");
+        command.add("-c");
+        
+        if (align) {
+            minimapOptions = "-c " + minimapOptions;
+        }
+        
+        String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
+        command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
+        
+        try {            
+            ProcessBuilder pb = new ProcessBuilder(command);
+
+            File logFile = new File(layoutFastaPath + LOG_EXTENSION);
+            pb.redirectError(Redirect.to(logFile));
+            
+            Process process = pb.start();
+
+            boolean reduced = layoutSimple(seqFastaPath, process.getInputStream(), layoutFastaPath, stranded, maxEdgeClip, 
                     minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth);
             
             int exitStatus = process.waitFor();
@@ -402,6 +443,20 @@ public class OverlapLayoutConsensus {
             Layout myLayout = new Layout(seqFastaPath, overlapPafInputStream, stranded, maxEdgeClip, minAlnId, 
                     minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth);
             return myLayout.layoutBackbones(backboneFastaPath);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return false;
+        }
+    }
+
+    public static boolean layoutSimple(String seqFastaPath, InputStream overlapPafInputStream, String backboneFastaPath,
+            boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
+            boolean cutRevCompArtifact, int minSeqDepth) {
+        try {
+            Layout myLayout = new Layout(seqFastaPath, overlapPafInputStream, stranded, maxEdgeClip, minAlnId, 
+                    minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth);
+            myLayout.extractSimplePaths(backboneFastaPath);
+            return true;
         } catch (Exception ex) {
             ex.printStackTrace();
             return false;
@@ -595,24 +650,22 @@ public class OverlapLayoutConsensus {
             int minSeqDepth, boolean usePacBioPreset) throws IOException {
 
         String uniqueFastaPath = tmpPrefix + "1.nr" + FASTA_EXT + GZIP_EXTENSION;
-        String readsToUniquePafPath = tmpPrefix + "2.map.paf.gz";
-        String polishedUniqueFastaPath = tmpPrefix + "3.pol" + FASTA_EXT;
-        //String backboneFastaPath = tmpPrefix + "4.backbone" + FASTA_EXT + GZIP_EXTENSION;
-        //String readsToBackbonePafPath = tmpPrefix + "5.map.paf.gz";
+        String simpleFastaPath = tmpPrefix + "2.uni" + FASTA_EXT + GZIP_EXTENSION;
+        String readsToSimplePafPath = tmpPrefix + "3.map.paf.gz";
+        String polishedSimpleFastaPath = tmpPrefix + "4.pol" + FASTA_EXT;
         
         deleteIfExists(uniqueFastaPath);
-        deleteIfExists(readsToUniquePafPath);
-        deleteIfExists(polishedUniqueFastaPath);
-//        deleteIfExists(backboneFastaPath);
-//        deleteIfExists(readsToBackbonePafPath);
+        deleteIfExists(simpleFastaPath);
+        deleteIfExists(readsToSimplePafPath);
+        deleteIfExists(polishedSimpleFastaPath);
         deleteIfExists(outFastaPath);
         
         String minimapOptionsNoGaps = minimapOptions;
         if (!minimapOptionsNoGaps.contains("-g ")) {
-            minimapOptionsNoGaps += " -g 200";
+            minimapOptionsNoGaps += " -g " + 150;
         }
         
-        // overlap all reads and extract unique reads
+        // 1. overlap all reads and extract unique reads
         STATUS status = overlapWithMinimapAndExtractUnique(inFastaPath, uniqueFastaPath,
             numThreads, false, minimapOptionsNoGaps, stranded,
             maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
@@ -621,49 +674,38 @@ public class OverlapLayoutConsensus {
             return false;
         }
         
-        // map all reads to unique reads
-        status = mapWithMinimapFiltered(readsPath, uniqueFastaPath, readsToUniquePafPath,
+        // 2. overlap (with alignment) unique reads and extract unitigs
+        status = overlapWithMinimapAndLayoutSimple(uniqueFastaPath, simpleFastaPath,
+            numThreads, true, minimapOptions, stranded, maxEdgeClip,
+            minAlnId, minOverlapMatches, maxIndelSize, false,
+            1, usePacBioPreset);
+        if (status != STATUS.SUCCESS) {
+            return false;
+        }
+        
+        // 3. map all reads to unitigs
+        status = mapWithMinimapFiltered(readsPath, simpleFastaPath, readsToSimplePafPath,
             numThreads, minimapOptions, usePacBioPreset, stranded, maxIndelSize,
             minOverlapMatches, minAlnId);
         if (status != STATUS.SUCCESS) {
             return false;
         }
         
-        // derive concensus for unique reads
-        boolean success = consensusWithRacon(readsPath, uniqueFastaPath, 
-            readsToUniquePafPath, polishedUniqueFastaPath, numThreads, true);
+        // 4. polish unitigs
+        boolean success = consensusWithRacon(readsPath, simpleFastaPath, 
+            readsToSimplePafPath, polishedSimpleFastaPath, numThreads, true);
         if (!success) {
             return false;
         }
         
-//        // overlap concensus unique reads and layout
-//        success = overlapLayout(polishedUniqueFastaPath, backboneFastaPath,
-//            numThreads, stranded, minimapOptions, maxEdgeClip,
-//            minAlnId, minOverlapMatches, maxIndelSize, false,
-//            minSeqDepth, usePacBioPreset);
-//        if (!success) {
-//            return false;
-//        }
-        
-        status = overlapWithMinimapAndLayoutGreedy(polishedUniqueFastaPath, outFastaPath,
+        // 5. overlap (with alignment) unitigs and lay out paths
+        status = overlapWithMinimapAndLayoutGreedy(polishedSimpleFastaPath, outFastaPath,
             numThreads, true, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
-            minSeqDepth, usePacBioPreset, readsToUniquePafPath);
+            1, usePacBioPreset, readsToSimplePafPath);
         if (status != STATUS.SUCCESS) {
             return false;
         }
-        
-//        // map all reads to backbone
-//        status = mapWithMinimapFiltered(readsPath, backboneFastaPath, readsToBackbonePafPath,
-//            numThreads, minimapOptions, usePacBioPreset, stranded, maxIndelSize,
-//            minOverlapMatches, minAlnId);
-//        if (status != STATUS.SUCCESS) {
-//            return false;
-//        }
-//        
-//        // derive concensus for unique reads
-//        success = consensusWithRacon(readsPath, backboneFastaPath, 
-//            readsToBackbonePafPath, outFastaPath, numThreads, true /*minSeqDepth <= 1*/);
         
         return true;
     }

@@ -33,7 +33,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.jgrapht.Graph;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.TransitiveReduction;
@@ -53,9 +52,6 @@ import rnabloom.io.PafRecord;
 import rnabloom.util.BitSequence;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.PafUtils.*;
-import static rnabloom.util.SeqUtils.stringToBytes;
-import static rnabloom.util.SeqUtils.bytesToString;
-import static rnabloom.util.SeqUtils.reverseComplement;
 import rnabloom.util.Timer;
 
 
@@ -1985,6 +1981,81 @@ public class Layout {
         System.out.println("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
         
         return containedSet;
+    }
+    
+    public void extractSimplePaths(String outFastaPath) throws IOException {
+        HashSet<String> containedSet = populateGraphFromOverlaps();
+        
+        if (!containedSet.isEmpty()) {
+            System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
+        }
+        
+        Set<String> vertexSet = graph.vertexSet();
+        if (!vertexSet.isEmpty()) {
+            int numDovetailReads = vertexSet.size();
+            if (!stranded) {
+                numDovetailReads /= 2;
+            }
+            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(numDovetailReads));
+        }
+        
+        Set<OverlapEdge> edgeSet = graph.edgeSet();
+        
+        if (edgeSet.size() > 1) {
+            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+
+            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
+            for (String n : redundantNodeNames) {
+                containedSet.add(getVertexName(n));
+            }
+            
+            //printGraph();
+            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+        }
+        
+        HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size());
+        FastaReader fr = new FastaReader(seqFastaPath);
+        FastaWriter fw = new FastaWriter(outFastaPath, false);
+        long seqID = 0;
+        long originalNumSeq = 0;
+        while (fr.hasNext()) {
+            ++originalNumSeq;
+            String[] nameSeq = fr.nextWithName();
+            String name = nameSeq[0];
+            if (vertexSet.contains(name + '+')) {
+                dovetailReadSeqs.put(name, new BitSequence(nameSeq[1]));
+            }
+            else if (!containedSet.contains(name)) {
+                // this sequence either contains shorter sequences or it has no overlaps with others
+                fw.write(Long.toString(++seqID), nameSeq[1]);
+            }
+        }
+        fr.close();
+        
+        // extract paths
+        HashSet<String> visited = new HashSet<>();
+        
+        for (String seedVid : graph.vertexSet()) {
+            String name = getVertexName(seedVid);
+            if (!visited.contains(name)) {
+                ArrayDeque<String> path = getUnambiguousExtension(seedVid);
+                
+                String header = Long.toString(++seqID);
+                if (path.size() > 1) {
+                    header += " path=[" + String.join(",", path) + "]";
+                }
+                
+                fw.write(header, assemblePath(path, dovetailReadSeqs));
+
+                for (String vid : path) {
+                    visited.add(getVertexName(vid));
+                }
+            }
+        }
+        
+        fw.close();
+        
+        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
     }
     
     public void extractGreedyPaths(String outFastaPath, String mappingPafPath) throws IOException {
