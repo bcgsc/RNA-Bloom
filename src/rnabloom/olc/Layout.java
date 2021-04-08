@@ -1438,7 +1438,7 @@ public class Layout {
         Set<String> containedSet = Collections.synchronizedSet(new HashSet<>());
         HashMap<String, Histogram> histogramMap = new HashMap<>(100000);
         final int minSegmentLength = minOverlapMatches;
-        final int maxOverlapSizeDiff = 2 * maxIndelSize;
+        final int maxOverlapSizeDiff = maxIndelSize;
         
         PafReader reader = new PafReader(overlapPafInputStream);
         final boolean checkNumAltReads = minNumAltReads > 0;
