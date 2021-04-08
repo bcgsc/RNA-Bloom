@@ -3568,16 +3568,17 @@ public final class GraphUtils {
                             }
                         }
                         else {
-                            float altPathCov = getMinimumKmerCoverage(altPath);
-                            float oriPathCov = getMinimumKmerCoverage(kmers, i-numBadKmersSince, i);
+                            float altPathCov = getMedianKmerCoverage(altPath);
+                            float oriPathCov = getMedianKmerCoverage(kmers, i-numBadKmersSince, i);
                             
                             int altPathLen = altPath.size();
 
-                            if (oriPathCov * 2 < altPathCov &&
-                                    //(oriPathCov < minKmerCov && altPathCov > minKmerCov) ||
-                                    (numBadKmersSince-maxLengthDifference <= altPathLen && altPathLen <= numBadKmersSince+maxLengthDifference && 
+                            if (oriPathCov < altPathCov &&
+                                    numBadKmersSince-maxLengthDifference <= altPathLen && 
+                                    altPathLen <= numBadKmersSince+maxLengthDifference && 
                                         (altPathLen <= k+maxIndelSize ||
-                                            getPercentIdentity(graph.assemble(altPath), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity))) {
+                                            (oriPathCov < minKmerCov && altPathCov >= covThreshold) ||
+                                            getPercentIdentity(graph.assemble(altPath), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity)) {
                                 
                                 // backtrack to best left kmer
                                 for (int j=kmers2.size()-1; j>bestLeftKmerIndex; --j) {
