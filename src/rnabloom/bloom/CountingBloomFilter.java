@@ -282,4 +282,16 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
                 this.numHash == bf.numHash &&
                 BufferComparator.equivalentByteBuffers(counts, bf.counts);
     }
+    
+    public BloomFilter getBloomFilter(int minCov) {
+        BloomFilter bf = new BloomFilter(size, numHash, hashFunction);
+        
+        for (long i=0; i<size; ++i) {
+            if (MiniFloat.toFloat(counts.get(i)) >= minCov) {
+                bf.bitArray.set(i);
+            }
+        }
+        
+        return bf;
+    }
 }

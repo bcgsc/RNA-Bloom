@@ -104,7 +104,7 @@ import rnabloom.util.SeqSubsampler;
  * @author Ka Ming Nip
  */
 public class RNABloom {
-    public final static String VERSION = "1.4.2-r2021-04-06b";
+    public final static String VERSION = "1.4.2-r2021-04-08a";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
@@ -5620,7 +5620,7 @@ public class RNABloom {
         String defaultMinCoverageLR = "2";
         String defaultMaxIndelSizeLR = "50";
         String defaultMaxTipLengthLR = "50";
-        String defaultMaxErrorCorrItrLR = "1";
+        String defaultMaxErrorCorrItrLR = "2";
         String defaultPercentIdentityLR = "0.7";
         String defaultLongReadPreset = "-k " + defaultKmerSizeLR + " -c " + defaultMinCoverageLR + 
                 " -indel " + defaultMaxIndelSizeLR + " -e " + defaultMaxErrorCorrItrLR +
@@ -5903,7 +5903,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optSample);
         
-        final String optErrCorrItrDefault = "1";
+        final String optErrCorrItrDefault = "2";
         Option optErrCorrItr = Option.builder("e")
                                     .longOpt("errcorritr")
                                     .desc("number of iterations of error-correction in reads [" + optErrCorrItrDefault + "]")
@@ -6930,16 +6930,22 @@ public class RNABloom {
                     System.out.println("WARNING: Reads were already assembled!");
                 }
                 else {
+                    BloomFilter solidKmersBf = assembler.graph.getCbf().getBloomFilter(Math.max(2, longReadMinReadDepth));
+                    
                     assembler.destroyAllBf();
                     
                     String subSampledReadsPath = correctedLongReadFilePrefix + ".long.subsampled" + FASTA_EXT + GZIP_EXTENSION;
                     final String tmpFilePathPrefix = outdir + File.separator + name + ".longreads.assembly";
                     final String assembledTranscriptsPath = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
                     
-                    
-                    SeqSubsampler.minimizerBased(longCorrectedReadsPath, subSampledReadsPath,
-                            cbfSize, k, 2*k-1, dbgbfNumHash, strandSpecific,
-                            2, longReadOverlapProportion, Math.max(2, longReadMinReadDepth));
+//                    SeqSubsampler.minimizerBased(longCorrectedReadsPath, subSampledReadsPath,
+//                            cbfSize, k, 2*k-1, dbgbfNumHash, strandSpecific,
+//                            2, longReadOverlapProportion, Math.max(2, longReadMinReadDepth));
+
+                    SeqSubsampler.kmerBased(longCorrectedReadsPath, subSampledReadsPath,
+                            cbfSize, k, dbgbfNumHash, strandSpecific, 
+                            Math.max(2, longReadMinReadDepth), solidKmersBf, maxTipLen);
+                    solidKmersBf.destroy();
                     
                     boolean ok = assembler.assembleUnclusteredLongReads(longCorrectedReadsPath,
                                     subSampledReadsPath,

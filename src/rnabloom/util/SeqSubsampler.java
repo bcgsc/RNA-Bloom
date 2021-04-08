@@ -20,10 +20,12 @@ import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.MinimizerHashIterator;
+import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
 import static rnabloom.util.Common.convertToRoundedPercent;
@@ -113,6 +115,92 @@ public class SeqSubsampler {
         System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(bf.getFPR()) + " %");
         
         bf.destroy();
+        
+        System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
+                            "\tafter: " + NumberFormat.getInstance().format(seqID) +
+                            " (" + convertToRoundedPercent(seqID/(float)numSeq) + " %)");
+        
+        System.out.println("Subsampling completed in " + timer.elapsedDHMS());
+    }
+    
+    public static void kmerBased(String inFasta, String outFasta,
+            long bfSize, int k, int numHash, boolean stranded,
+            int maxMultiplicity, BloomFilter solidKmersBf, int maxEdgeClip) throws IOException {
+     
+        System.out.println("Subsampling sequences...");
+        Timer timer = new Timer();
+        
+        // read all sequences
+        ArrayList<BitSequence> seqs = new ArrayList<>();
+        FastaReader fr = new FastaReader(inFasta);
+        while(fr.hasNext()) {
+            seqs.add(new BitSequence(fr.next()));
+        }
+        fr.close();
+        int numSeq = seqs.size();
+        
+        // sort from longest to shortest
+        Collections.sort(seqs);
+        
+        HashFunction h;
+        if (stranded) {
+            h = new HashFunction(k);
+        }
+        else {
+            h = new CanonicalHashFunction(k);
+        }
+        
+        CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
+        NTHashIterator itr = h.getHashIterator(numHash, k);
+        long[] hVals = itr.hVals;
+        
+        FastaWriter fw  = new FastaWriter(outFasta, false);
+        int seqID = 0;
+
+        for (BitSequence s : seqs) {
+            String seq = s.toString();
+            int seqLen = seq.length();
+            boolean tooShort = seqLen < 2 * maxEdgeClip + k;
+            int maxPos = seqLen - maxEdgeClip;
+            int maxMissingChainLen = 0;
+            int missingChainLen = 0;
+            
+            if (itr.start(seq)) {
+                while (itr.hasNext()) {
+                    itr.next();
+                    int pos = itr.getPos();
+                    boolean withinEffectiveRange = tooShort || pos > maxEdgeClip && pos < maxPos;
+                    if (solidKmersBf.lookup(hVals)) {
+                        if (cbf.incrementAndGet(hVals) <= maxMultiplicity) {
+                            if (withinEffectiveRange) {
+                                ++missingChainLen;
+                            }
+                        }
+                        else {
+                            if (withinEffectiveRange) {
+                                if (missingChainLen > maxMissingChainLen) {
+                                    maxMissingChainLen = missingChainLen;
+                                }
+                            }
+                            missingChainLen = 0;
+                        }
+                    }
+                    else {
+                        if (withinEffectiveRange) {
+                            ++missingChainLen;
+                        }
+                    }
+                }
+            }
+            
+            if (maxMissingChainLen >= k) {
+                fw.write(Integer.toString(++seqID), seq);
+            }
+        }
+        fw.close();
+        
+        System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(cbf.getFPR()) + " %");
+        cbf.destroy();
         
         System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
                             "\tafter: " + NumberFormat.getInstance().format(seqID) +
