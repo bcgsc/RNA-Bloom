@@ -166,30 +166,64 @@ public class SeqSubsampler {
             int missingChainLen = 0;
             
             if (itr.start(seq)) {
-                while (itr.hasNext()) {
-                    itr.next();
-                    int pos = itr.getPos();
-                    boolean withinEffectiveRange = tooShort || pos > maxEdgeClip && pos < maxPos;
-                    if (solidKmersBf.lookup(hVals)) {
-                        if (cbf.incrementAndGet(hVals) <= maxMultiplicity) {
-                            if (withinEffectiveRange) {
+                if (tooShort) {
+                    while (itr.hasNext()) {
+                        itr.next();
+                        if (solidKmersBf.lookup(hVals)) {
+                            if (cbf.incrementAndGet(hVals) <= maxMultiplicity) {
                                 ++missingChainLen;
                             }
-                        }
-                        else {
-                            if (withinEffectiveRange) {
+                            else {
                                 if (missingChainLen > maxMissingChainLen) {
                                     maxMissingChainLen = missingChainLen;
                                 }
+                                missingChainLen = 0;
                             }
-                            missingChainLen = 0;
                         }
-                    }
-                    else {
-                        if (withinEffectiveRange) {
+                        else {
                             ++missingChainLen;
                         }
                     }
+                }
+                else {
+                    // head region
+                    for (int pos=0; pos<maxEdgeClip; ++pos) {
+                        itr.next();
+                        if (solidKmersBf.lookup(hVals)) {
+                            cbf.increment(hVals);
+                        }
+                    }
+                    
+                    int effRangeEndIndex = maxPos-maxEdgeClip;
+                    for (int pos=maxEdgeClip; pos<effRangeEndIndex; ++pos) {
+                        itr.next();
+                        if (solidKmersBf.lookup(hVals)) {
+                            if (cbf.incrementAndGet(hVals) <= maxMultiplicity) {
+                                ++missingChainLen;
+                            }
+                            else {
+                                if (missingChainLen > maxMissingChainLen) {
+                                    maxMissingChainLen = missingChainLen;
+                                }
+                                missingChainLen = 0;
+                            }
+                        }
+                        else {
+                            ++missingChainLen;
+                        }
+                    }
+                    
+                    // tail region
+                    for (int pos=effRangeEndIndex; pos<maxPos; ++pos) {
+                        itr.next();
+                        if (solidKmersBf.lookup(hVals)) {
+                            cbf.increment(hVals);
+                        }
+                    }
+                }
+                
+                if (missingChainLen > maxMissingChainLen) {
+                    maxMissingChainLen = missingChainLen;
                 }
             }
             
