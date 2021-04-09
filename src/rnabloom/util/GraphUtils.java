@@ -8543,7 +8543,7 @@ public final class GraphUtils {
         return hashValSet.size() < Math.round(numKmers * minUniqueFraction);
     }
     
-    public static boolean isLowComplexity(ArrayList<Kmer> kmers, int k, float minUniqueFraction) {
+    public static boolean isLowComplexity(ArrayList<Kmer> kmers, int k, float maxAllowedFraction) {
         int numKmers = kmers.size();
         
         if (numKmers < k) {
@@ -8557,7 +8557,7 @@ public final class GraphUtils {
             }
         }
         
-        return lowComplexityKmers >= (1f - minUniqueFraction) * numKmers/k; 
+        return lowComplexityKmers >= maxAllowedFraction * numKmers/k; 
     }
     
     public static ArrayList<ArrayList<Kmer>> extractNonLowComplexitySegments(ArrayList<Kmer> kmers,

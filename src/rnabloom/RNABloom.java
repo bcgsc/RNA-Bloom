@@ -3702,13 +3702,15 @@ public class RNABloom {
                     
                     ArrayList<Kmer> kmers = graph.getKmers(seq);
                     
-                    ArrayList<ArrayList<Kmer>> segments = extractNonLowComplexitySegments(kmers, k, 0.5f, minSeqLen);
-                    int numSegments = segments.size();
-                    boolean isMultiSeg = numSegments > 1;
                     boolean kept = false;
                     
-                    for (int i=0; i<numSegments; ++i) {
-                        ArrayList<Kmer> correctedKmers = correctLongSequenceWindowed(segments.get(i), 
+                    if (isLowComplexity(kmers, k, 0.5f)) {
+                        float cov = getMedianKmerCoverage(kmers);
+                        outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov, true));
+                        kept = true;
+                    }
+                    else {
+                        ArrayList<Kmer> correctedKmers = correctLongSequenceWindowed(kmers, 
                                                                             graph, 
                                                                             maxErrCorrItr, 
                                                                             maxCovGradient, 
@@ -3737,12 +3739,8 @@ public class RNABloom {
 
                                 int seqLength = seq.length();
                                 boolean isRepeat = compressHomoPolymers(seq).length() < 1f/3f * seqLength;
-                                String name = nameSeqPair[0];
-                                if (isMultiSeg) {
-                                    name += "_p" + (i+1);
-                                }
                                 
-                                outputQueue.put(new Sequence(name, seq, seqLength, cov, isRepeat));
+                                outputQueue.put(new Sequence(nameSeqPair[0], seq, seqLength, cov, isRepeat));
                                 kept = true;
                             }
                         }
