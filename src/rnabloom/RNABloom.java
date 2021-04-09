@@ -3673,6 +3673,7 @@ public class RNABloom {
         private final boolean reverseComplement;
         private boolean trimArtifact = false;
         private long numReads = 0;
+        private long numDiscarded = 0;
         private long numArtifacts = 0;
 
         public LongReadCorrectionWorker(FastxSequenceIterator itr,
@@ -3691,6 +3692,7 @@ public class RNABloom {
         @Override
         public void run() {
             //boolean stranded = graph.isStranded();
+            int minSeqLen = 3*k;
             
             try {
                 String[] nameSeqPair;
@@ -3699,127 +3701,55 @@ public class RNABloom {
                     String seq = reverseComplement ? reverseComplement(nameSeqPair[1]) : nameSeqPair[1];
                     
                     ArrayList<Kmer> kmers = graph.getKmers(seq);
-                                        
-                    ArrayList<Kmer> correctedKmers = correctLongSequenceWindowed(kmers, 
-                                                                        graph, 
-                                                                        maxErrCorrItr, 
-                                                                        maxCovGradient, 
-                                                                        lookahead, 
-                                                                        maxIndelSize, 
-                                                                        percentIdentity, 
-                                                                        minKmerCov,
-                                                                        minNumSolidKmers,
-                                                                        false,
-                                                                        500);
                     
-                    if (correctedKmers != null && !correctedKmers.isEmpty()) {
-                        if (trimArtifact) {
-                            ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
-                                                graph, strandSpecific, 150, maxIndelSize, percentIdentity, maxCovGradient);
-                            if (!trimmed.isEmpty() && trimmed.size() < correctedKmers.size()) {
-                                ++numArtifacts;
-                                correctedKmers = trimmed;
-                            }
-                        }
-                        
-                        if (!correctedKmers.isEmpty()) {
-                            //float cov = getMinMedianKmerCoverage(correctedKmers, 200);
-                            float cov = getMedianKmerCoverage(correctedKmers);
-                            //boolean isRepeat = isRepeatSequence(correctedKmers, k, 1f/3f) || isLowComplexity(correctedKmers, k, 1f/3f);
-                            boolean isRepeat = isLowComplexity(correctedKmers, k, 1f/3f);
-                            
-                            seq = graph.assemble(correctedKmers);
-                            
-                            int seqLength = seq.length();
-                            if (!isRepeat && compressHomoPolymers(seq).length() < 1f/3f * seqLength) {
-                                isRepeat = true;
-                            }
+                    ArrayList<ArrayList<Kmer>> segments = extractNonLowComplexitySegments(kmers, k, 0.5f, minSeqLen);
+                    int numSegments = segments.size();
+                    boolean isMultiSeg = numSegments > 1;
+                    boolean kept = false;
+                    
+                    for (int i=0; i<numSegments; ++i) {
+                        ArrayList<Kmer> correctedKmers = correctLongSequenceWindowed(segments.get(i), 
+                                                                            graph, 
+                                                                            maxErrCorrItr, 
+                                                                            maxCovGradient, 
+                                                                            lookahead, 
+                                                                            maxIndelSize, 
+                                                                            percentIdentity, 
+                                                                            minKmerCov,
+                                                                            minNumSolidKmers,
+                                                                            false,
+                                                                            500);
 
-                            /*
-                            int halflen = seqLength/2;                            
-                            String prefix = "";
-
-                            if (!isRepeat) {
-                                if (stranded) {
-                                    // find polyA tail and trim trailing sequence
-                                    int[] region = getPolyATailRegion(seq, 100, 17, 15, 2);
-                                    if (region != null) {
-                                        int start = region[0];
-                                        int end = region[1];
-                                        if (start >= halflen) {
-                                            seq = seq.substring(0, start) + "A".repeat(end-start+1);
-                                        }
-                                    }
-                                }
-                                else {
-                                    // find polyA tail and trim trailing sequence
-                                    int[] regionA = getPolyATailRegion(seq, 100, 17, 15, 2);
-                                    int[] regionT = getPolyTHeadRegion(seq, 100, 17, 15, 2);
-                                    if (regionA != null && regionT == null) {
-                                        int start = regionA[0];
-                                        int end = regionA[1];
-                                        if (start >= halflen) {
-                                            seq = seq.substring(0, start) + "A".repeat(end-start+1);
-                                        }
-                                    }
-                                    else if (regionT != null && regionA == null) {
-                                        int start = regionT[0];
-                                        int end = regionT[1];
-                                        if (start >= 0 && end <= halflen) {
-                                            seq = reverseComplement(seq.substring(end+1)) + "A".repeat(end-start+1);
-                                        }
-                                    }
-                                    else if (regionA != null && regionT != null) {
-                                        int startA = regionA[0];
-                                        int endA = regionA[1];
-                                        int startT = regionT[0];
-                                        int endT = regionT[1];
-                                        boolean isPolyA = startA >= halflen;
-                                        boolean isPolyT = startT >= 0 && endT <= halflen;
-                                        if (isPolyA && !isPolyT) {
-                                            seq = seq.substring(0, startA) + "A".repeat(endA-startA+1);
-                                        }
-                                        else if (isPolyT && !isPolyA) {
-                                            seq = reverseComplement(seq.substring(endT+1)) + "A".repeat(endT-startT+1);
-                                        }
-                                        else if (isPolyA && isPolyT){
-                                            int midIndex = (endT+1+startA)/2;
-                                            String left = reverseComplement(seq.substring(endT+1, midIndex));
-                                            String right = seq.substring(midIndex, startA);
-                                            if (getPercentIdentity(left, right) >= percentIdentity) {
-                                                seq = right + "A".repeat(Math.min(endA-startA+1, endT-startT+1));
-                                                prefix = "TSA_";
-                                            }
-                                            else {
-                                                int numA = 0;
-                                                for (int i=startA; i<=endA; ++i) {
-                                                    if (seq.charAt(i) == 'A') {
-                                                        ++numA;
-                                                    }
-                                                }
-
-                                                int numT = 0;
-                                                for (int i=startT; i<=endT; ++i) {
-                                                    if (seq.charAt(i) == 'T') {
-                                                        ++numT;
-                                                    }
-                                                }
-
-                                                if (numA >= numT) {
-                                                    seq = seq.substring(0, startA) + "A".repeat(endA-startA+1);
-                                                }
-                                                else {
-                                                    seq = reverseComplement(seq.substring(endT+1)) + "A".repeat(endT-startT+1);
-                                                }
-                                            }
-                                        }
-                                    }
+                        if (correctedKmers != null && !correctedKmers.isEmpty()) {
+                            if (trimArtifact) {
+                                ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
+                                                    graph, strandSpecific, 150, maxIndelSize, percentIdentity, maxCovGradient);
+                                if (!trimmed.isEmpty() && trimmed.size() < correctedKmers.size()) {
+                                    ++numArtifacts;
+                                    correctedKmers = trimmed;
                                 }
                             }
-                            */
-                            
-                            outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov, isRepeat));
+
+                            if (!correctedKmers.isEmpty()) {
+                                float cov = getMedianKmerCoverage(correctedKmers);
+                                
+                                seq = graph.assemble(correctedKmers);
+
+                                int seqLength = seq.length();
+                                boolean isRepeat = compressHomoPolymers(seq).length() < 1f/3f * seqLength;
+                                String name = nameSeqPair[0];
+                                if (isMultiSeg) {
+                                    name += "_p" + (i+1);
+                                }
+                                
+                                outputQueue.put(new Sequence(name, seq, seqLength, cov, isRepeat));
+                                kept = true;
+                            }
                         }
+                    }
+                    
+                    if (!kept) {
+                        ++numDiscarded;
                     }
                 }
                 successful = true;
@@ -3970,27 +3900,28 @@ public class RNABloom {
         }
         
         long numArtifacts = 0;
+        long numDiscarded = 0;
         for (LongReadCorrectionWorker worker : correctionWorkers) {
             if (!worker.isSucessful()) {
                 throw worker.getExceptionCaught();
             }
             numArtifacts += worker.numArtifacts;
             numReads += worker.numReads;
+            numDiscarded += worker.numDiscarded;
         }
         
         assert outputQueue.isEmpty();
         
         System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
-        long numCorrected = writerWorker.getNumCorrected();
-        long numDiscarded = numReads - numCorrected;
-        System.out.println("\tKept:      " + NumberFormat.getInstance().format(numCorrected) + "\t(" + convertToRoundedPercent(numCorrected/(float)numReads) + " %)");
+        long numKept = numReads - numDiscarded;
+        System.out.println("\tKept:      " + NumberFormat.getInstance().format(numKept) + "\t(" + convertToRoundedPercent(numKept/(float)numReads) + " %)");
         System.out.println("\tDiscarded: " + NumberFormat.getInstance().format(numDiscarded) + "\t(" + convertToRoundedPercent(numDiscarded/(float)numReads) + " %)");
         
         if (numArtifacts > 0) { 
             System.out.println("\tArtifacts: " + NumberFormat.getInstance().format(numArtifacts) + "\t(" + numArtifacts * 100f/numReads + "%)");
         }
         
-        return numCorrected;
+        return writerWorker.numCorrected;
     }
     
     public String polishSequence(String seq, int maxErrCorrItr, int minKmerCov, int minNumSolidKmers) {

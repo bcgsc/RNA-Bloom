@@ -8560,6 +8560,68 @@ public final class GraphUtils {
         return lowComplexityKmers >= (1f - minUniqueFraction) * numKmers/k; 
     }
     
+    public static ArrayList<ArrayList<Kmer>> extractNonLowComplexitySegments(ArrayList<Kmer> kmers,
+            int k, float maxAllowedFraction, int minSeqLength) {
+        ArrayList<ArrayList<Kmer>> segments = new ArrayList<>();
+        int numKmers = kmers.size();
+        int minNumGoodTiles = Math.round(minSeqLength/(float)k);
+        
+        int numLowComplexity = 0;
+        int numTiles = (int) Math.ceil(numKmers/(float) k);
+        boolean[] results = new boolean[numTiles];
+        for (int i=0; i<numKmers; i+=k) {
+            boolean lowComplexity = isLowComplexity2(kmers.get(i).bytes);
+            if (lowComplexity) {
+                ++numLowComplexity;
+            }
+            results[i/k] = lowComplexity;
+        }
+        
+        if (numLowComplexity / (float) numTiles >= maxAllowedFraction) {
+            int lastGoodTileIndex = -1;
+            int numBadSince = 0;
+            for (int i=0; i<numTiles; ++i) {
+                if (results[i]) {
+                    ++numBadSince;
+                    if (lastGoodTileIndex >= 0 && numBadSince >= minNumGoodTiles) {
+                        int start = lastGoodTileIndex*k;
+                        int end = (i-numBadSince)*k;
+                        ArrayList<Kmer> seg = new ArrayList<>(end-start);
+                        for (int j=lastGoodTileIndex*k; j<end; ++j) {
+                            seg.add(kmers.get(j));
+                        }
+                        segments.add(seg);
+                        
+                        lastGoodTileIndex = -1;
+                    }
+                }
+                else {
+                    if (lastGoodTileIndex < 0) {
+                        lastGoodTileIndex = i;
+                    }
+                    numBadSince = 0;
+                }
+            }
+            
+            if (lastGoodTileIndex >= 0 && numBadSince >= minNumGoodTiles) {
+                int start = lastGoodTileIndex*k;
+                int end = (numTiles-numBadSince)*k;
+                ArrayList<Kmer> seg = new ArrayList<>(end-start);
+                for (int j=lastGoodTileIndex*k; j<end; ++j) {
+                    seg.add(kmers.get(j));
+                }
+                segments.add(seg);
+                
+                lastGoodTileIndex = -1;
+            }
+        }
+        else {
+            segments.add(kmers);
+        }
+        
+        return segments;
+    }
+    
 //    public static void main(String[] args) {
 ////        String seq = "AAAAAAAAAAA";
 //        String seq = "AAAAAAAAAAACCC";
