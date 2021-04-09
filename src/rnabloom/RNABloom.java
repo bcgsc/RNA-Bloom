@@ -104,7 +104,7 @@ import rnabloom.util.SeqSubsampler;
  * @author Ka Ming Nip
  */
 public class RNABloom {
-    public final static String VERSION = "1.4.2-r2021-04-08b";
+    public final static String VERSION = "1.4.2-r2021-04-09a";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
@@ -3692,56 +3692,58 @@ public class RNABloom {
         @Override
         public void run() {
             //boolean stranded = graph.isStranded();
-            int minSeqLen = 3*k;
             
             try {
                 String[] nameSeqPair;
                 while((nameSeqPair = itr.next()) != null) {
                     ++numReads;
                     String seq = reverseComplement ? reverseComplement(nameSeqPair[1]) : nameSeqPair[1];
-                    
-                    ArrayList<Kmer> kmers = graph.getKmers(seq);
-                    
                     boolean kept = false;
                     
-                    if (isLowComplexity(kmers, k, 0.5f)) {
-                        float cov = getMedianKmerCoverage(kmers);
-                        outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov, true));
-                        kept = true;
-                    }
-                    else {
-                        ArrayList<Kmer> correctedKmers = correctLongSequenceWindowed(kmers, 
-                                                                            graph, 
-                                                                            maxErrCorrItr, 
-                                                                            maxCovGradient, 
-                                                                            lookahead, 
-                                                                            maxIndelSize, 
-                                                                            percentIdentity, 
-                                                                            minKmerCov,
-                                                                            minNumSolidKmers,
-                                                                            false,
-                                                                            500);
+                    if (seq.length() >= k) {
+                        ArrayList<Kmer> kmers = graph.getKmers(seq);
 
-                        if (correctedKmers != null && !correctedKmers.isEmpty()) {
-                            if (trimArtifact) {
-                                ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
-                                                    graph, strandSpecific, 150, maxIndelSize, percentIdentity, maxCovGradient);
-                                if (!trimmed.isEmpty() && trimmed.size() < correctedKmers.size()) {
-                                    ++numArtifacts;
-                                    correctedKmers = trimmed;
-                                }
-                            }
-
-                            if (!correctedKmers.isEmpty()) {
-                                float cov = getMedianKmerCoverage(correctedKmers);
-                                
-                                seq = graph.assemble(correctedKmers);
-
-                                int seqLength = seq.length();
-                                boolean isRepeat = compressHomoPolymers(seq).length() < 1f/3f * seqLength;
-                                
-                                outputQueue.put(new Sequence(nameSeqPair[0], seq, seqLength, cov, isRepeat));
+                        if (!kmers.isEmpty()) {
+                            if (isLowComplexity(kmers, k, 0.5f)) {
+                                float cov = getMedianKmerCoverage(kmers);
+                                outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov, true));
                                 kept = true;
+                            }
+                            else {
+                                ArrayList<Kmer> correctedKmers = correctLongSequenceWindowed(kmers, 
+                                                                                    graph, 
+                                                                                    maxErrCorrItr, 
+                                                                                    maxCovGradient, 
+                                                                                    lookahead, 
+                                                                                    maxIndelSize, 
+                                                                                    percentIdentity, 
+                                                                                    minKmerCov,
+                                                                                    minNumSolidKmers,
+                                                                                    false,
+                                                                                    500);
+
+                                if (correctedKmers != null && !correctedKmers.isEmpty()) {
+                                    if (trimArtifact) {
+                                        ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
+                                                            graph, strandSpecific, 150, maxIndelSize, percentIdentity, maxCovGradient);
+                                        if (!trimmed.isEmpty() && trimmed.size() < correctedKmers.size()) {
+                                            ++numArtifacts;
+                                            correctedKmers = trimmed;
+                                        }
+                                    }
+
+                                    if (!correctedKmers.isEmpty()) {
+                                        float cov = getMedianKmerCoverage(correctedKmers);
+
+                                        seq = graph.assemble(correctedKmers);
+
+                                        int seqLength = seq.length();
+                                        boolean isRepeat = compressHomoPolymers(seq).length() < 1f/3f * seqLength;
+
+                                        outputQueue.put(new Sequence(nameSeqPair[0], seq, seqLength, cov, isRepeat));
+                                        kept = true;
+                                    }
+                                }
                             }
                         }
                     }
@@ -6859,7 +6861,8 @@ public class RNABloom {
                     System.out.println("WARNING: Reads were already assembled!");
                 }
                 else {
-                    BloomFilter solidKmersBf = assembler.graph.getCbf().getBloomFilter(Math.max(2, longReadMinReadDepth));
+                    BloomFilter solidKmersBf = assembler.graph.getCbf().getBloomFilter(Math.max(1, longReadMinReadDepth-1));
+                    // subtract 1 from depth threshold because cbf starts counting when kmer count = 1
                     
                     assembler.destroyAllBf();
                     

@@ -8546,7 +8546,13 @@ public final class GraphUtils {
     public static boolean isLowComplexity(ArrayList<Kmer> kmers, int k, float maxAllowedFraction) {
         int numKmers = kmers.size();
         
-        if (numKmers < k) {
+        if (numKmers == 0) {
+            return false;
+        }
+        else if (numKmers == 1) {
+            return isLowComplexity2(kmers.get(0).bytes);
+        }
+        else if (numKmers < k) {
             return isLowComplexity2(kmers.get(0).bytes) || isLowComplexity2(kmers.get(numKmers-1).bytes);
         }
         
