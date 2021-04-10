@@ -3573,12 +3573,12 @@ public final class GraphUtils {
                             
                             int altPathLen = altPath.size();
 
-                            if (oriPathCov < altPathCov &&
+                            if (2*oriPathCov <= altPathCov &&
                                     numBadKmersSince-maxLengthDifference <= altPathLen && 
                                     altPathLen <= numBadKmersSince+maxLengthDifference && 
-                                        (altPathLen <= k+maxIndelSize ||
-                                            (oriPathCov < minKmerCov && altPathCov >= covThreshold) ||
-                                            getPercentIdentity(graph.assemble(altPath), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity)) {
+//                                        (altPathLen <= k+maxIndelSize ||
+//                                            (oriPathCov < minKmerCov && altPathCov >= covThreshold) ||
+                                            getPercentIdentity(graph.assemble(altPath), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity) {
                                 
                                 // backtrack to best left kmer
                                 for (int j=kmers2.size()-1; j>bestLeftKmerIndex; --j) {
