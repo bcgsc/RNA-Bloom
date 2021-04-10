@@ -25,62 +25,80 @@ import java.util.stream.IntStream;
  * @author Ka Ming Nip
  */
 public class SeqBitsUtils {
-    private static final byte[][][][] BYTE_LOOKUP_TABLE = getByteLookupTable();
+//    private static final byte[][][][] BYTE_LOOKUP_TABLE = getByteLookupTable();
     private static final String[] TETRAMER_LOOKUP_TABLE = getTetramerLookupTable();
     private static final byte[] REVERSE_COMPLEMENT_BYTES = getRevCompBytes();
+    private static final int BYTE_OFFSET = 128;
     
-    private static byte[][][][] getByteLookupTable() {
-        byte[][][][] lookupTable = new byte[4][4][4][4];
-        for (int h=0; h<4; ++h) {
-            // XX 00 00 00
-            byte b0 = (byte) (h << 6);
-            for (int i=0; i<4; ++i) {
-                // 00 XX 00 00
-                byte b1 = (byte) (i << 4);
-                for (int j=0; j<4; ++j) {
-                    // 00 00 XX 00
-                    byte b2 = (byte) (j << 2);
-                    for (int k=0; k<4; ++k) {
-                        byte b = (byte) k;
-                        b |= b2;
-                        b |= b1;
-                        b |= b0;
-                        lookupTable[h][i][j][k] = b;
-                    }
-                }
-            }
-        }
-        return lookupTable;
-    }
+//    private static byte[][][][] getByteLookupTable() {
+//        byte[][][][] lookupTable = new byte[4][4][4][4];
+//        for (int h=0; h<4; ++h) {
+//            // XX 00 00 00
+//            byte b0 = (byte) (h << 6);
+//            for (int i=0; i<4; ++i) {
+//                // 00 XX 00 00
+//                byte b1 = (byte) (i << 4);
+//                for (int j=0; j<4; ++j) {
+//                    // 00 00 XX 00
+//                    byte b2 = (byte) (j << 2);
+//                    for (int k=0; k<4; ++k) {
+//                        byte b = (byte) k;
+//                        b |= b2;
+//                        b |= b1;
+//                        b |= b0;
+//                        lookupTable[h][i][j][k] = b;
+//                    }
+//                }
+//            }
+//        }
+//        return lookupTable;
+//    }
+    
+//    private static byte[] getRevCompBytes() {
+//        byte[] lookupTable = new byte[256];
+//        for (int h=0; h<4; ++h) {
+//            // XX 00 00 00
+//            byte b0 = (byte) (h << 6);
+//            byte b0RC = (byte) (3-h);
+//            for (int i=0; i<4; ++i) {
+//                // 00 XX 00 00
+//                byte b1 = (byte) (i << 4);
+//                byte b1RC = (byte) ((3-i) << 2);
+//                for (int j=0; j<4; ++j) {
+//                    // 00 00 XX 00
+//                    byte b2 = (byte) (j << 2);
+//                    byte b2RC = (byte) ((3-j) << 4);
+//                    for (int k=0; k<4; ++k) {
+//                        byte b = (byte) k;
+//                        b |= b2;
+//                        b |= b1;
+//                        b |= b0;
+//                        byte bRC = (byte) ((3-k) << 6);
+//                        bRC |= b0RC;
+//                        bRC |= b1RC;
+//                        bRC |= b2RC;
+//                        lookupTable[b + 128] = bRC;
+//                    }
+//                }
+//            }
+//        }
+//        return lookupTable;
+//    }
     
     private static byte[] getRevCompBytes() {
         byte[] lookupTable = new byte[256];
-        for (int h=0; h<4; ++h) {
-            // XX 00 00 00
-            byte b0 = (byte) (h << 6);
-            byte b0RC = (byte) (3-h);
-            for (int i=0; i<4; ++i) {
-                // 00 XX 00 00
-                byte b1 = (byte) (i << 4);
-                byte b1RC = (byte) ((3-i) << 2);
-                for (int j=0; j<4; ++j) {
-                    // 00 00 XX 00
-                    byte b2 = (byte) (j << 2);
-                    byte b2RC = (byte) ((3-j) << 4);
-                    for (int k=0; k<4; ++k) {
-                        byte b = (byte) k;
-                        b |= b2;
-                        b |= b1;
-                        b |= b0;
-                        byte bRC = (byte) ((3-k) << 6);
-                        bRC |= b0RC;
-                        bRC |= b1RC;
-                        bRC |= b2RC;
-                        lookupTable[b + 128] = bRC;
+        
+        for (int i=0; i<4; ++i) {
+            for (int j=0; j<4; ++j) {
+                for (int k=0; k<4; ++k) {
+                    for (int l=0; l<4; ++l) {
+                        byte b = getByte(i, j, k, l);
+                        lookupTable[b + BYTE_OFFSET] = getRevCompByte(i, j, k, l);
                     }
                 }
             }
         }
+        
         return lookupTable;
     }
     
@@ -120,28 +138,56 @@ public class SeqBitsUtils {
         }
     }
     
-    private static String[] getTetramerLookupTable() {
+    private static byte getByte(int i, int j, int k, int l) {
+        return (byte) (i*64 + j*16 + k*4 + l - BYTE_OFFSET);
+    }
+
+    private static byte getRevCompByte(int i, int j, int k, int l) {
+        return (byte) ((3-l)*64 + (3-k)*16 + (3-j)*4 + (3-i) - BYTE_OFFSET);
+    }
+    
+//    private static String[] getTetramerLookupTable() {
+//        String[] lookupTable = new String[256];
+//        char[] tetramer = new char[4];
+//        for (int h=0; h<4; ++h) {
+//            // XX 00 00 00
+//            byte b0 = (byte) (h << 6);
+//            tetramer[0] = getBase(h);
+//            for (int i=0; i<4; ++i) {
+//                // 00 XX 00 00
+//                byte b1 = (byte) (i << 4);
+//                tetramer[1] = getBase(i);
+//                for (int j=0; j<4; ++j) {
+//                    // 00 00 XX 00
+//                    byte b2 = (byte) (j << 2);
+//                    tetramer[2] = getBase(j);
+//                    for (int k=0; k<4; ++k) {
+//                        byte b = (byte) k;
+//                        b |= b2;
+//                        b |= b1;
+//                        b |= b0;
+//                        tetramer[3] = getBase(k);
+//                        lookupTable[b + 128] = new String(tetramer);
+//                    }
+//                }
+//            }
+//        }
+//        return lookupTable;
+//    }
+    
+   private static String[] getTetramerLookupTable() {
         String[] lookupTable = new String[256];
         char[] tetramer = new char[4];
-        for (int h=0; h<4; ++h) {
-            // XX 00 00 00
-            byte b0 = (byte) (h << 6);
-            tetramer[0] = getBase(h);
-            for (int i=0; i<4; ++i) {
-                // 00 XX 00 00
-                byte b1 = (byte) (i << 4);
-                tetramer[1] = getBase(i);
-                for (int j=0; j<4; ++j) {
-                    // 00 00 XX 00
-                    byte b2 = (byte) (j << 2);
-                    tetramer[2] = getBase(j);
-                    for (int k=0; k<4; ++k) {
-                        byte b = (byte) k;
-                        b |= b2;
-                        b |= b1;
-                        b |= b0;
-                        tetramer[3] = getBase(k);
-                        lookupTable[b + 128] = new String(tetramer);
+        for (int i=0; i<4; ++i) {
+            tetramer[0] = getBase(i);
+            for (int j=0; j<4; ++j) {
+                tetramer[1] = getBase(j);
+                for (int k=0; k<4; ++k) {
+                    tetramer[2] = getBase(k);
+                    for (int l=0; l<4; ++l) {
+                        tetramer[3] = getBase(l);
+                        byte b = getByte(i, j, k, l);
+                        lookupTable[b + BYTE_OFFSET] = new String(tetramer);
                     }
                 }
             }
@@ -150,11 +196,11 @@ public class SeqBitsUtils {
     }
     
     public static String getTetramer(byte b) {
-        return TETRAMER_LOOKUP_TABLE[b + 128];
+        return TETRAMER_LOOKUP_TABLE[b + BYTE_OFFSET];
     }
     
     public static byte reverseComplement(byte b) {
-        return REVERSE_COMPLEMENT_BYTES[b + 128];
+        return REVERSE_COMPLEMENT_BYTES[b + BYTE_OFFSET];
     }
     
     public static int seqLenToNumBytes(int seqLen) {
@@ -171,6 +217,32 @@ public class SeqBitsUtils {
     
     private final static int[] BIT_SHIFTS = new int[]{6, 4, 2, 0};
     
+//    public static byte[] seqToBits(String seq) {
+//        int seqLen = seq.length();
+//        int numFullBytes = seqLen / 4;
+//        int numExtraBases = seqLen % 4;
+//        boolean hasExtra = numExtraBases > 0;
+//        int bLen = hasExtra ? numFullBytes + 1 : numFullBytes;
+//        byte[] bytes = new byte[bLen]; 
+//        
+//        int bIndex = 0;
+//        for (int i=0; i+3<seqLen; i+=4) {
+//            bytes[bIndex] = BYTE_LOOKUP_TABLE[getIndex(seq.charAt(i))][getIndex(seq.charAt(i+1))][getIndex(seq.charAt(i+2))][getIndex(seq.charAt(i+3))];
+//            ++bIndex;
+//        }
+//        
+//        if (hasExtra) {
+//            byte b = 0;
+//            int offset = seqLen - numExtraBases;
+//            for (int i=0; i<numExtraBases; ++i) {
+//                b |= (byte) (getIndex(seq.charAt(i + offset)) << BIT_SHIFTS[i]);
+//            }
+//            bytes[numFullBytes] = b;
+//        }
+//        
+//        return bytes;
+//    }
+    
     public static byte[] seqToBits(String seq) {
         int seqLen = seq.length();
         int numFullBytes = seqLen / 4;
@@ -181,22 +253,23 @@ public class SeqBitsUtils {
         
         int bIndex = 0;
         for (int i=0; i+3<seqLen; i+=4) {
-            bytes[bIndex] = BYTE_LOOKUP_TABLE[getIndex(seq.charAt(i))][getIndex(seq.charAt(i+1))][getIndex(seq.charAt(i+2))][getIndex(seq.charAt(i+3))];
+            bytes[bIndex] = getByte(getIndex(seq.charAt(i)), getIndex(seq.charAt(i+1)),
+                    getIndex(seq.charAt(i+2)), getIndex(seq.charAt(i+3)));
             ++bIndex;
         }
         
         if (hasExtra) {
-            byte b = 0;
             int offset = seqLen - numExtraBases;
-            for (int i=0; i<numExtraBases; ++i) {
-                b |= (byte) (getIndex(seq.charAt(i + offset)) << BIT_SHIFTS[i]);
-            }
-            bytes[numFullBytes] = b;
+            int i = getIndex(seq.charAt(offset));
+            int j = 1 < numExtraBases ? getIndex(seq.charAt(offset+1)) : 0;
+            int k = 2 < numExtraBases ? getIndex(seq.charAt(offset+2)) : 0;
+            int l = 3 < numExtraBases ? getIndex(seq.charAt(offset+3)) : 0;
+            bytes[numFullBytes] = getByte(i, j, k, l);
         }
         
         return bytes;
     }
-        
+    
     public static byte[] seqToBitsParallelized(String seq) {
         int seqLen = seq.length();
         int numFullBytes = seqLen / 4;
@@ -207,20 +280,46 @@ public class SeqBitsUtils {
         
         IntStream.range(0, numFullBytes).parallel().forEach(e -> {
             int i = e * 4;
-            bytes[e] = BYTE_LOOKUP_TABLE[getIndex(seq.charAt(i))][getIndex(seq.charAt(i+1))][getIndex(seq.charAt(i+2))][getIndex(seq.charAt(i+3))];
+            bytes[e] = getByte(getIndex(seq.charAt(i)), getIndex(seq.charAt(i+1)),
+                    getIndex(seq.charAt(i+2)), getIndex(seq.charAt(i+3)));
         });
         
         if (hasExtra) {
-            byte b = 0;
             int offset = seqLen - numExtraBases;
-            for (int i=0; i<numExtraBases; ++i) {
-                b |= (byte) (getIndex(seq.charAt(i + offset)) << BIT_SHIFTS[i]);
-            }
-            bytes[numFullBytes] = b;
+            int i = getIndex(seq.charAt(offset));
+            int j = 1 < numExtraBases ? getIndex(seq.charAt(offset+1)) : 0;
+            int k = 2 < numExtraBases ? getIndex(seq.charAt(offset+2)) : 0;
+            int l = 3 < numExtraBases ? getIndex(seq.charAt(offset+3)) : 0;
+            bytes[numFullBytes] = getByte(i, j, k, l);
         }
         
         return bytes;
     }
+        
+//    public static byte[] seqToBitsParallelized(String seq) {
+//        int seqLen = seq.length();
+//        int numFullBytes = seqLen / 4;
+//        int numExtraBases = seqLen % 4;
+//        boolean hasExtra = numExtraBases > 0;
+//        int bLen = hasExtra ? numFullBytes + 1 : numFullBytes;
+//        byte[] bytes = new byte[bLen]; 
+//        
+//        IntStream.range(0, numFullBytes).parallel().forEach(e -> {
+//            int i = e * 4;
+//            bytes[e] = BYTE_LOOKUP_TABLE[getIndex(seq.charAt(i))][getIndex(seq.charAt(i+1))][getIndex(seq.charAt(i+2))][getIndex(seq.charAt(i+3))];
+//        });
+//        
+//        if (hasExtra) {
+//            byte b = 0;
+//            int offset = seqLen - numExtraBases;
+//            for (int i=0; i<numExtraBases; ++i) {
+//                b |= (byte) (getIndex(seq.charAt(i + offset)) << BIT_SHIFTS[i]);
+//            }
+//            bytes[numFullBytes] = b;
+//        }
+//        
+//        return bytes;
+//    }
     
     public static String bitsToSeq(byte[] bytes, int seqLen) {
         int numFullBytes = seqLen / 4;
@@ -301,7 +400,7 @@ public class SeqBitsUtils {
                 
         return sb.toString();
     }
-    
+        
     public static void main(String[] args) {
         //debug
     }
