@@ -337,6 +337,31 @@ public class SeqBitsUtils {
         return sb.toString();
     }
     
+    public static String bitsToSeqParallelized(byte[] bytes, int seqLen) {
+        int numFullBytes = seqLen / 4;
+        int numExtraBases = seqLen % 4;
+        
+        char[] sb = new char[seqLen];
+        IntStream.range(0, numFullBytes).parallel().forEach(e -> {
+            String t = getTetramer(bytes[e]);
+            int i = e*4;
+            sb[i] = t.charAt(0);
+            sb[i+1] = t.charAt(1);
+            sb[i+2] = t.charAt(2);
+            sb[i+3] = t.charAt(3);
+        });
+        
+        if (numExtraBases > 0) {
+            String t = getTetramer(bytes[numFullBytes]);
+            int offset = numFullBytes*4;
+            for (int i=0; i<numExtraBases; ++i) {
+                sb[offset + i] = t.charAt(i);
+            }
+        }
+        
+        return new String(sb);
+    }
+    
     public static String bitsToSeq(byte[] bytes, int seqLen, int seqStart, int seqEnd) {
         int numFullBytes = seqLen / 4;
         int numExtraBases = seqLen % 4;
@@ -403,5 +428,14 @@ public class SeqBitsUtils {
         
     public static void main(String[] args) {
         //debug
+        String seq = "TCGAGTCAGTCATGCGTATGCGATGCGTACGTAGCTAGCTGTAGCTACGTAGCTA";
+        byte[] bits = seqToBits(seq);
+        String seq2 = bitsToSeq(bits, seq.length());
+        String seq2p = bitsToSeqParallelized(bits, seq.length());
+        System.out.println(seq);
+        System.out.println(seq2.equals(seq2p));
+        System.out.println(seq2);
+        System.out.println(seq2p);
+        
     }
 }
