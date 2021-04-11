@@ -665,6 +665,8 @@ public class OverlapLayoutConsensus {
             minimapOptionsNoGaps += " -g " + 200;
         }
         
+        System.gc();
+        
         // 1. overlap all reads and extract unique reads
         STATUS status = overlapWithMinimapAndExtractUnique(inFastaPath, uniqueFastaPath,
             numThreads, false, minimapOptionsNoGaps, stranded,
@@ -673,6 +675,8 @@ public class OverlapLayoutConsensus {
         if (status != STATUS.SUCCESS) {
             return false;
         }
+        
+        System.gc();
         
         // 2. overlap (with alignment) unique reads and extract unitigs
         status = overlapWithMinimapAndLayoutSimple(uniqueFastaPath, simpleFastaPath,
@@ -683,6 +687,8 @@ public class OverlapLayoutConsensus {
             return false;
         }
         
+        System.gc();
+        
         // 3. map all reads to unitigs
         status = mapWithMinimapFiltered(readsPath, simpleFastaPath, readsToSimplePafPath,
             numThreads, minimapOptions, usePacBioPreset, stranded, maxIndelSize,
@@ -690,6 +696,8 @@ public class OverlapLayoutConsensus {
         if (status != STATUS.SUCCESS) {
             return false;
         }
+        
+        System.gc();
         
         // 4. polish unitigs
         boolean success = consensusWithRacon(readsPath, simpleFastaPath, 
