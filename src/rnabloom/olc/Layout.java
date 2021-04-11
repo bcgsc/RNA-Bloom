@@ -2097,15 +2097,15 @@ public class Layout {
             vertexNames.add(name.substring(0, name.length()-1)); // remove "r" suffix
         }
         
-        HashMap<String, Integer> readCounts = getReadCounts(mappingPafPath, vertexNames, maxEdgeClip);
+        HashMap<String, Float> readCounts = getReadCounts(mappingPafPath, vertexNames, maxEdgeClip);
         
         // assign read count to edge
         for (OverlapEdge e : edgeSet) {
             String source = getVertexName(graph.getEdgeSource(e));
             String target = getVertexName(graph.getEdgeTarget(e));
-            Integer sCount = readCounts.get(source.substring(0, source.length()-1));
-            Integer tCount = readCounts.get(target.substring(0, target.length()-1));
-            int w = 0;
+            Float sCount = readCounts.get(source.substring(0, source.length()-1));
+            Float tCount = readCounts.get(target.substring(0, target.length()-1));
+            float w = 0;
             if (sCount != null && tCount != null) {
                 w = Math.min(sCount, tCount);
             }
@@ -2140,11 +2140,11 @@ public class Layout {
         // extract paths
         HashSet<String> visited = new HashSet<>();
         
-        for (Iterator<Entry<String, Integer>> itr = readCounts.entrySet().stream().
-                sorted(Entry.<String,Integer>comparingByValue().reversed()).iterator();
+        for (Iterator<Entry<String, Float>> itr = readCounts.entrySet().stream().
+                sorted(Entry.<String, Float>comparingByValue().reversed()).iterator();
                 itr.hasNext();) {
-            Entry<String, Integer> e = itr.next();
-            int count = e.getValue();
+            Entry<String, Float> e = itr.next();
+            float count = e.getValue();
             String seed = e.getKey() + "r";
             if (!visited.contains(seed)) {
                 String header = Long.toString(++seqID);

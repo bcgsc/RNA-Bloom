@@ -177,8 +177,8 @@ public class PafUtils {
         return bestPartner;
     }
     
-    public static HashMap<String, Integer> getReadCounts(String pafPath, Set<String> targets, int tolerance) throws IOException {
-        HashMap<String, Integer> counts = new HashMap<>(targets.size());
+    public static HashMap<String, Float> getReadCounts(String pafPath, Set<String> targets, int tolerance) throws IOException {
+        HashMap<String, Float> counts = new HashMap<>(targets.size());
         
         PafReader reader = new PafReader(pafPath);
         
@@ -193,26 +193,29 @@ public class PafUtils {
             if (targets.contains(r.tName)) {
                 if (!r.qName.equals(prevName)) {
                     if (prevName != null) {
-                        if (counts.containsKey(bestTarget)) {
-                            int c = counts.get(bestTarget);
-                            counts.put(bestTarget, c+1);
-                        }
-                        else {
-                            counts.put(bestTarget, 1);
-                        }
-
+                        float increment = 1f;
                         targetNameQueryIntervalMap.remove(bestTarget);
 
                         String partner = getBestPartner(targetNameQueryIntervalMap, largestOverlap, tolerance);
                         if (partner != null) {
-                            // TODO: consider using best-partner as key
+                            increment = 0.5f;
+                            
+                            // TODO: Store number of reads bridging two targets
                             if (counts.containsKey(partner)) {
-                                int c = counts.get(partner);
-                                counts.put(partner, c+1);
+                                float c = counts.get(partner);
+                                counts.put(partner, c + increment);
                             }
                             else {
-                                counts.put(partner, 1);
+                                counts.put(partner, increment);
                             }
+                        }
+                        
+                        if (counts.containsKey(bestTarget)) {
+                            float c = counts.get(bestTarget);
+                            counts.put(bestTarget, c + increment);
+                        }
+                        else {
+                            counts.put(bestTarget, increment);
                         }
                     }
                     
@@ -235,26 +238,29 @@ public class PafUtils {
         
         reader.close();
         
-        if (bestTarget != null) {
-            if (counts.containsKey(bestTarget)) {
-                int c = counts.get(bestTarget);
-                counts.put(bestTarget, c+1);
-            }
-            else {
-                counts.put(bestTarget, 1);
-            }
-        }
-        
+        float increment = 1f;
         targetNameQueryIntervalMap.remove(bestTarget);
 
         String partner = getBestPartner(targetNameQueryIntervalMap, largestOverlap, tolerance);
         if (partner != null) {
+            increment = 0.5f;
+            
             if (counts.containsKey(partner)) {
-                int c = counts.get(partner);
-                counts.put(partner, c+1);
+                float c = counts.get(partner);
+                counts.put(partner, c + increment);
             }
             else {
-                counts.put(partner, 1);
+                counts.put(partner, increment);
+            }
+        }
+        
+        if (bestTarget != null) {
+            if (counts.containsKey(bestTarget)) {
+                float c = counts.get(bestTarget);
+                counts.put(bestTarget, c + increment);
+            }
+            else {
+                counts.put(bestTarget, increment);
             }
         }
         
