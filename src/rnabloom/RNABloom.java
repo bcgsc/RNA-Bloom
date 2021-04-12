@@ -5551,7 +5551,7 @@ public class RNABloom {
         String defaultMinCoverageLR = "2";
         String defaultMaxIndelSizeLR = "50";
         String defaultMaxTipLengthLR = "50";
-        String defaultMaxErrorCorrItrLR = "2";
+        String defaultMaxErrorCorrItrLR = "4";
         String defaultPercentIdentityLR = "0.7";
         String defaultLongReadPreset = "-k " + defaultKmerSizeLR + " -c " + defaultMinCoverageLR + 
                 " -indel " + defaultMaxIndelSizeLR + " -e " + defaultMaxErrorCorrItrLR +
@@ -5834,7 +5834,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optSample);
         
-        final String optErrCorrItrDefault = "2";
+        final String optErrCorrItrDefault = "1";
         Option optErrCorrItr = Option.builder("e")
                                     .longOpt("errcorritr")
                                     .desc("number of iterations of error-correction in reads [" + optErrCorrItrDefault + "]")
