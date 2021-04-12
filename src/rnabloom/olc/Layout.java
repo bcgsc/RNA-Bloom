@@ -1884,9 +1884,13 @@ public class Layout {
     private void addForwardEdges(PafRecord r) {
         if (!r.reverseComplemented) {
             if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
+                addVertexStranded(r.qName+"+");
+                addVertexStranded(r.tName+"+");
                 graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
             }
             else if (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip) {
+                addVertexStranded(r.qName+"+");
+                addVertexStranded(r.tName+"+");
                 graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
             }
         }

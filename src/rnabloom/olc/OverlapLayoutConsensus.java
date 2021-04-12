@@ -155,6 +155,10 @@ public class OverlapLayoutConsensus {
         if (align) {
             minimapOptions = "-c " + minimapOptions;
         }
+        
+        if (stranded) {
+            minimapOptions = "--for-only " + minimapOptions;
+        }
                 
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
         command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
@@ -203,6 +207,10 @@ public class OverlapLayoutConsensus {
             minimapOptions = "-c " + minimapOptions;
         }
         
+        if (stranded) {
+            minimapOptions = "--for-only " + minimapOptions;
+        }
+        
         if (!minimapOptions.contains("-g ")) {
             minimapOptions += " -g " + 2 * maxIndelSize;
         }
@@ -246,6 +254,10 @@ public class OverlapLayoutConsensus {
         
         if (align) {
             minimapOptions = "-c " + minimapOptions;
+        }
+        
+        if (stranded) {
+            minimapOptions = "--for-only " + minimapOptions;
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
@@ -293,6 +305,10 @@ public class OverlapLayoutConsensus {
             minimapOptions = "-c " + minimapOptions;
         }
         
+        if (stranded) {
+            minimapOptions = "--for-only " + minimapOptions;
+        }
+        
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
         command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
         
@@ -336,6 +352,10 @@ public class OverlapLayoutConsensus {
         
         if (align) {
             minimapOptions = "-c " + minimapOptions;
+        }
+        
+        if (stranded) {
+            minimapOptions = "--for-only " + minimapOptions;
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
@@ -390,8 +410,12 @@ public class OverlapLayoutConsensus {
         command.add("/bin/sh");
         command.add("-c");
 
+        if (stranded) {
+            options = "--for-only " + options;
+        }
+        
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x map-" + preset + " -c -p 0.2 -N 100 " + options + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+        command.add(MINIMAP2 + " -x map-" + preset + " -c -p 0.25 -N 10 " + options + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
 
         try {
             Writer bw = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(outPafPath, false)), "UTF-8");
