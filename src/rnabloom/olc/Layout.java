@@ -1921,14 +1921,16 @@ public class Layout {
                         switch (c) {
                             case QUERY:
                                 if (!containedSet.contains(r.tName)) {
-                                    containedSet.add(r.qName);
-                                    removeVertexStranded(r.qName + '+');
+                                    if (containedSet.add(r.qName)) {
+                                        removeVertexStranded(r.qName + '+');
+                                    }
                                 }
                                 break;
                             case TARGET:
                                 if (!containedSet.contains(r.qName)) {
-                                    containedSet.add(r.tName);
-                                    removeVertexStranded(r.tName + '+');
+                                    if (containedSet.add(r.tName)) {
+                                        removeVertexStranded(r.tName + '+');
+                                    }
                                 }
                                 break;
                             case NEITHER:
@@ -1957,14 +1959,16 @@ public class Layout {
                         switch (c) {
                             case QUERY:
                                 if (!containedSet.contains(r.tName)) {
-                                    containedSet.add(r.qName);
-                                    removeVertex(r.qName);
+                                    if (containedSet.add(r.qName)) {
+                                        removeVertex(r.qName);
+                                    }
                                 }
                                 break;
                             case TARGET:
                                 if (!containedSet.contains(r.qName)) {
-                                    containedSet.add(r.tName);
-                                    removeVertex(r.tName);
+                                    if (containedSet.add(r.tName)) {
+                                        removeVertex(r.tName);
+                                    }
                                 }
                                 break;
                             case NEITHER:
