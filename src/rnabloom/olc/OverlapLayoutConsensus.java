@@ -688,6 +688,9 @@ public class OverlapLayoutConsensus {
         if (!minimapOptionsNoGaps.contains("-g ")) {
             minimapOptionsNoGaps += " -g " + 200;
         }
+        if (!minimapOptionsNoGaps.contains("-r ")) {
+            minimapOptionsNoGaps += " -r " + maxIndelSize;
+        }
         
         System.gc();
         
@@ -704,7 +707,7 @@ public class OverlapLayoutConsensus {
         
         // 2. overlap (with alignment) unique reads and extract unitigs
         status = overlapWithMinimapAndLayoutSimple(uniqueFastaPath, simpleFastaPath,
-            numThreads, true, minimapOptions, stranded, maxEdgeClip,
+            numThreads, true, minimapOptionsNoGaps, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset);
         if (status != STATUS.SUCCESS) {
@@ -715,7 +718,7 @@ public class OverlapLayoutConsensus {
         
         // 3. map all reads to unitigs
         status = mapWithMinimapFiltered(readsPath, simpleFastaPath, readsToSimplePafPath,
-            numThreads, minimapOptions, usePacBioPreset, stranded, maxIndelSize,
+            numThreads, minimapOptionsNoGaps, usePacBioPreset, stranded, maxIndelSize,
             minOverlapMatches, minAlnId);
         if (status != STATUS.SUCCESS) {
             return false;
