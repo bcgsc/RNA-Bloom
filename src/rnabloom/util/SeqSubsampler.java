@@ -39,10 +39,7 @@ public class SeqSubsampler {
     public static void minimizerBased(String inFasta, String outFasta,
             long bfSize, int k, int w, int numHash, boolean stranded, 
             int maxNonMatchingChainLength, float minMatchingProportion,
-            int maxMultiplicity) throws IOException {
-        System.out.println("Subsampling sequences...");
-        Timer timer = new Timer();
-        
+            int maxMultiplicity) throws IOException {        
         // read all sequences
         ArrayList<BitSequence> seqs = new ArrayList<>();
         FastaReader fr = new FastaReader(inFasta);
@@ -119,28 +116,21 @@ public class SeqSubsampler {
         System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
                             "\tafter: " + NumberFormat.getInstance().format(seqID) +
                             " (" + convertToRoundedPercent(seqID/(float)numSeq) + " %)");
-        
-        System.out.println("Subsampling completed in " + timer.elapsedDHMS());
+
     }
     
-    public static void kmerBased(String inFasta, String outFasta,
+    public static void kmerBased(ArrayList<BitSequence> seqs, String outFasta,
             long bfSize, int k, int numHash, boolean stranded,
             int maxMultiplicity, BloomFilter solidKmersBf, int maxEdgeClip) throws IOException {
-     
-        System.out.println("Subsampling sequences...");
-        Timer timer = new Timer();
-        
-        // read all sequences
-        ArrayList<BitSequence> seqs = new ArrayList<>();
-        FastaReader fr = new FastaReader(inFasta);
-        while(fr.hasNext()) {
-            seqs.add(new BitSequence(fr.next()));
-        }
-        fr.close();
         int numSeq = seqs.size();
         
+        System.out.println("Sorting sequences...");
+        Timer timer = new Timer();
+
         // sort from longest to shortest
         Collections.sort(seqs);
+        
+        System.out.println("Sorting completed in " + timer.elapsedDHMS());
         
         HashFunction h;
         if (stranded) {
@@ -240,7 +230,23 @@ public class SeqSubsampler {
                             "\tafter: " + NumberFormat.getInstance().format(seqID) +
                             " (" + convertToRoundedPercent(seqID/(float)numSeq) + " %)");
         
-        System.out.println("Subsampling completed in " + timer.elapsedDHMS());
+    }
+    
+    public static void kmerBased(String inFasta, String outFasta,
+            long bfSize, int k, int numHash, boolean stranded,
+            int maxMultiplicity, BloomFilter solidKmersBf, int maxEdgeClip) throws IOException {
+        
+        // read all sequences
+        ArrayList<BitSequence> seqs = new ArrayList<>();
+        FastaReader fr = new FastaReader(inFasta);
+        while(fr.hasNext()) {
+            seqs.add(new BitSequence(fr.next()));
+        }
+        fr.close();
+        
+        kmerBased(seqs, outFasta,
+            bfSize, k, numHash, stranded,
+            maxMultiplicity, solidKmersBf, maxEdgeClip);
     }
     
     public static void main(String[] args) {
