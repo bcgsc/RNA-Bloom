@@ -25,10 +25,24 @@ import java.util.stream.IntStream;
  * @author Ka Ming Nip
  */
 public class SeqBitsUtils {
-//    private static final byte[][][][] BYTE_LOOKUP_TABLE = getByteLookupTable();
+    private static final byte[][][][] BYTE_LOOKUP_TABLE = getByteLookupTable();
     private static final String[] TETRAMER_LOOKUP_TABLE = getTetramerLookupTable();
     private static final byte[] REVERSE_COMPLEMENT_BYTES = getRevCompBytes();
     private static final int BYTE_OFFSET = 128;
+
+    private static byte[][][][] getByteLookupTable() {
+        byte[][][][] lookupTable = new byte[4][4][4][4];
+        for (int i=0; i<4; ++i) {
+            for (int j=0; j<4; ++j) {
+                for (int k=0; k<4; ++k) {
+                    for (int l=0; l<4; ++l) {
+                        lookupTable[i][j][k][l] = getByte(i, j, k, l);
+                    }
+                }
+            }
+        }
+        return lookupTable;
+    }
     
 //    private static byte[][][][] getByteLookupTable() {
 //        byte[][][][] lookupTable = new byte[4][4][4][4];
@@ -215,7 +229,7 @@ public class SeqBitsUtils {
         return ByteBuffer.wrap(b).getInt();
     }
     
-    private final static int[] BIT_SHIFTS = new int[]{6, 4, 2, 0};
+//    private final static int[] BIT_SHIFTS = new int[]{6, 4, 2, 0};
     
 //    public static byte[] seqToBits(String seq) {
 //        int seqLen = seq.length();
@@ -253,8 +267,9 @@ public class SeqBitsUtils {
         
         int bIndex = 0;
         for (int i=0; i+3<seqLen; i+=4) {
-            bytes[bIndex] = getByte(getIndex(seq.charAt(i)), getIndex(seq.charAt(i+1)),
-                    getIndex(seq.charAt(i+2)), getIndex(seq.charAt(i+3)));
+            bytes[bIndex] = BYTE_LOOKUP_TABLE[getIndex(seq.charAt(i))][getIndex(seq.charAt(i+1))][getIndex(seq.charAt(i+2))][getIndex(seq.charAt(i+3))];
+//            bytes[bIndex] = getByte(getIndex(seq.charAt(i)), getIndex(seq.charAt(i+1)),
+//                    getIndex(seq.charAt(i+2)), getIndex(seq.charAt(i+3)));
             ++bIndex;
         }
         
@@ -264,7 +279,8 @@ public class SeqBitsUtils {
             int j = 1 < numExtraBases ? getIndex(seq.charAt(offset+1)) : 0;
             int k = 2 < numExtraBases ? getIndex(seq.charAt(offset+2)) : 0;
             int l = 3 < numExtraBases ? getIndex(seq.charAt(offset+3)) : 0;
-            bytes[numFullBytes] = getByte(i, j, k, l);
+            bytes[numFullBytes] = BYTE_LOOKUP_TABLE[i][j][k][l];
+//            bytes[numFullBytes] = getByte(i, j, k, l);
         }
         
         return bytes;
@@ -280,8 +296,9 @@ public class SeqBitsUtils {
         
         IntStream.range(0, numFullBytes).parallel().forEach(e -> {
             int i = e * 4;
-            bytes[e] = getByte(getIndex(seq.charAt(i)), getIndex(seq.charAt(i+1)),
-                    getIndex(seq.charAt(i+2)), getIndex(seq.charAt(i+3)));
+            bytes[e] = BYTE_LOOKUP_TABLE[getIndex(seq.charAt(i))][getIndex(seq.charAt(i+1))][getIndex(seq.charAt(i+2))][getIndex(seq.charAt(i+3))];
+//            bytes[e] = getByte(getIndex(seq.charAt(i)), getIndex(seq.charAt(i+1)),
+//                    getIndex(seq.charAt(i+2)), getIndex(seq.charAt(i+3)));
         });
         
         if (hasExtra) {
@@ -290,7 +307,8 @@ public class SeqBitsUtils {
             int j = 1 < numExtraBases ? getIndex(seq.charAt(offset+1)) : 0;
             int k = 2 < numExtraBases ? getIndex(seq.charAt(offset+2)) : 0;
             int l = 3 < numExtraBases ? getIndex(seq.charAt(offset+3)) : 0;
-            bytes[numFullBytes] = getByte(i, j, k, l);
+            bytes[numFullBytes] = BYTE_LOOKUP_TABLE[i][j][k][l];
+//            bytes[numFullBytes] = getByte(i, j, k, l);
         }
         
         return bytes;
@@ -428,14 +446,6 @@ public class SeqBitsUtils {
         
     public static void main(String[] args) {
         //debug
-        String seq = "TCGAGTCAGTCATGCGTATGCGATGCGTACGTAGCTAGCTGTAGCTACGTAGCTA";
-        byte[] bits = seqToBits(seq);
-        String seq2 = bitsToSeq(bits, seq.length());
-        String seq2p = bitsToSeqParallelized(bits, seq.length());
-        System.out.println(seq);
-        System.out.println(seq2.equals(seq2p));
-        System.out.println(seq2);
-        System.out.println(seq2p);
         
     }
 }

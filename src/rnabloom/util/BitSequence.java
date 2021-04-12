@@ -26,7 +26,7 @@ public class BitSequence implements Comparable<Object> {
 
     @Override
     public String toString() {
-        return bitsToSeqParallelized(this.bits, this.length);
+        return bitsToSeq(this.bits, this.length);
     }
     
     public String subString(int start, int end) {
