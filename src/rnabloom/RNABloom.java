@@ -313,7 +313,7 @@ public class RNABloom {
         covFPR = 0;
     }
 
-    public void destryDbgBf() {
+    public void destroyDbgBf() {
         if (graph != null) {
             graph.destroyDbgbf();
         }
@@ -6906,7 +6906,7 @@ public class RNABloom {
                     if (subsampleLongReads) {
                         System.out.println("Subsampling sequences...");
                         Timer myTimer = new Timer();
-                        assembler.destryDbgBf();
+                        assembler.destroyDbgBf();
                         BloomFilter solidKmersBf = assembler.graph.getCbf().getBloomFilter(Math.max(1, longReadMinReadDepth-1));
                         // subtract 1 from depth threshold because cbf starts counting when kmer count = 1
                         assembler.destroyAllBf();
