@@ -1881,7 +1881,7 @@ public class Layout {
         }
     }
     
-    private void addForwardEdges(PafRecord r) {
+    private void addForwardEdge(PafRecord r) {
         if (!r.reverseComplemented) {
             if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
                 addVertexStranded(r.qName+"+");
@@ -1893,6 +1893,50 @@ public class Layout {
                 addVertexStranded(r.tName+"+");
                 graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
             }
+        }
+    }
+    
+    private void addEdges(StrandedOverlap r) {
+        if (r.reverseComplemented) {
+            if (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip) {
+                addVertex(r.qName);
+                addVertex(r.tName);
+                graph.addEdge(r.tName+"+", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+                graph.addEdge(r.qName+"+", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+            }
+            else if (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip) {
+                addVertex(r.qName);
+                addVertex(r.tName);
+                graph.addEdge(r.qName+"-", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+                graph.addEdge(r.tName+"-", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+            }
+        }
+        else {
+            if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
+                addVertex(r.qName);
+                addVertex(r.tName);
+                graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+                graph.addEdge(r.tName+"-", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+            }
+            else if (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip) {
+                addVertex(r.qName);
+                addVertex(r.tName);
+                graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+                graph.addEdge(r.qName+"-", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+            }
+        }
+    }
+    
+    private void addForwardEdge(Overlap r) {
+        if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
+            addVertexStranded(r.qName+"+");
+            addVertexStranded(r.tName+"+");
+            graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+        }
+        else if (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip) {
+            addVertexStranded(r.qName+"+");
+            addVertexStranded(r.tName+"+");
+            graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
         }
     }
     
@@ -1912,79 +1956,111 @@ public class Layout {
         
         // look for containment and overlaps
         if (stranded) {
+            ArrayDeque<Overlap> overlaps = new ArrayDeque<>();
+            
+            String prevName = null;
+            ArrayDeque<Overlap> pendingOverlaps = new ArrayDeque<>();
+            
             for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
                 ++numRecords;
                 reader.next(r);            
                 if (!r.reverseComplemented && !r.qName.equals(r.tName)) {
-                    if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
+                    if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                        if (prevName != null && !prevName.equals(r.qName) && !pendingOverlaps.isEmpty()) {
+                            if (!containedSet.contains(prevName)) {
+                                overlaps.addAll(pendingOverlaps);
+                            }
+                            pendingOverlaps.clear();
+                        }
+                        
                         CONTAIN_STATUS c = getContained(r);
                         switch (c) {
                             case QUERY:
-                                if (!containedSet.contains(r.tName)) {
-                                    if (containedSet.add(r.qName)) {
-                                        removeVertexStranded(r.qName + '+');
-                                    }
-                                }
+                                containedSet.add(r.qName);
                                 break;
                             case TARGET:
-                                if (!containedSet.contains(r.qName)) {
-                                    if (containedSet.add(r.tName)) {
-                                        removeVertexStranded(r.tName + '+');
-                                    }
-                                }
+                                containedSet.add(r.tName);
                                 break;
                             case NEITHER:
                                 if (!containedSet.contains(r.qName) &&
                                     !containedSet.contains(r.tName)) {
-                                    addForwardEdges(r);
+                                    pendingOverlaps.add(pafToOverlap(r));
                                 }
                                 break;
                         }
+                        
+                        prevName = r.qName;
                     }
                 }
             }
             reader.close();
 
-            for (String c : containedSet) {
-                removeVertexStranded(c + '+');
+            if (prevName != null && !pendingOverlaps.isEmpty()) {
+                if (!containedSet.contains(prevName)) {
+                    overlaps.addAll(pendingOverlaps);
+                }
+                pendingOverlaps.clear();
+            }
+            
+            for (Overlap r : overlaps) {
+                if (!containedSet.contains(r.qName) &&
+                    !containedSet.contains(r.tName)) {
+                    addForwardEdge(r);
+                }
             }
         }
         else {
+            ArrayDeque<StrandedOverlap> overlaps = new ArrayDeque<>();
+            
+            String prevName = null;
+            ArrayDeque<StrandedOverlap> pendingOverlaps = new ArrayDeque<>();
+            
             for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
                 ++numRecords;
                 reader.next(r);            
                 if (!r.qName.equals(r.tName)) {
-                    if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                    
+                    if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                        if (prevName != null && !prevName.equals(r.qName) && !pendingOverlaps.isEmpty()) {
+                            if (!containedSet.contains(prevName)) {
+                                overlaps.addAll(pendingOverlaps);
+                            }
+                            pendingOverlaps.clear();
+                        }
+                        
                         CONTAIN_STATUS c = getContained(r);
                         switch (c) {
                             case QUERY:
-                                if (!containedSet.contains(r.tName)) {
-                                    if (containedSet.add(r.qName)) {
-                                        removeVertex(r.qName);
-                                    }
-                                }
+                                containedSet.add(r.qName);
                                 break;
                             case TARGET:
-                                if (!containedSet.contains(r.qName)) {
-                                    if (containedSet.add(r.tName)) {
-                                        removeVertex(r.tName);
-                                    }
-                                }
+                                containedSet.add(r.tName);
                                 break;
                             case NEITHER:
                                 if (!containedSet.contains(r.qName) &&
                                     !containedSet.contains(r.tName)) {
-                                    addEdges(r);
+                                    overlaps.add(pafToStrandedOverlap(r));
                                 }
                                 break;
                         }
+                        
+                        prevName = r.qName;
                     }
                 }
             }
             reader.close();
 
-            for (String c : containedSet) {
-                removeVertex(c);
+            if (prevName != null && !pendingOverlaps.isEmpty()) {
+                if (!containedSet.contains(prevName)) {
+                    overlaps.addAll(pendingOverlaps);
+                }
+                pendingOverlaps.clear();
+            }
+            
+            for (StrandedOverlap r : overlaps) {
+                if (!containedSet.contains(r.qName) &&
+                    !containedSet.contains(r.tName)) {
+                    addEdges(r);
+                }
             }
         }
         
@@ -2356,6 +2432,7 @@ public class Layout {
     
     private class Overlap extends OverlapCoords {
         String qName, tName;
+        int qLen, tLen;
     }
     
     private class StrandedOverlap extends Overlap {
@@ -2366,6 +2443,8 @@ public class Layout {
         Overlap o = new Overlap();
         o.qName = r.qName;
         o.tName = r.tName;
+        o.qLen = r.qLen;
+        o.tLen = r.tLen;
         o.qStart = r.qStart;
         o.qEnd = r.qEnd;
         o.tStart = r.tStart;
@@ -2377,6 +2456,8 @@ public class Layout {
         StrandedOverlap o = new StrandedOverlap();
         o.qName = r.qName;
         o.tName = r.tName;
+        o.qLen = r.qLen;
+        o.tLen = r.tLen;
         o.qStart = r.qStart;
         o.qEnd = r.qEnd;
         o.tStart = r.tStart;
