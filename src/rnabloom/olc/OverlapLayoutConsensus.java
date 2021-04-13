@@ -697,7 +697,7 @@ public class OverlapLayoutConsensus {
         // 1. overlap all reads and extract unique reads
         STATUS status = overlapWithMinimapAndExtractUnique(inFastaPath, uniqueFastaPath,
             numThreads, false, minimapOptionsNoGaps, stranded,
-            maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
+            maxEdgeClip, minAlnId*minAlnId, minOverlapMatches, maxIndelSize,
             minSeqDepth, usePacBioPreset);
         if (status != STATUS.SUCCESS) {
             return false;
