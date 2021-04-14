@@ -9,6 +9,7 @@ import java.util.Arrays;
 import static rnabloom.util.SeqBitsUtils.bitsToRevCompSeq;
 import static rnabloom.util.SeqBitsUtils.bitsToSeq;
 import static rnabloom.util.SeqBitsUtils.bitsToSeqParallelized;
+import static rnabloom.util.SeqBitsUtils.seqToBits;
 import static rnabloom.util.SeqBitsUtils.seqToBitsParallelized;
 
 /**
@@ -21,7 +22,7 @@ public class BitSequence implements Comparable<Object> {
 
     public BitSequence(String seq) {
         this.length = seq.length();
-        this.bits = seqToBitsParallelized(seq);
+        this.bits = seqToBits(seq);
     }
 
     @Override
