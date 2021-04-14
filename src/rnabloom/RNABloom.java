@@ -6843,7 +6843,7 @@ public class RNABloom {
                             revCompLong, !keepArtifact, subsampleLongReads);
                     
                     if (subsampleLongReads) {
-                        System.out.println("Corrected Reads in " + myTimer.elapsedDHMS());
+                        System.out.println("Corrected reads in " + myTimer.elapsedDHMS());
                         myTimer.start();
                         System.out.println("Subsampling sequences...");
                         

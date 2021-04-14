@@ -123,14 +123,9 @@ public class SeqSubsampler {
             long bfSize, int k, int numHash, boolean stranded,
             int maxMultiplicity, BloomFilter solidKmersBf, int maxEdgeClip) throws IOException {
         int numSeq = seqs.size();
-        
-        System.out.println("Sorting sequences...");
-        Timer timer = new Timer();
 
         // sort from longest to shortest
         Collections.sort(seqs);
-        
-        System.out.println("Sorting completed in " + timer.elapsedDHMS());
         
         HashFunction h;
         if (stranded) {
