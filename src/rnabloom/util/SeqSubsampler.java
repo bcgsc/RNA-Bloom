@@ -119,7 +119,7 @@ public class SeqSubsampler {
 
     }
     
-    public static void kmerBased(ArrayList<BitSequence> seqs, String outFasta,
+    public static void kmerBased(ArrayList<BitSequence> seqs, String outAllFasta, String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded,
             int maxMultiplicity, BloomFilter solidKmersBf, int maxEdgeClip) throws IOException {
         int numSeq = seqs.size();
@@ -144,10 +144,14 @@ public class SeqSubsampler {
         NTHashIterator itr = h.getHashIterator(numHash, k);
         long[] hVals = itr.hVals;
         
-        FastaWriter fw  = new FastaWriter(outFasta, false);
+        FastaWriter fwAll  = new FastaWriter(outAllFasta, false);
+        FastaWriter fwSub  = new FastaWriter(outSubsampleFasta, false);
         int seqID = 0;
+        int numSubsample = 0;
 
         for (BitSequence s : seqs) {
+            ++seqID;
+                    
             String seq = s.toString();
             int seqLen = seq.length();
             boolean tooShort = seqLen < 2 * maxEdgeClip + k;
@@ -218,35 +222,22 @@ public class SeqSubsampler {
             }
             
             if (maxMissingChainLen >= k) {
-                fw.write(Integer.toString(++seqID), seq);
+                fwSub.write("s" + Integer.toString(seqID), seq);
+                ++numSubsample;
             }
+            
+            fwAll.write("c" + Integer.toString(seqID), seq);
         }
-        fw.close();
+        fwSub.close();
+        fwAll.close();
         
         System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(cbf.getFPR()) + " %");
         cbf.destroy();
         
         System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
-                            "\tafter: " + NumberFormat.getInstance().format(seqID) +
-                            " (" + convertToRoundedPercent(seqID/(float)numSeq) + " %)");
+                            "\tafter: " + NumberFormat.getInstance().format(numSubsample) +
+                            " (" + convertToRoundedPercent(numSubsample/(float)numSeq) + " %)");
         
-    }
-    
-    public static void kmerBased(String inFasta, String outFasta,
-            long bfSize, int k, int numHash, boolean stranded,
-            int maxMultiplicity, BloomFilter solidKmersBf, int maxEdgeClip) throws IOException {
-        
-        // read all sequences
-        ArrayList<BitSequence> seqs = new ArrayList<>();
-        FastaReader fr = new FastaReader(inFasta);
-        while(fr.hasNext()) {
-            seqs.add(new BitSequence(fr.next()));
-        }
-        fr.close();
-        
-        kmerBased(seqs, outFasta,
-            bfSize, k, numHash, stranded,
-            maxMultiplicity, solidKmersBf, maxEdgeClip);
     }
     
     public static void main(String[] args) {
