@@ -2181,9 +2181,12 @@ public class Layout {
             vertexNames.add(name.substring(0, name.length()-1)); // remove "r" suffix
         }
         
+        System.out.println("Tallying read counts...");
         HashMap<String, Float> readCounts = getReadCounts(mappingPafPath, vertexNames, maxEdgeClip);
         
         // assign read count to edge
+        System.out.println("Adding read counts to graph...");
+        edgeSet = graph.edgeSet();
         for (OverlapEdge e : edgeSet) {
             String source = getVertexName(graph.getEdgeSource(e));
             String target = getVertexName(graph.getEdgeTarget(e));
@@ -2202,6 +2205,7 @@ public class Layout {
             graph.setEdgeWeight(e, w);
         }
         
+        System.out.println("Extracting vertex sequences...");
         HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size());
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
@@ -2222,8 +2226,8 @@ public class Layout {
         fr.close();
         
         // extract paths
+        System.out.println("Extracting paths...");
         HashSet<String> visited = new HashSet<>();
-        
         for (Iterator<Entry<String, Float>> itr = readCounts.entrySet().stream().
                 sorted(Entry.<String, Float>comparingByValue().reversed()).iterator();
                 itr.hasNext();) {
