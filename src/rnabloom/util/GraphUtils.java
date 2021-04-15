@@ -1666,7 +1666,7 @@ public final class GraphUtils {
                     else if (leftPathKmers.contains(best)) {
                         /* right path intersects the left path */
                         
-                        if (isLowComplexity2(best.toString())) {
+                        if (isLowComplexityShort(best.toString())) {
                             return null;
                         }
                         

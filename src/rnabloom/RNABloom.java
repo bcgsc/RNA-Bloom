@@ -2074,7 +2074,7 @@ public class RNABloom {
                     String left = connect(p.left, graph, lookahead);
 
                     if (left.length() >= this.leftReadLengthThreshold) {
-                        if (!isLowComplexity2(left)) {
+                        if (!isLowComplexityShort(left)) {
                             if (minKmerCov > 1) {
                                 leftKmers = graph.getKmers(left, minKmerCov);
                             }
@@ -2088,7 +2088,7 @@ public class RNABloom {
                     String right = connect(p.right, graph, lookahead);
 
                     if (right.length() >= this.rightReadLengthThreshold) {
-                        if (!isLowComplexity2(right)) {
+                        if (!isLowComplexityShort(right)) {
                             if (minKmerCov > 1) {
                                 rightKmers = graph.getKmers(right, minKmerCov);
                             }
@@ -3762,7 +3762,10 @@ public class RNABloom {
 
                                         int seqLength = seq.length();
                                         boolean isRepeat = compressHomoPolymers(seq).length() < 1f/3f * seqLength;
-
+                                        if (!isRepeat) {
+                                            isRepeat = isLowComplexityLong(seq);
+                                        }
+                                        
                                         outputQueue.put(new Sequence(nameSeqPair[0], seq, seqLength, cov, isRepeat));
                                         kept = true;
                                     }
