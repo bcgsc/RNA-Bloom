@@ -8561,7 +8561,7 @@ public final class GraphUtils {
             }
         }
         
-        return lowComplexityKmers >= maxAllowedFraction * numKmers/k; 
+        return lowComplexityKmers > maxAllowedFraction * numKmers/k; 
     }
     
     public static ArrayList<ArrayList<Kmer>> extractNonLowComplexitySegments(ArrayList<Kmer> kmers,
@@ -8626,20 +8626,7 @@ public final class GraphUtils {
         return segments;
     }
     
-//    public static void main(String[] args) {
-////        String seq = "AAAAAAAAAAA";
-//        String seq = "AAAAAAAAAAACCC";
-////        String seq = "AAAAAAAAAAACCCCCCCCCCCGGGGGGGGGGG";
-////        String seq = "AAAAAAAAAAACCCCCCCCCCCGGGGGGGGGGGTTT";
-//        System.out.println(seq);
-//        
-//        int k = 11;
-//        
-//        ArrayList<Kmer2> kmers = new ArrayList<>();
-//        for (String kmer : SeqUtils.kmerize(seq, k)) {
-//             kmers.add(new Kmer(kmer, 1, new long[0]));
-//        }
-//
-//        System.out.println(assemble(kmers, k));
-//    }
+    public static void main(String[] args) {
+        //debug
+    }
 }

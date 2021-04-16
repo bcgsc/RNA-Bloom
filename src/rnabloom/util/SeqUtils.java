@@ -540,6 +540,10 @@ public final class SeqUtils {
     
     public static final boolean isLowComplexityLong(String seq) {
         int length = seq.length();
+        if (length <= 2) {
+            return false;
+        }
+        
         int t1 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
         int t2 = Math.round(length/2 * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
         
@@ -578,31 +582,38 @@ public final class SeqUtils {
         int seqLen = seq.length();
         int windowSize = 100;
         int numWindows = seqLen/windowSize;
-        int offset = (seqLen % windowSize) / 2;
-        int numLowComplexityWindows = 0;
-        
-        for (int i=0; i<numWindows; ++i) {
-            int start = i*windowSize + offset;
-            int end = start + windowSize;
-            String window = seq.substring(start, end);
-            if (isLowComplexityLong(window)) {
-                ++numLowComplexityWindows;
+        if (numWindows >= 2) {
+            int offset = (seqLen % windowSize) / 2;
+            int numLowComplexityWindows = 0;
+
+            for (int i=0; i<numWindows; ++i) {
+                int start = i*windowSize + offset;
+                int end = start + windowSize;
+                String window = seq.substring(start, end);
+                if (isLowComplexityLong(window)) {
+                    ++numLowComplexityWindows;
+                }
             }
+
+            return numLowComplexityWindows/(float)numWindows > 0.5f;
         }
         
-        return numLowComplexityWindows/(float)numWindows >= 0.5f;
+        return isLowComplexityLong(seq);
     }
     
     public static int getHomoPolymerCompressedLength(String seq) {
-        PrimitiveIterator.OfInt itr = seq.chars().iterator();
-        int prev = itr.nextInt();
-        int length = 1;
-        
-        while (itr.hasNext()) {
-            int curr = itr.nextInt();
-            if (curr != prev) {
-                ++length;
-                prev = curr;
+        int length = 0;
+        if (!seq.isEmpty()) {
+            PrimitiveIterator.OfInt itr = seq.chars().iterator();
+            int prev = itr.nextInt();
+            ++length;
+
+            while (itr.hasNext()) {
+                int curr = itr.nextInt();
+                if (curr != prev) {
+                    ++length;
+                    prev = curr;
+                }
             }
         }
         
@@ -1483,6 +1494,6 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        
+        //debug
     }
 }
