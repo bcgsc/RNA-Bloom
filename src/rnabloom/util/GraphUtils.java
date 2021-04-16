@@ -3295,32 +3295,20 @@ public final class GraphUtils {
         int numKmers = kmers.size();
         int headIndex = 0;
         int tailIndex = numKmers;
-        int window = k*5;
-        float windowThreshold = (float)5/(float)k;
 
         for (int i=0; i<numKmers; ++i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold) {
-                int end = Math.min(i+lookahead, numKmers);
-                if (areKmerCoverageAboveThreshold(kmers, i+1, end, threshold)) {
-                    if (end+window > numKmers || (float)getNumKmersAboveCoverageThreshold(kmers, end, end+window, threshold)/(float)window > windowThreshold) {
-                        headIndex = i;
-                        break;
-                    }
-                }
+                headIndex = i;
+                break;
             }
         }
 
         for (int i=numKmers-1; i>headIndex; --i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold) {
-                int start = Math.max(0, i-lookahead);
-                if (areKmerCoverageAboveThreshold(kmers, start, i, threshold)) {
-                    if (start-window < 0 || (float)getNumKmersAboveCoverageThreshold(kmers, start-window, start, threshold)/(float)window > windowThreshold) {
-                        tailIndex = i+1;
-                        break;
-                    }
-                }
+                tailIndex = i+1;
+                break;
             }
         }
         
