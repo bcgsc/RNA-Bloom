@@ -56,6 +56,9 @@ public final class SeqUtils {
     public final static byte[] G_ALT_NUCLEOTIDES_BYTES = new byte[] {CHAR_A_BYTE,CHAR_C_BYTE,CHAR_T_BYTE};
     public final static byte[] T_ALT_NUCLEOTIDES_BYTES = new byte[] {CHAR_A_BYTE,CHAR_C_BYTE,CHAR_G_BYTE};
     
+    private static final float LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ = 0.95f;
+    private static final float LOW_COMPLEXITY_THRESHOLD_LONG_SEQ = 0.8f;
+    
     public static final byte[] stringToBytes(String seq, int len) {
         byte[] arr = new byte[len];
         
@@ -361,14 +364,12 @@ public final class SeqUtils {
         
         return true;
     }
-    
-    private static final float LOW_COMPLEXITY_THRESHOLD = 0.95f;
-    
+
     public static final boolean isLowComplexity2(byte[] bytes) {
         int length = bytes.length;
-        int t1 = Math.min(Byte.MAX_VALUE, Math.round(length * LOW_COMPLEXITY_THRESHOLD));
-        int t2 = Math.min(Byte.MAX_VALUE, Math.round(length/2 * LOW_COMPLEXITY_THRESHOLD));
-        int t3 = Math.min(Byte.MAX_VALUE, Math.round(length/3 * LOW_COMPLEXITY_THRESHOLD));
+        int t1 = Math.min(Byte.MAX_VALUE, Math.round(length * LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ));
+        int t2 = Math.min(Byte.MAX_VALUE, Math.round(length/2 * LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ));
+        int t3 = Math.min(Byte.MAX_VALUE, Math.round(length/3 * LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ));
         
         byte nf1[]     = new byte[4];
         byte nf2[][]   = new byte[4][4];
@@ -493,9 +494,9 @@ public final class SeqUtils {
 
     public static final boolean isLowComplexityShort(String seq) {
         int length = seq.length();
-        int t1 = Math.min(Short.MAX_VALUE, Math.round(length * LOW_COMPLEXITY_THRESHOLD));
-        int t2 = Math.min(Short.MAX_VALUE, Math.round(length/2 * LOW_COMPLEXITY_THRESHOLD));
-        int t3 = Math.min(Short.MAX_VALUE, Math.round(length/3 * LOW_COMPLEXITY_THRESHOLD));
+        int t1 = Math.min(Short.MAX_VALUE, Math.round(length * LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ));
+        int t2 = Math.min(Short.MAX_VALUE, Math.round(length/2 * LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ));
+        int t3 = Math.min(Short.MAX_VALUE, Math.round(length/3 * LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ));
         
         short nf1[]     = new short[4];
         short nf2[][]   = new short[4][4];
@@ -539,9 +540,9 @@ public final class SeqUtils {
     
     public static final boolean isLowComplexityLong(String seq) {
         int length = seq.length();
-        int t1 = Math.round(length * 0.75f);
-        int t2 = Math.round(length/2 * 0.75f);
-        int t3 = Math.round(length/3 * 0.75f);
+        int t1 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
+        int t2 = Math.round(length/2 * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
+        int t3 = Math.round(length/3 * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
         
         int nf1[]     = new int[4];
         int nf2[][]   = new int[4][4];
@@ -1457,5 +1458,7 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
+        String seq = "";
+        System.out.println(isLowComplexityLong(seq));
     }
 }
