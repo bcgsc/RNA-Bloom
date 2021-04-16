@@ -6857,16 +6857,11 @@ public class RNABloom {
                         System.out.println("Corrected reads in " + myTimer.elapsedDHMS());
                         myTimer.start();
                         System.out.println("Subsampling sequences...");
-                        
-                        assembler.destroyDbgBf();
-                        BloomFilter solidKmersBf = assembler.graph.getCbf().getBloomFilter(Math.max(1, longReadMinReadDepth-1));
-                        // subtract 1 from depth threshold because cbf starts counting when kmer count = 1
                         assembler.destroyAllBf();
                         
                         SeqSubsampler.kmerBased(correctedReads, longCorrectedReadsPath, subSampledReadsPath,
                                 cbfSize, k, dbgbfNumHash, strandSpecific, 
-                                Math.max(2, longReadMinReadDepth), solidKmersBf, maxTipLen);
-                        solidKmersBf.destroy();
+                                Math.max(2, longReadMinReadDepth), maxTipLen);
                         
                         System.out.println("Subsampling completed in " + myTimer.elapsedDHMS());
                     }
