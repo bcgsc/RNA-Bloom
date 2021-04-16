@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.concurrent.ArrayBlockingQueue;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
@@ -28,6 +29,7 @@ import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
+import rnabloom.io.FastaWriterWorker;
 import static rnabloom.util.Common.convertToRoundedPercent;
 
 /**
@@ -119,9 +121,9 @@ public class SeqSubsampler {
 
     }
     
-    public static void kmerBased(ArrayList<BitSequence> seqs, String outAllFasta, String outSubsampleFasta,
+    public static void kmerBased(ArrayList<WeightedBitSequence> seqs, String outAllFasta, String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded,
-            int maxMultiplicity, BloomFilter solidKmersBf, int maxEdgeClip) throws IOException {
+            int maxMultiplicity, BloomFilter solidKmersBf, int maxEdgeClip) throws IOException, InterruptedException {
         int numSeq = seqs.size();
 
         // sort from longest to shortest
@@ -141,13 +143,22 @@ public class SeqSubsampler {
         
         FastaWriter fwAll  = new FastaWriter(outAllFasta, false);
         FastaWriter fwSub  = new FastaWriter(outSubsampleFasta, false);
-        int seqID = 0;
+        
+        int queueSize = 1000;
+        ArrayBlockingQueue<String> allQueue = new ArrayBlockingQueue<>(queueSize);
+        ArrayBlockingQueue<String> subQueue = new ArrayBlockingQueue<>(queueSize);
+        FastaWriterWorker allWorker = new FastaWriterWorker(allQueue, fwAll, "c");
+        FastaWriterWorker subWorker = new FastaWriterWorker(subQueue, fwSub, "s");
+        Thread allWorkerThread = new Thread(allWorker);
+        allWorkerThread.start();
+        Thread subWorkerThread = new Thread(subWorker);
+        subWorkerThread.start();
+        
         int numSubsample = 0;
 
-        for (BitSequence s : seqs) {
-            ++seqID;
-                    
+        for (WeightedBitSequence s : seqs) {                    
             String seq = s.toString();
+            
             int seqLen = seq.length();
             boolean tooShort = seqLen < 2 * maxEdgeClip + k;
             int maxPos = seqLen - maxEdgeClip;
@@ -217,12 +228,19 @@ public class SeqSubsampler {
             }
             
             if (maxMissingChainLen >= k) {
-                fwSub.write("s" + Integer.toString(seqID), seq);
                 ++numSubsample;
+                subQueue.add(seq);
             }
             
-            fwAll.write("c" + Integer.toString(seqID), seq);
+            allQueue.add(seq);
         }
+        
+        allWorker.terminateWhenInputExhausts();
+        subWorker.terminateWhenInputExhausts();
+        
+        allWorkerThread.join();
+        subWorkerThread.join();
+        
         fwSub.close();
         fwAll.close();
         

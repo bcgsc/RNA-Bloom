@@ -3169,6 +3169,16 @@ public final class GraphUtils {
         return null;
     }
     
+    public static int countSolidKmers(Collection<Kmer> kmers, int threshold) {
+        int count = 0;
+        for (Kmer kmer : kmers) {
+            if (kmer.count >= threshold) {
+                ++count;
+            }
+        }
+        return count;
+    }
+    
     public static ArrayList<Kmer> correctLongSequenceWindowed(ArrayList<Kmer> kmers, 
                                                     BloomFilterDeBruijnGraph graph, 
                                                     int maxErrCorrItr, 

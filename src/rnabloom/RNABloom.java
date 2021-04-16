@@ -98,13 +98,14 @@ import static rnabloom.util.FileUtils.touch;
 import rnabloom.util.Timer;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import rnabloom.util.SeqSubsampler;
+import rnabloom.util.WeightedBitSequence;
 
 /**
  *
  * @author Ka Ming Nip
  */
 public class RNABloom {
-    public final static String VERSION = "1.4.2-r2021-04-12a";
+    public final static String VERSION = "1.4.2-r2021-04-15a";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
@@ -3508,7 +3509,7 @@ public class RNABloom {
     */
     
     public class CorrectedLongReadsWriterWorker2 implements Runnable {
-        private final ArrayBlockingQueue<Sequence> inputQueue;
+        private final ArrayBlockingQueue<Sequence2> inputQueue;
         private final int maxSampleSize;
         private final int minSeqLen;
         private final FastaWriter longWriter;
@@ -3521,9 +3522,9 @@ public class RNABloom {
         private Exception exception = null;
 //        private final boolean writeUracil;
         private final boolean storeLongReads;
-        private ArrayList<BitSequence> bits = new ArrayList<>();
+        private ArrayList<WeightedBitSequence> bits = new ArrayList<>();
         
-        public CorrectedLongReadsWriterWorker2(ArrayBlockingQueue<Sequence> inputQueue, 
+        public CorrectedLongReadsWriterWorker2(ArrayBlockingQueue<Sequence2> inputQueue, 
                 FastaWriter longSeqWriter, FastaWriter shortSeqWriter, FastaWriter repeatsSeqWriter,
                 int maxSampleSize, int minSeqLen, boolean storeLongReads) {
             this.inputQueue = inputQueue;
@@ -3539,10 +3540,10 @@ public class RNABloom {
         @Override
         public void run() {
             try {
-                ArrayDeque<Sequence> sample = new ArrayDeque<>(maxSampleSize);
+                ArrayDeque<Sequence2> sample = new ArrayDeque<>(maxSampleSize);
 
                 while(true) {
-                    Sequence seq = inputQueue.poll(100, TimeUnit.MILLISECONDS);
+                    Sequence2 seq = inputQueue.poll(100, TimeUnit.MILLISECONDS);
                     
                     if (seq == null) {
                         if (terminateWhenInputExhausts) {
@@ -3561,7 +3562,7 @@ public class RNABloom {
                 int sampleSize = sample.size();
                 int[] lengths = new int[sampleSize];
                 int i = 0;
-                for (Sequence seq : sample) {
+                for (Sequence2 seq : sample) {
                     lengths[i++] = seq.length;
                 }
                                 
@@ -3576,9 +3577,9 @@ public class RNABloom {
                                             sampleLengthStats.max);
 
                 // write the sample sequences to file
-                for (Sequence seq : sample) {
+                for (Sequence2 seq : sample) {
                     ++numCorrected;
-                    String header = seq.name + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
+                    String header = seq.name + " l=" + Integer.toString(seq.length) + " sk=" + seq.numSolidKmers;
 
 //                    if (writeUracil) {
 //                        seq.seq = seq.seq.replace('T', 'U');
@@ -3589,7 +3590,7 @@ public class RNABloom {
                     }
                     else if (seq.length >= minSeqLen) {
                         if (storeLongReads) {
-                            bits.add(new BitSequence(seq.seq));
+                            bits.add(new WeightedBitSequence(seq.seq, seq.numSolidKmers));
                         }
                         else {
                             longWriter.write(header, seq.seq);
@@ -3602,7 +3603,7 @@ public class RNABloom {
 
                 // write the remaining sequences to file
                 while(true) {
-                    Sequence seq = inputQueue.poll(100, TimeUnit.MILLISECONDS);
+                    Sequence2 seq = inputQueue.poll(100, TimeUnit.MILLISECONDS);
                   
                     if (seq == null) {
                         if (terminateWhenInputExhausts) {
@@ -3613,7 +3614,7 @@ public class RNABloom {
                     
                     //String header = Long.toString(++numCorrected) + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
                     ++numCorrected;
-                    String header = seq.name + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
+                    String header = seq.name + " l=" + Integer.toString(seq.length) + " sk=" + seq.numSolidKmers;
 
 //                    if (writeUracil) {
 //                        seq.seq = seq.seq.replace('T', 'U');
@@ -3624,7 +3625,7 @@ public class RNABloom {
                     }
                     else if (seq.length >= minSeqLen) {
                         if (storeLongReads) {
-                            bits.add(new BitSequence(seq.seq));
+                            bits.add(new WeightedBitSequence(seq.seq, seq.numSolidKmers));
                         }
                         else {
                             longWriter.write(header, seq.seq);
@@ -3664,7 +3665,7 @@ public class RNABloom {
             return sampleLengthStats;
         }
         
-        public ArrayList<BitSequence> getLongReads() {
+        public ArrayList<WeightedBitSequence> getLongReads() {
             return bits;
         }
     }
@@ -3685,9 +3686,26 @@ public class RNABloom {
         }
     }
     
+    public static class Sequence2 {
+        String name;
+        String seq;
+        int length;
+        int numSolidKmers;
+        boolean isRepeat;
+        
+        public Sequence2(String name, String seq, int length, int numSolidKmers, boolean isRepeat) {
+            this.name = name;
+            this.seq = seq;
+            this.length = length;
+            this.numSolidKmers = numSolidKmers;
+            this.isRepeat = isRepeat;
+        }
+    }
+    
+    
     public class LongReadCorrectionWorker implements Runnable {
         private final FastxSequenceIterator itr;
-        private final ArrayBlockingQueue<Sequence> outputQueue;
+        private final ArrayBlockingQueue<Sequence2> outputQueue;
         private boolean successful = false;
         private Exception exception = null;
         private final int maxErrCorrItr;
@@ -3700,7 +3718,7 @@ public class RNABloom {
         private long numArtifacts = 0;
 
         public LongReadCorrectionWorker(FastxSequenceIterator itr,
-                                        ArrayBlockingQueue<Sequence> outputQueue,
+                                        ArrayBlockingQueue<Sequence2> outputQueue,
                                         int maxErrCorrItr, int minKmerCov, int minNumSolidKmers,
                                         boolean reverseComplement, boolean trimArtifact) {
             this.itr = itr;
@@ -3728,8 +3746,9 @@ public class RNABloom {
 
                         if (!kmers.isEmpty()) {
                             if (isLowComplexity(kmers, k, 0.5f)) {
-                                float cov = getMedianKmerCoverage(kmers);
-                                outputQueue.put(new Sequence(nameSeqPair[0], seq, seq.length(), cov, true));
+                                //float cov = getMedianKmerCoverage(kmers);
+                                int numSolidKmers = countSolidKmers(kmers, minKmerCov);
+                                outputQueue.put(new Sequence2(nameSeqPair[0], seq, seq.length(), numSolidKmers, true));
                                 kept = true;
                             }
                             else {
@@ -3756,7 +3775,7 @@ public class RNABloom {
                                     }
 
                                     if (!correctedKmers.isEmpty()) {
-                                        float cov = getMedianKmerCoverage(correctedKmers);
+                                        //float cov = getMedianKmerCoverage(correctedKmers);
 
                                         seq = graph.assemble(correctedKmers);
 
@@ -3766,7 +3785,8 @@ public class RNABloom {
                                             isRepeat = isLowComplexityLong(seq);
                                         }
                                         
-                                        outputQueue.put(new Sequence(nameSeqPair[0], seq, seqLength, cov, isRepeat));
+                                        int numSolidKmers = countSolidKmers(kmers, minKmerCov);
+                                        outputQueue.put(new Sequence2(nameSeqPair[0], seq, seqLength, numSolidKmers, isRepeat));
                                         kept = true;
                                     }
                                 }
@@ -3875,7 +3895,7 @@ public class RNABloom {
     }
     */
     
-    public ArrayList<BitSequence> correctLongReadsMultithreaded(String[] inputFastxPaths,
+    public ArrayList<WeightedBitSequence> correctLongReadsMultithreaded(String[] inputFastxPaths,
                                                 FastaWriter longSeqWriter,
                                                 FastaWriter shortSeqWriter,
                                                 FastaWriter repeatsSeqWriter,
@@ -3890,7 +3910,7 @@ public class RNABloom {
 
         int minNumSolidKmers = Math.max(0, (int) Math.floor(minSeqLen * percentIdentity * percentIdentity) - k + 1);
         long numReads = 0;
-        ArrayBlockingQueue<Sequence> outputQueue = new ArrayBlockingQueue<>(maxSampleSize);
+        ArrayBlockingQueue<Sequence2> outputQueue = new ArrayBlockingQueue<>(maxSampleSize);
                 
         LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
@@ -4934,7 +4954,7 @@ public class RNABloom {
     }
     */
     
-    private static ArrayList<BitSequence> correctLongReads(RNABloom assembler, 
+    private static ArrayList<WeightedBitSequence> correctLongReads(RNABloom assembler, 
             String[] inFastxList, String outLongFasta, String outShortFasta, String outRepeatsFasta,
             int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, 
             boolean reverseComplement, boolean trimArtifact, boolean storeReads) throws InterruptedException, IOException, Exception {
@@ -4943,7 +4963,7 @@ public class RNABloom {
         FastaWriter shortWriter = new FastaWriter(outShortFasta, false);
         FastaWriter repeatsWriter = new FastaWriter(outRepeatsFasta, false);
 
-        ArrayList<BitSequence> longReads = assembler.correctLongReadsMultithreaded(inFastxList,
+        ArrayList<WeightedBitSequence> longReads = assembler.correctLongReadsMultithreaded(inFastxList,
                                                 longWriter, shortWriter, repeatsWriter,
                                                 minKmerCov,
                                                 maxErrCorrItr,
@@ -6816,7 +6836,7 @@ public class RNABloom {
                 String repeatReadsFileName = correctedLongReadFilePrefix + ".repeats" + FASTA_EXT + GZIP_EXTENSION;
                 String subSampledReadsPath = correctedLongReadFilePrefix + ".long.subsampled" + FASTA_EXT + GZIP_EXTENSION;
 //                String numCorrectedReadsPath = correctedLongReadFilePrefix + ".count";
-                ArrayList<BitSequence> correctedReads = null;
+                ArrayList<WeightedBitSequence> correctedReads = null;
                 
                 System.out.println("\n> Stage 2: Correct long reads for \"" + name + "\"");
                 Timer stageTimer = new Timer();
@@ -6825,18 +6845,6 @@ public class RNABloom {
                 if (longReadsCorrected) {
                     System.out.println("WARNING: Reads were already corrected!");
 //                    numCorrectedReads = Long.parseLong(loadStringFromFile(numCorrectedReadsPath));
-                    if (subsampleLongReads) {
-                        System.out.println("Parsing `" + longCorrectedReadsPath +"`...");
-                        Timer myTimer = new Timer();
-                        correctedReads = new ArrayList<>();
-                        FastaReader fr = new FastaReader(longCorrectedReadsPath);
-                        while(fr.hasNext()) {
-                            correctedReads.add(new BitSequence(fr.next()));
-                        }
-                        fr.close();
-                        
-                        System.out.println("Parsed " + correctedReads.size() + " reads in " + myTimer.elapsedDHMS());
-                    }
                 }
                 else {
                     Timer myTimer = new Timer();
