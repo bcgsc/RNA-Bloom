@@ -144,7 +144,7 @@ public class SeqSubsampler {
         FastaWriter fwAll  = new FastaWriter(outAllFasta, false);
         FastaWriter fwSub  = new FastaWriter(outSubsampleFasta, false);
         
-        int queueSize = 1000;
+        int queueSize = 2000;
         ArrayBlockingQueue<String> allQueue = new ArrayBlockingQueue<>(queueSize);
         ArrayBlockingQueue<String> subQueue = new ArrayBlockingQueue<>(queueSize);
         FastaWriterWorker allWorker = new FastaWriterWorker(allQueue, fwAll, "c");
@@ -229,10 +229,10 @@ public class SeqSubsampler {
             
             if (maxMissingChainLen >= k) {
                 ++numSubsample;
-                subQueue.add(seq);
+                subQueue.put(seq);
             }
             
-            allQueue.add(seq);
+            allQueue.put(seq);
         }
         
         allWorker.terminateWhenInputExhausts();
