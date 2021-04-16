@@ -3579,7 +3579,7 @@ public class RNABloom {
                 // write the sample sequences to file
                 for (Sequence2 seq : sample) {
                     ++numCorrected;
-                    String header = seq.name + " l=" + Integer.toString(seq.length) + " sk=" + seq.numSolidKmers;
+                    String header = seq.name + " l=" + Integer.toString(seq.length);
 
 //                    if (writeUracil) {
 //                        seq.seq = seq.seq.replace('T', 'U');
@@ -3614,7 +3614,7 @@ public class RNABloom {
                     
                     //String header = Long.toString(++numCorrected) + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
                     ++numCorrected;
-                    String header = seq.name + " l=" + Integer.toString(seq.length) + " sk=" + seq.numSolidKmers;
+                    String header = seq.name + " l=" + Integer.toString(seq.length);
 
 //                    if (writeUracil) {
 //                        seq.seq = seq.seq.replace('T', 'U');
@@ -3780,9 +3780,9 @@ public class RNABloom {
                                         seq = graph.assemble(correctedKmers);
 
                                         int seqLength = seq.length();
-                                        boolean isRepeat = compressHomoPolymers(seq).length() < 1f/3f * seqLength;
+                                        boolean isRepeat = getHomoPolymerCompressedLength(seq) < 1f/3f * seqLength;
                                         if (!isRepeat) {
-                                            isRepeat = isLowComplexityLong(seq);
+                                            isRepeat = isLowComplexityLongWindowed(seq);
                                         }
                                         
                                         int numSolidKmers = countSolidKmers(kmers, minKmerCov);

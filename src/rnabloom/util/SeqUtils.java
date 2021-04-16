@@ -542,28 +542,20 @@ public final class SeqUtils {
         int length = seq.length();
         int t1 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
         int t2 = Math.round(length/2 * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
-        int t3 = Math.round(length/3 * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
         
         int nf1[]     = new int[4];
         int nf2[][]   = new int[4][4];
-        int nf3[][][] = new int[4][4][4];
         
         PrimitiveIterator.OfInt itr = seq.chars().iterator();
-        int c3 = nucleotideArrayIndex(itr.nextInt());
         int c2 = nucleotideArrayIndex(itr.nextInt());
         int c1 = nucleotideArrayIndex(itr.nextInt());
-        
-        ++nf1[c3];
+
         ++nf1[c2];
         ++nf1[c1];
         
-        ++nf2[c3][c2];
         ++nf2[c2][c1];
         
-        ++nf3[c3][c2][c1];
-        
         while (itr.hasNext()) {
-            c3 = c2;
             c2 = c1;
             c1 = nucleotideArrayIndex(itr.nextInt());
             
@@ -571,8 +563,6 @@ public final class SeqUtils {
                 return true; // homopolymer runs
             if (++nf2[c2][c1] >= t2)
                 return true; // di-nucleotide repeat
-            if (++nf3[c3][c2][c1] >= t3)
-                return true; // tri-nucleotide repeat
         }
         
         // di-nucleotide content
@@ -582,6 +572,41 @@ public final class SeqUtils {
         }
         
         return false;
+    }
+    
+    public static final boolean isLowComplexityLongWindowed(String seq) {
+        int seqLen = seq.length();
+        int windowSize = 100;
+        int numWindows = seqLen/windowSize;
+        int offset = (seqLen % windowSize) / 2;
+        int numLowComplexityWindows = 0;
+        
+        for (int i=0; i<numWindows; ++i) {
+            int start = i*windowSize + offset;
+            int end = start + windowSize;
+            String window = seq.substring(start, end);
+            if (isLowComplexityLong(window)) {
+                ++numLowComplexityWindows;
+            }
+        }
+        
+        return numLowComplexityWindows/(float)numWindows >= 0.5f;
+    }
+    
+    public static int getHomoPolymerCompressedLength(String seq) {
+        PrimitiveIterator.OfInt itr = seq.chars().iterator();
+        int prev = itr.nextInt();
+        int length = 1;
+        
+        while (itr.hasNext()) {
+            int curr = itr.nextInt();
+            if (curr != prev) {
+                ++length;
+                prev = curr;
+            }
+        }
+        
+        return length;
     }
     
     public static String chompRightPolyX(String seq, int minLen, int tolerance) {
@@ -1458,7 +1483,6 @@ public final class SeqUtils {
     }
         
     public static void main(String[] args) {
-        String seq = "";
-        System.out.println(isLowComplexityLong(seq));
+        
     }
 }
