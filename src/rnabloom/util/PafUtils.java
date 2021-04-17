@@ -217,6 +217,8 @@ public class PafUtils {
                         else {
                             counts.put(bestTarget, increment);
                         }
+                        
+                        targetNameQueryIntervalMap.clear();
                     }
                     
                     prevName = r.qName;
