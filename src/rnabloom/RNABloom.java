@@ -6860,7 +6860,7 @@ public class RNABloom {
                         assembler.destroyAllBf();
                         
                         SeqSubsampler.kmerBased(correctedReads, longCorrectedReadsPath, subSampledReadsPath,
-                                cbfSize, k, dbgbfNumHash, strandSpecific, 
+                                dbgbfSize + cbfSize, k, dbgbfNumHash, strandSpecific, 
                                 Math.max(2, longReadMinReadDepth), maxTipLen);
                         
                         System.out.println("Subsampling completed in " + myTimer.elapsedDHMS());
