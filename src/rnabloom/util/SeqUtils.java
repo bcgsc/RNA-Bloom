@@ -57,7 +57,7 @@ public final class SeqUtils {
     public final static byte[] T_ALT_NUCLEOTIDES_BYTES = new byte[] {CHAR_A_BYTE,CHAR_C_BYTE,CHAR_G_BYTE};
     
     private static final float LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ = 0.95f;
-    private static final float LOW_COMPLEXITY_THRESHOLD_LONG_SEQ = 0.8f;
+    private static final float LOW_COMPLEXITY_THRESHOLD_LONG_SEQ = 0.75f;
     
     public static final byte[] stringToBytes(String seq, int len) {
         byte[] arr = new byte[len];
@@ -402,8 +402,8 @@ public final class SeqUtils {
         }
         
         // di-nucleotide content
-        if (nf1[0]+nf1[1]>t1 || nf1[0]+nf1[2]>t1 || nf1[0]+nf1[3]>t1 || 
-                nf1[1]+nf1[2]>t1 || nf1[1]+nf1[3]>t1 || nf1[2]+nf1[3]>t1) {
+        if (nf1[0]+nf1[1]>=t1 || nf1[0]+nf1[2]>=t1 || nf1[0]+nf1[3]>=t1 || 
+                nf1[1]+nf1[2]>=t1 || nf1[1]+nf1[3]>=t1 || nf1[2]+nf1[3]>=t1) {
             return true;
         }
         
@@ -530,8 +530,8 @@ public final class SeqUtils {
         }
         
         // di-nucleotide content
-        if (nf1[0]+nf1[1]>t1 || nf1[0]+nf1[2]>t1 || nf1[0]+nf1[3]>t1 || 
-                nf1[1]+nf1[2]>t1 || nf1[1]+nf1[3]>t1 || nf1[2]+nf1[3]>t1) {
+        if (nf1[0]+nf1[1]>=t1 || nf1[0]+nf1[2]>=t1 || nf1[0]+nf1[3]>=t1 || 
+                nf1[1]+nf1[2]>=t1 || nf1[1]+nf1[3]>=t1 || nf1[2]+nf1[3]>=t1) {
             return true;
         }
         
@@ -546,20 +546,28 @@ public final class SeqUtils {
         
         int t1 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
         int t2 = Math.round(length/2 * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
+        int t3 = Math.round(length/3 * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
         
         int nf1[]     = new int[4];
         int nf2[][]   = new int[4][4];
+        int nf3[][][] = new int[4][4][4];
         
         PrimitiveIterator.OfInt itr = seq.chars().iterator();
+        int c3 = nucleotideArrayIndex(itr.nextInt());
         int c2 = nucleotideArrayIndex(itr.nextInt());
         int c1 = nucleotideArrayIndex(itr.nextInt());
 
+        ++nf1[c3];
         ++nf1[c2];
         ++nf1[c1];
         
+        ++nf2[c3][c2];
         ++nf2[c2][c1];
         
+        ++nf3[c3][c2][c1];
+        
         while (itr.hasNext()) {
+            c3 = c2;
             c2 = c1;
             c1 = nucleotideArrayIndex(itr.nextInt());
             
@@ -567,11 +575,13 @@ public final class SeqUtils {
                 return true; // homopolymer runs
             if (++nf2[c2][c1] >= t2)
                 return true; // di-nucleotide repeat
+            if (++nf3[c3][c2][c1] >= t3)
+                return true; // tri-nucleotide repeat
         }
         
         // di-nucleotide content
-        if (nf1[0]+nf1[1]>t1 || nf1[0]+nf1[2]>t1 || nf1[0]+nf1[3]>t1 || 
-                nf1[1]+nf1[2]>t1 || nf1[1]+nf1[3]>t1 || nf1[2]+nf1[3]>t1) {
+        if (nf1[0]+nf1[1]>=t1 || nf1[0]+nf1[2]>=t1 || nf1[0]+nf1[3]>=t1 || 
+                nf1[1]+nf1[2]>=t1 || nf1[1]+nf1[3]>=t1 || nf1[2]+nf1[3]>=t1) {
             return true;
         }
         
