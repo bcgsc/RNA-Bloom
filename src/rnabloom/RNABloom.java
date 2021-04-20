@@ -5598,7 +5598,7 @@ public class RNABloom {
         String defaultMaxIndelSizeLR = "50";
         String defaultMaxTipLengthLR = "50";
         String defaultMaxErrorCorrItrLR = "2";
-        String defaultPercentIdentityLR = "0.7";
+        String defaultPercentIdentityLR = "0.6";
         String defaultLongReadPreset = "-k " + defaultKmerSizeLR + " -c " + defaultMinCoverageLR + 
                 " -indel " + defaultMaxIndelSizeLR + " -e " + defaultMaxErrorCorrItrLR +
                 " -p " + defaultPercentIdentityLR + " -length " + defaultMinTranscriptLengthLR +
