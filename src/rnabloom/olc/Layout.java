@@ -2072,6 +2072,8 @@ public class Layout {
     public void extractSimplePaths(String outFastaPath) throws IOException {
         HashSet<String> containedSet = populateGraphFromOverlaps();
         
+        Timer timer = new Timer();
+        
         if (!containedSet.isEmpty()) {
             System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
         }
@@ -2142,6 +2144,7 @@ public class Layout {
         fw.close();
         
         System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+        System.out.println("Laid out paths in " + timer.elapsedDHMS());
     }
     
     public void extractGreedyPaths(String outFastaPath, String mappingPafPath) throws IOException {
@@ -2182,10 +2185,13 @@ public class Layout {
         }
         
         System.out.println("Tallying read counts...");
+        Timer timer = new Timer();
         HashMap<String, Float> readCounts = getReadCounts(mappingPafPath, vertexNames, maxEdgeClip);
+        System.out.println("Counts tallied in " + timer.elapsedDHMS());
         
         // assign read count to edge
         System.out.println("Adding read counts to graph...");
+        timer.start();
         edgeSet = graph.edgeSet();
         for (OverlapEdge e : edgeSet) {
             String source = getVertexName(graph.getEdgeSource(e));
@@ -2204,8 +2210,10 @@ public class Layout {
             }
             graph.setEdgeWeight(e, w);
         }
+        System.out.println("Counts added in " + timer.elapsedDHMS());
         
         System.out.println("Extracting vertex sequences...");
+        timer.start();
         HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size());
         FastaReader fr = new FastaReader(seqFastaPath);
         FastaWriter fw = new FastaWriter(outFastaPath, false);
@@ -2224,9 +2232,11 @@ public class Layout {
             }
         }
         fr.close();
+        System.out.println("Sequences extracted in " + timer.elapsedDHMS());
         
         // extract paths
         System.out.println("Extracting paths...");
+        timer.start();
         HashSet<String> visited = new HashSet<>();
         for (Iterator<Entry<String, Float>> itr = readCounts.entrySet().stream().
                 sorted(Entry.<String, Float>comparingByValue().reversed()).iterator();
@@ -2260,6 +2270,7 @@ public class Layout {
         fw.close();
         
         System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+        System.out.println("Laid out paths in " + timer.elapsedDHMS());
     }
 
     private String getMaxWeightPredecessor(String vid) {
