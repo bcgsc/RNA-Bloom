@@ -1983,7 +1983,8 @@ public class Layout {
                                 break;
                             case NEITHER:
                                 if (!containedSet.contains(r.qName) &&
-                                    !containedSet.contains(r.tName)) {
+                                    !containedSet.contains(r.tName) &&
+                                        isStrandedDovetailPafRecord(r)) {
                                     pendingOverlaps.add(pafToOverlap(r));
                                 }
                                 break;
@@ -2037,7 +2038,8 @@ public class Layout {
                                 break;
                             case NEITHER:
                                 if (!containedSet.contains(r.qName) &&
-                                    !containedSet.contains(r.tName)) {
+                                    !containedSet.contains(r.tName) &&
+                                        isDovetailPafRecord(r)) {
                                     overlaps.add(pafToStrandedOverlap(r));
                                 }
                                 break;
