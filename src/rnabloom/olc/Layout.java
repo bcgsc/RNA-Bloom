@@ -152,7 +152,7 @@ public class Layout {
         return rnabloom.util.PafUtils.isContainmentPafRecord(r, maxEdgeClip);
     }
     
-    private boolean isStrandedContainmentPafRecord(PafRecord r) {
+    private boolean isForwardContainmentPafRecord(PafRecord r) {
         return !r.reverseComplemented && isContainmentPafRecord(r);
     }
         
@@ -160,8 +160,8 @@ public class Layout {
         return rnabloom.util.PafUtils.isDovetailPafRecord(r, maxEdgeClip);
     }
     
-    private boolean isStrandedDovetailPafRecord(PafRecord r) { 
-        return rnabloom.util.PafUtils.isStrandedDovetailPafRecord(r, maxEdgeClip);
+    private boolean isForwardDovetailPafRecord(PafRecord r) { 
+        return rnabloom.util.PafUtils.isForwardDovetailPafRecord(r, maxEdgeClip);
     }
     
     private static String getVertexName(String vid) {
@@ -1456,7 +1456,7 @@ public class Layout {
             
             if ((!stranded || !r.reverseComplemented)&&
                     !r.qName.equals(r.tName) &&
-                    hasLargeOverlap(r) && hasGoodOverlap(r)) {
+                    hasLargeOverlap(r)) {
                 
                 if (!r.qName.equals(currName)) {
                     if (currName != null && currHist != null) {
@@ -1495,7 +1495,7 @@ public class Layout {
                 
                 updateHistogram(tHist, r.tStart, r.tEnd, tHistBinSize);
                 
-                if (hasSimilarSizedOverlap(r, maxOverlapSizeDiff) &&
+                if (hasGoodOverlap(r) && hasSimilarSizedOverlap(r, maxOverlapSizeDiff) &&                        
                         (!currContained || !containedSet.contains(r.tName))) {
                     // look for containment only if the other is not already "contained"
                     if (tHist.seenAsQuery || isFullyCovered(tHist)) {
@@ -1984,7 +1984,7 @@ public class Layout {
                             case NEITHER:
                                 if (!containedSet.contains(r.qName) &&
                                     !containedSet.contains(r.tName) &&
-                                        isStrandedDovetailPafRecord(r)) {
+                                        isForwardDovetailPafRecord(r)) {
                                     pendingOverlaps.add(pafToOverlap(r));
                                 }
                                 break;
@@ -2040,7 +2040,7 @@ public class Layout {
                                 if (!containedSet.contains(r.qName) &&
                                     !containedSet.contains(r.tName) &&
                                         isDovetailPafRecord(r)) {
-                                    overlaps.add(pafToStrandedOverlap(r));
+                                    pendingOverlaps.add(pafToStrandedOverlap(r));
                                 }
                                 break;
                         }

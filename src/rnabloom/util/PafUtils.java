@@ -133,7 +133,7 @@ public class PafUtils {
             (r.tStart <= maxEdgeClip && r.tLen - r.tEnd <= maxEdgeClip));
     }
         
-    public static boolean isStrandedContainmentPafRecord(PafRecord r, int maxEdgeClip) {
+    public static boolean isForwardContainmentPafRecord(PafRecord r, int maxEdgeClip) {
         return !r.reverseComplemented && isContainmentPafRecord(r, maxEdgeClip);
     }
         
@@ -148,7 +148,7 @@ public class PafUtils {
         }
     }
     
-    public static boolean isStrandedDovetailPafRecord(PafRecord r, int maxEdgeClip) {
+    public static boolean isForwardDovetailPafRecord(PafRecord r, int maxEdgeClip) {
         if (!r.reverseComplemented) {
             if ((r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) ||
                     (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip)) {
