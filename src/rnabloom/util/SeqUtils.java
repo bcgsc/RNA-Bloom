@@ -57,7 +57,7 @@ public final class SeqUtils {
     public final static byte[] T_ALT_NUCLEOTIDES_BYTES = new byte[] {CHAR_A_BYTE,CHAR_C_BYTE,CHAR_G_BYTE};
     
     private static final float LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ = 0.95f;
-    private static final float LOW_COMPLEXITY_THRESHOLD_LONG_SEQ = 0.75f;
+    private static final float LOW_COMPLEXITY_THRESHOLD_LONG_SEQ = 0.8f;
     
     public static final byte[] stringToBytes(String seq, int len) {
         byte[] arr = new byte[len];
@@ -592,7 +592,7 @@ public final class SeqUtils {
         int seqLen = seq.length();
         int windowSize = 100;
         int numWindows = seqLen/windowSize;
-        if (numWindows >= 2) {
+        if (numWindows >= 4) {
             int offset = (seqLen % windowSize) / 2;
             int numLowComplexityWindows = 0;
 
@@ -605,7 +605,7 @@ public final class SeqUtils {
                 }
             }
 
-            return numLowComplexityWindows/(float)numWindows > 0.5f;
+            return numLowComplexityWindows/(float)numWindows >= LOW_COMPLEXITY_THRESHOLD_LONG_SEQ;
         }
         
         return isLowComplexityLong(seq);
