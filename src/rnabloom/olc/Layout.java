@@ -2095,8 +2095,12 @@ public class Layout {
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
 
             ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
-            for (String n : redundantNodeNames) {
-                containedSet.add(getVertexName(n));
+            while (!redundantNodeNames.isEmpty()) {
+                for (String n : redundantNodeNames) {
+                    containedSet.add(getVertexName(n));
+                }
+
+                redundantNodeNames = removeRedundantNodes();
             }
             
             //printGraph();
@@ -2171,8 +2175,12 @@ public class Layout {
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
 
             ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
-            for (String n : redundantNodeNames) {
-                containedSet.add(getVertexName(n));
+            while (!redundantNodeNames.isEmpty()) {
+                for (String n : redundantNodeNames) {
+                    containedSet.add(getVertexName(n));
+                }
+                
+                redundantNodeNames = removeRedundantNodes();
             }
             
             //printGraph();
@@ -2183,7 +2191,8 @@ public class Layout {
         HashSet<String> vertexNames = new HashSet<>(vertexSet.size());
         for (String vid : vertexSet) {
             String name = getVertexName(vid);
-            vertexNames.add(name.substring(0, name.length()-1)); // remove "r" suffix
+            vertexNames.add(name);
+            //vertexNames.add(name.substring(0, name.length()-1)); // remove "r" suffix
         }
         
         System.out.println("Tallying read counts...");
@@ -2198,8 +2207,10 @@ public class Layout {
         for (OverlapEdge e : edgeSet) {
             String source = getVertexName(graph.getEdgeSource(e));
             String target = getVertexName(graph.getEdgeTarget(e));
-            Float sCount = readCounts.get(source.substring(0, source.length()-1));
-            Float tCount = readCounts.get(target.substring(0, target.length()-1));
+//            Float sCount = readCounts.get(source.substring(0, source.length()-1));
+//            Float tCount = readCounts.get(target.substring(0, target.length()-1));
+            Float sCount = readCounts.get(source);
+            Float tCount = readCounts.get(target);
             float w = 0;
             if (sCount != null && tCount != null) {
                 w = Math.min(sCount, tCount);
@@ -2245,7 +2256,7 @@ public class Layout {
                 itr.hasNext();) {
             Entry<String, Float> e = itr.next();
             float count = e.getValue();
-            String seed = e.getKey() + "r";
+            String seed = e.getKey();// + "r";
             if (!visited.contains(seed)) {
                 String header = Long.toString(++seqID);
                 

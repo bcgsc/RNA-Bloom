@@ -105,7 +105,7 @@ import rnabloom.util.WeightedBitSequence;
  * @author Ka Ming Nip
  */
 public class RNABloom {
-    public final static String VERSION = "1.4.2-r2021-04-25a";
+    public final static String VERSION = "1.4.2-r2021-05-01a";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
@@ -3775,7 +3775,8 @@ public class RNABloom {
                                     }
 
                                     if (!correctedKmers.isEmpty()) {
-                                        //float cov = getMedianKmerCoverage(correctedKmers);
+                                        float cov = getMedianKmerCoverage(correctedKmers);
+                                        int numSolidKmers = countSolidKmers(kmers, minKmerCov);
 
                                         seq = graph.assemble(correctedKmers);
 
@@ -3785,8 +3786,10 @@ public class RNABloom {
                                             isRepeat = isLowComplexityLongWindowed(seq);
                                         }
                                         
-                                        int numSolidKmers = countSolidKmers(kmers, minKmerCov);
-                                        outputQueue.put(new Sequence2(nameSeqPair[0], seq, seqLength, numSolidKmers, isRepeat));
+                                        int score = (int)Math.rint(numSolidKmers*cov);
+//                                        int score = seqLength;
+                                        
+                                        outputQueue.put(new Sequence2(nameSeqPair[0], seq, seqLength, score, isRepeat));
                                         kept = true;
                                     }
                                 }
@@ -6007,7 +6010,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optPolyATail);  
         
-        final String optMinimapOptionsDefault = "";
+        final String optMinimapOptionsDefault = "-K 100M";
         Option optMinimapOptions = Option.builder("mmopt")
                                     .desc("options for minimap2 [" + optMinimapOptionsDefault + "]\n(`-x` and `-t` are already in use)")
                                     .hasArg(true)

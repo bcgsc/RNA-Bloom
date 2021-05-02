@@ -71,7 +71,7 @@
 
     -->
 <target name="-post-jar">
-    <property name="version" value="1.4.2-r2021-04-25a"/>
+    <property name="version" value="1.4.2-r2021-05-01a"/>
     <property name="store.jar.name" value="RNA-Bloom"/>
     <property name="store.dir" value="dist"/>
     <property name="store.jar" value="${store.dir}/${store.jar.name}.jar"/>
