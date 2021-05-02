@@ -3775,7 +3775,7 @@ public class RNABloom {
                                     }
 
                                     if (!correctedKmers.isEmpty()) {
-                                        float cov = getMedianKmerCoverage(correctedKmers);
+                                        //float cov = getMedianKmerCoverage(correctedKmers);
                                         int numSolidKmers = countSolidKmers(kmers, minKmerCov);
 
                                         seq = graph.assemble(correctedKmers);
@@ -3786,10 +3786,7 @@ public class RNABloom {
                                             isRepeat = isLowComplexityLongWindowed(seq);
                                         }
                                         
-                                        int score = (int)Math.rint(numSolidKmers*cov);
-//                                        int score = seqLength;
-                                        
-                                        outputQueue.put(new Sequence2(nameSeqPair[0], seq, seqLength, score, isRepeat));
+                                        outputQueue.put(new Sequence2(nameSeqPair[0], seq, seqLength, numSolidKmers, isRepeat));
                                         kept = true;
                                     }
                                 }
