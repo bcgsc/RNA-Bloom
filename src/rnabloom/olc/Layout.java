@@ -52,6 +52,7 @@ import rnabloom.io.PafRecord;
 import rnabloom.util.BitSequence;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.PafUtils.*;
+import static rnabloom.util.SeqUtils.isLowComplexityLongWindowed;
 import rnabloom.util.Timer;
 
 
@@ -1556,15 +1557,21 @@ public class Layout {
                                     String namePrefix = seqID + "_p";
                                     int segmentID = 1;
                                     for (Interval i : spans) {
-                                        String header = namePrefix + segmentID + " " + seqLen + ":" + i.start + "-" + i.end + " " + seqName;
-                                        fw.write(header, record.seq.substring(i.start, i.end));
-                                        ++segmentID;
+                                        String seg = record.seq.substring(i.start, i.end);
+                                        if (!isLowComplexityLongWindowed(seg)) {
+                                            String header = namePrefix + segmentID + " " + seqLen + ":" + i.start + "-" + i.end + " " + seqName;
+                                            fw.write(header, seg);
+                                            ++segmentID;
+                                        }
                                     }
                                 }
                                 else {
                                     Interval i = spans.peekFirst();
-                                    String header = Long.toString(seqID) + " " + seqLen + ":" + i.start + "-" + i.end  + " " + seqName;
-                                    fw.write(header, record.seq.substring(i.start, i.end));
+                                    String seg = record.seq.substring(i.start, i.end);
+                                    if (!isLowComplexityLongWindowed(seg)) {
+                                        String header = Long.toString(seqID) + " " + seqLen + ":" + i.start + "-" + i.end  + " " + seqName;
+                                        fw.write(header, seg);
+                                    }
                                 }
                             }
                         }
