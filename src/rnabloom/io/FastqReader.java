@@ -104,9 +104,18 @@ public final class FastqReader implements FastxReaderInterface {
         
         synchronized(this) {
             line1 = itr.next();
+            if (line1.isBlank()) {
+                return null;
+            }
+            
             seq = itr.next();
+            
             line3 = itr.next();
-            itr.next();
+            if (line3.charAt(0) != '+') {
+                throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
+            }
+            
+            itr.next(); // line 4
         }
         
         Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
@@ -119,10 +128,6 @@ public final class FastqReader implements FastxReaderInterface {
         }
         else {
             throw new FileFormatException("Line 1 of FASTQ record is expected to start with '@'");
-        }
-
-        if (line3.charAt(0) != '+') {
-            throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
         }
         
         return new String[]{name, seq};
@@ -140,18 +145,27 @@ public final class FastqReader implements FastxReaderInterface {
         
         synchronized(this) {
             line1 = itr.next();
+            if (line1.isBlank()) {
+                fr.name = null;
+                fr.qual = null;
+                fr.seq = null;
+                return;
+            }
+            
+            if (line1.charAt(0) != '@') {
+                throw new FileFormatException("Line 1 of FASTQ record is expected to start with '@'");
+            }
+            
             fr.seq = itr.next();
+            
             line3 = itr.next();
+            if (line3.charAt(0) != '+') {
+                throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
+            }
+            
             fr.qual = itr.next();
         }
         
-        if (line1.charAt(0) != '@') {
-            throw new FileFormatException("Line 1 of FASTQ record is expected to start with '@'");
-        }
-
-        if (line3.charAt(0) != '+') {
-            throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
-        }
     }
     
     public synchronized void nextWithName(FastqRecord fr) throws FileFormatException {
@@ -166,8 +180,20 @@ public final class FastqReader implements FastxReaderInterface {
         
         synchronized(this) {
             line1 = itr.next();
+            if (line1.isBlank()) {
+                fr.name = null;
+                fr.qual = null;
+                fr.seq = null;
+                return;
+            }
+            
             fr.seq = itr.next();
+            
             line3 = itr.next();
+            if (line3.charAt(0) != '+') {
+                throw new FileFormatException("Line 3 of a FASTQ record is expected to start with '+'");
+            }
+            
             fr.qual = itr.next();
         }
         
@@ -181,10 +207,6 @@ public final class FastqReader implements FastxReaderInterface {
         }
         else {
             throw new FileFormatException("Line 1 of a FASTQ record is expected to start with '@'");
-        }
-
-        if (line3.charAt(0) != '+') {
-            throw new FileFormatException("Line 3 of a FASTQ record is expected to start with '+'");
         }
     }
         

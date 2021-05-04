@@ -22,8 +22,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Iterator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 //import java.util.NoSuchElementException;
@@ -93,7 +91,7 @@ public class FastaReader implements FastxReaderInterface {
         }
         
         if (header.isEmpty()) {
-            throw new FileFormatException("Empty FASTA header");
+            return null; //throw new FileFormatException("Empty FASTA header");
         }
         else if (header.charAt(0) != '>') {
             throw new FileFormatException("Incorrect FASTA header format");
@@ -129,7 +127,7 @@ public class FastaReader implements FastxReaderInterface {
         }
         
         if (header.isEmpty()) {
-            throw new FileFormatException("Empty FASTA header");
+            return null; //throw new FileFormatException("Empty FASTA header");
         }
         
         String name = null;
@@ -176,7 +174,10 @@ public class FastaReader implements FastxReaderInterface {
         }
         
         if (header.isEmpty()) {
-            throw new FileFormatException("Empty FASTA header");
+            fr.name = null;
+            fr.seq = null;
+            return;
+            //throw new FileFormatException("Empty FASTA header");
         }
         
         String name = null;
@@ -222,7 +223,7 @@ public class FastaReader implements FastxReaderInterface {
         }
         
         if (header.isEmpty()) {
-            throw new FileFormatException("Empty FASTA header");
+            return null; //throw new FileFormatException("Empty FASTA header");
         }
     
         String name, comment = null;
