@@ -104,7 +104,7 @@ public final class FastqReader implements FastxReaderInterface {
         
         synchronized(this) {
             line1 = itr.next();
-            if (line1.isBlank()) {
+            if (line1.isEmpty()) {
                 return null;
             }
             
@@ -145,7 +145,7 @@ public final class FastqReader implements FastxReaderInterface {
         
         synchronized(this) {
             line1 = itr.next();
-            if (line1.isBlank()) {
+            if (line1.isEmpty()) {
                 fr.name = null;
                 fr.qual = null;
                 fr.seq = null;
@@ -180,7 +180,7 @@ public final class FastqReader implements FastxReaderInterface {
         
         synchronized(this) {
             line1 = itr.next();
-            if (line1.isBlank()) {
+            if (line1.isEmpty()) {
                 fr.name = null;
                 fr.qual = null;
                 fr.seq = null;
