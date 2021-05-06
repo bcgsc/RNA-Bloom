@@ -117,19 +117,13 @@ The `-ref` option specifies the reference transcriptome FASTA file for guiding s
 
 ## Quick Start for Nanopore Reads :running:
 
-### (A) assemble nanopore PCR cDNA sequencing data:
+### (A) assemble nanopore cDNA sequencing data:
 ```
 java -jar RNA-Bloom.jar -long READS.fasta -ntcard -t THREADS -outdir OUTDIR
 ```
 Input reads are expected to be in a mix of both forward and reverse orientations.
 
-### (B) assemble nanopore direct cDNA sequencing data:
-```
-java -jar RNA-Bloom.jar -long READS.fasta -stranded -revcomp-long -ntcard -t THREADS -outdir OUTDIR
-```
-Input reads are expected to be only in the reverse orientation.
-
-### (C) assemble nanopore direct RNA sequencing data:
+### (B) assemble nanopore direct RNA sequencing data:
 ```
 java -jar RNA-Bloom.jar -long READS.fasta -stranded -ntcard -t THREADS -outdir OUTDIR
 ```
