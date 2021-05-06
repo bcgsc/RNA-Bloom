@@ -1069,6 +1069,8 @@ public class RNABloom {
                             boolean reverseComplement,
                             boolean addCountsOnly,
                             boolean storeReadKmerPairs) throws IOException, InterruptedException {
+        Timer timer = new Timer();
+        timer.start();
         System.out.println("Parsing `" + path + "`...");
         long numReads = 0;
         
@@ -1110,7 +1112,7 @@ public class RNABloom {
                 threads[i].start();
             }
 
-            System.out.println("Initialized " + numThreads + " worker(s).");
+            //System.out.println("Initialized " + numThreads + " worker(s).");
 
             for (Thread t : threads) {
                 t.join();
@@ -1126,7 +1128,7 @@ public class RNABloom {
             throw new RuntimeException("Unsupported file format detected in input file `" + path + "`. Only FASTA and FASTQ formats are supported.");
         }
         
-        System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences in " + timer.elapsedDHMS());
 
         return numReads;
     }
@@ -1134,6 +1136,8 @@ public class RNABloom {
     public long populateGraphPairedKmersHelper(String path,
                                     int numThreads,
                                     boolean existingKmersOnly) throws IOException, InterruptedException {
+        Timer timer = new Timer();
+        timer.start();
         System.out.println("Parsing `" + path + "`...");
         long numReads = 0;
         
@@ -1150,7 +1154,7 @@ public class RNABloom {
                 threads[i].start();
             }
 
-            System.out.println("Initialized " + numThreads + " worker(s).");
+            //System.out.println("Initialized " + numThreads + " worker(s).");
 
             for (Thread t : threads) {
                 t.join();
@@ -1166,7 +1170,7 @@ public class RNABloom {
             throw new RuntimeException("Unsupported file format detected in input file `" + path + "`. Only FASTA format is supported.");
         }
         
-        System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences.");
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numReads) + " sequences in " + timer.elapsedDHMS());
         
         return numReads;
     }
