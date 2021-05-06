@@ -21,7 +21,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Iterator;
-//import java.util.NoSuchElementException;
+import java.util.NoSuchElementException;
 //import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -102,20 +102,20 @@ public final class FastqReader implements FastxReaderInterface {
         
         String line1, line3, name, seq;
         
-        synchronized(this) {
-            line1 = itr.next();
-            if (line1.isEmpty()) {
-                return null;
+        try {
+            synchronized(this) {
+                line1 = itr.next();
+                seq = itr.next();
+                line3 = itr.next();
+                itr.next(); // line 4
             }
-            
-            seq = itr.next();
-            
-            line3 = itr.next();
-            if (line3.charAt(0) != '+') {
-                throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
-            }
-            
-            itr.next(); // line 4
+        }
+        catch (NoSuchElementException e) {
+            return null;
+        }
+
+        if (line3.charAt(0) != '+') {
+            throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
         }
         
         Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
@@ -143,27 +143,27 @@ public final class FastqReader implements FastxReaderInterface {
         
         String line1, line3;
         
-        synchronized(this) {
-            line1 = itr.next();
-            if (line1.isEmpty()) {
-                fr.name = null;
-                fr.qual = null;
-                fr.seq = null;
-                return;
+        try {
+            synchronized(this) {
+                line1 = itr.next();            
+                fr.seq = itr.next();
+                line3 = itr.next();
+                fr.qual = itr.next();
             }
-            
-            if (line1.charAt(0) != '@') {
-                throw new FileFormatException("Line 1 of FASTQ record is expected to start with '@'");
-            }
-            
-            fr.seq = itr.next();
-            
-            line3 = itr.next();
-            if (line3.charAt(0) != '+') {
-                throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
-            }
-            
-            fr.qual = itr.next();
+        }
+        catch (NoSuchElementException e) {
+            fr.name = null;
+            fr.qual = null;
+            fr.seq = null;
+            return;
+        }
+
+        if (line1.charAt(0) != '@') {
+            throw new FileFormatException("Line 1 of FASTQ record is expected to start with '@'");
+        }
+
+        if (line3.charAt(0) != '+') {
+            throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
         }
         
     }
@@ -178,23 +178,23 @@ public final class FastqReader implements FastxReaderInterface {
         
         String line1, line3;
         
-        synchronized(this) {
-            line1 = itr.next();
-            if (line1.isEmpty()) {
-                fr.name = null;
-                fr.qual = null;
-                fr.seq = null;
-                return;
+        try {
+            synchronized(this) {
+                line1 = itr.next();
+                fr.seq = itr.next();
+                line3 = itr.next();            
+                fr.qual = itr.next();
             }
-            
-            fr.seq = itr.next();
-            
-            line3 = itr.next();
-            if (line3.charAt(0) != '+') {
-                throw new FileFormatException("Line 3 of a FASTQ record is expected to start with '+'");
-            }
-            
-            fr.qual = itr.next();
+        }
+        catch (NoSuchElementException e) {
+            fr.name = null;
+            fr.qual = null;
+            fr.seq = null;
+            return;
+        }
+        
+        if (line3.charAt(0) != '+') {
+            throw new FileFormatException("Line 3 of a FASTQ record is expected to start with '+'");
         }
         
         Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
