@@ -6163,7 +6163,7 @@ public class RNABloom {
             File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
             File txptsNrDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
             File longReadsCorrectedStamp = new File(outdir + File.separator + STAMP_LONG_READS_CORRECTED);
-            File longReadsClusteredStamp = new File(outdir + File.separator + STAMP_LONG_READS_CLUSTERED);
+//            File longReadsClusteredStamp = new File(outdir + File.separator + STAMP_LONG_READS_CLUSTERED);
             File longReadsAssembledStamp = new File(outdir + File.separator + STAMP_LONG_READS_ASSEMBLED);
             
             boolean dbgDone = forceOverwrite ? false : dbgDoneStamp.exists();
@@ -6171,7 +6171,7 @@ public class RNABloom {
             boolean txptsDone = forceOverwrite ? false : txptsDoneStamp.exists();
             boolean txptsNrDone = forceOverwrite ? false : txptsNrDoneStamp.exists();
             boolean longReadsCorrected = forceOverwrite ? false : longReadsCorrectedStamp.exists();
-            boolean longReadsClustered = forceOverwrite ? false : longReadsClusteredStamp.exists();
+//            boolean longReadsClustered = forceOverwrite ? false : longReadsClusteredStamp.exists();
             boolean longReadsAssembled = forceOverwrite ? false : longReadsAssembledStamp.exists();
             
             if (forceOverwrite) {
@@ -6199,9 +6199,9 @@ public class RNABloom {
                     longReadsCorrectedStamp.delete();
                 }
                 
-                if (longReadsClusteredStamp.exists()) {
-                    longReadsClusteredStamp.delete();
-                }
+//                if (longReadsClusteredStamp.exists()) {
+//                    longReadsClusteredStamp.delete();
+//                }
                 
                 if (longReadsAssembledStamp.exists()) {
                     longReadsAssembledStamp.delete();
@@ -6216,6 +6216,8 @@ public class RNABloom {
             final String pooledReadsListFile = line.getOptionValue(optPooledAssembly.getOpt());
             final boolean pooledGraphMode = pooledReadsListFile != null;
             boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
+            boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
+            boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
             
             if (pooledGraphMode && (leftReadPaths != null || rightReadPaths != null || longReadPaths != null) ) {
                 exitOnError("Option `-pool` cannot be used with options `-left`, `-right`, or `-long`");
@@ -6278,52 +6280,44 @@ public class RNABloom {
                 }
                 
                 maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
+                
+                hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
+                hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
             }
-            else if (longReadPaths != null && longReadPaths.length > 0) {
-                if (isListFile(longReadPaths)) {
-                    // input path is a list file
-                    longReadPaths = getPathsFromListFile(longReadPaths);
-                }
-                
-                checkInputFileFormat(longReadPaths);
-                
-                double readFilesTotalBytes = 0;
-
-                for (String fq : longReadPaths) {
-                    readFilesTotalBytes += new File(fq).length();
-                }
-                
-                maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
-            }
-            else {
+            else{
                 double readFilesTotalBytes = 0;
                 
-                if (leftReadPaths == null || leftReadPaths.length == 0) {
-                    exitOnError("Please specify left read files!");
-                }
+                if (hasLongReadFiles) {
+                    if (isListFile(longReadPaths)) {
+                        // input path is a list file
+                        longReadPaths = getPathsFromListFile(longReadPaths);
+                    }
 
-//                if (rightReadPaths == null || rightReadPaths.length == 0) {
-//                    exitOnError("Please specify right read files!");
-//                }
+                    checkInputFileFormat(longReadPaths);
 
-                if (leftReadPaths != null && rightReadPaths != null &&
-                        leftReadPaths.length > 0 && rightReadPaths.length > 0 &&
-                        leftReadPaths.length != rightReadPaths.length) {
-                    exitOnError("Read files are not paired properly!");
+                    for (String fq : longReadPaths) {
+                        readFilesTotalBytes += new File(fq).length();
+                    }
+                    
+                    hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
+                }
+                                
+                if (hasLeftReadFiles) {
+                    if (isListFile(leftReadPaths)) {
+                        // input path is a list file
+                        leftReadPaths = getPathsFromListFile(leftReadPaths);
+                    }
+
+                    checkInputFileFormat(leftReadPaths);
+
+                    for (String p : leftReadPaths) {
+                        readFilesTotalBytes += new File(p).length();
+                    }
+                    
+                    hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
                 }
                 
-                if (isListFile(leftReadPaths)) {
-                    // input path is a list file
-                    leftReadPaths = getPathsFromListFile(leftReadPaths);
-                }
-                
-                checkInputFileFormat(leftReadPaths);
-                
-                for (String p : leftReadPaths) {
-                    readFilesTotalBytes += new File(p).length();
-                }
-                
-                if (rightReadPaths != null && rightReadPaths.length > 0) {
+                if (hasRightReadFiles) {
                     if (isListFile(rightReadPaths)) {
                         // input path is a list file
                         rightReadPaths = getPathsFromListFile(rightReadPaths);
@@ -6334,14 +6328,25 @@ public class RNABloom {
                     for (String p : rightReadPaths) {
                         readFilesTotalBytes += new File(p).length();
                     }
+                    
+                    hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
                 }
                                 
                 maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
+                
+                if (!hasLongReadFiles) {
+                    if (!hasLeftReadFiles && !hasRightReadFiles) {
+                        exitOnError("Please specify read files!");
+                    }
+
+                    if (leftReadPaths != null && rightReadPaths != null &&
+                            leftReadPaths.length > 0 && rightReadPaths.length > 0 &&
+                            leftReadPaths.length != rightReadPaths.length) {
+                        exitOnError("Left-right read files are not paired properly!");
+                    }
+                }
             }
             
-            boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
-            boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
-
             boolean hasRefTranscriptFiles = refTranscriptPaths != null && refTranscriptPaths.length > 0;
             if (hasRefTranscriptFiles && isListFile(refTranscriptPaths)) {
                 // input path is a list file
