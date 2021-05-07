@@ -57,7 +57,7 @@ public final class SeqUtils {
     public final static byte[] T_ALT_NUCLEOTIDES_BYTES = new byte[] {CHAR_A_BYTE,CHAR_C_BYTE,CHAR_G_BYTE};
     
     private static final float LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ = 0.95f;
-    private static final float LOW_COMPLEXITY_THRESHOLD_LONG_SEQ = 0.85f;
+    private static final float LOW_COMPLEXITY_THRESHOLD_LONG_SEQ = 0.89f;
     
     public static final byte[] stringToBytes(String seq, int len) {
         byte[] arr = new byte[len];
