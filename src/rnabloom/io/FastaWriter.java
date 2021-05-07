@@ -36,7 +36,7 @@ public class FastaWriter {
     
     public FastaWriter(String path, boolean append) throws IOException {
         if (path.toLowerCase().endsWith(GZIP_EXTENSION)) {
-            out = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(path, append)), "UTF-8");
+            out = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(path, append), BUFFER_SIZE), "UTF-8");
         }
         else {
             out = new BufferedWriter(new FileWriter(path, append), BUFFER_SIZE);

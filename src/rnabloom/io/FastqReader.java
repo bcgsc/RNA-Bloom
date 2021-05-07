@@ -69,18 +69,22 @@ public final class FastqReader implements FastxReaderInterface {
     }
     
     @Override
-    public synchronized String next() throws FileFormatException {
-        if (!itr.hasNext()) {
-            return null;
-        }
-        
+    public String next() throws FileFormatException {
         String line1, line3, seq;
         
-        synchronized(this) {
-            line1 = itr.next();
-            seq = itr.next();
-            line3 = itr.next();
-            itr.next();
+        try {
+            synchronized(this) {
+                line1 = itr.next();
+                seq = itr.next();
+                line3 = itr.next();
+                itr.next();
+            }
+        }
+        catch (NoSuchElementException e) {
+            return null;
+        }
+        catch (Exception e) {
+            throw new FileFormatException("Error reading file");
         }
         
         if (line1.charAt(0) != '@') {
@@ -95,11 +99,7 @@ public final class FastqReader implements FastxReaderInterface {
     }
     
     @Override
-    public synchronized String[] nextWithName() throws FileFormatException {
-        if (!itr.hasNext()) {
-            return null;
-        }
-        
+    public String[] nextWithName() throws FileFormatException {
         String line1, line3, name, seq;
         
         try {
@@ -112,6 +112,9 @@ public final class FastqReader implements FastxReaderInterface {
         }
         catch (NoSuchElementException e) {
             return null;
+        }
+        catch (Exception e) {
+            throw new FileFormatException("Error reading file");
         }
 
         if (line3.charAt(0) != '+') {
@@ -133,14 +136,7 @@ public final class FastqReader implements FastxReaderInterface {
         return new String[]{name, seq};
     }
     
-    public synchronized void nextWithoutName(FastqRecord fr) throws FileFormatException {
-        if (!itr.hasNext()) {
-            fr.name = null;
-            fr.qual = null;
-            fr.seq = null;
-            return;
-        }
-        
+    public void nextWithoutName(FastqRecord fr) throws FileFormatException {        
         String line1, line3;
         
         try {
@@ -157,25 +153,30 @@ public final class FastqReader implements FastxReaderInterface {
             fr.seq = null;
             return;
         }
+        catch (Exception e) {
+            fr.name = null;
+            fr.qual = null;
+            fr.seq = null;
+            throw new FileFormatException("Error reading file");
+        }
 
         if (line1.charAt(0) != '@') {
+            fr.name = null;
+            fr.qual = null;
+            fr.seq = null;
             throw new FileFormatException("Line 1 of FASTQ record is expected to start with '@'");
         }
 
         if (line3.charAt(0) != '+') {
+            fr.name = null;
+            fr.qual = null;
+            fr.seq = null;
             throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
         }
         
     }
     
-    public synchronized void nextWithName(FastqRecord fr) throws FileFormatException {
-        if (!itr.hasNext()) {
-            fr.name = null;
-            fr.qual = null;
-            fr.seq = null;
-            return;
-        }
-        
+    public void nextWithName(FastqRecord fr) throws FileFormatException {
         String line1, line3;
         
         try {
@@ -192,8 +193,17 @@ public final class FastqReader implements FastxReaderInterface {
             fr.seq = null;
             return;
         }
+        catch (Exception e) {
+            fr.name = null;
+            fr.qual = null;
+            fr.seq = null;
+            throw new FileFormatException("Error reading file");
+        }
         
         if (line3.charAt(0) != '+') {
+            fr.name = null;
+            fr.qual = null;
+            fr.seq = null;
             throw new FileFormatException("Line 3 of a FASTQ record is expected to start with '+'");
         }
         
