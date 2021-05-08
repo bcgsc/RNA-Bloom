@@ -3206,7 +3206,7 @@ public final class GraphUtils {
             
             // trim head and tail
             ArrayList<Kmer> testKmers = trimLowCovEdges ?
-                                        trimLowCoverageEdgeKmers(kmers, graph, lookahead, minKmerCov) :
+                                        trimLowCoverageEdgeKmers(kmers, graph, minKmerCov) :
                                         null;
             
             if (testKmers == null) {
@@ -3298,8 +3298,7 @@ public final class GraphUtils {
     }
     
     public static ArrayList<Kmer> trimLowCoverageEdgeKmers(ArrayList<Kmer> kmers,
-                                                        BloomFilterDeBruijnGraph graph, 
-                                                        int lookahead,
+                                                        BloomFilterDeBruijnGraph graph,
                                                         float threshold) {
         int k = graph.getK();
         int numKmers = kmers.size();
