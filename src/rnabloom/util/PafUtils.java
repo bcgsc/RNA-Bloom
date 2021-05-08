@@ -177,6 +177,14 @@ public class PafUtils {
         return bestPartner;
     }
     
+    /**
+     * 
+     * @param pafPath input PAF file
+     * @param targets set of target names
+     * @param tolerance minimum extension required for bridging partners
+     * @return map of targets and their read counts
+     * @throws IOException 
+     */
     public static HashMap<String, Float> getReadCounts(String pafPath, Set<String> targets, int tolerance) throws IOException {
         HashMap<String, Float> counts = new HashMap<>(targets.size());
         
