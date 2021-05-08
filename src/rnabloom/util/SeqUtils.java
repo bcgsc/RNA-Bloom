@@ -605,7 +605,7 @@ public final class SeqUtils {
                 }
             }
 
-            return numLowComplexityWindows/(float)numWindows >= LOW_COMPLEXITY_THRESHOLD_LONG_SEQ;
+            return numLowComplexityWindows >= Math.floor(LOW_COMPLEXITY_THRESHOLD_LONG_SEQ * numWindows);
         }
         
         return isLowComplexityLong(seq);
