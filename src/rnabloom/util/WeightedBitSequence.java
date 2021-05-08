@@ -21,20 +21,21 @@ package rnabloom.util;
  * @author Ka Ming Nip
  */
 public class WeightedBitSequence extends BitSequence {
-    int weight = 0;
+    float weight = 0;
     
-    public WeightedBitSequence(String seq, int weight) {
+    public WeightedBitSequence(String seq, float weight) {
         super(seq);
         this.weight = weight;
     }
     
     @Override
     public int compareTo(Object other) {
-        int diff = ((WeightedBitSequence) other).weight - this.weight;
-        if (diff != 0) {
-            return diff;
+        float diff = ((WeightedBitSequence) other).weight - this.weight;
+        if (diff > 0) {
+            return (int) Math.ceil(diff);
         }
-        
-        return super.compareTo(other);
+        else {
+            return (int) Math.floor(diff);
+        }
     }
 }

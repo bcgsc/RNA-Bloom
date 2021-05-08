@@ -3594,7 +3594,7 @@ public class RNABloom {
                     }
                     else if (seq.length >= minSeqLen) {
                         if (storeLongReads) {
-                            bits.add(new WeightedBitSequence(seq.seq, seq.numSolidKmers));
+                            bits.add(new WeightedBitSequence(seq.seq, seq.score));
                         }
                         else {
                             longWriter.write(header, seq.seq);
@@ -3629,7 +3629,7 @@ public class RNABloom {
                     }
                     else if (seq.length >= minSeqLen) {
                         if (storeLongReads) {
-                            bits.add(new WeightedBitSequence(seq.seq, seq.numSolidKmers));
+                            bits.add(new WeightedBitSequence(seq.seq, seq.score));
                         }
                         else {
                             longWriter.write(header, seq.seq);
@@ -3694,14 +3694,14 @@ public class RNABloom {
         String name;
         String seq;
         int length;
-        int numSolidKmers;
+        float score;
         boolean isRepeat;
         
-        public Sequence2(String name, String seq, int length, int numSolidKmers, boolean isRepeat) {
+        public Sequence2(String name, String seq, int length, float score, boolean isRepeat) {
             this.name = name;
             this.seq = seq;
             this.length = length;
-            this.numSolidKmers = numSolidKmers;
+            this.score = score;
             this.isRepeat = isRepeat;
         }
     }
@@ -3751,8 +3751,9 @@ public class RNABloom {
                         if (!kmers.isEmpty()) {
                             if (isLowComplexity(kmers, k, 0.8f)) {
                                 //float cov = getMedianKmerCoverage(kmers);
-                                int numSolidKmers = countSolidKmers(kmers, minKmerCov);
-                                outputQueue.put(new Sequence2(nameSeqPair[0], seq, seq.length(), numSolidKmers, true));
+                                //int numSolidKmers = countSolidKmers(kmers, minKmerCov);
+                                float score = (float) getTotalLogKmerCoverage(kmers, minKmerCov);
+                                outputQueue.put(new Sequence2(nameSeqPair[0], seq, seq.length(), score, true));
                                 kept = true;
                             }
                             else {
@@ -3765,7 +3766,7 @@ public class RNABloom {
                                                                                     percentIdentity, 
                                                                                     minKmerCov,
                                                                                     minNumSolidKmers,
-                                                                                    false,
+                                                                                    minKmerCov > 1, // trim edges
                                                                                     500);
 
                                 if (correctedKmers != null && !correctedKmers.isEmpty()) {
@@ -3780,14 +3781,15 @@ public class RNABloom {
 
                                     if (!correctedKmers.isEmpty()) {
                                         //float cov = getMedianKmerCoverage(correctedKmers);
-                                        int numSolidKmers = countSolidKmers(kmers, minKmerCov);
-
+                                        //int numSolidKmers = countSolidKmers(kmers, minKmerCov);
+                                        float score = (float) getTotalLogKmerCoverage(kmers, minKmerCov);
+                                        
                                         seq = graph.assemble(correctedKmers);
 
                                         int seqLength = seq.length();
                                         boolean isRepeat = isLowComplexityLongWindowed(seq);
                                         
-                                        outputQueue.put(new Sequence2(nameSeqPair[0], seq, seqLength, numSolidKmers, isRepeat));
+                                        outputQueue.put(new Sequence2(nameSeqPair[0], seq, seqLength, score, isRepeat));
                                         kept = true;
                                     }
                                 }

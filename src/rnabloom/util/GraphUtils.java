@@ -3179,6 +3179,17 @@ public final class GraphUtils {
         return count;
     }
     
+    public static double getTotalLogKmerCoverage(Collection<Kmer> kmers, int threshold) {
+        double total = 0;
+        threshold = Math.max(threshold, 1);
+        for (Kmer kmer : kmers) {
+            if (kmer.count >= threshold) {
+                total += Math.log(kmer.count);
+            }
+        }
+        return total;
+    }
+    
     public static ArrayList<Kmer> correctLongSequenceWindowed(ArrayList<Kmer> kmers, 
                                                     BloomFilterDeBruijnGraph graph, 
                                                     int maxErrCorrItr, 
