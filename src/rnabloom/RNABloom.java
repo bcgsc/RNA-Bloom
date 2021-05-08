@@ -3749,7 +3749,7 @@ public class RNABloom {
                         ArrayList<Kmer> kmers = graph.getKmers(seq);
 
                         if (!kmers.isEmpty()) {
-                            if (isLowComplexity(kmers, k, 0.5f)) {
+                            if (isLowComplexity(kmers, k, 0.8f)) {
                                 //float cov = getMedianKmerCoverage(kmers);
                                 int numSolidKmers = countSolidKmers(kmers, minKmerCov);
                                 outputQueue.put(new Sequence2(nameSeqPair[0], seq, seq.length(), numSolidKmers, true));
@@ -3785,7 +3785,7 @@ public class RNABloom {
                                         seq = graph.assemble(correctedKmers);
 
                                         int seqLength = seq.length();
-                                        boolean isRepeat = getHomoPolymerCompressedLength(seq) < 1f/3f * seqLength;
+                                        boolean isRepeat = getHomoPolymerCompressedLength(seq) < 1f/4f * seqLength;
                                         if (!isRepeat) {
                                             isRepeat = isLowComplexityLongWindowed(seq);
                                         }
