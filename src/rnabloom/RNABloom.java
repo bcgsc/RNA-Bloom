@@ -3785,10 +3785,7 @@ public class RNABloom {
                                         seq = graph.assemble(correctedKmers);
 
                                         int seqLength = seq.length();
-                                        boolean isRepeat = getHomoPolymerCompressedLength(seq) < 1f/4f * seqLength;
-                                        if (!isRepeat) {
-                                            isRepeat = isLowComplexityLongWindowed(seq);
-                                        }
+                                        boolean isRepeat = isLowComplexityLongWindowed(seq);
                                         
                                         outputQueue.put(new Sequence2(nameSeqPair[0], seq, seqLength, numSolidKmers, isRepeat));
                                         kept = true;
