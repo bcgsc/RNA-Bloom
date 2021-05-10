@@ -199,41 +199,58 @@ public class Layout {
         return graph.getEdge(getReverseComplementID(sink), getReverseComplementID(source));
     }
     
-    private int reduceTransitively() {
-        int numEdgesRemoved = 0;
+    private void removeTransitiveEdges() {
+        HashSet<String> walkedSet = new HashSet<>(graph.vertexSet().size());
         
-        KosarajuStrongConnectivityInspector<String, OverlapEdge> ci = new KosarajuStrongConnectivityInspector<>(graph);
-        
-        // Perform transitive reduction on each biconnected component; 
-        // this routine should use less memory than reducing the entire graph.
-        for (Graph<String, OverlapEdge> cc : ci.getStronglyConnectedComponents()) {
-            Set<OverlapEdge> edges = cc.edgeSet();
-            if (!edges.isEmpty()) {
-                edges = new HashSet<>(edges);
+        for (String vid : graph.vertexSet()) {
+            if (!walkedSet.contains(vid)) {
+                // greedy acyclic walk
+                ArrayDeque<String> path = getGreedyExtension(vid);
 
-                // create directed graph for the connected component
-                DefaultDirectedGraph<String, OverlapEdge> g = new DefaultDirectedGraph<>(OverlapEdge.class);
-                for (OverlapEdge e : edges) {
-                    String source = graph.getEdgeSource(e);
-                    String target = graph.getEdgeTarget(e);
-                    g.addVertex(source);
-                    g.addVertex(target);
-                    g.addEdge(source, target, e);
+                // remove transitive edges on the path
+                HashSet<String> pathSet = new HashSet<>(path);
+                String prev = null;
+                String cursor = null;
+                for (String next : path) {
+                    if (prev != null && next != null) {
+                        ArrayDeque<OverlapEdge> edgesToRemove = new ArrayDeque<>();
+
+                        Set<OverlapEdge> inEdges = graph.incomingEdgesOf(cursor);
+                        if (inEdges.size() > 1) {
+                            for (OverlapEdge e : inEdges) {
+                                String source = graph.getEdgeSource(e);
+                                if (pathSet.contains(source) && !source.equals(prev)) {
+                                    edgesToRemove.add(e);
+                                }
+                            }
+                        }
+
+                        Set<OverlapEdge> outEdges = graph.outgoingEdgesOf(cursor);
+                        if (outEdges.size() > 1) {
+                            for (OverlapEdge e : outEdges) {
+                                String target = graph.getEdgeTarget(e);
+                                if (pathSet.contains(target) && !target.equals(next)) {
+                                    edgesToRemove.add(e);
+                                }
+                            }
+                        }
+
+                        graph.removeAllEdges(edgesToRemove);
+                    }
+
+                    if (cursor != null) {
+                        prev = cursor;
+                    }
+
+                    if (next != null) {
+                        cursor = next;
+                    }
                 }
 
-                TransitiveReduction.INSTANCE.reduce(g);
-
-                Set<OverlapEdge> reducedGraphEdges = g.edgeSet();
-
-                if (edges.size() > reducedGraphEdges.size()) {
-                    edges.removeAll(reducedGraphEdges);
-                    numEdgesRemoved += edges.size();
-                    graph.removeAllEdges(edges);
-                }
+                // store path vertexes
+                walkedSet.addAll(path);
             }
         }
-        
-        return numEdgesRemoved;
     }
     
     private ArrayDeque removeRedundantNodes() {
@@ -2099,16 +2116,18 @@ public class Layout {
         Set<OverlapEdge> edgeSet = graph.edgeSet();
         
         if (edgeSet.size() > 1) {
+            //printGraph();
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
-
-            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
-            while (!redundantNodeNames.isEmpty()) {
-                for (String n : redundantNodeNames) {
-                    containedSet.add(getVertexName(n));
-                }
-
-                redundantNodeNames = removeRedundantNodes();
-            }
+            
+            removeTransitiveEdges();
+//            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
+//            while (!redundantNodeNames.isEmpty()) {
+//                for (String n : redundantNodeNames) {
+//                    containedSet.add(getVertexName(n));
+//                }
+//
+//                redundantNodeNames = removeRedundantNodes();
+//            }
             
             //printGraph();
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
@@ -2180,15 +2199,16 @@ public class Layout {
         
         if (edgeSet.size() > 1) {
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
-
-            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
-            while (!redundantNodeNames.isEmpty()) {
-                for (String n : redundantNodeNames) {
-                    containedSet.add(getVertexName(n));
-                }
-                
-                redundantNodeNames = removeRedundantNodes();
-            }
+            
+            removeTransitiveEdges();
+//            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
+//            while (!redundantNodeNames.isEmpty()) {
+//                for (String n : redundantNodeNames) {
+//                    containedSet.add(getVertexName(n));
+//                }
+//                
+//                redundantNodeNames = removeRedundantNodes();
+//            }
             
             //printGraph();
             System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
@@ -2327,16 +2347,83 @@ public class Layout {
         return null;
     }
     
+    private ArrayDeque<String> getGreedyExtension(String seedVid) {
+        HashSet<String> visited = new HashSet<>();
+        visited.add(seedVid);
+        
+        ArrayDeque<String> path = new ArrayDeque<>();
+                
+        // extend left
+        String cursor = seedVid;
+        while ((cursor = getClosestPredecessor(cursor)) != null) {
+            if (visited.contains(cursor)) {
+                break;
+            }
+            path.addFirst(cursor);
+            visited.add(cursor);
+        }
+        
+        path.add(seedVid);
+        
+        // extend right
+        cursor = seedVid;
+        while ((cursor = getClosestSuccessor(cursor)) != null) {
+            if (visited.contains(cursor)) {
+                break;
+            }
+            path.add(cursor);
+            visited.add(cursor);
+        }
+        
+        return path;
+    }
+    
+    private String getClosestPredecessor(String vid) {
+        int maxOverlapSize = Integer.MIN_VALUE;
+        OverlapEdge closestEdge = null;
+        for (OverlapEdge e : graph.incomingEdgesOf(vid)) {
+            int o = getOverlapSize(e);
+            if (o > maxOverlapSize) {
+                maxOverlapSize = o;
+                closestEdge = e;
+            }
+        }
+        
+        if (closestEdge != null) {
+            return graph.getEdgeSource(closestEdge);
+        }
+        return null;
+    }
+    
+    private String getClosestSuccessor(String vid) {
+        int maxOverlapSize = Integer.MIN_VALUE;
+        OverlapEdge closestEdge = null;
+        for (OverlapEdge e : graph.outgoingEdgesOf(vid)) {
+            int o = getOverlapSize(e);
+            if (o > maxOverlapSize) {
+                maxOverlapSize = o;
+                closestEdge = e;
+            }
+        }
+        
+        if (closestEdge != null) {
+            return graph.getEdgeTarget(closestEdge);
+        }
+        return null;
+    }
+    
+    private int getOverlapSize(OverlapEdge e) {
+        return ((e.sinkEnd - e.sinkStart) + (e.sourceEnd - e.sourceStart))/2;
+    }
+    
     private ArrayDeque<String> getMaxWeightExtension(String seedVid) {
         HashSet<String> visited = new HashSet<>();
         visited.add(seedVid);
         
-        
-        String cursor = seedVid;
         ArrayDeque<String> path = new ArrayDeque<>();
                 
         // extend left
-        cursor = seedVid;
+        String cursor = seedVid;
         while ((cursor = getMaxWeightPredecessor(cursor)) != null) {
             if (visited.contains(cursor)) {
                 break;

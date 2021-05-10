@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.TreeSet;
@@ -3466,8 +3467,48 @@ public final class GraphUtils {
         return null;
     }
     
+    public static ArrayList<Interval> splitAtLowCoverage(ArrayList<Kmer> kmers,
+                                                    BloomFilterDeBruijnGraph graph,
+                                                    float minKmerCov,
+                                                    int numWeakKmersToSplit,
+                                                    int minComponentKmers) {
+        ArrayList<Interval> splitted = new ArrayList<>();
+        int numKmers = kmers.size();
+        int start = 0;
+        int weakIntervalSize = 0;
+        boolean prevKmerIsSolid = false;
+        for (int i=0; i<numKmers; ++i) {            
+            if (kmers.get(i).count < minKmerCov) {
+                ++weakIntervalSize;
+                prevKmerIsSolid = false;
+            }
+            else {
+                if (prevKmerIsSolid) {
+                    if (weakIntervalSize >= numWeakKmersToSplit) {
+                        int end = i-weakIntervalSize;
+                        if (end-start >= minComponentKmers) {
+                            splitted.add(new Interval(start, end));
+                        }
+                        start = i;
+                    }
+                    weakIntervalSize = 0;
+                }
+                else {
+                    ++weakIntervalSize;
+                }
+                prevKmerIsSolid = true;
+            }
+        }
+        
+        if (start > 0 && numKmers-start >= minComponentKmers) {
+            splitted.add(new Interval(start, numKmers));
+        }
+        
+        return splitted;
+    }
+    
     public static ArrayList<Kmer> correctInternalErrors(ArrayList<Kmer> kmers,
-                                                    BloomFilterDeBruijnGraph graph, 
+                                                    BloomFilterDeBruijnGraph graph,
                                                     int lookahead,
                                                     int maxIndelSize,
                                                     float covThreshold,

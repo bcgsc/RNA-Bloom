@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -86,6 +87,7 @@ import static rnabloom.util.SeqUtils.*;
 import static rnabloom.io.Constants.NBITS_EXT;
 import rnabloom.io.FastaRecord;
 import rnabloom.io.SequenceFileIteratorInterface;
+import rnabloom.olc.Interval;
 import static rnabloom.olc.OverlapLayoutConsensus.clusteredOLC;
 import static rnabloom.olc.OverlapLayoutConsensus.mapAndConsensus;
 import static rnabloom.olc.OverlapLayoutConsensus.uniqueOLC;
@@ -105,7 +107,7 @@ import rnabloom.util.WeightedBitSequence;
  * @author Ka Ming Nip
  */
 public class RNABloom {
-    public final static String VERSION = "1.4.2-r2021-05-01a";
+    public final static String VERSION = "1.4.2-r2021-05-09a";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
@@ -3720,6 +3722,7 @@ public class RNABloom {
         private long numReads = 0;
         private long numDiscarded = 0;
         private long numArtifacts = 0;
+        private int maxLowCovGapSize = maxIndelSize + 2 * k;
 
         public LongReadCorrectionWorker(FastxSequenceIterator itr,
                                         ArrayBlockingQueue<Sequence2> outputQueue,
@@ -3779,17 +3782,36 @@ public class RNABloom {
                                         }
                                     }
 
-                                    if (!correctedKmers.isEmpty()) {
-                                        //float cov = getMedianKmerCoverage(correctedKmers);
-                                        //int numSolidKmers = countSolidKmers(kmers, minKmerCov);
-                                        float score = (float) getTotalLogKmerCoverage(kmers, minKmerCov);
+                                    if (!correctedKmers.isEmpty()) {                                      
+                                        ArrayList<Interval> splitted = splitAtLowCoverage(correctedKmers, graph, minKmerCov, maxLowCovGapSize, lookahead);
                                         
-                                        seq = graph.assemble(correctedKmers);
+                                        if (splitted.isEmpty()) {
+                                            //float cov = getMedianKmerCoverage(correctedKmers);
+                                            //int numSolidKmers = countSolidKmers(kmers, minKmerCov);
+                                            float score = (float) getTotalLogKmerCoverage(kmers, minKmerCov);
 
-                                        int seqLength = seq.length();
-                                        boolean isRepeat = isLowComplexityLongWindowed(seq);
+                                            seq = graph.assemble(correctedKmers);
+
+                                            int seqLength = seq.length();
+                                            boolean isRepeat = isLowComplexityLongWindowed(seq);
+
+                                            outputQueue.put(new Sequence2(nameSeqPair[0], seq, seqLength, score, isRepeat));
+                                        }
+                                        else {
+                                            int id = 0;
+                                            for (Interval i : splitted) {
+                                                List<Kmer> component = correctedKmers.subList(i.start, i.end);
+                                                float score = (float) getTotalLogKmerCoverage(component, minKmerCov);
+
+                                                String componentSeq = graph.assemble(component);
+
+                                                int seqLength = componentSeq.length();
+                                                boolean isRepeat = isLowComplexityLongWindowed(componentSeq);
+
+                                                outputQueue.put(new Sequence2(nameSeqPair[0] + "_p" + ++id, componentSeq, seqLength, score, isRepeat));
+                                            }
+                                        }
                                         
-                                        outputQueue.put(new Sequence2(nameSeqPair[0], seq, seqLength, score, isRepeat));
                                         kept = true;
                                     }
                                 }
