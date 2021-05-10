@@ -202,51 +202,36 @@ public class Layout {
     private void removeTransitiveEdges() {
         HashSet<String> walkedSet = new HashSet<>(graph.vertexSet().size());
         
+        ArrayDeque<OverlapEdge> edgesToRemove = new ArrayDeque<>();
+        
         for (String vid : graph.vertexSet()) {
             if (!walkedSet.contains(vid)) {
                 // greedy acyclic walk
                 ArrayDeque<String> path = getGreedyExtension(vid);
 
-                // remove transitive edges on the path
+                // find transitive edges on the path
                 HashSet<String> pathSet = new HashSet<>(path);
                 String prev = null;
-                String cursor = null;
-                for (String next : path) {
-                    if (prev != null && next != null) {
-                        ArrayDeque<OverlapEdge> edgesToRemove = new ArrayDeque<>();
-
-                        Set<OverlapEdge> inEdges = graph.incomingEdgesOf(cursor);
-                        if (inEdges.size() > 1) {
-                            for (OverlapEdge e : inEdges) {
-                                String source = graph.getEdgeSource(e);
-                                if (pathSet.contains(source) && !source.equals(prev)) {
-                                    edgesToRemove.add(e);
-                                }
-                            }
-                        }
-
-                        Set<OverlapEdge> outEdges = graph.outgoingEdgesOf(cursor);
+                for (String cursor : path) {
+                    if (prev != null) {
+                        Set<OverlapEdge> outEdges = graph.outgoingEdgesOf(prev);
                         if (outEdges.size() > 1) {
                             for (OverlapEdge e : outEdges) {
                                 String target = graph.getEdgeTarget(e);
-                                if (pathSet.contains(target) && !target.equals(next)) {
+                                if (pathSet.contains(target) && !target.equals(cursor)) {
                                     edgesToRemove.add(e);
                                 }
                             }
                         }
-
-                        graph.removeAllEdges(edgesToRemove);
                     }
 
-                    if (cursor != null) {
-                        prev = cursor;
-                    }
-
-                    if (next != null) {
-                        cursor = next;
-                    }
+                    prev = cursor;
                 }
 
+                // remove transitive edges
+                graph.removeAllEdges(edgesToRemove);
+                edgesToRemove.clear();
+                
                 // store path vertexes
                 walkedSet.addAll(path);
             }

@@ -107,7 +107,7 @@ import rnabloom.util.WeightedBitSequence;
  * @author Ka Ming Nip
  */
 public class RNABloom {
-    public final static String VERSION = "1.4.2-r2021-05-09a";
+    public final static String VERSION = "1.4.2-r2021-05-10a";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
