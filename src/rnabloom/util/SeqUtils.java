@@ -537,6 +537,46 @@ public final class SeqUtils {
         
         return false;
     }
+
+    public static final boolean isLowComplexity2N(byte[] seq) {
+        int length = seq.length;
+        if (length <= 2) {
+            return false;
+        }
+        
+        int t1 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ);
+        
+        byte nf1[] = new byte[4];
+        
+        for (int i=0; i<length; ++i) {
+            if (++nf1[nucleotideArrayIndex(seq[i])] >= t1)
+                return true;
+        }
+        
+        // di-nucleotide content
+        return (nf1[0]+nf1[1]>=t1 || nf1[0]+nf1[2]>=t1 || nf1[0]+nf1[3]>=t1 || 
+                nf1[1]+nf1[2]>=t1 || nf1[1]+nf1[3]>=t1 || nf1[2]+nf1[3]>=t1);
+    }
+    
+    public static final boolean isLowComplexity2N(String seq) {
+        int length = seq.length();
+        if (length <= 2) {
+            return false;
+        }
+        
+        int t1 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
+        
+        int nf1[] = new int[4];
+        
+        for (PrimitiveIterator.OfInt itr = seq.chars().iterator(); itr.hasNext();) {
+            if (++nf1[nucleotideArrayIndex(itr.nextInt())] >= t1)
+                return true;
+        }
+        
+        // di-nucleotide content
+        return (nf1[0]+nf1[1]>=t1 || nf1[0]+nf1[2]>=t1 || nf1[0]+nf1[3]>=t1 || 
+                nf1[1]+nf1[2]>=t1 || nf1[1]+nf1[3]>=t1 || nf1[2]+nf1[3]>=t1);
+    }
     
     public static final boolean isLowComplexityLong(String seq) {
         int length = seq.length();
@@ -600,7 +640,7 @@ public final class SeqUtils {
                 int start = i*windowSize + offset;
                 int end = start + windowSize;
                 String window = seq.substring(start, end);
-                if (isLowComplexityLong(window)) {
+                if (isLowComplexity2N(window)) {
                     ++numLowComplexityWindows;
                 }
             }
@@ -608,7 +648,7 @@ public final class SeqUtils {
             return numLowComplexityWindows >= Math.floor(LOW_COMPLEXITY_THRESHOLD_LONG_SEQ * numWindows);
         }
         
-        return isLowComplexityLong(seq);
+        return isLowComplexity2N(seq);
     }
     
     public static int getHomoPolymerCompressedLength(String seq) {
