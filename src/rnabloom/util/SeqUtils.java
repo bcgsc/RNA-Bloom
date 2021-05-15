@@ -580,13 +580,13 @@ public final class SeqUtils {
     
     public static final boolean isLowComplexityLong(String seq) {
         int length = seq.length();
-        if (length <= 2) {
+        if (length <= 6) {
             return false;
         }
         
         int t1 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
-        int t2 = Math.round(length/2 * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
-        int t3 = Math.round(length/3 * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
+        int t2 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ / 2.0f);
+        int t3 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ / 3.0f);
         
         int nf1[]     = new int[4];
         int nf2[][]   = new int[4][4];
@@ -601,10 +601,16 @@ public final class SeqUtils {
         ++nf1[c2];
         ++nf1[c1];
         
-        ++nf2[c3][c2];
-        ++nf2[c2][c1];
+        if (c3 != c2) {
+            ++nf2[c3][c2];
+        }
+        if (c2 != c1) {
+            ++nf2[c2][c1];
+        }
         
-        ++nf3[c3][c2][c1];
+        if (c3 != c2 || c2 != c1 || c3 != c1) {
+            ++nf3[c3][c2][c1];
+        }
         
         while (itr.hasNext()) {
             c3 = c2;
@@ -613,19 +619,16 @@ public final class SeqUtils {
             
             if (++nf1[c1] >= t1)
                 return true; // homopolymer runs
-            if (++nf2[c2][c1] >= t2)
+            if (c2 != c1 && ++nf2[c2][c1] >= t2)
                 return true; // di-nucleotide repeat
-            if (++nf3[c3][c2][c1] >= t3)
+            if ((c3 != c2 || c2 != c1 || c3 != c1) && ++nf3[c3][c2][c1] >= t3)
                 return true; // tri-nucleotide repeat
         }
         
-        // di-nucleotide content
-        if (nf1[0]+nf1[1]>=t1 || nf1[0]+nf1[2]>=t1 || nf1[0]+nf1[3]>=t1 || 
-                nf1[1]+nf1[2]>=t1 || nf1[1]+nf1[3]>=t1 || nf1[2]+nf1[3]>=t1) {
-            return true;
-        }
-        
-        return false;
+        // check bias in di/tri-nucleotide content
+        return (nf1[0]+nf1[1]>=t1 || nf1[0]+nf1[2]>=t1 || nf1[0]+nf1[3]>=t1 || 
+                nf1[1]+nf1[2]>=t1 || nf1[1]+nf1[3]>=t1 || nf1[2]+nf1[3]>=t1 ||
+                length-nf1[0]>=t1 || length-nf1[1]>=t1 || length-nf1[2]>=t1 || length-nf1[3]>=t1);
     }
     
     public static final boolean isLowComplexityLongWindowed(String seq) {
@@ -640,7 +643,7 @@ public final class SeqUtils {
                 int start = i*windowSize + offset;
                 int end = start + windowSize;
                 String window = seq.substring(start, end);
-                if (isLowComplexity2N(window)) {
+                if (isLowComplexityLong(window)) {
                     ++numLowComplexityWindows;
                 }
             }
@@ -648,7 +651,7 @@ public final class SeqUtils {
             return numLowComplexityWindows >= Math.floor(LOW_COMPLEXITY_THRESHOLD_LONG_SEQ * numWindows);
         }
         
-        return isLowComplexity2N(seq);
+        return isLowComplexityLong(seq);
     }
     
     public static int getHomoPolymerCompressedLength(String seq) {
