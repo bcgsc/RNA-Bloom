@@ -625,10 +625,12 @@ public final class SeqUtils {
                 return true; // tri-nucleotide repeat
         }
         
+        int tri = Math.round(length * LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ);
+        
         // check bias in di/tri-nucleotide content
         return (nf1[0]+nf1[1]>=t1 || nf1[0]+nf1[2]>=t1 || nf1[0]+nf1[3]>=t1 || 
                 nf1[1]+nf1[2]>=t1 || nf1[1]+nf1[3]>=t1 || nf1[2]+nf1[3]>=t1 ||
-                length-nf1[0]>=t1 || length-nf1[1]>=t1 || length-nf1[2]>=t1 || length-nf1[3]>=t1);
+                length-nf1[0]>=tri || length-nf1[1]>=tri || length-nf1[2]>=tri || length-nf1[3]>=tri);
     }
     
     public static final boolean isLowComplexityLongWindowed(String seq) {
