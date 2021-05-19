@@ -584,9 +584,9 @@ public final class SeqUtils {
             return false;
         }
         
-        int t1 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
-        int t2 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ / 2.0f);
-        int t3 = Math.round(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ / 3.0f);
+        int t1 = (int) Math.floor(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ);
+        int t2 = (int) Math.floor(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ / 2.0f);
+        int t3 = (int) Math.floor(length * LOW_COMPLEXITY_THRESHOLD_LONG_SEQ / 3.0f);
         
         int nf1[]     = new int[4];
         int nf2[][]   = new int[4][4];
@@ -625,7 +625,7 @@ public final class SeqUtils {
                 return true; // tri-nucleotide repeat
         }
         
-        int tri = Math.round(length * LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ);
+        int tri = (int) Math.floor(length * LOW_COMPLEXITY_THRESHOLD_SHORT_SEQ);
         
         // check bias in di/tri-nucleotide content
         return (nf1[0]+nf1[1]>=t1 || nf1[0]+nf1[2]>=t1 || nf1[0]+nf1[3]>=t1 || 
@@ -650,7 +650,7 @@ public final class SeqUtils {
                 }
             }
 
-            return numLowComplexityWindows >= Math.floor(LOW_COMPLEXITY_THRESHOLD_LONG_SEQ * numWindows);
+            return numLowComplexityWindows >= Math.floor(0.75 * numWindows);
         }
         
         return isLowComplexityLong(seq);
