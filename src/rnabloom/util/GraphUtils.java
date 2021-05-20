@@ -8599,15 +8599,15 @@ public final class GraphUtils {
             return false;
         }
         else if (numKmers == 1) {
-            return isLowComplexity2N(kmers.get(0).bytes);
+            return isLowComplexity2(kmers.get(0).bytes);
         }
         else if (numKmers < k) {
-            return isLowComplexity2N(kmers.get(0).bytes) || isLowComplexity2N(kmers.get(numKmers-1).bytes);
+            return isLowComplexity2(kmers.get(0).bytes) || isLowComplexity2(kmers.get(numKmers-1).bytes);
         }
         
         int lowComplexityKmers = 0;
         for (int i=0; i<numKmers; i+=k) {
-            if (isLowComplexity2N(kmers.get(i).bytes)) {
+            if (isLowComplexity2(kmers.get(i).bytes)) {
                 ++lowComplexityKmers;
             }
         }

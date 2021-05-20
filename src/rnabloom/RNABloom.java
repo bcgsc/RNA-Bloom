@@ -107,7 +107,7 @@ import rnabloom.util.WeightedBitSequence;
  * @author Ka Ming Nip
  */
 public class RNABloom {
-    public final static String VERSION = "1.4.2-r2021-05-10a";
+    public final static String VERSION = "1.4.2-r2021-05-20a";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
@@ -3749,70 +3749,81 @@ public class RNABloom {
                     boolean kept = false;
                     
                     if (seq.length() >= k) {
-                        ArrayList<Kmer> kmers = graph.getKmers(seq);
+                        String name = nameSeqPair[0];
+                        
+                        ArrayList<String> segments = trimLowComplexityRegions(seq, 0.5f);
+                        if (segments.isEmpty()) {
+                            // entire sequence is low complexity
+                            outputQueue.put(new Sequence2(name, seq, seq.length(), 0, true));
+                        }
+                        else {
+                            // complex segments
+                            int numSegments = segments.size();
+                            boolean isMultiSegments = numSegments > 1;
 
-                        if (!kmers.isEmpty()) {
-                            if (isLowComplexity(kmers, k, 0.8f)) {
-                                //float cov = getMedianKmerCoverage(kmers);
-                                //int numSolidKmers = countSolidKmers(kmers, minKmerCov);
-                                float score = (float) getTotalLogKmerCoverage(kmers, minKmerCov);
-                                outputQueue.put(new Sequence2(nameSeqPair[0], seq, seq.length(), score, true));
-                                kept = true;
-                            }
-                            else {
-                                ArrayList<Kmer> correctedKmers = correctLongSequenceWindowed(kmers, 
-                                                                                    graph, 
-                                                                                    maxErrCorrItr, 
-                                                                                    maxCovGradient, 
-                                                                                    lookahead, 
-                                                                                    maxIndelSize, 
-                                                                                    percentIdentity, 
-                                                                                    minKmerCov,
-                                                                                    minNumSolidKmers,
-                                                                                    minKmerCov > 1, // trim edges
-                                                                                    500);
+                            int sid = 0;
+                            for (String segment : segments) {
+                                String segName = name;
+                                if (isMultiSegments) {
+                                    segName += "_s" + ++sid;
+                                }
 
-                                if (correctedKmers != null && !correctedKmers.isEmpty()) {
-                                    if (trimArtifact) {
-                                        ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
-                                                            graph, strandSpecific, 150, maxIndelSize, percentIdentity, maxCovGradient);
-                                        if (!trimmed.isEmpty() && trimmed.size() < correctedKmers.size()) {
-                                            ++numArtifacts;
-                                            correctedKmers = trimmed;
-                                        }
-                                    }
+                                ArrayList<Kmer> kmers = graph.getKmers(segment);
 
-                                    if (!correctedKmers.isEmpty()) {                                      
-                                        ArrayList<Interval> splitted = splitAtLowCoverage(correctedKmers, graph, minKmerCov, maxLowCovGapSize, lookahead);
-                                        
-                                        if (splitted.isEmpty()) {
-                                            //float cov = getMedianKmerCoverage(correctedKmers);
-                                            //int numSolidKmers = countSolidKmers(kmers, minKmerCov);
-                                            float score = (float) getTotalLogKmerCoverage(kmers, minKmerCov);
+                                if (!kmers.isEmpty()) {
+                                    ArrayList<Kmer> correctedKmers = correctLongSequenceWindowed(kmers, 
+                                                                                        graph, 
+                                                                                        maxErrCorrItr, 
+                                                                                        maxCovGradient, 
+                                                                                        lookahead, 
+                                                                                        maxIndelSize, 
+                                                                                        percentIdentity, 
+                                                                                        minKmerCov,
+                                                                                        minNumSolidKmers,
+                                                                                        minKmerCov > 1, // trim edges
+                                                                                        500);
 
-                                            seq = graph.assemble(correctedKmers);
-
-                                            int seqLength = seq.length();
-                                            boolean isRepeat = isLowComplexityLongWindowed(seq);
-
-                                            outputQueue.put(new Sequence2(nameSeqPair[0], seq, seqLength, score, isRepeat));
-                                        }
-                                        else {
-                                            int id = 0;
-                                            for (Interval i : splitted) {
-                                                List<Kmer> component = correctedKmers.subList(i.start, i.end);
-                                                float score = (float) getTotalLogKmerCoverage(component, minKmerCov);
-
-                                                String componentSeq = graph.assemble(component);
-
-                                                int seqLength = componentSeq.length();
-                                                boolean isRepeat = isLowComplexityLongWindowed(componentSeq);
-
-                                                outputQueue.put(new Sequence2(nameSeqPair[0] + "_p" + ++id, componentSeq, seqLength, score, isRepeat));
+                                    if (correctedKmers != null && !correctedKmers.isEmpty()) {
+                                        if (trimArtifact) {
+                                            ArrayList<Kmer> trimmed = trimReverseComplementArtifact(correctedKmers,
+                                                                graph, strandSpecific, 150, maxIndelSize, percentIdentity, maxCovGradient);
+                                            if (!trimmed.isEmpty() && trimmed.size() < correctedKmers.size()) {
+                                                ++numArtifacts;
+                                                correctedKmers = trimmed;
                                             }
                                         }
-                                        
-                                        kept = true;
+
+                                        if (!correctedKmers.isEmpty()) {                                      
+                                            ArrayList<Interval> splitted = splitAtLowCoverage(correctedKmers, graph, minKmerCov, maxLowCovGapSize, lookahead);
+
+                                            if (splitted.isEmpty()) {
+                                                //float cov = getMedianKmerCoverage(correctedKmers);
+                                                //int numSolidKmers = countSolidKmers(kmers, minKmerCov);
+
+                                                segment = graph.assemble(correctedKmers);
+
+                                                int segLength = segment.length();
+                                                //boolean isRepeat = isLowComplexityLongWindowed(segment);
+                                                float score = (float) getTotalLogKmerCoverage(correctedKmers, minKmerCov);
+                                                
+                                                outputQueue.put(new Sequence2(segName, segment, segLength, score, false));
+                                            }
+                                            else {
+                                                int pid = 0;
+                                                for (Interval i : splitted) {
+                                                    List<Kmer> component = correctedKmers.subList(i.start, i.end);
+                                                    String componentSeq = graph.assemble(component);
+
+                                                    int segLength = componentSeq.length();
+                                                    //boolean isRepeat = isLowComplexityLongWindowed(componentSeq);
+                                                    float score = (float) getTotalLogKmerCoverage(component, minKmerCov);
+
+                                                    outputQueue.put(new Sequence2(segName + "_p" + ++pid, componentSeq, segLength, score, false));
+                                                }
+                                            }
+
+                                            kept = true;
+                                        }
                                     }
                                 }
                             }
