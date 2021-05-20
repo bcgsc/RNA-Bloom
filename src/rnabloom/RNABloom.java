@@ -3751,7 +3751,7 @@ public class RNABloom {
                     if (seq.length() >= k) {
                         String name = nameSeqPair[0];
                         
-                        ArrayList<String> segments = trimLowComplexityRegions(seq, 0.5f);
+                        ArrayList<String> segments = trimLowComplexityRegions(seq, 500);
                         if (segments.isEmpty()) {
                             // entire sequence is low complexity
                             outputQueue.put(new Sequence2(name, seq, seq.length(), 0, true));
