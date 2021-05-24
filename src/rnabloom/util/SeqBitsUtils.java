@@ -16,9 +16,15 @@
  */
 package rnabloom.util;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.IntStream;
+import rnabloom.io.FastaReader;
+import rnabloom.io.FastaWriter;
 
 /**
  *
@@ -228,35 +234,7 @@ public class SeqBitsUtils {
     public static int fourBytesToInt(byte[] b) {
         return ByteBuffer.wrap(b).getInt();
     }
-    
-//    private final static int[] BIT_SHIFTS = new int[]{6, 4, 2, 0};
-    
-//    public static byte[] seqToBits(String seq) {
-//        int seqLen = seq.length();
-//        int numFullBytes = seqLen / 4;
-//        int numExtraBases = seqLen % 4;
-//        boolean hasExtra = numExtraBases > 0;
-//        int bLen = hasExtra ? numFullBytes + 1 : numFullBytes;
-//        byte[] bytes = new byte[bLen]; 
-//        
-//        int bIndex = 0;
-//        for (int i=0; i+3<seqLen; i+=4) {
-//            bytes[bIndex] = BYTE_LOOKUP_TABLE[getIndex(seq.charAt(i))][getIndex(seq.charAt(i+1))][getIndex(seq.charAt(i+2))][getIndex(seq.charAt(i+3))];
-//            ++bIndex;
-//        }
-//        
-//        if (hasExtra) {
-//            byte b = 0;
-//            int offset = seqLen - numExtraBases;
-//            for (int i=0; i<numExtraBases; ++i) {
-//                b |= (byte) (getIndex(seq.charAt(i + offset)) << BIT_SHIFTS[i]);
-//            }
-//            bytes[numFullBytes] = b;
-//        }
-//        
-//        return bytes;
-//    }
-    
+        
     public static byte[] seqToBits(String seq) {
         int seqLen = seq.length();
         int numFullBytes = seqLen / 4;
@@ -313,31 +291,6 @@ public class SeqBitsUtils {
         
         return bytes;
     }
-        
-//    public static byte[] seqToBitsParallelized(String seq) {
-//        int seqLen = seq.length();
-//        int numFullBytes = seqLen / 4;
-//        int numExtraBases = seqLen % 4;
-//        boolean hasExtra = numExtraBases > 0;
-//        int bLen = hasExtra ? numFullBytes + 1 : numFullBytes;
-//        byte[] bytes = new byte[bLen]; 
-//        
-//        IntStream.range(0, numFullBytes).parallel().forEach(e -> {
-//            int i = e * 4;
-//            bytes[e] = BYTE_LOOKUP_TABLE[getIndex(seq.charAt(i))][getIndex(seq.charAt(i+1))][getIndex(seq.charAt(i+2))][getIndex(seq.charAt(i+3))];
-//        });
-//        
-//        if (hasExtra) {
-//            byte b = 0;
-//            int offset = seqLen - numExtraBases;
-//            for (int i=0; i<numExtraBases; ++i) {
-//                b |= (byte) (getIndex(seq.charAt(i + offset)) << BIT_SHIFTS[i]);
-//            }
-//            bytes[numFullBytes] = b;
-//        }
-//        
-//        return bytes;
-//    }
     
     public static String bitsToSeq(byte[] bytes, int seqLen) {
         int numFullBytes = seqLen / 4;
@@ -443,7 +396,29 @@ public class SeqBitsUtils {
                 
         return sb.toString();
     }
+    
+    public static void writeToFile(ArrayList<? extends BitSequence> list, String outFasta) throws IOException {
+        FastaWriter writer = new FastaWriter(outFasta, false);
         
+        int cid = 0;
+        for (BitSequence b : list) {
+            writer.write("a" + ++cid, b.toString());
+        }
+        
+        writer.close();
+    }
+    
+    public static ArrayList<BitSequence> getListFromFile(String inFasta) throws IOException {
+        ArrayList<BitSequence> bitSeqs = new ArrayList<>();
+        FastaReader reader = new FastaReader(inFasta);
+        while (reader.hasNext()) {
+            bitSeqs.add(new BitSequence(reader.next()));
+        }
+        reader.close();
+        
+        return bitSeqs;
+    }
+    
     public static void main(String[] args) {
         //debug
         

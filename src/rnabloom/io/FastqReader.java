@@ -27,7 +27,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import static rnabloom.io.Constants.BUFFER_SIZE;
-import static rnabloom.io.Constants.GZIP_EXTENSION;
+import static rnabloom.io.Constants.GZIP_EXT;
 
 /**
  *
@@ -40,7 +40,7 @@ public final class FastqReader implements FastxReaderInterface {
     private final Iterator<String> itr;
     
     public FastqReader(String path) throws IOException {        
-        if (path.toLowerCase().endsWith(GZIP_EXTENSION)) {
+        if (path.toLowerCase().endsWith(GZIP_EXT)) {
             br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))), BUFFER_SIZE);
         }
         else {

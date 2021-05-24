@@ -24,7 +24,7 @@ import java.io.InputStreamReader;
 import java.util.Iterator;
 import java.util.zip.GZIPInputStream;
 import static rnabloom.io.Constants.BUFFER_SIZE;
-import static rnabloom.io.Constants.GZIP_EXTENSION;
+import static rnabloom.io.Constants.GZIP_EXT;
 
 /**
  *
@@ -35,7 +35,7 @@ public class PafReader {
     private final BufferedReader br;
     
     public PafReader(String path) throws IOException {
-        if (path.toLowerCase().endsWith(GZIP_EXTENSION)) {
+        if (path.toLowerCase().endsWith(GZIP_EXT)) {
             br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))), BUFFER_SIZE);
         }
         else {

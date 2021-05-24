@@ -24,7 +24,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.zip.GZIPOutputStream;
 import static rnabloom.io.Constants.BUFFER_SIZE;
-import static rnabloom.io.Constants.GZIP_EXTENSION;
+import static rnabloom.io.Constants.GZIP_EXT;
 
 /**
  *
@@ -35,7 +35,7 @@ public class FastaWriter {
     //private FileLock lock = null;
     
     public FastaWriter(String path, boolean append) throws IOException {
-        if (path.toLowerCase().endsWith(GZIP_EXTENSION)) {
+        if (path.toLowerCase().endsWith(GZIP_EXT)) {
             out = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(path, append), BUFFER_SIZE), "UTF-8");
         }
         else {

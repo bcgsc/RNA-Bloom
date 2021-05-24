@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.concurrent.ArrayBlockingQueue;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
@@ -29,8 +28,10 @@ import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
-import rnabloom.io.FastaWriterWorker;
 import static rnabloom.util.Common.convertToRoundedPercent;
+import static rnabloom.util.SeqUtils.chompPolyATail;
+import static rnabloom.util.SeqUtils.chompPolyTHead;
+import static rnabloom.util.SeqUtils.compressHomoPolymers;
 
 /**
  *
@@ -54,13 +55,7 @@ public class SeqSubsampler {
         // sort from longest to shortest
         Collections.sort(seqs);
         
-        HashFunction h;
-        if (stranded) {
-            h = new HashFunction(k);
-        }
-        else {
-            h = new CanonicalHashFunction(k);
-        }
+        HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
         
         MinimizerHashIterator itr = new MinimizerHashIterator(k, w, h.getHashIterator(1));
         CountingBloomFilter bf = new CountingBloomFilter(bfSize, numHash, h);
@@ -121,43 +116,22 @@ public class SeqSubsampler {
 
     }
     
-    public static void kmerBased(ArrayList<WeightedBitSequence> seqs,
-            String outAllFasta, String outSubsampleFasta,
+    public static void kmerBased(ArrayList<? extends BitSequence> seqs, String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded,
-            int maxMultiplicity, int maxEdgeClip) throws IOException, InterruptedException {
+            int maxMultiplicity, int maxEdgeClip, boolean verbose) throws IOException {
         int numSeq = seqs.size();
-
-        // sort from longest to shortest
-        Collections.sort(seqs);
         
-        HashFunction h;
-        if (stranded) {
-            h = new HashFunction(k);
-        }
-        else {
-            h = new CanonicalHashFunction(k);
-        }
+        HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
         
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         NTHashIterator itr = h.getHashIterator(numHash, k);
         long[] hVals = itr.hVals;
         
-        FastaWriter fwAll  = new FastaWriter(outAllFasta, false);
-        FastaWriter fwSub  = new FastaWriter(outSubsampleFasta, false);
-        
-        int queueSize = 2000;
-        ArrayBlockingQueue<String> allQueue = new ArrayBlockingQueue<>(queueSize);
-        ArrayBlockingQueue<String> subQueue = new ArrayBlockingQueue<>(queueSize);
-        FastaWriterWorker allWorker = new FastaWriterWorker(allQueue, fwAll, "c");
-        FastaWriterWorker subWorker = new FastaWriterWorker(subQueue, fwSub, "s");
-        Thread allWorkerThread = new Thread(allWorker);
-        allWorkerThread.start();
-        Thread subWorkerThread = new Thread(subWorker);
-        subWorkerThread.start();
-        
+        FastaWriter writer  = new FastaWriter(outSubsampleFasta, false);
+                
         int numSubsample = 0;
 
-        for (WeightedBitSequence s : seqs) {                    
+        for (BitSequence s : seqs) {                    
             String seq = s.toString();
             
             int seqLen = seq.length();
@@ -216,28 +190,100 @@ public class SeqSubsampler {
             
             if (maxMissingChainLen >= k) {
                 ++numSubsample;
-                subQueue.put(seq);
+                writer.write("s" + numSubsample, seq);
             }
-            
-            allQueue.put(seq);
         }
         
-        allWorker.terminateWhenInputExhausts();
-        subWorker.terminateWhenInputExhausts();
+        writer.close();
         
-        allWorkerThread.join();
-        subWorkerThread.join();
-        
-        fwSub.close();
-        fwAll.close();
-        
-        System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(cbf.getFPR()) + " %");
+        float fpr = cbf.getFPR();
         cbf.destroy();
         
-        System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
-                            "\tafter: " + NumberFormat.getInstance().format(numSubsample) +
-                            " (" + convertToRoundedPercent(numSubsample/(float)numSeq) + " %)");
+        if (verbose) {
+            System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(fpr) + " %");
+            System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
+                                "\tafter: " + NumberFormat.getInstance().format(numSubsample) +
+                                " (" + convertToRoundedPercent(numSubsample/(float)numSeq) + " %)");
+        }
+    }
+    
+    public static void minmalSet(ArrayList<? extends BitSequence> seqs, String outFasta,
+            long bfSize, int k, int numHash, boolean stranded, boolean useHpcKmers,
+            int windowSize, int minMatchingWindows, int minSeqLen) throws IOException, InterruptedException {
+        int numSeq = seqs.size();
         
+        FastaWriter writer = new FastaWriter(outFasta, false);
+        
+        HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
+        
+        BloomFilter bf = new BloomFilter(bfSize, numHash, h);
+        NTHashIterator itr = h.getHashIterator(numHash, k);
+        long[] hVals = itr.hVals;
+        int id = 0;
+        
+        for (BitSequence s : seqs) {
+            if (s != null) {
+                String seq = s.toString();
+                
+                // chomp poly A tail and poly T head
+                seq = chompPolyATail(seq, 50, 0.89f);
+                if (!stranded) {
+                    seq = chompPolyTHead(seq, 50, 0.89f);
+                }
+                
+                if (seq.length() >= minSeqLen) {
+                    String hpc = useHpcKmers ? compressHomoPolymers(seq) : seq;
+
+                    if (itr.start(hpc)) {
+    //                    int numKmers = hpc.length() - k + 1;
+    //                    int numWindows = numKmers/windowSize;
+    //                    if (numKmers % windowSize > 0) {
+    //                        ++numWindows;
+    //                    }
+
+                        int numWindowsSeen = 0;
+                        int windowIndex = 0;
+                        boolean windowStatus = false;
+                        while (itr.hasNext()) {
+                            itr.next();
+
+                            if (itr.getPos()/windowSize > windowIndex) {
+                                ++windowIndex;
+                                windowStatus = false;
+                            }
+
+                            if (bf.lookup(hVals)) {
+                                if (!windowStatus) {
+                                    ++numWindowsSeen;
+                                }
+                                windowStatus = true;
+                            }
+                        }
+
+                        if (numWindowsSeen < minMatchingWindows) {
+                            // a unique sequence
+                            
+                            itr.start(hpc);
+                            while (itr.hasNext()) {
+                                itr.next();
+                                bf.add(hVals);
+                            }
+
+                            writer.write("seed" + Integer.toString(++id), seq);
+                        }
+                    }
+                }
+            }
+        }
+        
+        writer.close();
+        
+        System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(bf.getFPR()) + " %");
+        bf.destroy();
+        
+        System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
+                            "\tafter: " + NumberFormat.getInstance().format(id) +
+                            " (" + convertToRoundedPercent(id/(float)numSeq) + " %)");
     }
     
     public static void main(String[] args) {

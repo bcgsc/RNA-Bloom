@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
 //import java.util.NoSuchElementException;
 import java.util.zip.GZIPInputStream;
 import static rnabloom.io.Constants.BUFFER_SIZE;
-import static rnabloom.io.Constants.GZIP_EXTENSION;
+import static rnabloom.io.Constants.GZIP_EXT;
 
 /**
  *
@@ -40,7 +40,7 @@ public class FastaReader implements FastxReaderInterface {
     private final BufferedReader br;
     
     public FastaReader(String path) throws IOException {
-        if (path.toLowerCase().endsWith(GZIP_EXTENSION)) {
+        if (path.toLowerCase().endsWith(GZIP_EXT)) {
             br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))), BUFFER_SIZE);
         }
         else {
@@ -50,7 +50,7 @@ public class FastaReader implements FastxReaderInterface {
     }
     
     public FastaReader(File f) throws IOException {
-        if (f.getName().toLowerCase().endsWith(GZIP_EXTENSION)) {
+        if (f.getName().toLowerCase().endsWith(GZIP_EXT)) {
             br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(f))));
         }
         else {

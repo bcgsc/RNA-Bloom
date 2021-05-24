@@ -3316,20 +3316,37 @@ public final class GraphUtils {
         int numKmers = kmers.size();
         int headIndex = 0;
         int tailIndex = numKmers;
-
+        boolean prevGood = false;
         for (int i=0; i<numKmers; ++i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold) {
-                headIndex = i;
-                break;
+                if (prevGood){ 
+                    headIndex = i;
+                    break;
+                }
+                else {
+                    prevGood = true;
+                }
+            }
+            else {
+                prevGood = false;
             }
         }
 
+        prevGood = false;
         for (int i=numKmers-1; i>headIndex; --i) {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold) {
-                tailIndex = i+1;
-                break;
+                if (prevGood) {
+                    tailIndex = i+1;
+                    break;
+                }
+                else {
+                    prevGood = true;
+                }
+            }
+            else {
+                prevGood = false;
             }
         }
         

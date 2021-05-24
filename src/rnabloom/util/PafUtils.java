@@ -101,7 +101,7 @@ public class PafUtils {
         return false;
     }
     
-    public static enum CONTAIN_STATUS {QUERY, TARGET, NEITHER};
+    public static enum CONTAIN_STATUS {QUERY, TARGET, BOTH, NEITHER};
     
     public static CONTAIN_STATUS getContained(PafRecord r, int maxEdgeClip) {
         
@@ -109,14 +109,7 @@ public class PafUtils {
         boolean tContained = r.tStart <= maxEdgeClip && r.tLen - r.tEnd <= maxEdgeClip;
         
         if (qContained && tContained) {
-            int qLeftOver = r.qStart + (r.qLen - r.qEnd);
-            int tLeftOver = r.tStart + (r.tLen - r.tEnd);
-            if (qLeftOver < tLeftOver) {
-                return CONTAIN_STATUS.QUERY;
-            }
-            else {
-                return CONTAIN_STATUS.TARGET;
-            }
+            return CONTAIN_STATUS.BOTH;
         }
         else if (qContained) {
             return CONTAIN_STATUS.QUERY;

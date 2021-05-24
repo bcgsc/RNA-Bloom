@@ -655,6 +655,46 @@ public final class SeqUtils {
         return isLowComplexityLong(seq);
     }
     
+    public static String chompPolyATail(String seq, int window, float minFraction) {
+        int seqLen = seq.length();
+        
+        int cutIndex = seqLen;
+        while (cutIndex-window > 0) {
+            if (isARich(seq, cutIndex-window, cutIndex, minFraction)) {
+                cutIndex -= window; 
+            }
+            else {
+                break;
+            }
+        }
+        
+        if (cutIndex < seqLen) {
+            return seq.substring(0, cutIndex);
+        }
+        
+        return seq;
+    }
+    
+    public static String chompPolyTHead(String seq, int window, float minFraction) {
+        int seqLen = seq.length();
+        
+        int cutIndex = 0;
+        while (cutIndex+window <= seqLen) {
+            if (isTRich(seq, cutIndex, cutIndex+window, minFraction)) {
+                cutIndex += window; 
+            }
+            else {
+                break;
+            }
+        }
+        
+        if (cutIndex > 0) {
+            return seq.substring(cutIndex, seqLen);
+        }
+        
+        return seq;
+    }
+    
     public static boolean isARich(String seq, int start, int end, float minFraction) {
         return isNRich(seq, start, end, minFraction, 'A');
     }
@@ -1717,12 +1757,7 @@ public final class SeqUtils {
         
     public static void main(String[] args) {
         //debug
-        String seq = "";
-        ArrayList<String> segments = trimLowComplexityRegions(seq, 500);
-        System.out.println(segments.size());
-        for (String seg : segments) {
-            System.out.println(seg);
-        }
+        String seq = "";        
         System.out.println(isLowComplexityLongWindowed(seq));
     }
 }

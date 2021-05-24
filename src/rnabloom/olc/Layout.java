@@ -43,6 +43,7 @@ import org.jgrapht.graph.DefaultEdge;
 import rnabloom.util.MiniFloat;
 import rnabloom.io.CompressedFastaRecord;
 import static rnabloom.io.Constants.FASTA_EXT;
+import static rnabloom.io.Constants.GZIP_EXT;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaRecord;
@@ -72,8 +73,11 @@ public class Layout {
     private int minOverlapMatches = 200;
     private boolean cutRevCompArtifact = false;
     private int minNumAltReads = 0;
+    private boolean verbose = false;
     
-    public Layout(String seqFile, InputStream overlapPafInputStream, boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact, int minSeqDepth) {
+    public Layout(String seqFile, InputStream overlapPafInputStream, boolean stranded,
+            int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
+            boolean cutRevCompArtifact, int minSeqDepth, boolean verbose) {
         this.graph = new DefaultDirectedWeightedGraph<>(OverlapEdge.class);
         this.overlapPafInputStream = overlapPafInputStream;
         this.seqFastaPath = seqFile;
@@ -84,6 +88,13 @@ public class Layout {
         this.maxIndelSize = maxIndelSize;
         this.cutRevCompArtifact = cutRevCompArtifact;
         this.minNumAltReads = minSeqDepth - 1;
+        this.verbose = verbose;
+    }
+    
+    private void printMessage(String msg) {
+        if (verbose) {
+            System.out.println(msg);
+        }
     }
     
     private class OverlapEdge extends DefaultEdge implements Comparable<OverlapEdge> {
@@ -837,7 +848,11 @@ public class Layout {
             else {
                 end = h.bars.length;
             }
-
+            
+            if (start >= end) {
+                start = Math.max(0, end-1);
+            }
+            
             updateHistogram(h.bars, start, end);
         }
     }
@@ -1530,7 +1545,7 @@ public class Layout {
             }
         }
         
-        System.out.println("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
+        printMessage("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
         
         // look for unique reads
         timer.start();
@@ -1587,15 +1602,246 @@ public class Layout {
         fr.close();
         fw.close();
         
-        System.out.println("total reads:    " + NumberFormat.getInstance().format(originalNumSeq));
-        System.out.println(" - unique:      " + NumberFormat.getInstance().format(seqID) + "\t(" + convertToRoundedPercent(seqID/(float)originalNumSeq) + " %)");
-        System.out.println("   - multi-seg: " + NumberFormat.getInstance().format(numMultiSeqs));
-        System.out.println("Unique reads extracted in " + timer.elapsedDHMS());
+        printMessage("total reads:    " + NumberFormat.getInstance().format(originalNumSeq));
+        printMessage(" - unique:      " + NumberFormat.getInstance().format(seqID) + "\t(" + convertToRoundedPercent(seqID/(float)originalNumSeq) + " %)");
+        printMessage("   - multi-seg: " + NumberFormat.getInstance().format(numMultiSeqs));
+        printMessage("Unique reads extracted in " + timer.elapsedDHMS());
         
         return seqID;
     }
     
-    public int[] extractClusters(String outdir, int maxMergedClusterSize) throws IOException {
+    private static HashSet<String> getBestPartners(HashMap<String, Interval> map, Interval source, int tolerance) {
+        HashSet<String> bestPartners = new HashSet<>();
+        int bestScore = 0;
+        
+        String bestPartner = null;
+        for (Entry<String, Interval> e : map.entrySet()) {
+            Interval merged = ComparableInterval.merge(source, e.getValue());
+            if (merged == null) {
+                bestPartners.add(e.getKey());
+            }
+            else {
+                int score = (merged.end - source.end) + (source.start - merged.start);
+                if (score > bestScore && score >= tolerance) {
+                    bestScore = score;
+                    bestPartner = e.getKey();
+                }
+            }
+        }
+        
+        if (bestPartner != null) {
+            bestPartners.add(bestPartner);
+        }
+        
+        return bestPartners;
+    }
+    
+    private void updateMergedTargetsMap(HashMap<String, HashSet> mergedTargetsMap, String bestTarget, HashSet<String> partners) {
+        HashSet<String> merged = mergedTargetsMap.get(bestTarget);
+        if (merged == null) {
+            merged = new HashSet<>();
+            merged.add(bestTarget);
+        }
+
+        for (String p : partners) {
+            merged.add(p);
+
+            HashSet<String> pMerged = mergedTargetsMap.get(p);
+            if (pMerged != null) {
+                merged.addAll(pMerged);
+            }
+        }
+
+        for (String m : merged) {
+            mergedTargetsMap.put(m, merged);
+        }
+    }
+    
+    public int[] extractClustersFromMapping(String outdir) throws IOException {
+        // cluster sequences by mapping them to target seeds
+        // merge clusters if sequences map to multiple seeds
+        
+        Timer timer = new Timer();
+        
+        HashMap<String, HashSet> targetNameReadNamesMap = new HashMap<>();
+        
+        PafReader reader = new PafReader(overlapPafInputStream);
+        String prevName = null;
+        HashSet<String> targets = new HashSet<>();
+        long records = 0;
+        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+            ++records;
+            reader.next(r);
+            
+            if (!r.qName.equals(prevName)) {
+                if (!targets.isEmpty()) {
+                    if (targets.size() == 1) {
+                        String t = targets.iterator().next();
+                        HashSet<String> cluster = targetNameReadNamesMap.get(t);
+                        if (cluster == null) {
+                            cluster = new HashSet<>();
+                            targetNameReadNamesMap.put(t, cluster);
+                        }
+                        cluster.add(prevName);
+                    }
+                    else {
+                        // find largest cluster
+                        HashSet<String> mergedCluster = new HashSet<>();
+                        for (String t : targets) {
+                            HashSet<String> cluster = targetNameReadNamesMap.get(t);
+                            if (cluster != null && cluster.size() > mergedCluster.size()) {
+                                mergedCluster = cluster;
+                            }
+                        }
+                        
+                        mergedCluster.add(prevName);
+                        
+                        // merge clusters
+                        for (String t : targets) {
+                            HashSet<String> cluster = targetNameReadNamesMap.get(t);
+                            if (cluster != null && cluster != mergedCluster) {
+                                mergedCluster.addAll(cluster);
+                            }
+                            targetNameReadNamesMap.put(t, mergedCluster);
+                        }
+                    }
+                    
+                    targets.clear();
+                }
+                
+                prevName = r.qName;
+            }
+            
+            if ((!stranded || !r.reverseComplemented) && hasLargeOverlap(r)) {                
+                targets.add(r.tName);
+            }
+        }
+        
+        // process targets for the final query
+        if (!targets.isEmpty()) {
+            if (targets.size() == 1) {
+                String t = targets.iterator().next();
+                HashSet<String> cluster = targetNameReadNamesMap.get(t);
+                if (cluster == null) {
+                    cluster = new HashSet<>();
+                    targetNameReadNamesMap.put(t, cluster);
+                }
+                cluster.add(prevName);
+            }
+            else {
+                // find largest cluster
+                HashSet<String> mergedCluster = new HashSet<>();
+                for (String t : targets) {
+                    HashSet<String> cluster = targetNameReadNamesMap.get(t);
+                    if (cluster != null && cluster.size() > mergedCluster.size()) {
+                        mergedCluster = cluster;
+                    }
+                }
+
+                mergedCluster.add(prevName);
+
+                // merge clusters
+                for (String t : targets) {
+                    HashSet<String> cluster = targetNameReadNamesMap.get(t);
+                    if (cluster != null && cluster != mergedCluster) {
+                        mergedCluster.addAll(cluster);
+                    }
+                    targetNameReadNamesMap.put(t, mergedCluster);
+                }
+            }
+
+            targets.clear();
+        }
+        
+        reader.close();
+        printMessage("Parsed " + NumberFormat.getInstance().format(records) + " overlap records in " + timer.elapsedDHMS());
+        
+        // assign cluster IDs
+        timer.start();
+        int numClusters = 0;
+        int largestClusterSize = 0;
+        int largestClusterID = -1;
+        HashMap<String, Integer> readClusterIDs = new HashMap<>();
+        for (HashSet<String> readNames : new HashSet<>(targetNameReadNamesMap.values())) {
+            ++numClusters;
+            
+            for (String n : readNames) {
+                readClusterIDs.put(n, numClusters);
+            }
+            
+            if (readNames.size() > largestClusterSize) {
+                largestClusterSize = readNames.size();
+                largestClusterID = numClusters;
+            }
+        }
+        
+        printMessage("Cluster IDs assigned in " + timer.elapsedDHMS());
+        printMessage("\t- clusters:\t" + numClusters);
+        printMessage("\t- largest:\t#" + largestClusterID + " (" + largestClusterSize + " reads)");
+        
+        // create cluster directories
+        // cluster "0" is for orphans
+        for (int i=0; i<=numClusters; ++i) {
+            String path = outdir + File.separator + i;
+            new File(path).mkdirs();
+        }
+        
+        // write fasta files
+        timer.start();
+        FastaReader fr = new FastaReader(seqFastaPath);
+        int[] counts = new int[numClusters+1];
+        int numOrphans = 0;
+        final int maxBufferSize = 10000000;
+        int numReadsInBuffer = 0;
+        ArrayDeque<CompressedFastaRecord> orphanRecords = new ArrayDeque<>();
+        HashMap<Integer, ArrayDeque<CompressedFastaRecord>> clusterRecords = new HashMap<>(Math.min(numClusters, maxBufferSize));
+        while (fr.hasNext()) {
+            String[] nameSeq = fr.nextWithName();
+            String name = nameSeq[0];
+            String seq = nameSeq[1];
+            
+            Integer cid = readClusterIDs.get(name);
+            ArrayDeque<CompressedFastaRecord> fastaBuffer = null;
+            if (cid != null) {
+                counts[cid] += 1;
+                fastaBuffer = clusterRecords.get(cid);
+                if (fastaBuffer == null) {
+                    fastaBuffer = new ArrayDeque<>();
+                    clusterRecords.put(cid, fastaBuffer);
+                }
+                fastaBuffer.add(new CompressedFastaRecord(name, seq));
+                ++numReadsInBuffer;
+            } 
+            else {
+                ++numOrphans;
+                orphanRecords.add(new CompressedFastaRecord(name, seq));
+                continue;
+            }
+            
+            if (numReadsInBuffer >= maxBufferSize) {
+                emptyClusterFastaBuffer(clusterRecords, outdir, true);
+                numReadsInBuffer = 0;
+            }
+        }
+        fr.close();
+        
+        counts[0] = numOrphans;
+        
+        if (!clusterRecords.isEmpty()) {
+            emptyClusterFastaBuffer(clusterRecords, outdir, true);
+        }
+        
+        emptyOrphanRecords(orphanRecords, outdir, false);
+        System.gc();
+        
+        printMessage("\t- orphans:\t" + numOrphans);
+        printMessage("Clustered reads written in " + timer.elapsedDHMS());
+        printMessage("Clustering completed in " + timer.totalElapsedDHMS());
+        
+        return counts;
+    }
+    
+    public int[] extractClustersFromOverlaps(String outdir, int maxMergedClusterSize) throws IOException {
         Timer timer = new Timer();
         PafReader reader = new PafReader(overlapPafInputStream);
         
@@ -1642,7 +1888,8 @@ public class Layout {
             }
         }
         reader.close();
-        System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " overlap records in " + timer.elapsedDHMS());
+        
+        printMessage("Parsed " + NumberFormat.getInstance().format(records) + " overlap records in " + timer.elapsedDHMS());
         
         // identify multi-segment reads and extract effective intervals
         final int minHistSegLen = minOverlapMatches/histBinSize;
@@ -1667,8 +1914,8 @@ public class Layout {
                 }
             );
 
-            System.out.println("Effective intervals identified in " + timer.elapsedDHMS());
-            System.out.println("\t- multi-segs:\t" + multiSegmentSeqs.size());
+            printMessage("Effective intervals identified in " + timer.elapsedDHMS());
+            printMessage("\t- multi-segs:\t" + multiSegmentSeqs.size());
         }
         
         timer.start();
@@ -1688,8 +1935,9 @@ public class Layout {
         
         Collections.sort(neighborPairsList);
         Collections.sort(multiSegNeighborPairsList);
-        System.out.println("Overlaps sorted in " + timer.elapsedDHMS());
-
+        
+        printMessage("Overlaps sorted in " + timer.elapsedDHMS());
+        
         // form clusters
         timer.start();
         ReadClusters3 clusters = new ReadClusters3(maxMergedClusterSize);
@@ -1711,16 +1959,17 @@ public class Layout {
         }
         
         int numClusters = clusters.size();
-        System.out.println("Clusters formed in " + timer.elapsedDHMS());
-        System.out.println("\t- clusters:\t" + numClusters);
-
+        
+        printMessage("Clusters formed in " + timer.elapsedDHMS());
+        printMessage("\t- clusters:\t" + numClusters);
+        
         // assign cluster IDs
         timer.start();
         clusters.assignIDs();
         int largestClusterID = clusters.getLargestClusterID();
         int largestClusterSize= clusters.getLargestClusterSize();
-        System.out.println("Cluster IDs assigned in " + timer.elapsedDHMS());
-        System.out.println("\t- largest:\t#" + largestClusterID + " (" + largestClusterSize + " reads)");
+        printMessage("Cluster IDs assigned in " + timer.elapsedDHMS());
+        printMessage("\t- largest:\t#" + largestClusterID + " (" + largestClusterSize + " reads)");
 
         // extract effective regions for each read
         timer.start();
@@ -1797,13 +2046,13 @@ public class Layout {
         
         emptyClusterFastaBuffer(clusterRecords, outdir, true);
         
-        System.out.println("\t- orphans:\t" + numOrphans);
+        printMessage("\t- orphans:\t" + numOrphans);
         if (!checkNumAltReads) {
             emptyOrphanRecords(orphanRecords, outdir, false);
         }
         
-        System.out.println("Clustered reads written in " + timer.elapsedDHMS());
-        System.out.println("Clustering completed in " + timer.totalElapsedDHMS());
+        printMessage("Clustered reads written in " + timer.elapsedDHMS());
+        printMessage("Clustering completed in " + timer.totalElapsedDHMS());
         System.gc();
         
         //System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
@@ -1814,7 +2063,8 @@ public class Layout {
             String outdir, boolean append) throws IOException {
         if (!clusterRecords.isEmpty()) {
             for (Map.Entry<Integer, ArrayDeque<CompressedFastaRecord>> e : clusterRecords.entrySet()) {
-                String filePath = outdir + File.separator + e.getKey() + FASTA_EXT;
+                int cid = e.getKey();
+                String filePath = outdir + File.separator + cid + File.separator + cid + FASTA_EXT + GZIP_EXT;
                 FastaWriter fw = new FastaWriter(filePath, append);
                 for (CompressedFastaRecord f : e.getValue()) {
                     fw.write(f.name, f.seqbits.toString());
@@ -1827,7 +2077,7 @@ public class Layout {
     
     private void emptyOrphanRecords(ArrayDeque<CompressedFastaRecord> records, 
             String outdir, boolean append) throws IOException {
-        String filePath = outdir + File.separator + "orphans" + FASTA_EXT;
+        String filePath = outdir + File.separator + "0" + File.separator + "0" + FASTA_EXT + GZIP_EXT;
         FastaWriter fw = new FastaWriter(filePath, append);
         for (CompressedFastaRecord f : records) {
             fw.write(f.name, f.seqbits.toString());
@@ -1990,6 +2240,22 @@ public class Layout {
                             case TARGET:
                                 containedSet.add(r.tName);
                                 break;
+                            case BOTH:
+                                if (r.qLen > r.tLen) {
+                                    containedSet.add(r.tName);
+                                }
+                                else if (r.tLen > r.qLen) {
+                                    containedSet.add(r.qName);
+                                }
+                                else {
+                                    if (r.qName.compareTo(r.tName) > 0) {
+                                        containedSet.add(r.tName);
+                                    }
+                                    else {
+                                        containedSet.add(r.qName);
+                                    }
+                                }
+                                break;
                             case NEITHER:
                                 if (!containedSet.contains(r.qName) &&
                                     !containedSet.contains(r.tName) &&
@@ -2045,6 +2311,22 @@ public class Layout {
                             case TARGET:
                                 containedSet.add(r.tName);
                                 break;
+                            case BOTH:
+                                if (r.qLen > r.tLen) {
+                                    containedSet.add(r.tName);
+                                }
+                                else if (r.tLen > r.qLen) {
+                                    containedSet.add(r.qName);
+                                }
+                                else {
+                                    if (r.qName.compareTo(r.tName) > 0) {
+                                        containedSet.add(r.tName);
+                                    }
+                                    else {
+                                        containedSet.add(r.qName);
+                                    }
+                                }
+                                break;
                             case NEITHER:
                                 if (!containedSet.contains(r.qName) &&
                                     !containedSet.contains(r.tName) &&
@@ -2075,7 +2357,7 @@ public class Layout {
             }
         }
         
-        System.out.println("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
+        printMessage("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
         
         return containedSet;
     }
@@ -2086,7 +2368,7 @@ public class Layout {
         Timer timer = new Timer();
         
         if (!containedSet.isEmpty()) {
-            System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
+            printMessage("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
         }
         
         Set<String> vertexSet = graph.vertexSet();
@@ -2095,14 +2377,14 @@ public class Layout {
             if (!stranded) {
                 numDovetailReads /= 2;
             }
-            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(numDovetailReads));
+            printMessage("dovetail reads:  " + NumberFormat.getInstance().format(numDovetailReads));
         }
         
         Set<OverlapEdge> edgeSet = graph.edgeSet();
         
         if (edgeSet.size() > 1) {
             //printGraph();
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+            printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
             
             removeTransitiveEdges();
 //            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
@@ -2115,7 +2397,7 @@ public class Layout {
 //            }
             
             //printGraph();
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+            printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
         }
         
         HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size());
@@ -2160,15 +2442,15 @@ public class Layout {
         
         fw.close();
         
-        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
-        System.out.println("Laid out paths in " + timer.elapsedDHMS());
+        printMessage("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+        printMessage("Laid out paths in " + timer.elapsedDHMS());
     }
     
     public void extractGreedyPaths(String outFastaPath, String mappingPafPath) throws IOException {
         HashSet<String> containedSet = populateGraphFromOverlaps();
         
         if (!containedSet.isEmpty()) {
-            System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
+            printMessage("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
         }
         
         Set<String> vertexSet = graph.vertexSet();
@@ -2177,13 +2459,13 @@ public class Layout {
             if (!stranded) {
                 numDovetailReads /= 2;
             }
-            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(numDovetailReads));
+            printMessage("dovetail reads:  " + NumberFormat.getInstance().format(numDovetailReads));
         }
         
         Set<OverlapEdge> edgeSet = graph.edgeSet();
         
         if (edgeSet.size() > 1) {
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+            printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
             
             removeTransitiveEdges();
 //            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
@@ -2196,7 +2478,7 @@ public class Layout {
 //            }
             
             //printGraph();
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+            printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
         }
                 
         // extract read count from mapping
@@ -2207,13 +2489,14 @@ public class Layout {
             //vertexNames.add(name.substring(0, name.length()-1)); // remove "r" suffix
         }
         
-        System.out.println("Tallying read counts...");
+        printMessage("Tallying read counts...");
+
         Timer timer = new Timer();
         HashMap<String, Float> readCounts = getReadCounts(mappingPafPath, vertexNames, maxEdgeClip);
-        System.out.println("Counts tallied in " + timer.elapsedDHMS());
+        printMessage("Counts tallied in " + timer.elapsedDHMS());
         
         // assign read count to edge
-        System.out.println("Adding read counts to graph...");
+        printMessage("Adding read counts to graph...");
         timer.start();
         edgeSet = graph.edgeSet();
         for (OverlapEdge e : edgeSet) {
@@ -2235,9 +2518,10 @@ public class Layout {
             }
             graph.setEdgeWeight(e, w);
         }
-        System.out.println("Counts added in " + timer.elapsedDHMS());
         
-        System.out.println("Extracting vertex sequences...");
+        printMessage("Counts added in " + timer.elapsedDHMS());
+        printMessage("Extracting vertex sequences...");
+
         timer.start();
         HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size());
         FastaReader fr = new FastaReader(seqFastaPath);
@@ -2257,10 +2541,11 @@ public class Layout {
             }
         }
         fr.close();
-        System.out.println("Sequences extracted in " + timer.elapsedDHMS());
+        
+        printMessage("Sequences extracted in " + timer.elapsedDHMS());
+        printMessage("Extracting paths...");
         
         // extract paths
-        System.out.println("Extracting paths...");
         timer.start();
         HashSet<String> visited = new HashSet<>();
         for (Iterator<Entry<String, Float>> itr = readCounts.entrySet().stream().
@@ -2294,8 +2579,8 @@ public class Layout {
         
         fw.close();
         
-        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
-        System.out.println("Laid out paths in " + timer.elapsedDHMS());
+        printMessage("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+        printMessage("Laid out paths in " + timer.elapsedDHMS());
     }
 
     private String getMaxWeightPredecessor(String vid) {
@@ -2436,7 +2721,7 @@ public class Layout {
         HashSet<String> containedSet = populateGraphFromOverlaps();
         
         if (!containedSet.isEmpty()) {
-            System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
+            printMessage("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
         }
         
         Set<String> vertexSet = graph.vertexSet();
@@ -2445,13 +2730,13 @@ public class Layout {
             if (!stranded) {
                 numDovetailReads = numDovetailReads/2;
             }
-            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(numDovetailReads));
+            printMessage("dovetail reads:  " + NumberFormat.getInstance().format(numDovetailReads));
         }
         
         Set<OverlapEdge> edgeSet = graph.edgeSet();
         
         if (edgeSet.size() > 1) {
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+            printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
 
 //            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
 //            for (String n : redundantNodeNames) {
@@ -2463,7 +2748,7 @@ public class Layout {
 //            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
 
             resolveJunctions();
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+            printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
         }
         
         // extract read sequences
@@ -2520,7 +2805,7 @@ public class Layout {
         }
         fw.close();
         
-        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+        printMessage("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
         
         return originalNumSeq > seqID;
     }
@@ -2597,17 +2882,17 @@ public class Layout {
         HashSet<String> containedSet = populateGraphFromOverlaps();
         
         if (!containedSet.isEmpty()) {
-            System.out.println("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
+            printMessage("contained reads: " + NumberFormat.getInstance().format(containedSet.size()));
         }
         
         Set<String> vertexSet = graph.vertexSet();
         if (!vertexSet.isEmpty()) {
-            System.out.println("dovetail reads:  " + NumberFormat.getInstance().format(vertexSet.size()));
+            printMessage("dovetail reads:  " + NumberFormat.getInstance().format(vertexSet.size()));
         }
         
         int numEdges = graph.edgeSet().size();        
         if (numEdges > 1) {
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+            printMessage("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
             
 //            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
 //            for (String n : redundantNodeNames) {
@@ -2618,7 +2903,7 @@ public class Layout {
             
             resolveJunctions();
             numEdges = graph.edgeSet().size();
-            System.out.println("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
+            printMessage("G: |V|=" + NumberFormat.getInstance().format(graph.vertexSet().size()) + " |E|=" + NumberFormat.getInstance().format(numEdges));
         }
         
         // extract read sequences
@@ -2671,7 +2956,7 @@ public class Layout {
         }
         fw.close();
         
-        System.out.println("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
+        printMessage("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
         
         return originalNumSeq > seqID;
     }

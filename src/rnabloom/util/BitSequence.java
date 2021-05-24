@@ -8,9 +8,7 @@ package rnabloom.util;
 import java.util.Arrays;
 import static rnabloom.util.SeqBitsUtils.bitsToRevCompSeq;
 import static rnabloom.util.SeqBitsUtils.bitsToSeq;
-import static rnabloom.util.SeqBitsUtils.bitsToSeqParallelized;
 import static rnabloom.util.SeqBitsUtils.seqToBits;
-import static rnabloom.util.SeqBitsUtils.seqToBitsParallelized;
 
 /**
  *
