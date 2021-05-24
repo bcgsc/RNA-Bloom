@@ -1762,19 +1762,24 @@ public class Layout {
         int largestClusterSize = 0;
         int largestClusterID = -1;
         HashMap<String, Integer> readClusterIDs = new HashMap<>();
-        for (HashSet<String> readNames : new HashSet<>(targetNameReadNamesMap.values())) {
-            ++numClusters;
-            
-            for (String n : readNames) {
-                readClusterIDs.put(n, numClusters);
-            }
-            
-            if (readNames.size() > largestClusterSize) {
-                largestClusterSize = readNames.size();
-                largestClusterID = numClusters;
+        for (HashSet<String> readNames : targetNameReadNamesMap.values()) {
+            if (!readNames.isEmpty()) {                
+                ++numClusters;
+
+                for (String n : readNames) {
+                    readClusterIDs.put(n, numClusters);
+                }
+
+                if (readNames.size() > largestClusterSize) {
+                    largestClusterSize = readNames.size();
+                    largestClusterID = numClusters;
+                }
+                
+                // clear set because seeds in a merged cluster point to the same set
+                readNames.clear();
             }
         }
-        
+                
         printMessage("Cluster IDs assigned in " + timer.elapsedDHMS());
         printMessage("\t- clusters:\t" + numClusters);
         printMessage("\t- largest:\t#" + largestClusterID + " (" + largestClusterSize + " reads)");
@@ -1785,6 +1790,8 @@ public class Layout {
             String path = outdir + File.separator + i;
             new File(path).mkdirs();
         }
+        
+        System.gc();
         
         // write fasta files
         timer.start();
