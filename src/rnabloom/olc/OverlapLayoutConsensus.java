@@ -36,6 +36,7 @@ import java.util.zip.GZIPOutputStream;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.util.BitSequence;
+import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.FileUtils.deleteIfExists;
 import static rnabloom.util.FileUtils.hasOnlyOneSequence;
 import static rnabloom.util.FileUtils.readIntArrayFromFile;
@@ -974,13 +975,14 @@ public class OverlapLayoutConsensus {
         cutRevCompArtifact = false;
         
         int numClusters = clusterSizes.length-1;
+        System.out.println("Processing " + numClusters + " clusters...");
         for (int cid=1; cid<=numClusters; ++cid) {
             int numReads = clusterSizes[cid];
             
             String clusterPrefix = clustersdir + File.separator + cid + File.separator + cid;
             
             File assemblyDoneStamp = new File(clusterPrefix + ".DONE");
-            System.out.println("Processing #" + cid + " (" + numReads + " reads)...");
+            System.out.println(convertToRoundedPercent(cid/(float)numClusters) + "%: #" + cid + " (" + numReads + " reads)");
             
             if (forceOverwrite || !assemblyDoneStamp.exists()) {
                 String inFastaPath = clusterPrefix + FASTA_EXT + GZIP_EXTENSION;
