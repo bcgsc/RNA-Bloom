@@ -3281,27 +3281,27 @@ public final class GraphUtils {
                 toShift = !toShift;
             }
             
-            int numKmers = testKmers.size();
-            if (trimLowCovEdges && numKmers > lookahead) {
-                ArrayList<Kmer> window = new ArrayList<>(testKmers.subList(0, Math.min(windowSize, numKmers)));
-                CoverageStats headCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
-
-                window = new ArrayList<>(testKmers.subList(Math.max(0, numKmers-windowSize), numKmers));
-                CoverageStats tailCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
-
-                if (headCovStat.dropoff > 0 || tailCovStat.dropoff > 0) {
-                    ArrayList<Kmer> correctedKmers = correctEdgeErrors(testKmers,
-                                                                        graph,
-                                                                        lookahead,
-                                                                        Math.max(minKmerCov, headCovStat.dropoff),
-                                                                        Math.max(minKmerCov, tailCovStat.dropoff),
-                                                                        percentIdentity,
-                                                                        minKmerCov);
-                    if (correctedKmers != null) {
-                        testKmers = correctedKmers;
-                    }
-                }
-            }
+//            int numKmers = testKmers.size();
+//            if (trimLowCovEdges && numKmers > lookahead) {
+//                ArrayList<Kmer> window = new ArrayList<>(testKmers.subList(0, Math.min(windowSize, numKmers)));
+//                CoverageStats headCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
+//
+//                window = new ArrayList<>(testKmers.subList(Math.max(0, numKmers-windowSize), numKmers));
+//                CoverageStats tailCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
+//
+//                if (headCovStat.dropoff > 0 || tailCovStat.dropoff > 0) {
+//                    ArrayList<Kmer> correctedKmers = correctEdgeErrors(testKmers,
+//                                                                        graph,
+//                                                                        lookahead,
+//                                                                        Math.max(minKmerCov, headCovStat.dropoff),
+//                                                                        Math.max(minKmerCov, tailCovStat.dropoff),
+//                                                                        percentIdentity,
+//                                                                        minKmerCov);
+//                    if (correctedKmers != null) {
+//                        testKmers = correctedKmers;
+//                    }
+//                }
+//            }
             
             return testKmers;
         }
