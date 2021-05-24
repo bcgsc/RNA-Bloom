@@ -669,6 +669,14 @@ public final class SeqUtils {
         }
         
         if (cutIndex < seqLen) {
+            while(seq.charAt(cutIndex) == 'A') {
+                --cutIndex;
+            }
+            
+            if (cutIndex <= 0) {
+                return "";
+            }
+            
             return seq.substring(0, cutIndex);
         }
         
@@ -689,6 +697,14 @@ public final class SeqUtils {
         }
         
         if (cutIndex > 0) {
+            while(seq.charAt(cutIndex) == 'T') {
+                ++cutIndex;
+            }
+            
+            if (cutIndex >= seqLen) {
+                return "";
+            }
+            
             return seq.substring(cutIndex, seqLen);
         }
         

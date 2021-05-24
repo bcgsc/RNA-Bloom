@@ -226,9 +226,9 @@ public class SeqSubsampler {
                 String seq = s.toString();
                 
                 // chomp poly A tail and poly T head
-                seq = chompPolyATail(seq, 50, 0.89f);
+                seq = chompPolyATail(seq, 50, 0.85f);
                 if (!stranded) {
-                    seq = chompPolyTHead(seq, 50, 0.89f);
+                    seq = chompPolyTHead(seq, 50, 0.85f);
                 }
                 
                 if (seq.length() >= minSeqLen) {
