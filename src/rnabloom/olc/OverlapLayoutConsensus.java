@@ -976,13 +976,20 @@ public class OverlapLayoutConsensus {
         
         int numClusters = clusterSizes.length-1;
         System.out.println("Processing " + numClusters + " clusters...");
+        int batchSize = 100;
+        if (batchSize < numClusters * 0.1f) {
+            batchSize = (int) Math.ceil(numClusters * 0.1f);
+        }
         for (int cid=1; cid<=numClusters; ++cid) {
             int numReads = clusterSizes[cid];
             
             String clusterPrefix = clustersdir + File.separator + cid + File.separator + cid;
             
             File assemblyDoneStamp = new File(clusterPrefix + ".DONE");
-            System.out.println(convertToRoundedPercent(cid/(float)numClusters) + "%: #" + cid + " (" + numReads + " reads)");
+            
+            if (cid % batchSize == 0) {
+                System.out.println(convertToRoundedPercent(cid/(float)numClusters) + "%: #" + cid);
+            }
             
             if (forceOverwrite || !assemblyDoneStamp.exists()) {
                 String inFastaPath = clusterPrefix + FASTA_EXT + GZIP_EXTENSION;
