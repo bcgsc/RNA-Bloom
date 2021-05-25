@@ -1610,51 +1610,76 @@ public class Layout {
         return seqID;
     }
     
-    private static HashSet<String> getBestPartners(HashMap<String, Interval> map, Interval source, int tolerance) {
-        HashSet<String> bestPartners = new HashSet<>();
-        int bestScore = 0;
+    public class SeededCluster {
+        final HashSet<String> seedNames = new HashSet<>();
+        final HashSet<String> readNames = new HashSet<>();
         
-        String bestPartner = null;
-        for (Entry<String, Interval> e : map.entrySet()) {
-            Interval merged = ComparableInterval.merge(source, e.getValue());
-            if (merged == null) {
-                bestPartners.add(e.getKey());
-            }
-            else {
-                int score = (merged.end - source.end) + (source.start - merged.start);
-                if (score > bestScore && score >= tolerance) {
-                    bestScore = score;
-                    bestPartner = e.getKey();
-                }
-            }
+        public void addSeedName(String name) {
+            seedNames.add(name);
+        }
+
+        public void addSeedNames(Collection<String> names) {
+            seedNames.addAll(names);
         }
         
-        if (bestPartner != null) {
-            bestPartners.add(bestPartner);
+        public void addReadName(String name) {
+            readNames.add(name);
         }
         
-        return bestPartners;
+        public int size() {
+            return readNames.size();
+        }
+        
+        public void merge(SeededCluster other) {
+            this.seedNames.addAll(other.seedNames);
+            this.readNames.addAll(other.readNames);
+        }
     }
     
-    private void updateMergedTargetsMap(HashMap<String, HashSet> mergedTargetsMap, String bestTarget, HashSet<String> partners) {
-        HashSet<String> merged = mergedTargetsMap.get(bestTarget);
-        if (merged == null) {
-            merged = new HashSet<>();
-            merged.add(bestTarget);
+    private void processTargets(HashSet<String> targets, HashMap<String, 
+            SeededCluster> seedNameClusterMap, String prevName) {
+        if (targets.size() == 1) {
+            String t = targets.iterator().next();
+            SeededCluster cluster = seedNameClusterMap.get(t);
+            if (cluster == null) {
+                cluster = new SeededCluster();
+                cluster.addSeedName(t);
+                seedNameClusterMap.put(t, cluster);
+            }
+            cluster.addReadName(prevName);
         }
+        else {
+            // find largest cluster
+            SeededCluster mergedCluster = null;
+            for (String t : targets) {
+                SeededCluster cluster = seedNameClusterMap.get(t);
+                if (mergedCluster == null ||
+                        (cluster != null && cluster.size() > mergedCluster.size())) {
+                    mergedCluster = cluster;
+                }
+            }
 
-        for (String p : partners) {
-            merged.add(p);
+            if (mergedCluster == null) {
+                mergedCluster = new SeededCluster();
+            }
 
-            HashSet<String> pMerged = mergedTargetsMap.get(p);
-            if (pMerged != null) {
-                merged.addAll(pMerged);
+            // merge clusters
+            for (String t : targets) {
+                SeededCluster cluster = seedNameClusterMap.get(t);
+                if (cluster != null && cluster != mergedCluster) {
+                    mergedCluster.merge(cluster);
+                }
+            }
+
+            mergedCluster.addSeedNames(targets);
+            mergedCluster.addReadName(prevName);
+
+            for (String s : mergedCluster.seedNames) {
+                seedNameClusterMap.put(s, mergedCluster);
             }
         }
 
-        for (String m : merged) {
-            mergedTargetsMap.put(m, merged);
-        }
+        targets.clear();
     }
     
     public int[] extractClustersFromMapping(String outdir) throws IOException {
@@ -1663,7 +1688,7 @@ public class Layout {
         
         Timer timer = new Timer();
         
-        HashMap<String, HashSet> targetNameReadNamesMap = new HashMap<>();
+        HashMap<String, SeededCluster> seedNameClusterMap = new HashMap<>();
         
         PafReader reader = new PafReader(overlapPafInputStream);
         String prevName = null;
@@ -1675,38 +1700,7 @@ public class Layout {
             
             if (!r.qName.equals(prevName)) {
                 if (!targets.isEmpty()) {
-                    if (targets.size() == 1) {
-                        String t = targets.iterator().next();
-                        HashSet<String> cluster = targetNameReadNamesMap.get(t);
-                        if (cluster == null) {
-                            cluster = new HashSet<>();
-                            targetNameReadNamesMap.put(t, cluster);
-                        }
-                        cluster.add(prevName);
-                    }
-                    else {
-                        // find largest cluster
-                        HashSet<String> mergedCluster = new HashSet<>();
-                        for (String t : targets) {
-                            HashSet<String> cluster = targetNameReadNamesMap.get(t);
-                            if (cluster != null && cluster.size() > mergedCluster.size()) {
-                                mergedCluster = cluster;
-                            }
-                        }
-                        
-                        mergedCluster.add(prevName);
-                        
-                        // merge clusters
-                        for (String t : targets) {
-                            HashSet<String> cluster = targetNameReadNamesMap.get(t);
-                            if (cluster != null && cluster != mergedCluster) {
-                                mergedCluster.addAll(cluster);
-                            }
-                            targetNameReadNamesMap.put(t, mergedCluster);
-                        }
-                    }
-                    
-                    targets.clear();
+                    processTargets(targets, seedNameClusterMap, prevName);
                 }
                 
                 prevName = r.qName;
@@ -1720,38 +1714,7 @@ public class Layout {
         
         // process targets for the final query
         if (!targets.isEmpty()) {
-            if (targets.size() == 1) {
-                String t = targets.iterator().next();
-                HashSet<String> cluster = targetNameReadNamesMap.get(t);
-                if (cluster == null) {
-                    cluster = new HashSet<>();
-                    targetNameReadNamesMap.put(t, cluster);
-                }
-                cluster.add(prevName);
-            }
-            else {
-                // find largest cluster
-                HashSet<String> mergedCluster = new HashSet<>();
-                for (String t : targets) {
-                    HashSet<String> cluster = targetNameReadNamesMap.get(t);
-                    if (cluster != null && cluster.size() > mergedCluster.size()) {
-                        mergedCluster = cluster;
-                    }
-                }
-
-                mergedCluster.add(prevName);
-
-                // merge clusters
-                for (String t : targets) {
-                    HashSet<String> cluster = targetNameReadNamesMap.get(t);
-                    if (cluster != null && cluster != mergedCluster) {
-                        mergedCluster.addAll(cluster);
-                    }
-                    targetNameReadNamesMap.put(t, mergedCluster);
-                }
-            }
-
-            targets.clear();
+            processTargets(targets, seedNameClusterMap, prevName);
         }
         
         reader.close();
@@ -1763,22 +1726,22 @@ public class Layout {
         int largestClusterSize = 0;
         int largestClusterID = -1;
         HashMap<String, Integer> readClusterIDs = new HashMap<>();
-        for (HashSet<String> readNames : targetNameReadNamesMap.values()) {
-            if (!readNames.isEmpty()) {                
+        for (SeededCluster c : seedNameClusterMap.values()) {
+            int size = c.size();
+            if (size > 0) {       
                 ++numClusters;
 
-                for (String n : readNames) {
+                for (String n : c.readNames) {
                     readClusterIDs.put(n, numClusters);
                 }
                 
-                int size = readNames.size();
                 if (size > largestClusterSize) {
                     largestClusterSize = size;
                     largestClusterID = numClusters;
                 }
                 
                 // clear set because seeds in a merged cluster point to the same set
-                readNames.clear();
+                c.readNames.clear();
             }
         }
                 
@@ -1816,7 +1779,6 @@ public class Layout {
             } 
             else {
                 clusterRecords[0].add(new CompressedFastaRecord(name, seq));
-                continue;
             }
         }
         fr.close();
@@ -2224,6 +2186,7 @@ public class Layout {
             ArrayDeque<Overlap> overlaps = new ArrayDeque<>();
             
             String prevName = null;
+            boolean prevContained = false;
             ArrayDeque<Overlap> pendingOverlaps = new ArrayDeque<>();
             
             for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
@@ -2231,29 +2194,38 @@ public class Layout {
                 reader.next(r);            
                 if (!r.reverseComplemented && !r.qName.equals(r.tName)) {
                     if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
-                        if (prevName != null && !prevName.equals(r.qName) && !pendingOverlaps.isEmpty()) {
-                            if (!containedSet.contains(prevName)) {
-                                overlaps.addAll(pendingOverlaps);
+                        if (prevName == null) {
+                            prevName = r.qName;
+                        }
+                        else if (!prevName.equals(r.qName)) {
+                            if (!pendingOverlaps.isEmpty()) {
+                                if (!prevContained) {
+                                    overlaps.addAll(pendingOverlaps);
+                                }
+                                pendingOverlaps.clear();
                             }
-                            pendingOverlaps.clear();
+                            
+                            prevName = r.qName;
+                            prevContained = containedSet.contains(prevName);
                         }
                         
-                        CONTAIN_STATUS c = getContained(r);
-                        switch (c) {
-                            case QUERY:
-                                containedSet.add(r.qName);
-                                break;
-                            case TARGET:
-                                containedSet.add(r.tName);
-                                break;
-                            case BOTH:
-                                if (!containedSet.contains(r.qName) &&
-                                        !containedSet.contains(r.tName)) {
+                        if (!prevContained && !containedSet.contains(r.tName)) {
+                            CONTAIN_STATUS c = getContained(r);
+                            switch (c) {
+                                case QUERY:
+                                    containedSet.add(r.qName);
+                                    prevContained = true;
+                                    break;
+                                case TARGET:
+                                    containedSet.add(r.tName);
+                                    break;
+                                case BOTH:
                                     if (r.qLen > r.tLen) {
                                         containedSet.add(r.tName);
                                     }
                                     else if (r.tLen > r.qLen) {
                                         containedSet.add(r.qName);
+                                        prevContained = true;
                                     }
                                     else {
                                         if (r.qName.compareTo(r.tName) > 0) {
@@ -2261,27 +2233,24 @@ public class Layout {
                                         }
                                         else {
                                             containedSet.add(r.qName);
+                                            prevContained = true;
                                         }
                                     }
-                                }
-                                break;
-                            case NEITHER:
-                                if (!containedSet.contains(r.qName) &&
-                                        !containedSet.contains(r.tName) &&
-                                        isForwardDovetailPafRecord(r)) {
-                                    pendingOverlaps.add(pafToOverlap(r));
-                                }
-                                break;
+                                    break;
+                                case NEITHER:
+                                    if (isForwardDovetailPafRecord(r)) {
+                                        pendingOverlaps.add(pafToOverlap(r));
+                                    }
+                                    break;
+                            }
                         }
-                        
-                        prevName = r.qName;
                     }
                 }
             }
             reader.close();
 
             if (prevName != null && !pendingOverlaps.isEmpty()) {
-                if (!containedSet.contains(prevName)) {
+                if (!prevContained) {
                     overlaps.addAll(pendingOverlaps);
                 }
                 pendingOverlaps.clear();
@@ -2298,6 +2267,7 @@ public class Layout {
             ArrayDeque<StrandedOverlap> overlaps = new ArrayDeque<>();
             
             String prevName = null;
+            boolean prevContained = false;
             ArrayDeque<StrandedOverlap> pendingOverlaps = new ArrayDeque<>();
             
             for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
@@ -2305,29 +2275,38 @@ public class Layout {
                 reader.next(r);            
                 if (!r.qName.equals(r.tName)) {
                     if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
-                        if (prevName != null && !prevName.equals(r.qName) && !pendingOverlaps.isEmpty()) {
-                            if (!containedSet.contains(prevName)) {
-                                overlaps.addAll(pendingOverlaps);
+                        if (prevName == null) {
+                            prevName = r.qName;
+                        }
+                        else if (!prevName.equals(r.qName)) {
+                            if (!pendingOverlaps.isEmpty()) { 
+                                if (!prevContained) {
+                                    overlaps.addAll(pendingOverlaps);
+                                }
+                                pendingOverlaps.clear();
                             }
-                            pendingOverlaps.clear();
+                            
+                            prevName = r.qName;
+                            prevContained = containedSet.contains(prevName);
                         }
                         
-                        CONTAIN_STATUS c = getContained(r);
-                        switch (c) {
-                            case QUERY:
-                                containedSet.add(r.qName);
-                                break;
-                            case TARGET:
-                                containedSet.add(r.tName);
-                                break;
-                            case BOTH:
-                                if (!containedSet.contains(r.qName) &&
-                                        !containedSet.contains(r.tName)) {
+                        if (!prevContained && !containedSet.contains(r.tName)) {
+                            CONTAIN_STATUS c = getContained(r);
+                            switch (c) {
+                                case QUERY:
+                                    containedSet.add(r.qName);
+                                    prevContained = true;
+                                    break;
+                                case TARGET:
+                                    containedSet.add(r.tName);
+                                    break;
+                                case BOTH:
                                     if (r.qLen > r.tLen) {
                                         containedSet.add(r.tName);
                                     }
                                     else if (r.tLen > r.qLen) {
                                         containedSet.add(r.qName);
+                                        prevContained = true;
                                     }
                                     else {
                                         if (r.qName.compareTo(r.tName) > 0) {
@@ -2335,27 +2314,24 @@ public class Layout {
                                         }
                                         else {
                                             containedSet.add(r.qName);
+                                            prevContained = true;
                                         }
                                     }
-                                }
-                                break;
-                            case NEITHER:
-                                if (!containedSet.contains(r.qName) &&
-                                        !containedSet.contains(r.tName) &&
-                                        isDovetailPafRecord(r)) {
-                                    pendingOverlaps.add(pafToStrandedOverlap(r));
-                                }
-                                break;
+                                    break;
+                                case NEITHER:
+                                    if (isDovetailPafRecord(r)) {
+                                        pendingOverlaps.add(pafToStrandedOverlap(r));
+                                    }
+                                    break;
+                            }
                         }
-                        
-                        prevName = r.qName;
                     }
                 }
             }
             reader.close();
 
             if (prevName != null && !pendingOverlaps.isEmpty()) {
-                if (!containedSet.contains(prevName)) {
+                if (!prevContained) {
                     overlaps.addAll(pendingOverlaps);
                 }
                 pendingOverlaps.clear();
