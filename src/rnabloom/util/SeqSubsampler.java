@@ -32,6 +32,7 @@ import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.SeqUtils.chompPolyATail;
 import static rnabloom.util.SeqUtils.chompPolyTHead;
 import static rnabloom.util.SeqUtils.compressHomoPolymers;
+import static rnabloom.util.SeqUtils.trimLowComplexityEdges;
 
 /**
  *
@@ -209,7 +210,8 @@ public class SeqSubsampler {
     
     public static void minmalSet(ArrayList<? extends BitSequence> seqs, String outFasta,
             long bfSize, int k, int numHash, boolean stranded, boolean useHpcKmers,
-            int windowSize, int minMatchingWindows, int minSeqLen) throws IOException, InterruptedException {
+            int windowSize, int minMatchingWindows, float minMatchingProportion,
+            int minSeqLen) throws IOException, InterruptedException {
         int numSeq = seqs.size();
         
         FastaWriter writer = new FastaWriter(outFasta, false);
@@ -223,24 +225,18 @@ public class SeqSubsampler {
         
         for (BitSequence s : seqs) {
             if (s != null) {
-                String seq = s.toString();
-                
-                // chomp poly A tail and poly T head
-                seq = chompPolyATail(seq, 50, 0.85f);
-                if (!stranded) {
-                    seq = chompPolyTHead(seq, 50, 0.85f);
-                }
+                String seq = trimLowComplexityEdges(s.toString(), windowSize);
                 
                 if (seq.length() >= minSeqLen) {
                     String hpc = useHpcKmers ? compressHomoPolymers(seq) : seq;
 
                     if (itr.start(hpc)) {
-    //                    int numKmers = hpc.length() - k + 1;
-    //                    int numWindows = numKmers/windowSize;
-    //                    if (numKmers % windowSize > 0) {
-    //                        ++numWindows;
-    //                    }
-
+                        int numKmers = hpc.length() - k + 1;
+                        int numWindows = numKmers/windowSize;
+                        if (numKmers % windowSize > 0) {
+                            ++numWindows;
+                        }
+                        
                         int numWindowsSeen = 0;
                         int windowIndex = 0;
                         boolean windowStatus = false;
@@ -260,7 +256,7 @@ public class SeqSubsampler {
                             }
                         }
 
-                        if (numWindowsSeen < minMatchingWindows) {
+                        if (numWindowsSeen < Math.max(minMatchingWindows, Math.round(minMatchingProportion * numWindows))) {
                             // a unique sequence
                             
                             itr.start(hpc);

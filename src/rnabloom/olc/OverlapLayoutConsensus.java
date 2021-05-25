@@ -223,7 +223,7 @@ public class OverlapLayoutConsensus {
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x map-" + preset + " -p 0.25 " + minimapOptions + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+        command.add(MINIMAP2 + " -x map-" + preset + " -p 0.25 -c " + minimapOptions + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
         
         int[] clusterSizes = null;
         try {            

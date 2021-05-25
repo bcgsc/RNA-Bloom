@@ -6898,7 +6898,8 @@ public class RNABloom {
                     System.out.println("Extracting seed sequences...");
                     Collections.sort(correctedReads);
                     SeqSubsampler.minmalSet(correctedReads, seedReadsPath,
-                        dbgbfSize, k, dbgbfNumHash, strandSpecific, true, k, 10, minTranscriptLength);
+                        dbgbfSize, k, dbgbfNumHash, strandSpecific, true, k,
+                        10, 0.5f, minTranscriptLength);
                     System.out.println("Extraction completed in " + myTimer.elapsedDHMS());
 
                     myTimer.start();

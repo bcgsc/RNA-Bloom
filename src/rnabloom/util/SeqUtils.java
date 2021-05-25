@@ -669,7 +669,7 @@ public final class SeqUtils {
         }
         
         if (cutIndex < seqLen) {
-            while(seq.charAt(cutIndex) == 'A') {
+            while(cutIndex > 0 && seq.charAt(cutIndex) == 'A') {
                 --cutIndex;
             }
             
@@ -697,7 +697,7 @@ public final class SeqUtils {
         }
         
         if (cutIndex > 0) {
-            while(seq.charAt(cutIndex) == 'T') {
+            while(cutIndex < seqLen && seq.charAt(cutIndex) == 'T') {
                 ++cutIndex;
             }
             
@@ -800,26 +800,22 @@ public final class SeqUtils {
         return segments;
     }
     
-    public static String trimLowComplexityEdges(String seq) {
+    public static String trimLowComplexityEdges(String seq, int windowSize) {
         int seqLen = seq.length();
-        int windowSize = 50;
-        int numWindows = seqLen/windowSize;
-        if (numWindows >= 4) {
-            int offset = (seqLen % windowSize) / 2;
-
-            int numHeadWindows = 0;
+        if (seqLen >= windowSize) {
+            int start = 0;
+            int end = seqLen;
+            
             int skip = 0;
-            for (int i=0; i<numWindows; ++i) {
-                int start = i*windowSize + offset;
-                int end = start + windowSize;
-                String window = seq.substring(start, end);
+            for (int i=0; i+windowSize <= seqLen; i+=windowSize) {
+                String window = seq.substring(i, i+windowSize);
                 if (isLowComplexityLong(window)) {
                     if (skip > 0) {
-                        numHeadWindows += 2;
+                        start += windowSize*2;
                         skip = 0;
                     }
                     else {
-                        ++numHeadWindows;
+                        start += windowSize;
                     }
                 }
                 else if (skip == 0) {
@@ -830,19 +826,16 @@ public final class SeqUtils {
                 }
             }
             
-            int numTailWindows = 0;
             skip = 0;
-            for (int i=numWindows-1; i>numHeadWindows; --i) {
-                int start = i*windowSize + offset;
-                int end = start + windowSize;
-                String window = seq.substring(start, end);
+            for (int i=seqLen; i-windowSize >= 0; i-=windowSize) {
+                String window = seq.substring(i-windowSize, i);
                 if (isLowComplexityLong(window)) {
                     if (skip > 0) {
-                        numTailWindows += 2;
+                        end -= windowSize*2;
                         skip = 0;
                     }
                     else {
-                        ++numTailWindows;
+                        end -= windowSize;
                     }
                 }
                 else if (skip == 0) {
@@ -853,26 +846,12 @@ public final class SeqUtils {
                 }
             }
             
-            if (numHeadWindows > 0 || numTailWindows > 0) {
-                int start = 0;
-                int end = seqLen;
-                if (numHeadWindows > 0) {
-                    start = offset + numHeadWindows*windowSize;
-                    if (isTRich(seq, 0, start, 0.8f)) {
-                        start = 0;
-                    }
+            if (start > 0 || end < seqLen) {                
+                if (start >= end) {
+                    return "";
                 }
                 
-                if (numTailWindows > 0) {
-                    end = seqLen - offset - numTailWindows*windowSize;
-                    if (isARich(seq, end, seqLen, 0.8f)) {
-                        end = seqLen;
-                    }
-                }
-                
-                if (start > 0 || end < seqLen) {
-                    return seq.substring(start, end);
-                }
+                return seq.substring(start, end);
             }
         }
         
@@ -1773,7 +1752,7 @@ public final class SeqUtils {
         
     public static void main(String[] args) {
         //debug
-        String seq = "";        
-        System.out.println(isLowComplexityLongWindowed(seq));
+        String seq = "";
+        System.out.println(trimLowComplexityEdges(seq, 50));
     }
 }
