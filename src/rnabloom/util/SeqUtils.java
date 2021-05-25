@@ -734,11 +734,76 @@ public final class SeqUtils {
         return false;
     }
     
-    public static ArrayList<String> trimLowComplexityRegions(String seq, int minLowComplexityLength) {
+    public static ArrayList<String> trimLowComplexityRegions(String seq, int windowSize) {
         ArrayList<String> segments = new ArrayList<>();
         
         int seqLen = seq.length();
-        int windowSize = 100;
+
+        if (seqLen >= windowSize) {
+            int numWindows = seqLen/windowSize;
+            boolean[] complexityStatus = new boolean[numWindows];
+            
+            int offset = (seqLen % windowSize) / 2;
+            int numLowComplexityWindows = 0;
+            
+            for (int i=0; i<numWindows; ++i) {
+                int start = i*windowSize + offset;
+                int end = start + windowSize;
+                String window = seq.substring(start, end);
+                if (isLowComplexityLong(window)) {
+                    ++numLowComplexityWindows;
+                    complexityStatus[i] = false;
+                }
+                else {
+                    complexityStatus[i] = true;
+                }
+            }
+
+            if (numLowComplexityWindows >= 1) {
+                int start = -1;
+                int end = -1;
+                for (int i=0; i<numWindows; ++i) {
+                    if (complexityStatus[i]) {
+                        if (start < 0) {
+                            start = i;
+                        }
+                        end = i;
+                    }
+                    else if (start >= 0) {
+                        if (start == 0) {
+                            segments.add(seq.substring(0, offset + (end+1) * windowSize));
+                        }
+                        else {
+                            segments.add(seq.substring(offset + start * windowSize, offset + (end+1) * windowSize));
+                        }
+                        
+                        start = -1;
+                        end = -1;
+                    }
+                }
+
+                if (start == 0) {
+                    segments.add(seq.substring(0, seqLen));
+                }
+                else if (start > 0) {
+                    segments.add(seq.substring(offset + start * windowSize, seqLen));
+                }
+            }
+            else {
+                segments.add(seq);
+            }
+        }
+        else if (!isLowComplexityLong(seq)) {
+            segments.add(seq);
+        }
+        
+        return segments;
+    }
+    
+    public static ArrayList<String> trimLowComplexityRegions(String seq, int windowSize, int minLowComplexityLength) {
+        ArrayList<String> segments = new ArrayList<>();
+        
+        int seqLen = seq.length();
         int numWindows = seqLen/windowSize;
         if (numWindows >= 5) {
             boolean[] complexityStatus = new boolean[numWindows];
@@ -799,7 +864,7 @@ public final class SeqUtils {
         
         return segments;
     }
-    
+        
     public static String trimLowComplexityEdges(String seq, int windowSize) {
         int seqLen = seq.length();
         if (seqLen >= windowSize) {
@@ -1753,6 +1818,11 @@ public final class SeqUtils {
     public static void main(String[] args) {
         //debug
         String seq = "";
-        System.out.println(trimLowComplexityEdges(seq, 50));
+        ArrayList<String> segments = trimLowComplexityRegions(seq, 50);
+        System.out.println(segments.size());
+        for (String seg : segments) {
+            System.out.println(seg);
+        }
+        System.out.flush();
     }
 }

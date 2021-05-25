@@ -29,10 +29,9 @@ import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
 import static rnabloom.util.Common.convertToRoundedPercent;
-import static rnabloom.util.SeqUtils.chompPolyATail;
-import static rnabloom.util.SeqUtils.chompPolyTHead;
 import static rnabloom.util.SeqUtils.compressHomoPolymers;
 import static rnabloom.util.SeqUtils.trimLowComplexityEdges;
+import static rnabloom.util.SeqUtils.trimLowComplexityRegions;
 
 /**
  *
@@ -208,7 +207,7 @@ public class SeqSubsampler {
         }
     }
     
-    public static void minmalSet(ArrayList<? extends BitSequence> seqs, String outFasta,
+    public static void minimalSet(ArrayList<? extends BitSequence> seqs, String outFasta,
             long bfSize, int k, int numHash, boolean stranded, boolean useHpcKmers,
             int windowSize, int minMatchingWindows, float minMatchingProportion,
             int minSeqLen) throws IOException, InterruptedException {
@@ -224,48 +223,50 @@ public class SeqSubsampler {
         int id = 0;
         
         for (BitSequence s : seqs) {
-            if (s != null) {
-                String seq = trimLowComplexityEdges(s.toString(), windowSize);
+            if (s != null && s.length >= minSeqLen) {
+                ArrayList<String> segments = trimLowComplexityRegions(s.toString(), 50);
                 
-                if (seq.length() >= minSeqLen) {
-                    String hpc = useHpcKmers ? compressHomoPolymers(seq) : seq;
+                for (String seq : segments) {
+                    if (seq.length() >= minSeqLen) {
+                        String hpc = useHpcKmers ? compressHomoPolymers(seq) : seq;
 
-                    if (itr.start(hpc)) {
-                        int numKmers = hpc.length() - k + 1;
-                        int numWindows = numKmers/windowSize;
-                        if (numKmers % windowSize > 0) {
-                            ++numWindows;
-                        }
-                        
-                        int numWindowsSeen = 0;
-                        int windowIndex = 0;
-                        boolean windowStatus = false;
-                        while (itr.hasNext()) {
-                            itr.next();
-
-                            if (itr.getPos()/windowSize > windowIndex) {
-                                ++windowIndex;
-                                windowStatus = false;
+                        if (itr.start(hpc)) {
+                            int numKmers = hpc.length() - k + 1;
+                            int numWindows = numKmers/windowSize;
+                            if (numKmers % windowSize > 0) {
+                                ++numWindows;
                             }
 
-                            if (bf.lookup(hVals)) {
-                                if (!windowStatus) {
-                                    ++numWindowsSeen;
-                                }
-                                windowStatus = true;
-                            }
-                        }
-
-                        if (numWindowsSeen < Math.max(minMatchingWindows, Math.round(minMatchingProportion * numWindows))) {
-                            // a unique sequence
-                            
-                            itr.start(hpc);
+                            int numWindowsSeen = 0;
+                            int windowIndex = 0;
+                            boolean windowStatus = false;
                             while (itr.hasNext()) {
                                 itr.next();
-                                bf.add(hVals);
+
+                                if (itr.getPos()/windowSize > windowIndex) {
+                                    ++windowIndex;
+                                    windowStatus = false;
+                                }
+
+                                if (bf.lookup(hVals)) {
+                                    if (!windowStatus) {
+                                        ++numWindowsSeen;
+                                    }
+                                    windowStatus = true;
+                                }
                             }
 
-                            writer.write("seed" + Integer.toString(++id), seq);
+                            if (numWindowsSeen < Math.max(minMatchingWindows, Math.round(minMatchingProportion * numWindows))) {
+                                // a unique sequence
+
+                                itr.start(hpc);
+                                while (itr.hasNext()) {
+                                    itr.next();
+                                    bf.add(hVals);
+                                }
+
+                                writer.write("seed" + Integer.toString(++id), seq);
+                            }
                         }
                     }
                 }
