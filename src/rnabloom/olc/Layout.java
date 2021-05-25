@@ -1712,7 +1712,8 @@ public class Layout {
                 prevName = r.qName;
             }
             
-            if ((!stranded || !r.reverseComplemented) && hasLargeOverlap(r)) {                
+            if ((!stranded || !r.reverseComplemented) &&
+                    hasLargeOverlap(r) && hasGoodOverlap(r)) {                
                 targets.add(r.tName);
             }
         }
@@ -1769,9 +1770,10 @@ public class Layout {
                 for (String n : readNames) {
                     readClusterIDs.put(n, numClusters);
                 }
-
-                if (readNames.size() > largestClusterSize) {
-                    largestClusterSize = readNames.size();
+                
+                int size = readNames.size();
+                if (size > largestClusterSize) {
+                    largestClusterSize = size;
                     largestClusterID = numClusters;
                 }
                 
@@ -1796,55 +1798,52 @@ public class Layout {
         // write fasta files
         timer.start();
         FastaReader fr = new FastaReader(seqFastaPath);
-        int[] counts = new int[numClusters+1];
-        int numOrphans = 0;
-        final int maxBufferSize = 10000000;
-        int numReadsInBuffer = 0;
-        ArrayDeque<CompressedFastaRecord> orphanRecords = new ArrayDeque<>();
-        HashMap<Integer, ArrayDeque<CompressedFastaRecord>> clusterRecords = new HashMap<>(Math.min(numClusters, maxBufferSize));
+        ArrayDeque<CompressedFastaRecord>[] clusterRecords = new ArrayDeque[numClusters+1];
+        clusterRecords[0] = new ArrayDeque<>();
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
             String seq = nameSeq[1];
             
             Integer cid = readClusterIDs.get(name);
-            ArrayDeque<CompressedFastaRecord> fastaBuffer = null;
             if (cid != null) {
-                counts[cid] += 1;
-                fastaBuffer = clusterRecords.get(cid);
+                ArrayDeque<CompressedFastaRecord> fastaBuffer = clusterRecords[cid];
                 if (fastaBuffer == null) {
                     fastaBuffer = new ArrayDeque<>();
-                    clusterRecords.put(cid, fastaBuffer);
+                    clusterRecords[cid] = fastaBuffer;
                 }
                 fastaBuffer.add(new CompressedFastaRecord(name, seq));
-                ++numReadsInBuffer;
             } 
             else {
-                ++numOrphans;
-                orphanRecords.add(new CompressedFastaRecord(name, seq));
+                clusterRecords[0].add(new CompressedFastaRecord(name, seq));
                 continue;
-            }
-            
-            if (numReadsInBuffer >= maxBufferSize) {
-                emptyClusterFastaBuffer(clusterRecords, outdir, true);
-                numReadsInBuffer = 0;
             }
         }
         fr.close();
         
-        counts[0] = numOrphans;
-        
-        if (!clusterRecords.isEmpty()) {
-            emptyClusterFastaBuffer(clusterRecords, outdir, true);
-        }
-        
-        emptyOrphanRecords(orphanRecords, outdir, false);
+        int[] counts = writeClusterFastaFiles(clusterRecords, outdir);
         System.gc();
         
-        printMessage("\t- orphans:\t" + numOrphans);
+        printMessage("\t- orphans:\t" + counts[0]);
         printMessage("Clustered reads written in " + timer.elapsedDHMS());
         printMessage("Clustering completed in " + timer.totalElapsedDHMS());
         
+        return counts;
+    }
+    
+    private int[] writeClusterFastaFiles(ArrayDeque<CompressedFastaRecord>[] clusterRecords, String outdir) throws IOException {
+        int size = clusterRecords.length;
+        int[] counts = new int[size];
+        for (int cid=0; cid<size; ++cid) {
+            String filePath = outdir + File.separator + cid + File.separator + cid + FASTA_EXT + GZIP_EXT;
+            FastaWriter fw = new FastaWriter(filePath, false);
+            ArrayDeque<CompressedFastaRecord> records = clusterRecords[cid];
+            for (CompressedFastaRecord f : records) {
+                fw.write(f.name, f.seqbits.toString());
+            }
+            fw.close();
+            counts[cid] = records.size();
+        }
         return counts;
     }
     
