@@ -2247,24 +2247,27 @@ public class Layout {
                                 containedSet.add(r.tName);
                                 break;
                             case BOTH:
-                                if (r.qLen > r.tLen) {
-                                    containedSet.add(r.tName);
-                                }
-                                else if (r.tLen > r.qLen) {
-                                    containedSet.add(r.qName);
-                                }
-                                else {
-                                    if (r.qName.compareTo(r.tName) > 0) {
+                                if (!containedSet.contains(r.qName) &&
+                                        !containedSet.contains(r.tName)) {
+                                    if (r.qLen > r.tLen) {
                                         containedSet.add(r.tName);
                                     }
-                                    else {
+                                    else if (r.tLen > r.qLen) {
                                         containedSet.add(r.qName);
+                                    }
+                                    else {
+                                        if (r.qName.compareTo(r.tName) > 0) {
+                                            containedSet.add(r.tName);
+                                        }
+                                        else {
+                                            containedSet.add(r.qName);
+                                        }
                                     }
                                 }
                                 break;
                             case NEITHER:
                                 if (!containedSet.contains(r.qName) &&
-                                    !containedSet.contains(r.tName) &&
+                                        !containedSet.contains(r.tName) &&
                                         isForwardDovetailPafRecord(r)) {
                                     pendingOverlaps.add(pafToOverlap(r));
                                 }
@@ -2318,24 +2321,27 @@ public class Layout {
                                 containedSet.add(r.tName);
                                 break;
                             case BOTH:
-                                if (r.qLen > r.tLen) {
-                                    containedSet.add(r.tName);
-                                }
-                                else if (r.tLen > r.qLen) {
-                                    containedSet.add(r.qName);
-                                }
-                                else {
-                                    if (r.qName.compareTo(r.tName) > 0) {
+                                if (!containedSet.contains(r.qName) &&
+                                        !containedSet.contains(r.tName)) {
+                                    if (r.qLen > r.tLen) {
                                         containedSet.add(r.tName);
                                     }
-                                    else {
+                                    else if (r.tLen > r.qLen) {
                                         containedSet.add(r.qName);
+                                    }
+                                    else {
+                                        if (r.qName.compareTo(r.tName) > 0) {
+                                            containedSet.add(r.tName);
+                                        }
+                                        else {
+                                            containedSet.add(r.qName);
+                                        }
                                     }
                                 }
                                 break;
                             case NEITHER:
                                 if (!containedSet.contains(r.qName) &&
-                                    !containedSet.contains(r.tName) &&
+                                        !containedSet.contains(r.tName) &&
                                         isDovetailPafRecord(r)) {
                                     pendingOverlaps.add(pafToStrandedOverlap(r));
                                 }
