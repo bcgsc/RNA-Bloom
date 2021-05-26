@@ -265,7 +265,7 @@ public class SeqSubsampler {
                                     bf.add(hVals);
                                 }
 
-                                writer.write("seed" + Integer.toString(++id), seq);
+                                writer.write("s" + Integer.toString(++id), seq);
                             }
                         }
                     }

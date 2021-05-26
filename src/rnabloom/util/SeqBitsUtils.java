@@ -402,7 +402,7 @@ public class SeqBitsUtils {
         
         int cid = 0;
         for (BitSequence b : list) {
-            writer.write("a" + ++cid, b.toString());
+            writer.write("r" + ++cid, b.toString());
         }
         
         writer.close();
