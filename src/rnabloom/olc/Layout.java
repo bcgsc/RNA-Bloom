@@ -1636,50 +1636,63 @@ public class Layout {
         }
     }
     
-    private void processTargets(HashSet<String> targets, HashMap<String, 
-            SeededCluster> seedNameClusterMap, String prevName) {
-        if (targets.size() == 1) {
-            String t = targets.iterator().next();
-            SeededCluster cluster = seedNameClusterMap.get(t);
-            if (cluster == null) {
-                cluster = new SeededCluster();
-                cluster.addSeedName(t);
-                seedNameClusterMap.put(t, cluster);
-            }
-            cluster.addReadName(prevName);
-        }
-        else {
-            // find largest cluster
-            SeededCluster mergedCluster = null;
-            for (String t : targets) {
-                SeededCluster cluster = seedNameClusterMap.get(t);
-                if (mergedCluster == null ||
-                        (cluster != null && cluster.size() > mergedCluster.size())) {
-                    mergedCluster = cluster;
-                }
-            }
-
-            if (mergedCluster == null) {
-                mergedCluster = new SeededCluster();
-            }
-
-            // merge clusters
-            for (String t : targets) {
-                SeededCluster cluster = seedNameClusterMap.get(t);
-                if (cluster != null && cluster != mergedCluster) {
-                    mergedCluster.merge(cluster);
-                }
-            }
-
-            mergedCluster.addSeedNames(targets);
-            mergedCluster.addReadName(prevName);
-
-            for (String s : mergedCluster.seedNames) {
-                seedNameClusterMap.put(s, mergedCluster);
+    private void addReadName(String readName, HashSet<String> seedNames,
+            HashMap<String, SeededCluster> seedNameClusterMap) {
+        
+        SeededCluster cluster = null;
+        for (String s : seedNames) {
+            cluster = seedNameClusterMap.get(s);
+            if (cluster != null) {
+                break;
             }
         }
-
-        targets.clear();
+        
+        if (cluster == null) {
+            cluster = new SeededCluster();
+            for (String s : seedNames) {
+                seedNameClusterMap.put(s, cluster);
+            }
+        }
+        
+        cluster.addSeedNames(seedNames);
+        cluster.addReadName(readName);
+        
+        seedNames.clear();
+    }
+    
+    private void mergeClusters(HashMap<String, SeededCluster> seedNameClusterMap) {
+        HashSet<String> visited = new HashSet<>();
+        
+        for (String seed : new ArrayDeque<>(seedNameClusterMap.keySet())) {
+            if (!visited.contains(seed)) {
+                SeededCluster mainCluster = seedNameClusterMap.get(seed);
+                visited.add(seed);
+                
+                HashSet<String> pendingSeedNames = new HashSet<>(mainCluster.seedNames);
+                pendingSeedNames.removeAll(visited);
+                
+                while (!pendingSeedNames.isEmpty()) {
+                    Iterator<String> itr = pendingSeedNames.iterator();
+                    String s = itr.next();
+                    itr.remove();
+                    
+                    SeededCluster c = seedNameClusterMap.get(s);
+                    visited.add(s);
+                    
+                    if (c == null) {
+                        seedNameClusterMap.put(s, mainCluster);
+                    } 
+                    else if (c != mainCluster) {
+                        HashSet<String> update = new HashSet<>(c.seedNames);
+                        update.removeAll(visited);
+                        pendingSeedNames.addAll(update);
+                        mainCluster.merge(c);
+                        
+                        seedNameClusterMap.put(s, mainCluster);
+                    }
+                }
+            }
+        }
     }
     
     public int[] extractClustersFromMapping(String outdir) throws IOException {
@@ -1700,7 +1713,7 @@ public class Layout {
             
             if (!r.qName.equals(prevName)) {
                 if (!targets.isEmpty()) {
-                    processTargets(targets, seedNameClusterMap, prevName);
+                    addReadName(prevName, targets, seedNameClusterMap);
                 }
                 
                 prevName = r.qName;
@@ -1714,14 +1727,18 @@ public class Layout {
         
         // process targets for the final query
         if (!targets.isEmpty()) {
-            processTargets(targets, seedNameClusterMap, prevName);
+            addReadName(prevName, targets, seedNameClusterMap);
         }
-        
+
         reader.close();
         printMessage("Parsed " + NumberFormat.getInstance().format(records) + " overlap records in " + timer.elapsedDHMS());
         
-        // assign cluster IDs
         timer.start();
+        
+        // merge overlapping clusters
+        mergeClusters(seedNameClusterMap);
+        
+        // assign cluster IDs
         int numClusters = 0;
         int largestClusterSize = 0;
         int largestClusterID = -1;
