@@ -1637,8 +1637,12 @@ public class Layout {
         }
     }
     
-    private void addReadName(String readName, HashSet<String> seedNames,
+    private void addReadName(String readName, Collection<Neighbor> neighbors,
             HashMap<String, SeededCluster> seedNameClusterMap) {
+        HashSet<String> seedNames = new HashSet<>();
+        for (Neighbor n : neighbors) {
+            seedNames.add(n.name);
+        }
         
         SeededCluster cluster = null;
         for (String s : seedNames) {
@@ -1657,8 +1661,6 @@ public class Layout {
         
         cluster.addSeedNames(seedNames);
         cluster.addReadName(readName);
-        
-        seedNames.clear();
     }
     
     private void mergeClusters(HashMap<String, SeededCluster> seedNameClusterMap) {
@@ -1706,7 +1708,8 @@ public class Layout {
         
         PafReader reader = new PafReader(overlapPafInputStream);
         String prevName = null;
-        HashSet<String> targets = new HashSet<>();
+        ArrayList<Neighbor> targets = new ArrayList<>();
+        int numTargetsToKeep = 2;
         long records = 0;
         for (PafRecord r = new PafRecord(); reader.hasNext();) {
             ++records;
@@ -1714,7 +1717,9 @@ public class Layout {
             
             if (!r.qName.equals(prevName)) {
                 if (!targets.isEmpty()) {
-                    addReadName(prevName, targets, seedNameClusterMap);
+                    Collections.sort(targets);
+                    addReadName(prevName, targets.subList(0, Math.min(targets.size(), numTargetsToKeep)), seedNameClusterMap);
+                    targets.clear();
                 }
                 
                 prevName = r.qName;
@@ -1722,13 +1727,15 @@ public class Layout {
             
             if ((!stranded || !r.reverseComplemented) &&
                     hasLargeOverlap(r) && hasGoodOverlap(r)) {                
-                targets.add(r.tName);
+                targets.add(new Neighbor(r.tName, r.numMatch));
             }
         }
         
         // process targets for the final query
         if (!targets.isEmpty()) {
-            addReadName(prevName, targets, seedNameClusterMap);
+            Collections.sort(targets);
+            addReadName(prevName, targets.subList(0, Math.min(targets.size(), numTargetsToKeep)), seedNameClusterMap);
+            targets.clear();
         }
 
         reader.close();
