@@ -17,6 +17,7 @@
 package rnabloom.olc;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.NumberFormat;
@@ -1743,6 +1744,9 @@ public class Layout {
         int largestClusterSize = 0;
         int largestClusterID = -1;
         HashMap<String, Integer> readClusterIDs = new HashMap<>();
+        String clusterDescPath = outdir + File.separator + "cluster_desc.txt";
+        FileWriter writer = new FileWriter(clusterDescPath);
+        writer.write("cid\tsize\tnum_seeds\tseeds\n");
         for (SeededCluster c : seedNameClusterMap.values()) {
             int size = c.size();
             if (size > 0) {       
@@ -1757,10 +1761,13 @@ public class Layout {
                     largestClusterID = numClusters;
                 }
                 
+                writer.write(numClusters + "\t" + c.readNames.size() + "\t" + c.seedNames.size() + "\t" + c.seedNames.toString() + "\n");
+                
                 // clear set because seeds in a merged cluster point to the same set
                 c.readNames.clear();
             }
         }
+        writer.close();
                 
         printMessage("Cluster IDs assigned in " + timer.elapsedDHMS());
         printMessage("\t- clusters:\t" + numClusters);
