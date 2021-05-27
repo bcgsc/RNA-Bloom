@@ -107,7 +107,7 @@ import rnabloom.util.WeightedBitSequence;
  * @author Ka Ming Nip
  */
 public class RNABloom {
-    public final static String VERSION = "1.4.3-r2021-05-23a";
+    public final static String VERSION = "1.4.3-r2021-05-27a";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
@@ -3228,6 +3228,7 @@ public class RNABloom {
     public boolean assembleClusteredLongReads(String readsPath,
                                     String seedsPath,
                                     String seedsPath2,
+                                    String seedsPath3,
                                     String clusterdir, 
                                     String outFasta,
                                     boolean writeUracil,
@@ -3247,14 +3248,27 @@ public class RNABloom {
                                     int numHash,
                                     int minSeqLen) throws IOException {
         
+        deleteIfExists(seedsPath2);
+        deleteIfExists(seedsPath3);
+        
         System.out.println("Trimming seed reads...");
         trimSplitByReadDepth(readsPath, seedsPath, seedsPath2,
             numThreads, true, minimapOptions, stranded,
             maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
             removeArtifacts, minSeqDepth, usePacBioPreset, true, minSeqLen);
         
+        System.out.println("Assembling seed reads...");
+        boolean ok = overlapLayout(seedsPath2, seedsPath3,
+            numThreads, stranded, minimapOptions, maxEdgeClip,
+            minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
+            minSeqDepth, usePacBioPreset, true);
+        
+        if (!ok) {
+            return false;
+        }
+        
         System.out.println("Clustering reads...");
-        int numClusters = mapClusteredOLC(readsPath, seedsPath2, clusterdir,
+        int numClusters = mapClusteredOLC(readsPath, seedsPath3, clusterdir,
                             numThreads, stranded, minimapOptions, maxEdgeClip,
                             minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
                             minSeqDepth, usePacBioPreset, forceOverwrite,
@@ -3296,7 +3310,7 @@ public class RNABloom {
         fout.close();
         
         System.out.println("Inter-cluster assembly...");
-        boolean ok = overlapLayout(catFasta, outFasta,
+        ok = overlapLayout(catFasta, outFasta,
                 numThreads, stranded, minimapOptions,
                 maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize, false, 1, usePacBioPreset, true);
 
@@ -5083,7 +5097,7 @@ public class RNABloom {
     */
     
     private static boolean assembleClusteredLongReads(RNABloom assembler,
-            String readsFasta, String seedsFasta, String seedsFasta2,
+            String readsFasta, String seedsFasta, String seedsFasta2, String seedsFasta3,
             String clusterdir, String outFasta,
             boolean writeUracil, int numThreads, boolean forceOverwrite,
             String minimapOptions, int minKmerCov,
@@ -5109,6 +5123,7 @@ public class RNABloom {
         return assembler.assembleClusteredLongReads(readsFasta,
                                     seedsFasta,
                                     seedsFasta2,
+                                    seedsFasta3,
                                     clusterdir, 
                                     outFasta,
                                     writeUracil,
@@ -6876,6 +6891,7 @@ public class RNABloom {
 //                String subSampledReadsPath = correctedLongReadFilePrefix + ".long.subsampled" + FASTA_EXT + GZIP_EXTENSION;
                 String seedReadsPath = correctedLongReadFilePrefix + ".long.seed" + FASTA_EXT + GZIP_EXT;
                 String seedReadsPath2 = correctedLongReadFilePrefix + ".long.seed2" + FASTA_EXT + GZIP_EXT;
+                String seedReadsPath3 = correctedLongReadFilePrefix + ".long.seed3" + FASTA_EXT + GZIP_EXT;
 //                String numCorrectedReadsPath = correctedLongReadFilePrefix + ".count";
 //                ArrayList<WeightedBitSequence> correctedReads = null;
                 
@@ -6969,7 +6985,7 @@ public class RNABloom {
                     final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
                     
                     boolean ok = assembleClusteredLongReads(assembler,
-                            longCorrectedReadsPath, seedReadsPath, seedReadsPath2,
+                            longCorrectedReadsPath, seedReadsPath, seedReadsPath2, seedReadsPath3,
                             clusteredLongReadsDirectory,
                             assembledTranscriptsPath, writeUracil, 
                             numThreads, forceOverwrite, minimapOptions, minKmerCov, 

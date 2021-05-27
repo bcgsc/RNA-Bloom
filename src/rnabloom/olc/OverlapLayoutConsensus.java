@@ -228,7 +228,7 @@ public class OverlapLayoutConsensus {
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
 
-            File logFile = new File(targetFastaPath + LOG_EXTENSION);
+            File logFile = new File(outFastaPath + LOG_EXTENSION);
             pb.redirectError(Redirect.to(logFile));
             
             Process process = pb.start();

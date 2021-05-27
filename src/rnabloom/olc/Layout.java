@@ -1734,12 +1734,13 @@ public class Layout {
         FastaReader fr = new FastaReader(targetFastaPath);
         FastaRecord record = new FastaRecord();
         int numSplitted = 0;
+        int minDepth = minNumAltReads + 1;
         while (fr.hasNext()) {
             fr.nextWithName(record);
             
             Histogram hist = histogramMap.get(record.name);
             if (hist != null) {
-                ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, getHistogramBinSize(hist.length), minNumAltReads, minSegmentLength);
+                ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, getHistogramBinSize(hist.length), minDepth, minSegmentLength);
                 if (!spans.isEmpty()) {
                     if (spans.size() > 1) {
                         ++numSplitted;
@@ -1829,22 +1830,35 @@ public class Layout {
         // process counts
         int numSeedPairs = seedPairCounts.size();
         int numGoodSeedPairs = 0;
-        int threshold = this.minNumAltReads + 1;
+        int minPairingReads = this.minNumAltReads + 1;
+//        float minProportion = 0.01f;
         for (Entry<String, Integer> e : seedPairCounts.entrySet()) {
             String[] tuple = splitMergedKey(e.getKey());
             int count = e.getValue();
-            if (count >= threshold) {
+            if (count >= minPairingReads) {
                 ++numGoodSeedPairs;
                 String a = tuple[0];
                 String b = tuple[1];
-                SeededCluster c = seedNameClusterMap.get(a);
-                if (c != null) {
-                    c.addSeedName(b);
-                }
-                c = seedNameClusterMap.get(b);
-                if (c != null) {
-                    c.addSeedName(a);
-                }
+                SeededCluster clusterA = seedNameClusterMap.get(a);
+                SeededCluster clusterB = seedNameClusterMap.get(b);
+//                int sizeA = 0;
+//                int sizeB = 0;
+//                if (clusterA != null) {
+//                    sizeA = clusterA.size();
+//                }
+//
+//                if (clusterB != null) {
+//                    sizeB = clusterB.size();
+//                }
+//                                
+//                if (minPairingReads >= minProportion * Math.min(sizeA, sizeB)) {
+                    if (clusterA != null) {
+                        clusterA.addSeedName(b);
+                    }
+                    if (clusterB != null) {
+                        clusterB.addSeedName(a);
+                    }
+//                }
             }
         }
         
