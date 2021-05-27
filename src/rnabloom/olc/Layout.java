@@ -1461,7 +1461,6 @@ public class Layout {
         
         PafReader reader = new PafReader(overlapPafInputStream);
         final boolean checkNumAltReads = minNumAltReads > 0;
-        long numRecords = 0;
         
         ArrayDeque<TargetOverlap> currRecords = new ArrayDeque<>();
         String currName = null;
@@ -1470,7 +1469,6 @@ public class Layout {
         boolean currContained = false;
         
         for (PafRecord r = new PafRecord(); reader.hasNext();) {
-            ++numRecords;
             reader.next(r);
             
             if ((!stranded || !r.reverseComplemented)&&
@@ -1546,7 +1544,7 @@ public class Layout {
             }
         }
         
-        printMessage("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
+        printMessage("Parsed " + NumberFormat.getInstance().format(reader.getNumRecords()) + " overlap records in " + timer.elapsedDHMS());
         
         // look for unique reads
         timer.start();
@@ -1637,29 +1635,35 @@ public class Layout {
         }
     }
     
-    private void addReadName(String readName, Collection<Neighbor> neighbors,
-            HashMap<String, SeededCluster> seedNameClusterMap) {
-        HashSet<String> seedNames = new HashSet<>();
-        for (Neighbor n : neighbors) {
-            seedNames.add(n.name);
-        }
+    private void addReadName(String readName, ArrayList<Neighbor> targets,
+            HashMap<String, SeededCluster> seedNameClusterMap,
+            HashMap<String, Integer> seedPairCounts) {
         
-        SeededCluster cluster = null;
-        for (String s : seedNames) {
-            cluster = seedNameClusterMap.get(s);
-            if (cluster != null) {
-                break;
+        String seedName = null;
+        
+        if (targets.size() == 1) {
+            seedName = targets.iterator().next().name;
+        }
+        else {
+            Collections.sort(targets);
+            seedName = targets.get(0).name;
+            String tuple = getMergedKey(seedName, targets.get(1).name);
+            Integer count = seedPairCounts.get(tuple);
+            if (count == null) {
+                seedPairCounts.put(tuple, 1);
+            }
+            else {
+                seedPairCounts.put(tuple, count+1);
             }
         }
         
+        SeededCluster cluster = seedNameClusterMap.get(seedName);        
         if (cluster == null) {
             cluster = new SeededCluster();
-            for (String s : seedNames) {
-                seedNameClusterMap.put(s, cluster);
-            }
+            cluster.addSeedName(seedName);
+            seedNameClusterMap.put(seedName, cluster);
         }
         
-        cluster.addSeedNames(seedNames);
         cluster.addReadName(readName);
     }
     
@@ -1698,6 +1702,86 @@ public class Layout {
         }
     }
     
+    public void trimSplitByReadDepth(String targetFastaPath, String outFastaPath, int minSegmentLength) throws IOException {
+        Timer timer = new Timer();
+        
+        HashMap<String, Histogram> histogramMap = new HashMap<>();
+        
+        PafReader reader = new PafReader(overlapPafInputStream);
+        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+            reader.next(r);
+            
+            if ((!stranded || !r.reverseComplemented) && hasLargeOverlap(r)) {
+                Histogram h = histogramMap.get(r.tName);
+                int binSize = getHistogramBinSize(r.tLen);
+                if (h == null) {
+                    h = new Histogram(r.tLen, r.tStart, r.tEnd, binSize);
+                    histogramMap.put(r.tName, h);
+                }
+                else {
+                    updateHistogram(h, r.tStart, r.tEnd, binSize);
+                }
+            }
+        }
+        reader.close();
+        
+        printMessage("Parsed " + NumberFormat.getInstance().format(reader.getNumRecords()) + " mapping records in " + timer.elapsedDHMS());
+        
+        timer.start();
+        FastaWriter fw = new FastaWriter(outFastaPath, false);
+        FastaReader fr = new FastaReader(targetFastaPath);
+        FastaRecord record = new FastaRecord();
+        int numSplitted = 0;
+        while (fr.hasNext()) {
+            fr.nextWithName(record);
+            
+            Histogram hist = histogramMap.get(record.name);
+            if (hist != null) {
+                ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, getHistogramBinSize(hist.length), minNumAltReads, minSegmentLength);
+                if (!spans.isEmpty()) {
+                    if (spans.size() > 1) {
+                        ++numSplitted;
+                        String namePrefix = record.name + "_p";
+                        int segmentID = 1;
+                        for (Interval i : spans) {
+                            if (i.end - i.start >= minSegmentLength) {
+                                String seg = record.seq.substring(i.start, i.end);
+                                String header = namePrefix + segmentID;
+                                fw.write(header, seg);
+                            }
+                        }
+                    }
+                    else {
+                        Interval i = spans.peekFirst();
+                        if (i.end - i.start >= minSegmentLength) {
+                            String seg = record.seq.substring(i.start, i.end);
+                            String header = record.name;
+                            fw.write(header, seg);
+                        }
+                    }
+                }
+            } 
+        }
+        fr.close();
+        fw.close();
+        
+        printMessage("Splitted " + numSplitted + " reads.");
+        printMessage("Wrote trimmed reads in " + timer.elapsedDHMS());
+    }
+    
+    private String getMergedKey(String a, String b) {
+        if (a.compareTo(b) > 0) {
+            return b + " " + a;
+        }
+        else {
+            return a + " " + b;
+        }
+    }
+    
+    private String[] splitMergedKey(String m) {
+        return m.split(" ");
+    }
+    
     public int[] extractClustersFromMapping(String outdir) throws IOException {
         // cluster sequences by mapping them to target seeds
         // merge clusters if sequences map to multiple seeds
@@ -1705,43 +1789,63 @@ public class Layout {
         Timer timer = new Timer();
         
         HashMap<String, SeededCluster> seedNameClusterMap = new HashMap<>();
+        HashMap<String, Integer> seedPairCounts = new HashMap<>();
         
         PafReader reader = new PafReader(overlapPafInputStream);
         String prevName = null;
         ArrayList<Neighbor> targets = new ArrayList<>();
-        int numTargetsToKeep = 2;
-        long records = 0;
         for (PafRecord r = new PafRecord(); reader.hasNext();) {
-            ++records;
             reader.next(r);
             
             if (!r.qName.equals(prevName)) {
                 if (!targets.isEmpty()) {
-                    Collections.sort(targets);
-                    addReadName(prevName, targets.subList(0, Math.min(targets.size(), numTargetsToKeep)), seedNameClusterMap);
+                    addReadName(prevName, targets, seedNameClusterMap, seedPairCounts);
                     targets.clear();
                 }
                 
                 prevName = r.qName;
             }
             
-            if ((!stranded || !r.reverseComplemented) &&
-                    hasLargeOverlap(r) && hasGoodOverlap(r)) {                
+            if ((!stranded || !r.reverseComplemented) && hasLargeOverlap(r)) {                
                 targets.add(new Neighbor(r.tName, r.numMatch));
             }
         }
+        reader.close();
         
         // process targets for the final query
         if (!targets.isEmpty()) {
-            Collections.sort(targets);
-            addReadName(prevName, targets.subList(0, Math.min(targets.size(), numTargetsToKeep)), seedNameClusterMap);
+            addReadName(prevName, targets, seedNameClusterMap, seedPairCounts);
             targets.clear();
         }
-
-        reader.close();
-        printMessage("Parsed " + NumberFormat.getInstance().format(records) + " overlap records in " + timer.elapsedDHMS());
+        
+        printMessage("Parsed " + NumberFormat.getInstance().format(reader.getNumRecords()) + " mapping records in " + timer.elapsedDHMS());
         
         timer.start();
+        
+        // process counts
+        int numSeedPairs = seedPairCounts.size();
+        int numGoodSeedPairs = 0;
+        int threshold = this.minNumAltReads + 1;
+        for (Entry<String, Integer> e : seedPairCounts.entrySet()) {
+            String[] tuple = splitMergedKey(e.getKey());
+            int count = e.getValue();
+            if (count >= threshold) {
+                ++numGoodSeedPairs;
+                String a = tuple[0];
+                String b = tuple[1];
+                SeededCluster c = seedNameClusterMap.get(a);
+                if (c != null) {
+                    c.addSeedName(b);
+                }
+                c = seedNameClusterMap.get(b);
+                if (c != null) {
+                    c.addSeedName(a);
+                }
+            }
+        }
+        
+        printMessage("Kept " + numGoodSeedPairs + " of " + numSeedPairs +
+                " (" + convertToRoundedPercent(numGoodSeedPairs/(float)numSeedPairs) + " %) seed pairs.");
         
         // merge overlapping clusters
         mergeClusters(seedNameClusterMap);
@@ -1851,14 +1955,8 @@ public class Layout {
         final int maxBestNeighbors = 2;
         BestNeighborPairs bestNeighbors = new BestNeighborPairs(maxBestNeighbors);
 //        BestNeighbor bestNeighbors = new BestNeighbor();
-                
-        long records = 0;
-        for (PafRecord r = new PafRecord(); reader.hasNext();) {
-            ++records;
-//            if (++records % 1000000 == 0) {
-//                System.out.println("Parsed " + NumberFormat.getInstance().format(records) + " overlap records...");
-//            }
-            
+        
+        for (PafRecord r = new PafRecord(); reader.hasNext();) {            
             reader.next(r);
             
             if ((!stranded || !r.reverseComplemented) &&
@@ -1888,7 +1986,7 @@ public class Layout {
         }
         reader.close();
         
-        printMessage("Parsed " + NumberFormat.getInstance().format(records) + " overlap records in " + timer.elapsedDHMS());
+        printMessage("Parsed " + NumberFormat.getInstance().format(reader.getNumRecords()) + " overlap records in " + timer.elapsedDHMS());
         
         // identify multi-segment reads and extract effective intervals
         final int minHistSegLen = minOverlapMatches/histBinSize;
@@ -2207,7 +2305,6 @@ public class Layout {
     
     private HashSet<String> populateGraphFromOverlaps() throws IOException {
         Timer timer = new Timer();
-        long numRecords = 0;
         
         HashSet<String> containedSet = new HashSet<>();
         PafReader reader = new PafReader(overlapPafInputStream);
@@ -2221,7 +2318,6 @@ public class Layout {
             ArrayDeque<Overlap> pendingOverlaps = new ArrayDeque<>();
             
             for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
-                ++numRecords;
                 reader.next(r);            
                 if (!r.reverseComplemented && !r.qName.equals(r.tName)) {
                     if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
@@ -2302,7 +2398,6 @@ public class Layout {
             ArrayDeque<StrandedOverlap> pendingOverlaps = new ArrayDeque<>();
             
             for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
-                ++numRecords;
                 reader.next(r);            
                 if (!r.qName.equals(r.tName)) {
                     if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
@@ -2376,7 +2471,7 @@ public class Layout {
             }
         }
         
-        printMessage("Parsed " + NumberFormat.getInstance().format(numRecords) + " overlap records in " + timer.elapsedDHMS());
+        printMessage("Parsed " + NumberFormat.getInstance().format(reader.getNumRecords()) + " overlap records in " + timer.elapsedDHMS());
         
         return containedSet;
     }

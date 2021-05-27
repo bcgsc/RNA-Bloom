@@ -204,6 +204,51 @@ public class OverlapLayoutConsensus {
         return status;
     }
     
+    public static boolean trimSplitByReadDepth(String queryFastaPath, 
+            String targetFastaPath, String outFastaPath,
+            int numThreads, boolean align, String minimapOptions, boolean stranded,
+            int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
+            boolean cutRevCompArtifact, int minSeqDepth, boolean usePacBioPreset, boolean verbose, int minLen) {
+        
+        ArrayList<String> command = new ArrayList<>();
+        command.add("/bin/sh");
+        command.add("-c");
+        
+        if (align) {
+            minimapOptions = "-c " + minimapOptions;
+        }
+        
+        if (stranded) {
+            minimapOptions = "--for-only " + minimapOptions;
+        }
+        
+        String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
+        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+        
+        try {            
+            ProcessBuilder pb = new ProcessBuilder(command);
+
+            File logFile = new File(targetFastaPath + LOG_EXTENSION);
+            pb.redirectError(Redirect.to(logFile));
+            
+            Process process = pb.start();
+            
+            Layout myLayout = new Layout(queryFastaPath, process.getInputStream(), stranded, maxEdgeClip, minAlnId, 
+                    minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth, verbose);
+            myLayout.trimSplitByReadDepth(targetFastaPath, outFastaPath, minLen);
+            
+            int exitStatus = process.waitFor();
+            if (exitStatus != 0) {
+                return false;
+            }    
+        }
+        catch (IOException | InterruptedException e) {
+            return false;
+        }
+        
+        return true;
+    }
+    
     public static int[] mapWithMinimapAndExtractClusters(String queryFastaPath, 
             String targetFastaPath, String clustersDir,
             int numThreads, boolean align, String minimapOptions, boolean stranded,
@@ -223,7 +268,7 @@ public class OverlapLayoutConsensus {
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x map-" + preset + " -c " + minimapOptions + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
         
         int[] clusterSizes = null;
         try {            

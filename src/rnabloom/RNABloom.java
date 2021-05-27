@@ -90,6 +90,7 @@ import rnabloom.io.FastaRecord;
 import rnabloom.io.SequenceFileIteratorInterface;
 import rnabloom.olc.Interval;
 import static rnabloom.olc.OverlapLayoutConsensus.mapClusteredOLC;
+import static rnabloom.olc.OverlapLayoutConsensus.trimSplitByReadDepth;
 import static rnabloom.olc.OverlapLayoutConsensus.uniqueOLC;
 import static rnabloom.util.FileUtils.deleteIfExists;
 import static rnabloom.util.FileUtils.hasOnlyOneSequence;
@@ -3226,6 +3227,7 @@ public class RNABloom {
 
     public boolean assembleClusteredLongReads(String readsPath,
                                     String seedsPath,
+                                    String seedsPath2,
                                     String clusterdir, 
                                     String outFasta,
                                     boolean writeUracil,
@@ -3241,10 +3243,18 @@ public class RNABloom {
                                     int minSeqDepth,
                                     boolean usePacBioPreset,
                                     boolean forceOverwrite,
-                                    long bfSize, int numHash) throws IOException {
+                                    long bfSize,
+                                    int numHash,
+                                    int minSeqLen) throws IOException {
+        
+        System.out.println("Trimming seed reads...");
+        trimSplitByReadDepth(readsPath, seedsPath, seedsPath2,
+            numThreads, true, minimapOptions, stranded,
+            maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
+            removeArtifacts, minSeqDepth, usePacBioPreset, true, minSeqLen);
         
         System.out.println("Clustering reads...");
-        int numClusters = mapClusteredOLC(readsPath, seedsPath, clusterdir,
+        int numClusters = mapClusteredOLC(readsPath, seedsPath2, clusterdir,
                             numThreads, stranded, minimapOptions, maxEdgeClip,
                             minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
                             minSeqDepth, usePacBioPreset, forceOverwrite,
@@ -3779,14 +3789,12 @@ public class RNABloom {
                                             ArrayList<Interval> splitted = splitAtLowCoverage(correctedKmers, graph, minKmerCov, maxLowCovGapSize, lookahead);
 
                                             if (splitted.isEmpty()) {
-                                                //float cov = getMedianKmerCoverage(correctedKmers);
-                                                //int numSolidKmers = countSolidKmers(kmers, minKmerCov);
-
                                                 segment = graph.assemble(correctedKmers);
 
                                                 int segLength = segment.length();
                                                 //boolean isRepeat = isLowComplexityLongWindowed(segment);
-                                                float score = (float) getTotalLogKmerCoverage(correctedKmers, minKmerCov);
+                                                //float score = (float) getTotalLogKmerCoverage(correctedKmers, minKmerCov);
+                                                float score = countSolidKmers(correctedKmers, minKmerCov);
                                                 
                                                 outputQueue.put(new Sequence2(segName, segment, segLength, score, false));
                                             }
@@ -3798,7 +3806,8 @@ public class RNABloom {
 
                                                     int segLength = componentSeq.length();
                                                     //boolean isRepeat = isLowComplexityLongWindowed(componentSeq);
-                                                    float score = (float) getTotalLogKmerCoverage(component, minKmerCov);
+                                                    //float score = (float) getTotalLogKmerCoverage(component, minKmerCov);
+                                                    float score = countSolidKmers(component, minKmerCov);
 
                                                     outputQueue.put(new Sequence2(segName + "_p" + ++pid, componentSeq, segLength, score, false));
                                                 }
@@ -5074,12 +5083,14 @@ public class RNABloom {
     */
     
     private static boolean assembleClusteredLongReads(RNABloom assembler,
-            String readsFasta, String seedsFasta, String clusterdir, String outFasta,
+            String readsFasta, String seedsFasta, String seedsFasta2,
+            String clusterdir, String outFasta,
             boolean writeUracil, int numThreads, boolean forceOverwrite,
             String minimapOptions, int minKmerCov,
             int maxEdgeClip, float minAlnId, int minOverlapMatches,
             String txptNamePrefix, boolean stranded, boolean removeArtifacts,
-            int minSeqDepth, boolean usePacBioPreset, long bfSize, int numHash) throws IOException {
+            int minSeqDepth, boolean usePacBioPreset, long bfSize, int numHash,
+            int minSeqLen) throws IOException {
         
         File outdir = new File(clusterdir);
         
@@ -5097,6 +5108,7 @@ public class RNABloom {
         
         return assembler.assembleClusteredLongReads(readsFasta,
                                     seedsFasta,
+                                    seedsFasta2,
                                     clusterdir, 
                                     outFasta,
                                     writeUracil,
@@ -5112,7 +5124,8 @@ public class RNABloom {
                                     minSeqDepth,
                                     usePacBioPreset,
                                     forceOverwrite,
-                                    bfSize, numHash);
+                                    bfSize, numHash,
+                                    minSeqLen);
     }
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
@@ -6862,6 +6875,7 @@ public class RNABloom {
                 String repeatReadsFileName = correctedLongReadFilePrefix + ".repeats" + FASTA_EXT + GZIP_EXT;
 //                String subSampledReadsPath = correctedLongReadFilePrefix + ".long.subsampled" + FASTA_EXT + GZIP_EXTENSION;
                 String seedReadsPath = correctedLongReadFilePrefix + ".long.seed" + FASTA_EXT + GZIP_EXT;
+                String seedReadsPath2 = correctedLongReadFilePrefix + ".long.seed2" + FASTA_EXT + GZIP_EXT;
 //                String numCorrectedReadsPath = correctedLongReadFilePrefix + ".count";
 //                ArrayList<WeightedBitSequence> correctedReads = null;
                 
@@ -6955,12 +6969,14 @@ public class RNABloom {
                     final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
                     
                     boolean ok = assembleClusteredLongReads(assembler,
-                            longCorrectedReadsPath, seedReadsPath, clusteredLongReadsDirectory,
+                            longCorrectedReadsPath, seedReadsPath, seedReadsPath2,
+                            clusteredLongReadsDirectory,
                             assembledTranscriptsPath, writeUracil, 
                             numThreads, forceOverwrite, minimapOptions, minKmerCov, 
                             maxTipLen, longReadOverlapProportion, minOverlap,
                             txptNamePrefix, strandSpecific, !keepArtifact,
-                            longReadMinReadDepth, usePacBioPreset, cbfSize, cbfNumHash);
+                            longReadMinReadDepth, usePacBioPreset, cbfSize, cbfNumHash,
+                            minTranscriptLength);
                     
                     
                     if (ok) {

@@ -33,6 +33,7 @@ import static rnabloom.io.Constants.GZIP_EXT;
 public class PafReader {
     private final Iterator<String> itr;
     private final BufferedReader br;
+    private long records = 0;
     
     public PafReader(String path) throws IOException {
         if (path.toLowerCase().endsWith(GZIP_EXT)) {
@@ -56,20 +57,27 @@ public class PafReader {
     public ExtendedPafRecord next() {
         ExtendedPafRecord r = new ExtendedPafRecord();
         r.update(itr.next().trim().split("\t"));
+        ++records;
         return r;
     }
 
     public void next(PafRecord record) {
         String[] cols = itr.next().trim().split("\t");
         record.update(cols);
+        ++records;
     }
     
     public void next(ExtendedPafRecord record) {
         String[] cols = itr.next().trim().split("\t");
         record.update(cols);
+        ++records;
     }
     
     public void close() throws IOException {
         br.close();
+    }
+    
+    public long getNumRecords() {
+        return records;
     }
 }

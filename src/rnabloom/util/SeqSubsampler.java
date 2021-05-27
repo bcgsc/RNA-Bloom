@@ -257,6 +257,7 @@ public class SeqSubsampler {
                             }
 
                             if (numWindowsSeen < Math.max(minMatchingWindows, Math.round(minMatchingProportion * numWindows))) {
+                            //if (numWindowsSeen < minMatchingProportion * numWindows) {
                                 // a unique sequence
 
                                 itr.start(hpc);
