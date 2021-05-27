@@ -237,36 +237,38 @@ public class SeqSubsampler {
                                 ++numWindows;
                             }
 
-                            int numWindowsSeen = 0;
-                            int windowIndex = 0;
-                            boolean windowStatus = false;
-                            while (itr.hasNext()) {
-                                itr.next();
-
-                                if (itr.getPos()/windowSize > windowIndex) {
-                                    ++windowIndex;
-                                    windowStatus = false;
-                                }
-
-                                if (bf.lookup(hVals)) {
-                                    if (!windowStatus) {
-                                        ++numWindowsSeen;
-                                    }
-                                    windowStatus = true;
-                                }
-                            }
-
-                            if (numWindowsSeen < Math.max(minMatchingWindows, Math.round(minMatchingProportion * numWindows))) {
-                            //if (numWindowsSeen < minMatchingProportion * numWindows) {
-                                // a unique sequence
-
-                                itr.start(hpc);
+                            if (numWindows >= minMatchingWindows) {
+                                int numWindowsSeen = 0;
+                                int windowIndex = 0;
+                                boolean windowStatus = false;
                                 while (itr.hasNext()) {
                                     itr.next();
-                                    bf.add(hVals);
+
+                                    if (itr.getPos()/windowSize > windowIndex) {
+                                        ++windowIndex;
+                                        windowStatus = false;
+                                    }
+
+                                    if (bf.lookup(hVals)) {
+                                        if (!windowStatus) {
+                                            ++numWindowsSeen;
+                                        }
+                                        windowStatus = true;
+                                    }
                                 }
 
-                                writer.write("s" + Integer.toString(++id), seq);
+                                //if (numWindowsSeen < Math.max(minMatchingWindows, Math.round(minMatchingProportion * numWindows))) {
+                                if (numWindowsSeen < minMatchingProportion * numWindows) {
+                                    // a unique sequence
+
+                                    itr.start(hpc);
+                                    while (itr.hasNext()) {
+                                        itr.next();
+                                        bf.add(hVals);
+                                    }
+
+                                    writer.write("s" + Integer.toString(++id), seq);
+                                }
                             }
                         }
                     }
