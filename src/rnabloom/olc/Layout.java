@@ -1713,7 +1713,7 @@ public class Layout {
             
             if ((!stranded || !r.reverseComplemented) &&
                     hasLargeOverlap(r) && r.numMatch >= minOverlapMatches && 
-                    (!hasAlignment(r) || hasGoodMatches(r, minAlnId))) {
+                    (!hasAlignment(r) || hasGoodAlignment(r))) {
                 Histogram h = histogramMap.get(r.tName);
                 int binSize = getHistogramBinSize(r.tLen);
                 if (h == null) {

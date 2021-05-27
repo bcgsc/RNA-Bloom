@@ -222,8 +222,16 @@ public class OverlapLayoutConsensus {
             minimapOptions = "--for-only " + minimapOptions;
         }
         
+        String minimapOptionsNoGaps = minimapOptions;
+        if (!minimapOptionsNoGaps.contains("-g ")) {
+            minimapOptionsNoGaps += " -g " + 200;
+        }
+        if (!minimapOptionsNoGaps.contains("-r ")) {
+            minimapOptionsNoGaps += " -r " + maxIndelSize;
+        }
+        
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptionsNoGaps + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
         
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
