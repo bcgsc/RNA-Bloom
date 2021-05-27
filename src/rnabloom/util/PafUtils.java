@@ -52,15 +52,30 @@ public class PafUtils {
 //        return r.numMatch / (float)(r.qEnd - r.qStart) >= minAlnId &&
 //                r.numMatch / (float)(r.tEnd - r.tStart) >= minAlnId;
     }
-        
+            
     public static boolean hasAlignment(ExtendedPafRecord r) {
         return r.cigar != null && r.nm >= 0;
     }
     
+    public static boolean hasGoodMatches(ExtendedPafRecord r, float minAlnId) {
+        int totalCigarMatch = 0;
+                
+        Matcher m = CIGAR_OP_PATTERN.matcher(r.cigar);
+        while (m.find()) {
+            int opSize = Integer.parseInt(m.group(1));
+            char op = m.group(2).charAt(0);
+            if (op == 'M') {
+                totalCigarMatch += opSize;
+            }
+        }
+        
+        float alnId = r.numMatch/(float)totalCigarMatch;
+        
+        return alnId >= minAlnId;
+    }
+    
     public static boolean hasGoodAlignment(ExtendedPafRecord r, int maxIndelSize, float minAlnId) {
-        int numMatch = 0;
-        //int numDel = 0;
-        //int numIns = 0;
+        int totalCigarMatch = 0;
                 
         Matcher m = CIGAR_OP_PATTERN.matcher(r.cigar);
         while (m.find()) {
@@ -68,27 +83,22 @@ public class PafUtils {
             char op = m.group(2).charAt(0);
             switch (op) {
                 case 'M':
-                    numMatch += opSize;
+                    totalCigarMatch += opSize;
                     break;
                 case 'I':
                     if (opSize > maxIndelSize) {
                         return false;
                     }
-                    //numIns += opSize;
                     break;
                 case 'D':
                     if (opSize > maxIndelSize) {
                         return false;
                     }
-                    //numDel += opSize;
                     break;
             }
         }
-        
-        //float alnId = (numMatch - record.nm)/(float)(numMatch + numDel + numIns);
-        float alnId = (numMatch - r.nm)/(float)r.blockLen;
-        
-        return alnId >= minAlnId;
+                
+        return r.numMatch/(float)totalCigarMatch >= minAlnId && totalCigarMatch/(float)r.blockLen >= minAlnId;
     }
     
     public static boolean hasReverseComplementArtifact(PafRecord r, int maxEdgeClip) {

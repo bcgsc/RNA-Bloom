@@ -1708,10 +1708,12 @@ public class Layout {
         HashMap<String, Histogram> histogramMap = new HashMap<>();
         
         PafReader reader = new PafReader(overlapPafInputStream);
-        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+        for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
             reader.next(r);
             
-            if ((!stranded || !r.reverseComplemented) && hasLargeOverlap(r)) {
+            if ((!stranded || !r.reverseComplemented) &&
+                    hasLargeOverlap(r) && r.numMatch >= minOverlapMatches && 
+                    (!hasAlignment(r) || hasGoodMatches(r, minAlnId))) {
                 Histogram h = histogramMap.get(r.tName);
                 int binSize = getHistogramBinSize(r.tLen);
                 if (h == null) {
@@ -1742,11 +1744,11 @@ public class Layout {
                     if (spans.size() > 1) {
                         ++numSplitted;
                         String namePrefix = record.name + "_p";
-                        int segmentID = 1;
+                        int segmentID = 0;
                         for (Interval i : spans) {
                             if (i.end - i.start >= minSegmentLength) {
                                 String seg = record.seq.substring(i.start, i.end);
-                                String header = namePrefix + segmentID;
+                                String header = namePrefix + ++segmentID;
                                 fw.write(header, seg);
                             }
                         }
@@ -1794,7 +1796,7 @@ public class Layout {
         PafReader reader = new PafReader(overlapPafInputStream);
         String prevName = null;
         ArrayList<Neighbor> targets = new ArrayList<>();
-        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+        for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
             reader.next(r);
             
             if (!r.qName.equals(prevName)) {
@@ -1806,7 +1808,9 @@ public class Layout {
                 prevName = r.qName;
             }
             
-            if ((!stranded || !r.reverseComplemented) && hasLargeOverlap(r)) {                
+            if ((!stranded || !r.reverseComplemented) &&
+                    hasLargeOverlap(r) && r.numMatch >= minOverlapMatches &&
+                    (!hasAlignment(r) || hasGoodMatches(r, minAlnId))) {                
                 targets.add(new Neighbor(r.tName, r.numMatch));
             }
         }
