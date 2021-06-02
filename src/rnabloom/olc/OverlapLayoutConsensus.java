@@ -184,7 +184,7 @@ public class OverlapLayoutConsensus {
 
             Layout myLayout = new Layout(seqFastaPath, process.getInputStream(), stranded, maxEdgeClip, minAlnId, 
                     minOverlapMatches, maxIndelSize, false, minSeqDepth, verbose);
-            long numUnique = myLayout.extractUnique(uniqueFastaPath);
+            long numUnique = myLayout.extractUniqueFromOverlaps(uniqueFastaPath);
             if (numUnique <= 0) {
                 return STATUS.EMPTY;
             }
@@ -224,7 +224,7 @@ public class OverlapLayoutConsensus {
         
         String minimapOptionsNoGaps = minimapOptions;
         if (!minimapOptionsNoGaps.contains("-g ")) {
-            minimapOptionsNoGaps += " -g " + 200;
+            minimapOptionsNoGaps += " -g 300";
         }
         if (!minimapOptionsNoGaps.contains("-r ")) {
             minimapOptionsNoGaps += " -r " + maxIndelSize;
@@ -249,6 +249,54 @@ public class OverlapLayoutConsensus {
             if (exitStatus != 0) {
                 return false;
             }    
+        }
+        catch (IOException | InterruptedException e) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    public static boolean mapWithMinimapAndExtractUnique(String queryFastaPath,
+            String targetFastaPath, String uniqueFastaPath,
+            int numThreads, boolean align, String minimapOptions, boolean stranded,
+            int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
+            boolean cutRevCompArtifact, int minSeqDepth, boolean usePacBioPreset, boolean verbose) {
+        if (verbose) {
+            System.out.println("Mapping sequences...");
+        }
+        
+        ArrayList<String> command = new ArrayList<>();
+        command.add("/bin/sh");
+        command.add("-c");
+        
+        if (align) {
+            minimapOptions = "-c " + minimapOptions;
+        }
+        
+        if (stranded) {
+            minimapOptions = "--for-only " + minimapOptions;
+        }
+        
+        String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
+        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+        
+        try {            
+            ProcessBuilder pb = new ProcessBuilder(command);
+
+            File logFile = new File(uniqueFastaPath + LOG_EXTENSION);
+            pb.redirectError(Redirect.to(logFile));
+            
+            Process process = pb.start();
+            
+            Layout myLayout = new Layout(queryFastaPath, process.getInputStream(), stranded, maxEdgeClip, minAlnId, 
+                    minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth, verbose);
+            myLayout.extractUniqueFromMapping(uniqueFastaPath);
+            
+            int exitStatus = process.waitFor();
+            if (exitStatus != 0) {
+               return false;
+            }
         }
         catch (IOException | InterruptedException e) {
             return false;
@@ -321,7 +369,7 @@ public class OverlapLayoutConsensus {
         }
         
         if (!minimapOptions.contains("-g ")) {
-            minimapOptions += " -g " + 2 * maxIndelSize;
+            minimapOptions += " -g 300";
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
@@ -795,6 +843,105 @@ public class OverlapLayoutConsensus {
         }
     }
     
+    public static boolean seededUniqueOLC(String readsPath, String seedsPath, String outFastaPath, String tmpPrefix,
+            int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
+            float minAlnId, int minOverlapMatches, int maxIndelSize,
+            int minSeqDepth, boolean usePacBioPreset, boolean verbose) throws IOException {
+
+        String overlappedSeedsPath = tmpPrefix + "0.seeds" + FASTA_EXT + GZIP_EXTENSION;
+        String uniqueFastaPath = tmpPrefix + "1.nr" + FASTA_EXT + GZIP_EXTENSION;
+        String cutFastaPath = tmpPrefix + "2.cut" + FASTA_EXT + GZIP_EXTENSION;
+        String unitigsFastaPath = tmpPrefix + "3.uni" + FASTA_EXT + GZIP_EXTENSION;
+        String readsToSimplePafPath = tmpPrefix + "4.map.paf.gz";
+        String polishedFastaPath = tmpPrefix + "5.pol" + FASTA_EXT;
+        
+        deleteIfExists(overlappedSeedsPath);
+        deleteIfExists(uniqueFastaPath);
+        deleteIfExists(cutFastaPath);
+        deleteIfExists(unitigsFastaPath);
+        deleteIfExists(readsToSimplePafPath);
+        deleteIfExists(polishedFastaPath);
+        deleteIfExists(outFastaPath);
+        
+        String minimapOptionsNoGaps = minimapOptions;
+        if (!minimapOptionsNoGaps.contains("-g ")) {
+            minimapOptionsNoGaps += " -g 300";
+        }
+        if (!minimapOptionsNoGaps.contains("-r ")) {
+            minimapOptionsNoGaps += " -r " + maxIndelSize;
+        }
+
+        // 0. overlap seeds
+        boolean success = overlapLayout(seedsPath, overlappedSeedsPath,
+            numThreads, stranded, minimapOptions, maxEdgeClip,
+            minAlnId, minOverlapMatches, maxIndelSize, false,
+            minSeqDepth, usePacBioPreset, true);
+        if (!success) {
+            return false;
+        }
+        
+        System.gc();
+        
+        // 1. map all reads and extract unique reads
+        mapWithMinimapAndExtractUnique(readsPath,
+            overlappedSeedsPath, uniqueFastaPath,
+            numThreads, true, minimapOptionsNoGaps, stranded,
+            maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
+            false, minSeqDepth, usePacBioPreset, verbose);
+        
+        System.gc();
+        
+        // 2. overlap all reads and cut reads
+        STATUS status = overlapWithMinimapAndExtractUnique(uniqueFastaPath, cutFastaPath,
+            numThreads, false, minimapOptionsNoGaps, stranded,
+            maxEdgeClip, minAlnId*minAlnId, minOverlapMatches, maxIndelSize,
+            minSeqDepth, usePacBioPreset, verbose);
+        if (status != STATUS.SUCCESS) {
+            return false;
+        }
+        
+        System.gc();
+        
+        // 3. overlap (with alignment) cutted reads and extract unitigs
+        status = overlapWithMinimapAndLayoutSimple(cutFastaPath, unitigsFastaPath,
+            numThreads, true, minimapOptionsNoGaps, stranded, maxEdgeClip,
+            minAlnId, minOverlapMatches, maxIndelSize, false,
+            1, usePacBioPreset, verbose);
+        if (status != STATUS.SUCCESS) {
+            return false;
+        }
+        
+        System.gc();
+        
+        // 4. align all reads to unitigs
+        status = mapWithMinimapFiltered(readsPath, unitigsFastaPath, readsToSimplePafPath,
+            numThreads, minimapOptionsNoGaps, usePacBioPreset, stranded, maxIndelSize,
+            minOverlapMatches, minAlnId, verbose);
+        if (status != STATUS.SUCCESS) {
+            return false;
+        }
+        
+        System.gc();
+        
+        // 5. polish unitigs
+        success = consensusWithRacon(readsPath, unitigsFastaPath, 
+            readsToSimplePafPath, polishedFastaPath, numThreads, true, verbose);
+        if (!success) {
+            return false;
+        }
+        
+        // 6. overlap (with alignment) polished unitigs and lay out paths
+        status = overlapWithMinimapAndLayoutGreedy(polishedFastaPath, outFastaPath,
+            numThreads, true, minimapOptions, stranded, maxEdgeClip,
+            minAlnId, minOverlapMatches, maxIndelSize, false,
+            1, usePacBioPreset, readsToSimplePafPath, verbose);
+        if (status != STATUS.SUCCESS) {
+            return false;
+        }
+        
+        return true;
+    }
+    
     public static boolean uniqueOLC(String readsPath, String inFastaPath,
             String outFastaPath, String tmpPrefix,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
@@ -814,7 +961,7 @@ public class OverlapLayoutConsensus {
         
         String minimapOptionsNoGaps = minimapOptions;
         if (!minimapOptionsNoGaps.contains("-g ")) {
-            minimapOptionsNoGaps += " -g " + 200;
+            minimapOptionsNoGaps += " -g 300";
         }
         if (!minimapOptionsNoGaps.contains("-r ")) {
             minimapOptionsNoGaps += " -r " + maxIndelSize;
@@ -982,8 +1129,7 @@ public class OverlapLayoutConsensus {
     public static int mapClusteredOLC(String readsPath, String targetPath, String clustersdir,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
-            int minSeqDepth, boolean usePacBioPreset, boolean forceOverwrite,
-            long bfSize, int k, int numHash) throws IOException {
+            int minSeqDepth, boolean usePacBioPreset, boolean forceOverwrite) throws IOException {
         
         File clusteringSizesFile = new File(clustersdir + File.separator + "cluster_sizes.txt");
         int[] clusterSizes = null;
@@ -992,7 +1138,7 @@ public class OverlapLayoutConsensus {
             Files.deleteIfExists(clusteringSizesFile.toPath());
             
             clusterSizes = mapWithMinimapAndExtractClusters(readsPath, targetPath, clustersdir,
-                    numThreads, false, minimapOptions, stranded, maxEdgeClip,
+                    numThreads, true, minimapOptions, stranded, maxEdgeClip,
                     minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
                     minSeqDepth, usePacBioPreset, true);
             
@@ -1012,7 +1158,7 @@ public class OverlapLayoutConsensus {
             }
             else {
                 clusterSizes = mapWithMinimapAndExtractClusters(readsPath, targetPath, clustersdir,
-                    numThreads, false, minimapOptions, stranded, maxEdgeClip,
+                    numThreads, true, minimapOptions, stranded, maxEdgeClip,
                     minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact,
                     minSeqDepth, usePacBioPreset, true);
                 
@@ -1046,7 +1192,7 @@ public class OverlapLayoutConsensus {
             
             if (forceOverwrite || !assemblyDoneStamp.exists()) {
                 String inFastaPath = clusterPrefix + FASTA_EXT + GZIP_EXTENSION;
-                String subFastaPath = clusterPrefix + "_sub" + FASTA_EXT + GZIP_EXTENSION;
+//                String subFastaPath = clusterPrefix + "_sub" + FASTA_EXT + GZIP_EXTENSION;
                 String finalFastaPath = clusterPrefix + "_transcripts" + FASTA_EXT + GZIP_EXTENSION;
                 String tmpPrefix = clusterPrefix + ".tmp";
                 
@@ -1055,18 +1201,18 @@ public class OverlapLayoutConsensus {
                     touch(assemblyDoneStamp);
                 }
                 else {
-                    if (numReads >= minSeqDepth * 10) {
-                        // subsample if the cluster has too many reads
-                        ArrayList<BitSequence> bitSeqs = getListFromFile(inFastaPath);
-                        //Collections.sort(bitSeqs);
-                        kmerBased(bitSeqs, subFastaPath, bfSize, k, numHash, stranded,
-                                minSeqDepth, maxEdgeClip, false);
-                    }
-                    else {
-                        subFastaPath = inFastaPath;
-                    }
+//                    if (numReads >= minSeqDepth * 10) {
+//                        // subsample if the cluster has too many reads
+//                        ArrayList<BitSequence> bitSeqs = getListFromFile(inFastaPath);
+//                        //Collections.sort(bitSeqs);
+//                        kmerBased(bitSeqs, subFastaPath, bfSize, k, numHash, stranded,
+//                                minSeqDepth, maxEdgeClip, false);
+//                    }
+//                    else {
+//                        subFastaPath = inFastaPath;
+//                    }
 
-                    boolean status = uniqueOLC(inFastaPath, subFastaPath,
+                    boolean status = uniqueOLC(inFastaPath, inFastaPath,
                                             finalFastaPath, tmpPrefix,
                                             numThreads, stranded, minimapOptions, maxEdgeClip,
                                             minAlnId, minOverlapMatches, maxIndelSize,

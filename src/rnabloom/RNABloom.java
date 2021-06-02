@@ -90,6 +90,7 @@ import rnabloom.io.FastaRecord;
 import rnabloom.io.SequenceFileIteratorInterface;
 import rnabloom.olc.Interval;
 import static rnabloom.olc.OverlapLayoutConsensus.mapClusteredOLC;
+import static rnabloom.olc.OverlapLayoutConsensus.seededUniqueOLC;
 import static rnabloom.olc.OverlapLayoutConsensus.trimSplitByReadDepth;
 import static rnabloom.olc.OverlapLayoutConsensus.uniqueOLC;
 import static rnabloom.util.FileUtils.deleteIfExists;
@@ -98,6 +99,7 @@ import static rnabloom.util.FileUtils.symlinkRemoveExisting;
 import static rnabloom.util.FileUtils.touch;
 import rnabloom.util.Timer;
 import static rnabloom.util.Common.convertToRoundedPercent;
+import rnabloom.util.PolyAAdaptorTrimmer;
 import static rnabloom.util.SeqBitsUtils.writeToFile;
 import rnabloom.util.SeqSubsampler;
 import rnabloom.util.WeightedBitSequence;
@@ -3271,8 +3273,7 @@ public class RNABloom {
         int numClusters = mapClusteredOLC(readsPath, seedsPath3, clusterdir,
                             numThreads, stranded, minimapOptions, maxEdgeClip,
                             minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
-                            minSeqDepth, usePacBioPreset, forceOverwrite,
-                            bfSize, this.k, numHash);
+                            minSeqDepth, usePacBioPreset, forceOverwrite);
         
         if (numClusters <= 0) {
             return false;
@@ -3596,7 +3597,6 @@ public class RNABloom {
 //                    if (writeUracil) {
 //                        seq.seq = seq.seq.replace('T', 'U');
 //                    }
-                    
                     if (seq.isRepeat) {
                         repeatsWriter.write(header, seq.seq);
                     }
@@ -3748,6 +3748,7 @@ public class RNABloom {
             //boolean stranded = graph.isStranded();
             
             try {
+                PolyAAdaptorTrimmer polyATrimmer = new PolyAAdaptorTrimmer(10);
                 String[] nameSeqPair;
                 while((nameSeqPair = itr.next()) != null) {
                     ++numReads;
@@ -3756,6 +3757,11 @@ public class RNABloom {
                     
                     if (seq.length() >= k) {
                         String name = nameSeqPair[0];
+                        
+                        seq = polyATrimmer.chompTailAdaptor(seq, 100);
+                        if (!strandSpecific) {
+                            seq = polyATrimmer.chompHeadAdaptor(seq, 100);
+                        }
                         
                         ArrayList<String> segments = trimLowComplexityRegions(seq, 100, 500);
                         if (segments.isEmpty()) {
@@ -3807,9 +3813,9 @@ public class RNABloom {
 
                                                 int segLength = segment.length();
                                                 //boolean isRepeat = isLowComplexityLongWindowed(segment);
-                                                //float score = (float) getTotalLogKmerCoverage(correctedKmers, minKmerCov);
-                                                float score = countSolidKmers(correctedKmers, minKmerCov);
-                                                
+                                                float score = (float) getTotalLogKmerCoverage(correctedKmers, minKmerCov);
+//                                                float score = countSolidKmers(correctedKmers, minKmerCov);
+
                                                 outputQueue.put(new Sequence2(segName, segment, segLength, score, false));
                                             }
                                             else {
@@ -3820,8 +3826,8 @@ public class RNABloom {
 
                                                     int segLength = componentSeq.length();
                                                     //boolean isRepeat = isLowComplexityLongWindowed(componentSeq);
-                                                    //float score = (float) getTotalLogKmerCoverage(component, minKmerCov);
-                                                    float score = countSolidKmers(component, minKmerCov);
+                                                    float score = (float) getTotalLogKmerCoverage(component, minKmerCov);
+//                                                    float score = countSolidKmers(component, minKmerCov);
 
                                                     outputQueue.put(new Sequence2(segName + "_p" + ++pid, componentSeq, segLength, score, false));
                                                 }
@@ -6086,11 +6092,11 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadPacBioPreset);
         
-//        Option optSubsampleLongRead = Option.builder("lrsub")
-//                                    .desc("subsample long reads before assembly [false]")
-//                                    .hasArg(false)
-//                                    .build();
-//        options.addOption(optSubsampleLongRead);
+        Option optSubsampleLongRead = Option.builder("lrsub")
+                                    .desc("subsample long reads before assembly [false]")
+                                    .hasArg(false)
+                                    .build();
+        options.addOption(optSubsampleLongRead);
         
 //        final String optLongReadMaxMergedClusterSizeDefault = "1000";
 //        Option optLongReadMaxMergedClusterSize = Option.builder("lrmc")
@@ -6407,7 +6413,7 @@ public class RNABloom {
             final boolean outputNrTxpts = mergePool ? true : !line.hasOption(optNoReduce.getOpt());
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
             final boolean usePacBioPreset = line.hasOption(optLongReadPacBioPreset.getOpt());
-//            final boolean subsampleLongReads = line.hasOption(optSubsampleLongRead.getOpt());
+            final boolean subsampleLongReads = line.hasOption(optSubsampleLongRead.getOpt());
             /*
             final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final int minimizerSize = Integer.parseInt(line.getOptionValue(optMinimizerSize.getOpt(), optMinimizerSizeDefault));
@@ -6890,8 +6896,6 @@ public class RNABloom {
                 String repeatReadsFileName = correctedLongReadFilePrefix + ".repeats" + FASTA_EXT + GZIP_EXT;
 //                String subSampledReadsPath = correctedLongReadFilePrefix + ".long.subsampled" + FASTA_EXT + GZIP_EXTENSION;
                 String seedReadsPath = correctedLongReadFilePrefix + ".long.seed" + FASTA_EXT + GZIP_EXT;
-                String seedReadsPath2 = correctedLongReadFilePrefix + ".long.seed2" + FASTA_EXT + GZIP_EXT;
-                String seedReadsPath3 = correctedLongReadFilePrefix + ".long.seed3" + FASTA_EXT + GZIP_EXT;
 //                String numCorrectedReadsPath = correctedLongReadFilePrefix + ".count";
 //                ArrayList<WeightedBitSequence> correctedReads = null;
                 
@@ -6906,36 +6910,34 @@ public class RNABloom {
                 else {
                     Timer myTimer = new Timer();
                     ArrayList<WeightedBitSequence> correctedReads = correctLongReads(assembler, 
-                            longReadPaths, longCorrectedReadsPath, shortCorrectedReadsPath, repeatReadsFileName,
+                            longReadPaths, longCorrectedReadsPath, shortCorrectedReadsPath,
+                            repeatReadsFileName,
                             maxErrCorrItr, minKmerCov, numThreads, sampleSize, minOverlap,
-                            revCompLong, !keepArtifact, true);
+                            revCompLong, !keepArtifact, subsampleLongReads);
                     System.out.println("Corrected reads in " + myTimer.elapsedDHMS());
                     
-//                    if (subsampleLongReads) {
-//                        System.out.println("Corrected reads in " + myTimer.elapsedDHMS());
-//                        myTimer.start();
-//                        System.out.println("Subsampling sequences...");
-//                        assembler.destroyAllBf();
-//                        
-//                        SeqSubsampler.kmerBased(correctedReads, longCorrectedReadsPath, subSampledReadsPath,
-//                                dbgbfSize + cbfSize, k, dbgbfNumHash, strandSpecific, 
-//                                Math.max(2, longReadMinReadDepth), maxTipLen);
-//                        
-//                        System.out.println("Subsampling completed in " + myTimer.elapsedDHMS());
-//                    }
-
-                    myTimer.start();
-                    System.out.println("Extracting seed sequences...");
-                    Collections.sort(correctedReads);
-                    SeqSubsampler.minimalSet(correctedReads, seedReadsPath,
-                        dbgbfSize, k, dbgbfNumHash, strandSpecific, false, k,
-                        10, 0.5f, minTranscriptLength);
-                    System.out.println("Extraction completed in " + myTimer.elapsedDHMS());
-
-                    myTimer.start();
-                    System.out.println("Writing corrected reads...");
-                    writeToFile(correctedReads, longCorrectedReadsPath);
-                    System.out.println("Wrote corrected reads in " + myTimer.elapsedDHMS());
+                    assembler.destroyAllBf();
+                    
+                    if (subsampleLongReads) {
+                        myTimer.start();
+                        System.out.println("Extracting seed sequences...");
+                        Collections.sort(correctedReads);
+                        SeqSubsampler.kmerBased(correctedReads, seedReadsPath,
+                                dbgbfSize + cbfSize, k, dbgbfNumHash, strandSpecific, 
+                                Math.max(2, longReadMinReadDepth), maxTipLen, true);
+    //                    SeqSubsampler.minimalSet(correctedReads, seedReadsPath,
+    //                        dbgbfSize, k, dbgbfNumHash, strandSpecific, false, k,
+    //                        10, 0.9f, minTranscriptLength);
+    //                    SeqSubsampler.minimizerBased(correctedReads, seedReadsPath,
+    //                            cbfSize, k, k, cbfNumHash, strandSpecific, false,
+    //                            minTranscriptLength/k, 0.75f, 2);
+                        System.out.println("Extraction completed in " + myTimer.elapsedDHMS());
+                        
+                        myTimer.start();
+                        System.out.println("Writing corrected reads...");
+                        writeToFile(correctedReads, longCorrectedReadsPath);
+                        System.out.println("Wrote corrected reads in " + myTimer.elapsedDHMS());
+                    }
                     
                     touch(longReadsCorrectedStamp);
                 }
@@ -6955,44 +6957,44 @@ public class RNABloom {
                     System.out.println("WARNING: Reads were already assembled!");
                 }
                 else {                    
-//                    final String tmpFilePathPrefix = outdir + File.separator + name + ".longreads.assembly";
+                    final String tmpFilePathPrefix = outdir + File.separator + name + ".longreads.assembly";
                     final String assembledTranscriptsPath = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
-//                    String inputReadsPath;
+                    String inputReadsPath;
 //                    
-//                    if (subsampleLongReads) {                        
-//                        inputReadsPath = subSampledReadsPath;
-//                    }
-//                    else {
-//                        inputReadsPath = longCorrectedReadsPath;
-//                    }
+                    if (subsampleLongReads) {                        
+                        inputReadsPath = seedReadsPath;
+                    }
+                    else {
+                        inputReadsPath = longCorrectedReadsPath;
+                    }
                     
-//                    boolean ok = assembler.assembleUnclusteredLongReads(longCorrectedReadsPath,
-//                                    inputReadsPath,
-//                                    assembledTranscriptsPath,
-//                                    tmpFilePathPrefix,
-//                                    numThreads,
-//                                    minimapOptions,
-//                                    minKmerCov,
-//                                    maxTipLen,
-//                                    longReadOverlapProportion,
-//                                    minOverlap,
-//                                    txptNamePrefix,
-//                                    strandSpecific,
-//                                    !keepArtifact,
-//                                    longReadMinReadDepth,
-//                                    usePacBioPreset);
+                    boolean ok = assembler.assembleUnclusteredLongReads(longCorrectedReadsPath,
+                                    inputReadsPath,
+                                    assembledTranscriptsPath,
+                                    tmpFilePathPrefix,
+                                    numThreads,
+                                    minimapOptions,
+                                    minKmerCov,
+                                    maxTipLen,
+                                    longReadOverlapProportion,
+                                    minOverlap,
+                                    txptNamePrefix,
+                                    strandSpecific,
+                                    !keepArtifact,
+                                    longReadMinReadDepth,
+                                    usePacBioPreset);
 
-                    final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
-                    
-                    boolean ok = assembleClusteredLongReads(assembler,
-                            longCorrectedReadsPath, seedReadsPath, seedReadsPath2, seedReadsPath3,
-                            clusteredLongReadsDirectory,
-                            assembledTranscriptsPath, writeUracil, 
-                            numThreads, forceOverwrite, minimapOptions, minKmerCov, 
-                            maxTipLen, longReadOverlapProportion, minOverlap,
-                            txptNamePrefix, strandSpecific, !keepArtifact,
-                            longReadMinReadDepth, usePacBioPreset, cbfSize, cbfNumHash,
-                            minTranscriptLength);
+//                    final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
+//                    
+//                    boolean ok = assembleClusteredLongReads(assembler,
+//                            longCorrectedReadsPath, seedReadsPath, seedReadsPath2, seedReadsPath3,
+//                            clusteredLongReadsDirectory,
+//                            assembledTranscriptsPath, writeUracil, 
+//                            numThreads, forceOverwrite, minimapOptions, minKmerCov, 
+//                            maxTipLen, longReadOverlapProportion, minOverlap,
+//                            txptNamePrefix, strandSpecific, !keepArtifact,
+//                            longReadMinReadDepth, usePacBioPreset, cbfSize, cbfNumHash,
+//                            minTranscriptLength);
                     
                     
                     if (ok) {

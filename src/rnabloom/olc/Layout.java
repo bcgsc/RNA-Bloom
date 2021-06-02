@@ -17,6 +17,8 @@
 package rnabloom.olc;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,6 +36,9 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.zip.GZIPInputStream;
 import org.jgrapht.Graph;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.TransitiveReduction;
@@ -561,22 +566,7 @@ public class Layout {
         
         return path;
     }
-    
-//    /**
-//     * 
-//     * @param outFastaPath
-//     * @return boolean whether number of sequences have reduced
-//     * @throws IOException 
-//     */
-//    public boolean writeBackboneSequences(String outFastaPath) throws IOException {
-//        if (stranded) {
-//            return layoutStrandedBackbones(outFastaPath);
-//        }
-//        else {
-//            return layoutBackbones(outFastaPath);
-//        }
-//    }
-    
+        
     private String assemblePath(ArrayDeque<String> path, HashMap<String, BitSequence> sequences) {
         StringBuilder sb = new StringBuilder();
         
@@ -794,17 +784,26 @@ public class Layout {
     }
     
     private int getHistogramBinSize(int length) {
+        /* Set binsize to `minOverlapMatches/2` to ensure that 2 consecutive bins
+            represent reads overlapping by >= `minOverlapMatches` because only
+            the middle bin(s) of each interval will contribute to the histogram
+                    |---|===|---|
+                |---|===|---|
+            |---|===|---|
+                 === === ===
+            | 0 | 1 | 1 | 1 | 0 |
+        */
         if (length <= 250) {
-            return Math.min(25, minOverlapMatches);
+            return Math.min(25, minOverlapMatches/2);
         }
         else if (length <= 500) {
-            return Math.min(50, minOverlapMatches);
+            return Math.min(50, minOverlapMatches/2);
         }
         else if (length <= 1000) {
-            return Math.min(100, minOverlapMatches);
+            return Math.min(100, minOverlapMatches/2);
         }
         else {
-            return Math.min(200, minOverlapMatches);
+            return Math.min(200, minOverlapMatches/2);
         }
     }
     
@@ -830,36 +829,80 @@ public class Layout {
     private static short[] initShortHistogram(int origLength, int binSize) {
         return new short[(int)Math.ceil((float)origLength/(float)binSize)];
     }
+
+    private static int[] initIntHistogram(int origLength, int binSize) {
+        return new int[(int)Math.ceil((float)origLength/(float)binSize)];
+    }
     
     private static void updateHistogram(Histogram h, int start, int end, int binSize) {
         h.minStart = Math.min(h.minStart, start);
         h.maxEnd = Math.max(h.maxEnd, end);
 
         if (h.bars != null) {
-            if (start > 0) {
-                start = (int) Math.ceil((float) start/binSize);
-            }
-            else {
-                start = 0;
-            }
+            updateHistogram(h.bars, h.length, start, end, binSize);
+        }
+    }
+    
+    private static void updateHistogram(byte[] h, int length, int start, int end, int binSize) {
+        int numBars = h.length;
 
-            if (end < h.length) {
-                end = (int) Math.floor((float) end/binSize);
-            }
-            else {
-                end = h.bars.length;
-            }
-            
-            if (start >= end) {
-                start = Math.max(0, end-1);
-            }
-            
-            updateHistogram(h.bars, start, end);
+        if (start > 0) {
+            start = (int) Math.ceil((float) start/binSize) + 1;
+            // +1 to ensure that stacking reads overlap
+        }
+        else {
+            start = 0;
+        }
+
+        if (end < length) {
+            end = (int) Math.floor((float) end/binSize) - 1;
+            // -1 to ensure that stacking reads overlap
+        }
+        else {
+            end = numBars;
+        }
+
+        if (start < end && start >= 0 && start < numBars && end > 0 && end <= numBars) {
+            updateHistogram(h, start, end);
         }
     }
     
     private boolean isFullyCovered(Histogram h) {
         return h.minStart <= maxEdgeClip && h.maxEnd >= h.length - maxEdgeClip;
+    }
+    
+    private static int updateHistogram(int[] hist, int binSize, int origLen, int start, int end) {
+        int numBars = hist.length;
+        
+        if (start > 0) {
+            start = (int) Math.ceil((float) start/binSize) + 1;
+        }
+        else {
+            start = 0;
+        }
+        
+        if (end < origLen) {
+            end = (int) Math.floor((float) end/binSize) - 1;
+        }
+        else {
+            end = numBars;
+        }
+        
+        if (start < end && start >= 0 && start < numBars && end > 0 && end <= numBars) {
+            // update histogram and return the min updated count in the interval
+            int min = Integer.MAX_VALUE;
+            
+            for (int i=start; i<end; ++i) {
+                hist[i] += 1;
+                min = Math.min(min, hist[i]);
+            }
+
+            if (min < Integer.MAX_VALUE) {
+                return min;
+            }
+        }
+        
+        return 0;
     }
     
     private static void updateHistogram(short[] hist, int binSize, int origLen, int start, int end) {
@@ -891,7 +934,6 @@ public class Layout {
     }
 
     private static void updateHistogram(byte[] hist, int start, int end) {
-        short c;
         for (int i=start; i<end; ++i) {
             hist[i] = MiniFloat.increment(hist[i]);
         }
@@ -1450,7 +1492,7 @@ public class Layout {
         });
     }
     
-    public long extractUnique(String outFastaPath) throws IOException {
+    public long extractUniqueFromOverlaps(String outFastaPath) throws IOException {
         Timer timer = new Timer();
         
         //HashMap<String, String> longestAlts = new HashMap<>(); // read id : longest read id
@@ -1712,8 +1754,8 @@ public class Layout {
             reader.next(r);
             
             if ((!stranded || !r.reverseComplemented) &&
-                    hasLargeOverlap(r) && r.numMatch >= minOverlapMatches && 
-                    (!hasAlignment(r) || hasGoodAlignment(r))) {
+                    hasLargeOverlap(r) && //r.numMatch >= minOverlapMatches && 
+                    (!hasAlignment(r) || hasGoodAlignment(r) || hasGoodMatches(r, minAlnId))) {                
                 Histogram h = histogramMap.get(r.tName);
                 int binSize = getHistogramBinSize(r.tLen);
                 if (h == null) {
@@ -1785,6 +1827,86 @@ public class Layout {
         return m.split(" ");
     }
     
+    public void extractUniqueFromMapping(String outFasta) throws IOException {
+        Timer timer = new Timer();
+        
+        // parse all mapping records to gather contained reads for each seed
+        HashMap<String, ArrayList> containedReadNamesMap = new HashMap<>();
+        PafReader reader = new PafReader(overlapPafInputStream);
+        for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
+            reader.next(r);
+            
+            if ((!stranded || !r.reverseComplemented) &&
+                    hasLargeOverlap(r) &&
+                    isQueryContained(r, maxEdgeClip) &&
+                    (!hasAlignment(r) || hasGoodAlignment(r))) {                
+                ArrayList<NamedInterval> names = containedReadNamesMap.get(r.tName);
+                if (names == null) {
+                    names = new ArrayList<>();
+                    containedReadNamesMap.put(r.tName, names);
+                }
+                names.add(new NamedInterval(r.qName, r.tStart, r.tEnd));
+            }
+        }
+        reader.close();
+        printMessage("Parsed " + NumberFormat.getInstance().format(reader.getNumRecords()) + " mapping records in " + timer.elapsedDHMS());
+        
+        // for each seed, find the longest contained reads covering the min depth required
+        timer.start();
+        HashSet<String> keepSet = new HashSet<>();
+        HashSet<String> removeSet = new HashSet<>();
+        int minDepthRequired = this.minNumAltReads + 1; 
+        for (ArrayList<NamedInterval> containedReads : containedReadNamesMap.values()) {
+            Collections.sort(containedReads, Collections.reverseOrder());
+            
+            int seedLen = 0;
+            for (NamedInterval i : containedReads) {
+                seedLen = Math.max(seedLen, i.end);
+            }
+            
+            int binSize = getHistogramBinSize(seedLen);
+            int[] bars = initIntHistogram(seedLen, binSize);
+            
+            HashSet<String> checked = new HashSet<>();
+            if (!keepSet.isEmpty()) {
+                for (NamedInterval i : containedReads) {
+                    if (keepSet.contains(i.name)) {
+                        updateHistogram(bars, seedLen, i.start, i.end, binSize);
+                        checked.add(i.name);
+                    }
+                }
+            }
+            
+            for (NamedInterval i : containedReads) {
+                if (!checked.contains(i.name)) {
+                    if (updateHistogram(bars, seedLen, i.start, i.end, binSize) <= minDepthRequired) {
+                        keepSet.add(i.name);
+                    }
+                    else {
+                        removeSet.add(i.name);
+                    }
+                }
+            }
+        }
+        removeSet.removeAll(keepSet);
+        printMessage("Found " + NumberFormat.getInstance().format(removeSet.size()) + " contained sequences in " + timer.elapsedDHMS());
+        
+        // discard all other contained reads
+        timer.start();
+        FastaReader fr = new FastaReader(seqFastaPath);
+        FastaWriter fw = new FastaWriter(outFasta, false);
+        while (fr.hasNext()) {
+            String[] nameSeq = fr.nextWithName();
+            String name = nameSeq[0];
+            if (!removeSet.contains(name)) {
+                fw.write(name, nameSeq[1]);
+            }
+        }
+        fr.close();
+        fw.close();
+        printMessage("Wrote filtered sequences in " + timer.elapsedDHMS());
+    }
+    
     public int[] extractClustersFromMapping(String outdir) throws IOException {
         // cluster sequences by mapping them to target seeds
         // merge clusters if sequences map to multiple seeds
@@ -1811,7 +1933,7 @@ public class Layout {
             
             if ((!stranded || !r.reverseComplemented) &&
                     hasLargeOverlap(r) && r.numMatch >= minOverlapMatches &&
-                    (!hasAlignment(r) || hasGoodMatches(r, minAlnId))) {                
+                    (!hasAlignment(r) || hasGoodAlignment(r) || hasGoodMatches(r, minAlnId))) {                
                 targets.add(new Neighbor(r.tName, r.numMatch));
             }
         }
@@ -1831,34 +1953,25 @@ public class Layout {
         int numSeedPairs = seedPairCounts.size();
         int numGoodSeedPairs = 0;
         int minPairingReads = this.minNumAltReads + 1;
-//        float minProportion = 0.01f;
+        float minProportion = 0.01f;
         for (Entry<String, Integer> e : seedPairCounts.entrySet()) {
             String[] tuple = splitMergedKey(e.getKey());
             int count = e.getValue();
             if (count >= minPairingReads) {
-                ++numGoodSeedPairs;
                 String a = tuple[0];
                 String b = tuple[1];
                 SeededCluster clusterA = seedNameClusterMap.get(a);
                 SeededCluster clusterB = seedNameClusterMap.get(b);
-//                int sizeA = 0;
-//                int sizeB = 0;
-//                if (clusterA != null) {
-//                    sizeA = clusterA.size();
-//                }
-//
-//                if (clusterB != null) {
-//                    sizeB = clusterB.size();
-//                }
-//                                
-//                if (minPairingReads >= minProportion * Math.min(sizeA, sizeB)) {
-                    if (clusterA != null) {
+                if (clusterA != null && clusterB != null) {
+                    int sizeA = clusterA.size();
+                    int sizeB = clusterB.size();
+                                
+                    if (minPairingReads >= minProportion * Math.max(sizeA, sizeB)) {
+                        ++numGoodSeedPairs;
                         clusterA.addSeedName(b);
-                    }
-                    if (clusterB != null) {
                         clusterB.addSeedName(a);
                     }
-//                }
+                }
             }
         }
         
@@ -3094,6 +3207,20 @@ public class Layout {
     }
     
     public static void main(String[] args) {
-        //debug
+        try {
+            //debug
+            String dir = "/projects/btl_scratch/kmnip/ont_work/rna_consortium/2021-05-29_19-35";
+            String paf = dir + "/75582.paf.gz";
+            String in = dir + "/rnabloom.longreads.corrected.long.fa.gz";
+            String target = dir + "/rnabloom.longreads.corrected.long.seed3.fa.gz";
+            String out = dir + "/test.fa";
+            
+            Layout layout = new Layout(in, new GZIPInputStream(new FileInputStream(paf)), false,
+                    50, 0.7f, 150, 50,
+                    false, 2, true);
+            layout.trimSplitByReadDepth(target, out, 150);
+        } catch (IOException ex) {
+            Logger.getLogger(Layout.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 }

@@ -654,7 +654,7 @@ public final class SeqUtils {
         
         return isLowComplexityLong(seq);
     }
-    
+        
     public static String chompPolyATail(String seq, int window, float minFraction) {
         int seqLen = seq.length();
         
@@ -710,6 +710,16 @@ public final class SeqUtils {
         
         return seq;
     }
+    
+    public static boolean isDoubleTailChimera(String seq, int minTailLen, float minFraction) {
+        int seqLen = seq.length();
+        if (seqLen >= 2 * minTailLen) {
+            return isARich(seq, seqLen-minTailLen, seqLen, minFraction) &&
+                    isTRich(seq, 0, minTailLen, minFraction);
+        }
+        
+        return false;
+    }    
     
     public static boolean isARich(String seq, int start, int end, float minFraction) {
         return isNRich(seq, start, end, minFraction, 'A');

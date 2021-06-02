@@ -39,21 +39,12 @@ import static rnabloom.util.SeqUtils.trimLowComplexityRegions;
  */
 public class SeqSubsampler {
     
-    public static void minimizerBased(String inFasta, String outFasta,
-            long bfSize, int k, int w, int numHash, boolean stranded, 
+    public static void minimizerBased(ArrayList<? extends BitSequence> seqs, String outFasta,
+            long bfSize, int k, int w, int numHash, boolean stranded, boolean useHpcKmers,
             int maxNonMatchingChainLength, float minMatchingProportion,
             int maxMultiplicity) throws IOException {        
-        // read all sequences
-        ArrayList<BitSequence> seqs = new ArrayList<>();
-        FastaReader fr = new FastaReader(inFasta);
-        while(fr.hasNext()) {
-            seqs.add(new BitSequence(fr.next()));
-        }
-        fr.close();
+
         int numSeq = seqs.size();
-        
-        // sort from longest to shortest
-        Collections.sort(seqs);
         
         HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
         
@@ -65,7 +56,9 @@ public class SeqSubsampler {
         long[] hVals = new long[numHash];
         for (BitSequence s : seqs) {
             String seq = s.toString();
-            if (itr.start(seq)) {
+            String hpc = useHpcKmers ? compressHomoPolymers(seq) : seq;
+            
+            if (itr.start(hpc)) {
                 int numMinimizers = 0;
                 int numMinimizersSeen = 0;
                 int consecutiveMissing = 0;
@@ -96,7 +89,7 @@ public class SeqSubsampler {
                     }
                 }
                 
-                if (maxConsecutiveMissing > maxNonMatchingChainLength || (float)numMinimizersSeen/(float)numMinimizers < minMatchingProportion) {
+                if (maxConsecutiveMissing > maxNonMatchingChainLength || numMinimizersSeen < minMatchingProportion * numMinimizers) {
                     fw.write(Integer.toString(++seqID), seq);
                 }
             }
@@ -117,7 +110,7 @@ public class SeqSubsampler {
     }
     
     public static void kmerBased(ArrayList<? extends BitSequence> seqs, String outSubsampleFasta,
-            long bfSize, int k, int numHash, boolean stranded,
+            long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose) throws IOException {
         int numSeq = seqs.size();
         
@@ -221,12 +214,13 @@ public class SeqSubsampler {
         NTHashIterator itr = h.getHashIterator(numHash, k);
         long[] hVals = itr.hVals;
         int id = 0;
+        final int minKmersNeededPerWindow = 2;
         
         for (BitSequence s : seqs) {
             if (s != null && s.length >= minSeqLen) {
-                ArrayList<String> segments = trimLowComplexityRegions(s.toString(), 50);
-                
-                for (String seq : segments) {
+                String seq = s.toString();
+//                ArrayList<String> segments = trimLowComplexityRegions(s.toString(), 100);
+//                for (String seq : segments) {
                     if (seq.length() >= minSeqLen) {
                         String hpc = useHpcKmers ? compressHomoPolymers(seq) : seq;
 
@@ -237,28 +231,27 @@ public class SeqSubsampler {
                                 ++numWindows;
                             }
 
-                            if (numWindows >= minMatchingWindows) {
+//                            if (numWindows >= minMatchingWindows) {
                                 int numWindowsSeen = 0;
                                 int windowIndex = 0;
-                                boolean windowStatus = false;
+                                int numKmersSeenInWindow = 0;
                                 while (itr.hasNext()) {
                                     itr.next();
 
                                     if (itr.getPos()/windowSize > windowIndex) {
                                         ++windowIndex;
-                                        windowStatus = false;
+                                        numKmersSeenInWindow = 0;
                                     }
 
                                     if (bf.lookup(hVals)) {
-                                        if (!windowStatus) {
+                                        if (++numKmersSeenInWindow == minKmersNeededPerWindow) {
                                             ++numWindowsSeen;
                                         }
-                                        windowStatus = true;
                                     }
                                 }
 
-                                //if (numWindowsSeen < Math.max(minMatchingWindows, Math.round(minMatchingProportion * numWindows))) {
-                                if (numWindowsSeen < minMatchingProportion * numWindows) {
+                                if (numWindowsSeen < Math.max(minMatchingWindows, Math.round(minMatchingProportion * numWindows))) {
+                                //if (numWindowsSeen < minMatchingProportion * numWindows) {
                                     // a unique sequence
 
                                     itr.start(hpc);
@@ -269,10 +262,10 @@ public class SeqSubsampler {
 
                                     writer.write("s" + Integer.toString(++id), seq);
                                 }
-                            }
+//                            }
                         }
                     }
-                }
+//                }
             }
         }
         
