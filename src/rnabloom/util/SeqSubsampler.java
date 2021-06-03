@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.concurrent.ArrayBlockingQueue;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
@@ -28,6 +29,7 @@ import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
+import rnabloom.io.FastaWriterWorker;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.SeqUtils.compressHomoPolymers;
 import static rnabloom.util.SeqUtils.trimLowComplexityEdges;
@@ -111,7 +113,7 @@ public class SeqSubsampler {
     
     public static void kmerBased(ArrayList<? extends BitSequence> seqs, String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded, 
-            int maxMultiplicity, int maxEdgeClip, boolean verbose) throws IOException {
+            int maxMultiplicity, int maxEdgeClip, boolean verbose) throws IOException, InterruptedException {
         int numSeq = seqs.size();
         
         HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
@@ -120,84 +122,63 @@ public class SeqSubsampler {
         NTHashIterator itr = h.getHashIterator(numHash, k);
         long[] hVals = itr.hVals;
         
+        ArrayBlockingQueue<String> queue = new ArrayBlockingQueue<>(10000);
         FastaWriter writer  = new FastaWriter(outSubsampleFasta, false);
-                
-        int numSubsample = 0;
-
+        FastaWriterWorker writerWorker = new FastaWriterWorker(queue, writer, "s");
+        Thread writerThread = new Thread(writerWorker);
+        writerThread.start();
+        
+        int missingChainThreshold = k;
+        
         for (BitSequence s : seqs) {                    
             String seq = s.toString();
             
             int seqLen = seq.length();
-            boolean tooShort = seqLen < 2 * maxEdgeClip + k;
+            boolean tooShort = seqLen < 3 * maxEdgeClip;
             int maxPos = seqLen - maxEdgeClip;
-            int maxMissingChainLen = 0;
             int missingChainLen = 0;
-            
-            if (itr.start(seq)) {
-                if (tooShort) {
-                    while (itr.hasNext()) {
-                        itr.next();
-                        if (cbf.incrementAndGet(hVals) <= maxMultiplicity) {
-                            ++missingChainLen;
-                        }
-                        else {
-                            if (missingChainLen > maxMissingChainLen) {
-                                maxMissingChainLen = missingChainLen;
-                            }
-                            missingChainLen = 0;
+            boolean write = false;
+            if (tooShort ? itr.start(seq) : itr.start(seq, maxEdgeClip, maxPos)) { 
+                while (itr.hasNext()) {
+                    itr.next();
+                    if (cbf.getCount(hVals) <= maxMultiplicity) {
+                        if (++missingChainLen >= missingChainThreshold) {
+                            write = true;
+                            break;
                         }
                     }
-                }
-                else {
-                    // head region
-                    for (int pos=0; pos<maxEdgeClip; ++pos) {
-                        itr.next();
-                        cbf.increment(hVals);
+                    else {
+                        missingChainLen = 0;
                     }
-                    
-                    int effRangeEndIndex = maxPos-maxEdgeClip;
-                    for (int pos=maxEdgeClip; pos<effRangeEndIndex; ++pos) {
-                        itr.next();
-                        if (cbf.incrementAndGet(hVals) <= maxMultiplicity) {
-                            ++missingChainLen;
-                        }
-                        else {
-                            if (missingChainLen > maxMissingChainLen) {
-                                maxMissingChainLen = missingChainLen;
-                            }
-                            missingChainLen = 0;
-                        }
-                    }
-                    
-                    // tail region
-                    for (int pos=effRangeEndIndex; pos<maxPos; ++pos) {
-                        itr.next();
-                        cbf.increment(hVals);
-                    }
-                }
-                
-                if (missingChainLen > maxMissingChainLen) {
-                    maxMissingChainLen = missingChainLen;
                 }
             }
-            
-            if (maxMissingChainLen >= k) {
-                ++numSubsample;
-                writer.write("s" + numSubsample, seq);
+                
+            if (write) {
+                queue.put(seq);
+                
+                if (itr.start(seq)) {
+                    while (itr.hasNext()) {
+                        itr.next();
+                        cbf.increment(hVals);
+                    }
+                }
             }
         }
         
+        writerWorker.terminateWhenInputExhausts();
+        writerThread.join();
         writer.close();
         
         float fpr = cbf.getFPR();
         cbf.destroy();
         
         if (verbose) {
+            int numSubsample = writerWorker.getNumSequencesWritten();
             System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(fpr) + " %");
             System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
                                 "\tafter: " + NumberFormat.getInstance().format(numSubsample) +
                                 " (" + convertToRoundedPercent(numSubsample/(float)numSeq) + " %)");
-        }
+        }        
     }
     
     public static void minimalSet(ArrayList<? extends BitSequence> seqs, String outFasta,
