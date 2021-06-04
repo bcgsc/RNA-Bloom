@@ -28,14 +28,10 @@ import java.io.Writer;
 import java.lang.ProcessBuilder.Redirect;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.zip.GZIPOutputStream;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
-import rnabloom.util.BitSequence;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.FileUtils.deleteIfExists;
 import static rnabloom.util.FileUtils.hasOnlyOneSequence;
@@ -45,10 +41,7 @@ import static rnabloom.util.FileUtils.touch;
 import static rnabloom.util.FileUtils.writeIntArrayToFile;
 import static rnabloom.util.PafUtils.hasGoodAlignment;
 import static rnabloom.util.PafUtils.hasLargeOverlap;
-import static rnabloom.util.SeqBitsUtils.getListFromFile;
-import static rnabloom.util.SeqSubsampler.kmerBased;
 import rnabloom.util.Timer;
-import rnabloom.util.WeightedBitSequence;
 
 /**
  *

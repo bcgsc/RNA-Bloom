@@ -19,7 +19,6 @@ package rnabloom.util;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.concurrent.ArrayBlockingQueue;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
@@ -27,13 +26,10 @@ import rnabloom.bloom.hash.CanonicalHashFunction;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
-import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.FastaWriterWorker;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.SeqUtils.compressHomoPolymers;
-import static rnabloom.util.SeqUtils.trimLowComplexityEdges;
-import static rnabloom.util.SeqUtils.trimLowComplexityRegions;
 
 /**
  *
@@ -138,7 +134,7 @@ public class SeqSubsampler {
             int maxPos = seqLen - maxEdgeClip;
             int missingChainLen = 0;
             boolean write = false;
-            if (tooShort ? itr.start(seq) : itr.start(seq, maxEdgeClip, maxPos)) { 
+            if (tooShort ? itr.start(seq) : itr.start(seq, maxEdgeClip, maxPos)) {
                 while (itr.hasNext()) {
                     itr.next();
                     if (cbf.getCount(hVals) <= maxMultiplicity) {
