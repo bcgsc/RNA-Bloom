@@ -978,15 +978,25 @@ public class Layout {
         if (!intervals.isEmpty()) {
             Interval first = intervals.getFirst();
             Interval last = intervals.getLast();
-
-            if (first.start < hist.minStart + binSize) {
+            
+            /*
+            Need to adjust the first and last intervals here because both edges of
+            the histogram would not be populated if the alignments do not precisely
+            start at 0 or terminate at the end of the sequence.
+            Use 2 * binSize here because the first and last histogram bars for
+            each alignment are not incremented to ensure the minimum overlap size
+            between reads.
+            */
+            int buffer = 2 * binSize;
+            
+            if (first.start < hist.minStart + buffer) {
                 first.start = hist.minStart;
             }
 
             if (last.end > hist.length) {
                 last.end = hist.length;
             }
-            else if (last.end > hist.maxEnd - binSize) {
+            else if (last.end > hist.maxEnd - buffer) {
                 last.end = hist.maxEnd;
             }
         }
@@ -1495,7 +1505,6 @@ public class Layout {
     public long extractUniqueFromOverlaps(String outFastaPath) throws IOException {
         Timer timer = new Timer();
         
-        //HashMap<String, String> longestAlts = new HashMap<>(); // read id : longest read id
         Set<String> containedSet = Collections.synchronizedSet(new HashSet<>());
         HashMap<String, Histogram> histogramMap = new HashMap<>(100000);
         final int minSegmentLength = minOverlapMatches;
@@ -1555,8 +1564,8 @@ public class Layout {
                 updateHistogram(tHist, r.tStart, r.tEnd, tHistBinSize);
                 
                 if (hasGoodOverlap(r) && hasSimilarSizedOverlap(r, maxOverlapSizeDiff) &&                        
-                        (!currContained || !containedSet.contains(r.tName))) {
-                    // look for containment only if the other is not already "contained"
+                        (!currContained && !containedSet.contains(r.tName))) {
+                    // look for containment only if both are not already "contained"
                     if (tHist.seenAsQuery || isFullyCovered(tHist)) {
                         currRecords.add(pafToTargetOverlap(r));
                     }
