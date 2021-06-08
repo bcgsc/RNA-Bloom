@@ -26,6 +26,7 @@ import rnabloom.bloom.hash.CanonicalHashFunction;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
+import rnabloom.bloom.hash.PairedNTHashIterator;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.FastaWriterWorker;
 import static rnabloom.util.Common.convertToRoundedPercent;
@@ -115,8 +116,10 @@ public class SeqSubsampler {
         HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
         
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
-        NTHashIterator itr = h.getHashIterator(numHash, k);
-        long[] hVals = itr.hVals;
+        //NTHashIterator itr = h.getHashIterator(numHash);
+        final int gap = 1;
+        PairedNTHashIterator itr = h.getPairedHashIterator(numHash, gap);
+        long[] hVals = itr.hVals3;
         
         ArrayBlockingQueue<String> queue = new ArrayBlockingQueue<>(10000);
         FastaWriter writer  = new FastaWriter(outSubsampleFasta, false);
@@ -124,7 +127,8 @@ public class SeqSubsampler {
         Thread writerThread = new Thread(writerWorker);
         writerThread.start();
         
-        int missingChainThreshold = k;
+        //int missingChainThreshold = k;
+        final int missingChainThreshold = k + gap;
         
         for (BitSequence s : seqs) {                    
             String seq = s.toString();
