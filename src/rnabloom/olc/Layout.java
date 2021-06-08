@@ -983,9 +983,6 @@ public class Layout {
             Need to adjust the first and last intervals here because both edges of
             the histogram would not be populated if the alignments do not precisely
             start at 0 or terminate at the end of the sequence.
-            Use 2 * binSize here because the first and last histogram bars for
-            each alignment are not incremented to ensure the minimum overlap size
-            between reads.
             */
             int buffer = 2 * binSize;
             
@@ -1053,8 +1050,23 @@ public class Layout {
             }
             else {
                 if (start >= 0) {
-                    if (minHistIntervalLength <= i - start) {
-                        effIntervals.add(new Interval(start*binSize, i*binSize));
+                    int length = i - start;
+                    int end = i;
+                    
+                    /* increase the interval by one on both ends because the first and last
+                    histogram bars for each alignment are not incremented to ensure the
+                    minimum overlap size between reads.*/
+                    if (start > 1) {
+                        --start;
+                        ++length;
+                    }
+                    if (i <= histLength-2) {
+                        ++end;
+                        ++length;
+                    }
+                    
+                    if (minHistIntervalLength <= length) {
+                        effIntervals.add(new Interval(start*binSize, end*binSize));
                     }
                     start = -1;
                 }
