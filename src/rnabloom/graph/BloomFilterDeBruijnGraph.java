@@ -40,8 +40,8 @@ public class BloomFilterDeBruijnGraph {
     
     private BloomFilter dbgbf;
     private CountingBloomFilter cbf;
-    private PairedKeysBloomFilter fpkbf = null;
-    private PairedKeysBloomFilter rpkbf = null;
+    private BloomFilter fpkbf = null;
+    private BloomFilter rpkbf = null;
     
     private int dbgbfNumHash;
     private int cbfNumHash;
@@ -100,7 +100,7 @@ public class BloomFilterDeBruijnGraph {
         this.pkbfNumHash = pkbfNumHash;
         
         if (useReadPairedKmers) {
-            this.rpkbf = new PairedKeysBloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
+            this.rpkbf = new BloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
         }
     }
     
@@ -173,8 +173,8 @@ public class BloomFilterDeBruijnGraph {
         File pkbfDescFile = new File(pkbfDescPath);
         
         if (pkbfDescFile.isFile() && pairBitsFile.isFile()) {
-            fpkbf = new PairedKeysBloomFilter(pkbfDescFile, pairBitsFile, hashFunction);
-            pkbfNumHash = fpkbf.getNumhash();
+            fpkbf = new BloomFilter(pkbfDescFile, pairBitsFile, hashFunction);
+            pkbfNumHash = fpkbf.getNumHash();
         }
         
         String rpkbfBitsPath = graphFile.getPath() + FILE_RPKBF_PAIR_EXTENSION;
@@ -184,8 +184,8 @@ public class BloomFilterDeBruijnGraph {
         File rpkbfDescFile = new File(rpkbfDescPath);
         
         if (rpkbfBitsFile.isFile() && rpkbfDescFile.isFile()) {
-            this.rpkbf = new PairedKeysBloomFilter(rpkbfDescFile, rpkbfBitsFile, this.hashFunction);
-            pkbfNumHash = rpkbf.getNumhash();
+            this.rpkbf = new BloomFilter(rpkbfDescFile, rpkbfBitsFile, this.hashFunction);
+            pkbfNumHash = rpkbf.getNumHash();
         }
     }
 
@@ -283,11 +283,11 @@ public class BloomFilterDeBruijnGraph {
         return cbf;
     }
 
-    public PairedKeysBloomFilter getFpkbf() {
+    public BloomFilter getFpkbf() {
         return fpkbf;
     }
     
-    public PairedKeysBloomFilter getRpkbf() {
+    public BloomFilter getRpkbf() {
         return rpkbf;
     }
     
@@ -347,12 +347,12 @@ public class BloomFilterDeBruijnGraph {
             this.fpkbf.destroy();
         }
         
-        fpkbf = new PairedKeysBloomFilter(new File(pkbfDescPath), new File(pairBitsPath), hashFunction);
+        fpkbf = new BloomFilter(new File(pkbfDescPath), new File(pairBitsPath), hashFunction);
     }
     
     public void initializePairKmersBloomFilter(long pkbfNumBits, int pkbfNumHash) {
         if (this.fpkbf == null) {
-            this.fpkbf = new PairedKeysBloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
+            this.fpkbf = new BloomFilter(pkbfNumBits, pkbfNumHash, this.hashFunction);
         }
         else {
             this.fpkbf.empty();

@@ -277,7 +277,7 @@ public class RNABloom {
         covFPR = graph.getCbfFPR();
         System.out.println("Counting Bloom filter FPR:           " + convertToRoundedPercent(covFPR) + " %");
         
-        PairedKeysBloomFilter rpkbf = graph.getRpkbf();
+        BloomFilter rpkbf = graph.getRpkbf();
         if (rpkbf != null) {
             System.out.println("Read paired k-mers Bloom filter FPR: " + convertToRoundedPercent(rpkbf.getFPR()) + " %");
         }
@@ -1275,7 +1275,7 @@ public class RNABloom {
         long sbfSize = BloomFilter.getExpectedSize(maxPopCount, maxFPR, sbfNumHash);
         long dbgbfSize = BloomFilter.getExpectedSize(maxPopCount, maxFPR, dbgbfNumHash);
         long cbfSize = CountingBloomFilter.getExpectedSize(maxPopCount, maxFPR, cbfNumHash);
-        long pkbfSize = PairedKeysBloomFilter.getExpectedSize(maxPopCount, maxFPR, pkbfNumHash);
+        long pkbfSize = BloomFilter.getExpectedSize(maxPopCount, maxFPR, pkbfNumHash);
                 
         return new long[]{sbfSize, dbgbfSize, cbfSize, pkbfSize};
     }
