@@ -35,23 +35,23 @@ public class ReverseComplementPairedNTHashIterator extends PairedNTHashIterator 
     public void next() {
         if (pos == start) {
             ++pos;
-            NTM64RC(seq, k, h, pos, hVals1);
-            NTM64RC(seq, k, h, pos+d, hVals2);
-            NTM64(combineHashValues(hVals2[0], hVals1[0]), hVals3, k, h);
+            NTM64RC(seq, k, h, pos, hValsL);
+            NTM64RC(seq, k, h, pos+d, hValsR);
+            NTM64(combineHashValues(hValsR[0], hValsL[0]), hValsP, k, h);
         }
         else if (pos < max) {
-            NTM64RC(seq.charAt(pos), seq.charAt(pos+k), k, h, hVals1);
-            NTM64RC(seq.charAt(pos+d), seq.charAt(pos+k+d), k, h, hVals2);
-            NTM64(combineHashValues(hVals2[0], hVals1[0]), hVals3, k, h);
+            NTM64RC(seq.charAt(pos), seq.charAt(pos+k), k, h, hValsL);
+            NTM64RC(seq.charAt(pos+d), seq.charAt(pos+k+d), k, h, hValsR);
+            NTM64(combineHashValues(hValsR[0], hValsL[0]), hValsP, k, h);
             ++pos;
         }
         else {
-            Arrays.fill(hVals1, 0);
-            Arrays.fill(hVals2, 0);
-            Arrays.fill(hVals3, 0);
-            hVals1 = null;
-            hVals2 = null;
-            hVals3 = null;
+            Arrays.fill(hValsL, 0);
+            Arrays.fill(hValsR, 0);
+            Arrays.fill(hValsP, 0);
+            hValsL = null;
+            hValsR = null;
+            hValsP = null;
         }
     }
 }

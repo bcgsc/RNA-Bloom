@@ -364,9 +364,9 @@ public class RNABloom {
             try {
                 Matcher mSeq = seqPattern.matcher("");
 
-                long[] lHashVals = pitr.hVals1;
-                long[] rHashVals = pitr.hVals2;
-                long[] pHashVals = pitr.hVals3;
+                long[] lHashVals = pitr.hValsL;
+                long[] rHashVals = pitr.hValsR;
+                long[] pHashVals = pitr.hValsP;
 
                 if (existingKmersOnly) {
                     for (String seq; (seq = fr.next()) != null;) {
@@ -445,9 +445,9 @@ public class RNABloom {
 
                     String seq;
 
-                    long[] lHashVals = pitr.hVals1;
-                    long[] rHashVals = pitr.hVals2;
-                    long[] pHashVals = pitr.hVals3;
+                    long[] lHashVals = pitr.hValsL;
+                    long[] rHashVals = pitr.hValsR;
+                    long[] pHashVals = pitr.hValsP;
 
                     if (existingKmersOnly) {
                         while (fr.hasNext()) {
@@ -541,7 +541,7 @@ public class RNABloom {
                 long[] hashVals = itr.hVals;
                 
                 if (storeReadPairedKmers) {
-                    long[] phashVals = pitr.hVals3;
+                    long[] phashVals = pitr.hValsP;
 
                     while (true) {
                         fr.nextWithoutName(record);
@@ -648,7 +648,7 @@ public class RNABloom {
                 long[] hashVals = itr.hVals;
 
                 if (storeReadPairedKmers) {
-                    long[] phashVals = pitr.hVals3;
+                    long[] phashVals = pitr.hValsP;
                     for (String seq; (seq = fr.next()) != null;) {
                         mSeq.reset(seq);
 
@@ -747,7 +747,7 @@ public class RNABloom {
                     FastqRecord record = new FastqRecord();
 
                     if (storeReadPairedKmers) {
-                        long[] phashVals = pitr.hVals3;
+                        long[] phashVals = pitr.hValsP;
 
                         while (fr.hasNext()) {
                             fr.nextWithoutName(record);
@@ -809,7 +809,7 @@ public class RNABloom {
                     String seq;
 
                     if (storeReadPairedKmers) {
-                        long[] phashVals = pitr.hVals3;
+                        long[] phashVals = pitr.hValsP;
 
                         while (fr.hasNext()) {
                             seq = fr.next();
@@ -1282,14 +1282,14 @@ public class RNABloom {
     
     public void addPairedKmersFromSequences(String[] fastas, boolean existingKmersOnly) throws IOException {
         PairedNTHashIterator readItr = graph.getPairedHashIterator(graph.getReadPairedKmerDistance());
-        long[] readHashValsL = readItr.hVals1;
-        long[] readHashValsR = readItr.hVals2;
-        long[] readHashValsP = readItr.hVals3;        
+        long[] readHashValsL = readItr.hValsL;
+        long[] readHashValsR = readItr.hValsR;
+        long[] readHashValsP = readItr.hValsP;        
         
         PairedNTHashIterator fragItr = graph.getPairedHashIterator(graph.getFragPairedKmerDistance());
-        long[] fragHashValsL = fragItr.hVals1;
-        long[] fragHashValsR = fragItr.hVals2;
-        long[] fragHashValsP = fragItr.hVals3;
+        long[] fragHashValsL = fragItr.hValsL;
+        long[] fragHashValsR = fragItr.hValsR;
+        long[] fragHashValsP = fragItr.hValsP;
 
         if (existingKmersOnly) {
             for (String path : fastas) {
@@ -1377,10 +1377,10 @@ public class RNABloom {
                 long[] hashVals = itr.hVals;
 
                 PairedNTHashIterator readItr = graph.getPairedHashIterator(graph.getReadPairedKmerDistance());
-                long[] readHashValsP = readItr.hVals3;
+                long[] readHashValsP = readItr.hValsP;
 
                 PairedNTHashIterator fragItr = graph.getPairedHashIterator(graph.getFragPairedKmerDistance());
-                long[] fragHashValsP = fragItr.hVals3;
+                long[] fragHashValsP = fragItr.hValsP;
 
                 NucleotideBitsReader fin = new NucleotideBitsReader(path);
 
@@ -6922,7 +6922,7 @@ public class RNABloom {
                         myTimer.start();
                         System.out.println("Extracting seed sequences...");
                         Collections.sort(correctedReads);
-                        int subK = k*2/3 % 2 == 0 ? k*2/3 + 1 : k*2/3;
+                        int subK = k/2 % 2 == 0 ? k/2-1 : k/2;
                         SeqSubsampler.kmerBased(correctedReads, seedReadsPath,
                                 dbgbfSize + cbfSize, subK, dbgbfNumHash, strandSpecific, 
                                 Math.max(2, longReadMinReadDepth), maxTipLen, true);

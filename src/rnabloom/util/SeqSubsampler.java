@@ -117,9 +117,14 @@ public class SeqSubsampler {
         
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         //NTHashIterator itr = h.getHashIterator(numHash);
-        final int gap = 1;
-        PairedNTHashIterator itr = h.getPairedHashIterator(numHash, gap);
-        long[] hVals = itr.hVals3;
+        final int shift = k + 3;
+        PairedNTHashIterator itr = h.getPairedHashIterator(numHash, shift);        
+        PairedNTHashIterator delItr = h.getPairedHashIterator(numHash, shift - 1);
+        PairedNTHashIterator insItr = h.getPairedHashIterator(numHash, shift + 1);
+        
+        long[] hVals = itr.hValsP;
+        long[] delHVals = delItr.hValsP;
+        long[] insHVals = insItr.hValsP;
         
         ArrayBlockingQueue<String> queue = new ArrayBlockingQueue<>(10000);
         FastaWriter writer  = new FastaWriter(outSubsampleFasta, false);
@@ -128,7 +133,7 @@ public class SeqSubsampler {
         writerThread.start();
         
         //int missingChainThreshold = k;
-        final int missingChainThreshold = k + gap;
+        final int missingChainThreshold = k + shift;
         
         for (BitSequence s : seqs) {                    
             String seq = s.toString();
@@ -160,6 +165,20 @@ public class SeqSubsampler {
                     while (itr.hasNext()) {
                         itr.next();
                         cbf.increment(hVals);
+                    }
+                }
+                
+                if (delItr.start(seq)) {
+                    while (delItr.hasNext()) {
+                        delItr.next();
+                        cbf.increment(delHVals);
+                    }
+                }
+                
+                if (insItr.start(seq)) {
+                    while (insItr.hasNext()) {
+                        insItr.next();
+                        cbf.increment(insHVals);
                     }
                 }
             }

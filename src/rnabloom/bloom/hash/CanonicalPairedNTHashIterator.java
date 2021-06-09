@@ -26,8 +26,8 @@ import static rnabloom.bloom.hash.NTHash.NTMC64;
  * @author Ka Ming Nip
  */
 public class CanonicalPairedNTHashIterator extends PairedNTHashIterator {
-    public long[] frVal1 = new long[2];
-    public long[] frVal2 = new long[2];
+    public long[] frValL = new long[2];
+    public long[] frValR = new long[2];
     
     public CanonicalPairedNTHashIterator(int k, int h, int d) {
         super(k, h, d);
@@ -37,23 +37,23 @@ public class CanonicalPairedNTHashIterator extends PairedNTHashIterator {
     public void next() {
         if (pos == start) {
             ++pos;
-            NTMC64(seq, k, h, pos, frVal1, hVals1);
-            NTMC64(seq, k, h, pos+d, frVal2, hVals2);
-            NTM64(Math.min(combineHashValues(frVal1[0], frVal2[0]), combineHashValues(frVal2[1], frVal1[1])), hVals3, k, h);
+            NTMC64(seq, k, h, pos, frValL, hValsL);
+            NTMC64(seq, k, h, pos+d, frValR, hValsR);
+            NTM64(Math.min(combineHashValues(frValL[0], frValR[0]), combineHashValues(frValR[1], frValL[1])), hValsP, k, h);
         }
         else if (pos < max) {
-            NTMC64(seq.charAt(pos), seq.charAt(pos+k), k, h, frVal1, hVals1);
-            NTMC64(seq.charAt(pos+d), seq.charAt(pos+k+d), k, h, frVal2, hVals2);
-            NTM64(Math.min(combineHashValues(frVal1[0], frVal2[0]), combineHashValues(frVal2[1], frVal1[1])), hVals3, k, h);
+            NTMC64(seq.charAt(pos), seq.charAt(pos+k), k, h, frValL, hValsL);
+            NTMC64(seq.charAt(pos+d), seq.charAt(pos+k+d), k, h, frValR, hValsR);
+            NTM64(Math.min(combineHashValues(frValL[0], frValR[0]), combineHashValues(frValR[1], frValL[1])), hValsP, k, h);
             ++pos;
         }
         else {
-            Arrays.fill(hVals1, 0);
-            Arrays.fill(hVals2, 0);
-            Arrays.fill(hVals3, 0);
-            hVals1 = null;
-            hVals2 = null;
-            hVals3 = null;
+            Arrays.fill(hValsL, 0);
+            Arrays.fill(hValsR, 0);
+            Arrays.fill(hValsP, 0);
+            hValsL = null;
+            hValsR = null;
+            hValsP = null;
         }
     }
 }

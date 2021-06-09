@@ -33,18 +33,18 @@ public class PairedNTHashIterator {
     protected int pos = -1;
     protected int max = -2;
     protected int d = 0;
-    public long[] hVals1 = null;
-    public long[] hVals2 = null;
-    public long[] hVals3 = null;
+    public long[] hValsL = null;
+    public long[] hValsR = null;
+    public long[] hValsP = null;
 
     public PairedNTHashIterator(int k, int h, int d) {
         this.k = k;
         this.kMod64 = k%64;
         this.h = h;
         
-        this.hVals1 = new long[h];
-        this.hVals2 = new long[h];
-        this.hVals3 = new long[h];
+        this.hValsL = new long[h];
+        this.hValsR = new long[h];
+        this.hValsP = new long[h];
         this.d = d;
     }
     
@@ -64,23 +64,23 @@ public class PairedNTHashIterator {
     public void next() {
         if (pos == start) {
             ++pos;
-            NTM64(seq, k, h, pos, hVals1);
-            NTM64(seq, k, h, pos+d, hVals2);
-            NTM64(combineHashValues(hVals1[0], hVals2[0]), hVals3, k, h);
+            NTM64(seq, k, h, pos, hValsL);
+            NTM64(seq, k, h, pos+d, hValsR);
+            NTM64(combineHashValues(hValsL[0], hValsR[0]), hValsP, k, h);
         }
         else if (pos < max) {
-            NTM64(seq.charAt(pos), seq.charAt(pos+k), k, h, hVals1, kMod64);
-            NTM64(seq.charAt(pos+d), seq.charAt(pos+k+d), k, h, hVals2, kMod64);
-            NTM64(combineHashValues(hVals1[0], hVals2[0]), hVals3, k, h);
+            NTM64(seq.charAt(pos), seq.charAt(pos+k), k, h, hValsL, kMod64);
+            NTM64(seq.charAt(pos+d), seq.charAt(pos+k+d), k, h, hValsR, kMod64);
+            NTM64(combineHashValues(hValsL[0], hValsR[0]), hValsP, k, h);
             ++pos;
         }
         else {
-            Arrays.fill(hVals1, 0);
-            Arrays.fill(hVals2, 0);
-            Arrays.fill(hVals3, 0);
-            hVals1 = null;
-            hVals2 = null;
-            hVals3 = null;
+            Arrays.fill(hValsL, 0);
+            Arrays.fill(hValsR, 0);
+            Arrays.fill(hValsP, 0);
+            hValsL = null;
+            hValsR = null;
+            hValsP = null;
         }
     }
 
