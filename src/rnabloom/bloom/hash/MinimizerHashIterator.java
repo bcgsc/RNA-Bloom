@@ -58,6 +58,9 @@ public class MinimizerHashIterator {
             }
             
             window = new LongRollingWindow(firstWindow);
+            window.setIndex(w-2, w-2);
+            
+            // the first `next` call will set the last value in the window
             return true;
         }
         
@@ -79,6 +82,10 @@ public class MinimizerHashIterator {
         }
         prev = window.getMin();
         return prev;
+    }
+    
+    public int getMinimizerPos() {
+        return window.getMinPos();
     }
     
     public void getMultipleHashValues(long bVal, long[] hVals) {

@@ -23,38 +23,62 @@ package rnabloom.util;
 public class LongRollingWindow {
     private final long[] window;
     private int index;
+    private int pos;
     private final int size;
+    private int minIndex;
     
     public LongRollingWindow(long[] window) {
         this.window = window;
-        this.index = 0;
         this.size = window.length;
+        this.index = size - 1; // assume the last value in the window is the last entry
+        this.pos = index;
+        updateMinIndex();
+    }
+    
+    public void setIndex(int i, int pos) {
+        this.index = i;
+        this.pos = pos;
     }
     
     public void roll(long newVal) {
+        ++pos;
+        
         if (++index >= size) {
             index = 0;
         }
         
         window[index] = newVal;
+        
+        if (minIndex == index) {
+            updateMinIndex();
+        }
+        else if (newVal < window[minIndex]) {
+            minIndex = index;
+        }
     }
     
-    public long getMin() {
+    private void updateMinIndex() {
+        minIndex = 0;
         long min = window[0];
         for (int i=1; i<size; ++i) {
-            min = Math.min(min, window[i]);
+            if (window[i] < min) {
+                min = window[i];
+                minIndex = i;
+            }
         }
-        
-        return min;
     }
     
-    public long getMax() {
-        long max = window[0];
-        for (int i=1; i<size; ++i) {
-            max = Math.max(max, window[i]);
+    public long getMin() {        
+        return window[minIndex];
+    }
+    
+    public int getMinPos() {
+        if (minIndex > index) {
+            // window has wrapped around
+            return pos - index - size + minIndex;
         }
         
-        return max;
+        return pos - index + minIndex;
     }
 }
 
