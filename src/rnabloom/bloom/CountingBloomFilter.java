@@ -122,7 +122,11 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         hashFunction.getHashValues(key, numHash, hashVals);
         increment(hashVals);
     }
-        
+    
+    public void increment(long hashVal) {
+        increment(hashFunction.getHashValues(hashVal, numHash));
+    }
+    
     public void increment(final long[] hashVals) {
         // find the smallest count at all hash positions
         byte min = counts.get(getIndex(hashVals[0]));

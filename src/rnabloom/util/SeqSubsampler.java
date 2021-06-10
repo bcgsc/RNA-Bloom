@@ -19,6 +19,7 @@ package rnabloom.util;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.concurrent.ArrayBlockingQueue;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
@@ -118,11 +119,13 @@ public class SeqSubsampler {
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         //NTHashIterator itr = h.getHashIterator(numHash);
         final int shift = k + 1;
-        PairedNTHashIterator itr = h.getPairedHashIterator(numHash, shift);        
-        PairedNTHashIterator delItr = h.getPairedHashIterator(numHash, shift - 1);
-        PairedNTHashIterator insItr = h.getPairedHashIterator(numHash, shift + 1);
+        PairedNTHashIterator itr = h.getPairedHashIterator(numHash, shift);
+        PairedNTHashIterator normItr = h.getPairedHashIterator(1, shift);
+        PairedNTHashIterator delItr = h.getPairedHashIterator(1, shift - 1);
+        PairedNTHashIterator insItr = h.getPairedHashIterator(1, shift + 1);
         
         long[] hVals = itr.hValsP;
+        long[] normHVals = normItr.hValsP;
         long[] delHVals = delItr.hValsP;
         long[] insHVals = insItr.hValsP;
         
@@ -161,26 +164,36 @@ public class SeqSubsampler {
             if (write) {
                 queue.put(seq);
                 
-                if (itr.start(seq)) {
-                    while (itr.hasNext()) {
-                        itr.next();
-                        cbf.increment(hVals);
+                /*
+                Get all unique hash values from this sequence so that counts
+                are not over-inflated for duplicated kmer pairs
+                */
+                HashSet<Long> hashVals = new HashSet<>();
+                
+                if (normItr.start(seq)) {
+                    while (normItr.hasNext()) {
+                        normItr.next();
+                        hashVals.add(normHVals[0]);
                     }
                 }
                 
                 if (delItr.start(seq)) {
                     while (delItr.hasNext()) {
                         delItr.next();
-                        cbf.increment(delHVals);
+                        hashVals.add(delHVals[0]);
                     }
                 }
                 
                 if (insItr.start(seq)) {
                     while (insItr.hasNext()) {
                         insItr.next();
-                        cbf.increment(insHVals);
+                        hashVals.add(insHVals[0]);
                     }
                 }
+                
+                hashVals.parallelStream().forEach(e -> {
+                    cbf.increment(e);
+                });
             }
         }
         
