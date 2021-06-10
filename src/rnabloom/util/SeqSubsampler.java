@@ -117,7 +117,7 @@ public class SeqSubsampler {
         
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         //NTHashIterator itr = h.getHashIterator(numHash);
-        final int shift = k + 3;
+        final int shift = k + 1;
         PairedNTHashIterator itr = h.getPairedHashIterator(numHash, shift);        
         PairedNTHashIterator delItr = h.getPairedHashIterator(numHash, shift - 1);
         PairedNTHashIterator insItr = h.getPairedHashIterator(numHash, shift + 1);
