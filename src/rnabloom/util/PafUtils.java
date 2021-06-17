@@ -184,6 +184,29 @@ public class PafUtils {
         return bestPartner;
     }
     
+    public static HashMap<String, Float> getLengthNormalizedReadCounts(String pafPath, Set<String> skipSet) throws IOException {
+        HashMap<String, Float> counts = new HashMap<>();
+        
+        PafReader reader = new PafReader(pafPath);
+        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+            reader.next(r);
+            
+            if (!skipSet.contains(r.tName)) {
+                Float c = counts.get(r.tName);
+                if (c == null) {
+                    c = r.numMatch/(float) r.tLen;
+                }
+                else {
+                    c += r.numMatch/(float) r.tLen;
+                }
+                counts.put(r.tName, c);
+            }
+        }
+        reader.close();
+        
+        return counts;
+    }
+    
     /**
      * 
      * @param pafPath input PAF file

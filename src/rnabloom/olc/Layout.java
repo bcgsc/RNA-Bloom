@@ -69,7 +69,7 @@ import rnabloom.util.Timer;
  */
 public class Layout {
     
-    private DefaultDirectedWeightedGraph<String, OverlapEdge> graph;
+    private DefaultDirectedGraph<String, OverlapEdge> graph;
     private InputStream overlapPafInputStream;
     private String seqFastaPath;
     private boolean stranded;
@@ -84,7 +84,7 @@ public class Layout {
     public Layout(String seqFile, InputStream overlapPafInputStream, boolean stranded,
             int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
             boolean cutRevCompArtifact, int minSeqDepth, boolean verbose) {
-        this.graph = new DefaultDirectedWeightedGraph<>(OverlapEdge.class);
+        this.graph = new DefaultDirectedGraph<>(OverlapEdge.class);
         this.overlapPafInputStream = overlapPafInputStream;
         this.seqFastaPath = seqFile;
         this.stranded = stranded;
@@ -2748,44 +2748,45 @@ public class Layout {
         }
                 
         // extract read count from mapping
-        HashSet<String> vertexNames = new HashSet<>(vertexSet.size());
-        for (String vid : vertexSet) {
-            String name = getVertexName(vid);
-            vertexNames.add(name);
-            //vertexNames.add(name.substring(0, name.length()-1)); // remove "r" suffix
-        }
+//        HashSet<String> vertexNames = new HashSet<>(vertexSet.size());
+//        for (String vid : vertexSet) {
+//            String name = getVertexName(vid);
+//            vertexNames.add(name);
+//            //vertexNames.add(name.substring(0, name.length()-1)); // remove "r" suffix
+//        }
         
         printMessage("Tallying read counts...");
 
         Timer timer = new Timer();
-        HashMap<String, Float> readCounts = getReadCounts(mappingPafPath, vertexNames, maxEdgeClip);
+        //HashMap<String, Float> readCounts = getReadCounts(mappingPafPath, vertexNames, maxEdgeClip);
+        HashMap<String, Float> readCounts = getLengthNormalizedReadCounts(mappingPafPath, containedSet);
         printMessage("Counts tallied in " + timer.elapsedDHMS());
         
-        // assign read count to edge
-        printMessage("Adding read counts to graph...");
-        timer.start();
-        edgeSet = graph.edgeSet();
-        for (OverlapEdge e : edgeSet) {
-            String source = getVertexName(graph.getEdgeSource(e));
-            String target = getVertexName(graph.getEdgeTarget(e));
-//            Float sCount = readCounts.get(source.substring(0, source.length()-1));
-//            Float tCount = readCounts.get(target.substring(0, target.length()-1));
-            Float sCount = readCounts.get(source);
-            Float tCount = readCounts.get(target);
-            float w = 0;
-            if (sCount != null && tCount != null) {
-                w = Math.min(sCount, tCount);
-            }
-            else if (sCount != null) {
-                w = sCount;
-            }
-            else if (tCount != null) {
-                w = tCount;
-            }
-            graph.setEdgeWeight(e, w);
-        }
-        
-        printMessage("Counts added in " + timer.elapsedDHMS());
+//        // assign read count to edge
+//        printMessage("Adding read counts to graph...");
+//        timer.start();
+//        edgeSet = graph.edgeSet();
+//        for (OverlapEdge e : edgeSet) {
+//            String source = getVertexName(graph.getEdgeSource(e));
+//            String target = getVertexName(graph.getEdgeTarget(e));
+////            Float sCount = readCounts.get(source.substring(0, source.length()-1));
+////            Float tCount = readCounts.get(target.substring(0, target.length()-1));
+//            Float sCount = readCounts.get(source);
+//            Float tCount = readCounts.get(target);
+//            float w = 0;
+//            if (sCount != null && tCount != null) {
+//                w = Math.min(sCount, tCount);
+//            }
+//            else if (sCount != null) {
+//                w = sCount;
+//            }
+//            else if (tCount != null) {
+//                w = tCount;
+//            }
+//            graph.setEdgeWeight(e, w);
+//        }
+//        
+//        printMessage("Counts added in " + timer.elapsedDHMS());
         printMessage("Extracting vertex sequences...");
 
         timer.start();
@@ -2803,7 +2804,8 @@ public class Layout {
             }
             else if (!containedSet.contains(name)) {
                 // this sequence either contains shorter sequences or it has no overlaps with others
-                fw.write(Long.toString(++seqID), nameSeq[1]);
+                fw.write(Long.toString(++seqID) + " l=" + nameSeq[1].length() + " c=" + readCounts.get(name) + " s=" + name, nameSeq[1]);
+                readCounts.remove(name);
             }
         }
         fr.close();
@@ -2818,24 +2820,24 @@ public class Layout {
                 sorted(Entry.<String, Float>comparingByValue().reversed()).iterator();
                 itr.hasNext();) {
             Entry<String, Float> e = itr.next();
-            float count = e.getValue();
             String seed = e.getKey();// + "r";
             if (!visited.contains(seed)) {
                 String header = Long.toString(++seqID);
                 
-                ArrayDeque<String> path;
-                if (count > minNumAltReads) { // use `>` instead of `>=` because `count` includes seed read
-                    path = getMaxWeightExtension(seed + '+');
-                }
-                else {
-                    path = getUnambiguousExtension(seed + '+');
-                }
-
+                ArrayDeque<String> path = getMaxWeightExtension(seed + '+', readCounts);
+                
+                String seq = assemblePath(path, dovetailReadSeqs);
+                
+                header += " l=" + seq.length() + " c=" + getMinAndDecrementWeights(path, readCounts);
+                
                 if (path.size() > 1) {
                     header += " path=[" + String.join(",", path) + "]";
                 }
+                else {
+                    header += " s=" + seed;
+                }
                 
-                fw.write(header, assemblePath(path, dovetailReadSeqs));
+                fw.write(header, seq);
 
                 for (String vid : path) {
                     visited.add(getVertexName(vid));
@@ -2849,38 +2851,32 @@ public class Layout {
         printMessage("Laid out paths in " + timer.elapsedDHMS());
     }
 
-    private String getMaxWeightPredecessor(String vid) {
-        double maxWeight = Double.MIN_VALUE;
-        OverlapEdge maxWeightEdge = null;
-        for (OverlapEdge e : graph.incomingEdgesOf(vid)) {
-            double w = graph.getEdgeWeight(e);
+    private String getMaxWeightPredecessor(String vid, HashMap<String, Float> weights) {
+        float maxWeight = 0; //Double.MIN_VALUE;
+        String maxWeightPredecessor = null;
+        for (String p : Graphs.predecessorListOf(graph, vid)) {
+            float w = weights.get(getVertexName(p));
             if (w > maxWeight) {
                 maxWeight = w;
-                maxWeightEdge = e;
+                maxWeightPredecessor = p;
             }
         }
         
-        if (maxWeightEdge != null) {
-            return graph.getEdgeSource(maxWeightEdge);
-        }
-        return null;
+        return maxWeightPredecessor;
     }
     
-    private String getMaxWeightSuccessor(String vid) {
-        double maxWeight = Double.MIN_VALUE;
-        OverlapEdge maxWeightEdge = null;
-        for (OverlapEdge e : graph.outgoingEdgesOf(vid)) {
-            double w = graph.getEdgeWeight(e);
+    private String getMaxWeightSuccessor(String vid, HashMap<String, Float> weights) {
+        float maxWeight = 0; //Double.MIN_VALUE;
+        String maxWeightSuccessor = null;
+        for (String s : Graphs.successorListOf(graph, vid)) {
+            float w = weights.get(getVertexName(s));
             if (w > maxWeight) {
                 maxWeight = w;
-                maxWeightEdge = e;
+                maxWeightSuccessor = s;
             }
         }
         
-        if (maxWeightEdge != null) {
-            return graph.getEdgeTarget(maxWeightEdge);
-        }
-        return null;
+        return maxWeightSuccessor;
     }
     
     private ArrayDeque<String> getGreedyExtension(String seedVid) {
@@ -2952,7 +2948,7 @@ public class Layout {
         return ((e.sinkEnd - e.sinkStart) + (e.sourceEnd - e.sourceStart))/2;
     }
     
-    private ArrayDeque<String> getMaxWeightExtension(String seedVid) {
+    private ArrayDeque<String> getMaxWeightExtension(String seedVid, HashMap<String, Float> weights) {
         HashSet<String> visited = new HashSet<>();
         visited.add(seedVid);
         
@@ -2960,7 +2956,7 @@ public class Layout {
                 
         // extend left
         String cursor = seedVid;
-        while ((cursor = getMaxWeightPredecessor(cursor)) != null) {
+        while ((cursor = getMaxWeightPredecessor(cursor, weights)) != null) {
             if (visited.contains(cursor)) {
                 break;
             }
@@ -2972,7 +2968,7 @@ public class Layout {
         
         // extend right
         cursor = seedVid;
-        while ((cursor = getMaxWeightSuccessor(cursor)) != null) {
+        while ((cursor = getMaxWeightSuccessor(cursor, weights)) != null) {
             if (visited.contains(cursor)) {
                 break;
             }
@@ -2981,6 +2977,25 @@ public class Layout {
         }
         
         return path;
+    }
+    
+    private float getMinAndDecrementWeights(ArrayDeque<String> path, HashMap<String, Float> weights) {
+        float minWeight = Float.MAX_VALUE;
+        for (String vid : path) {
+            String name = getVertexName(vid);
+            float w = weights.get(name);
+            if (w < minWeight) {
+                minWeight = w;
+            }
+        }
+        
+        for (String vid : path) {
+            String name = getVertexName(vid);
+            float w = weights.get(name);
+            weights.put(name, w - minWeight);
+        }
+        
+        return minWeight;
     }
     
     public boolean layoutBackbones(String outFastaPath) throws IOException {
