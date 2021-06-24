@@ -24,6 +24,8 @@ import java.util.Iterator;
 import java.util.PrimitiveIterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import rnabloom.bloom.hash.MinimizerHashIterator;
+import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.io.FastqRecord;
 
 /**
@@ -1668,6 +1670,33 @@ public final class SeqUtils {
             if (n != lastN) {
                 sb.append(n);
                 lastN = n;
+            }
+        }
+        
+        return sb.toString();
+    }
+    
+    public static String getMinimizerChainString(String seq, MinimizerHashIterator itr) {
+        StringBuilder sb = new StringBuilder();
+        
+        if (itr.start(seq)) {
+            int k = itr.getK();
+            int prevMinimizerPos = -k-1;
+            while (itr.hasNext()) {
+                itr.nextMinimizer();
+                int minimizerPos = itr.getMinimizerPos();
+                if (minimizerPos == prevMinimizerPos) {
+                    break;
+                }
+                
+                if (minimizerPos - prevMinimizerPos >= k) {
+                    sb.append(seq.substring(minimizerPos, minimizerPos + k));
+                }
+                else {
+                    sb.append(seq.substring(prevMinimizerPos + k, minimizerPos + k));
+                }
+                
+                prevMinimizerPos = minimizerPos;
             }
         }
         

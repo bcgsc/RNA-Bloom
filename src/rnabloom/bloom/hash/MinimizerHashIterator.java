@@ -18,6 +18,7 @@ package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.NTHash.NTM64;
 import rnabloom.util.LongRollingWindow;
+import static rnabloom.util.SeqUtils.getMinimizerChainString;
 
 /**
  *
@@ -67,6 +68,10 @@ public class MinimizerHashIterator {
         return false;
     }
     
+    public int getK() {
+        return k;
+    }
+    
     public int getPos() {
         return pos;
     }
@@ -75,12 +80,37 @@ public class MinimizerHashIterator {
         return pos < max;
     }
     
+    /**
+     * Returns the minimizer at the next position
+     * @return minimizer hash value
+     */
     public long next() {
         if (++pos < max) {
             itr.next();
             window.roll(itr.hVals[0]);
         }
         prev = window.getMin();
+        return prev;
+    }
+    
+    /**
+     * Returns the next minimizer
+     * @return minimizer hash value
+     */
+    public long nextMinimizer() {
+        if (pos < 0) {
+            return next();
+        }
+        
+        int minPos = window.getMinPos();
+        while (++pos < max) {
+            itr.next();
+            window.roll(itr.hVals[0]);
+            if (window.getMinPos() > minPos) {
+                prev = window.getMin();
+                break;
+            }
+        }
         return prev;
     }
     
