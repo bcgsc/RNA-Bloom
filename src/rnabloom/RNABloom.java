@@ -3754,13 +3754,20 @@ public class RNABloom {
                     ++numReads;
                     String seq = reverseComplement ? reverseComplement(nameSeqPair[1]) : nameSeqPair[1];
                     boolean kept = false;
+                    int seqLen = seq.length();
                     
-                    if (seq.length() >= k) {
+                    if (seqLen >= k) {
                         String name = nameSeqPair[0];
                         
-                        seq = polyATrimmer.chompTailAdaptor(seq, 100);
+                        seq = polyATrimmer.chompTailAdaptor(seq, 150);
+                        seqLen = seq.length();
+                        
                         if (!strandSpecific) {
-                            seq = polyATrimmer.chompHeadAdaptor(seq, 100);
+                            seq = polyATrimmer.chompHeadAdaptor(seq, 150);
+                            if (seq.length() < seqLen) {
+                                // polyT found, rev-comp sequence
+                                seq = reverseComplement(seq);
+                            }
                         }
                         
                         ArrayList<String> segments = trimLowComplexityRegions(seq, 100, 500);
