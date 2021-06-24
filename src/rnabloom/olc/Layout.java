@@ -984,7 +984,7 @@ public class Layout {
             the histogram would not be populated if the alignments do not precisely
             start at 0 or terminate at the end of the sequence.
             */
-            int buffer = 2 * binSize;
+            int buffer = binSize;
             
             if (first.start < hist.minStart + buffer) {
                 first.start = hist.minStart;
