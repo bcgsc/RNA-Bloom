@@ -17,20 +17,21 @@
 package rnabloom.io;
 
 import java.io.IOException;
-import java.util.NoSuchElementException;
 
 /**
  *
  * @author Ka Ming Nip
  */
-public class FastxSequenceIterator {
+public final class FastxSequenceIterator {
+    private final int minAvgBaseQual;
     private final String[] fastxPaths;
     private int fileCursor;
     private FastxReaderInterface reader;
     private String[] n = null;
     
-    public FastxSequenceIterator(String[] fastxPaths) throws IOException {
+    public FastxSequenceIterator(String[] fastxPaths, int minAvgBaseQual) throws IOException {
         this.fastxPaths = fastxPaths;
+        this.minAvgBaseQual = minAvgBaseQual;
         fileCursor = 0;
         setReader(fastxPaths[fileCursor]);
         if (hasNext()) {
@@ -40,7 +41,7 @@ public class FastxSequenceIterator {
     
     private void setReader(String path) throws IOException {
         if (FastqReader.isCorrectFormat(path)) {
-            reader = new FastqReader(path);
+            reader = minAvgBaseQual > 0 ? new FastqFilteredReader(path, minAvgBaseQual) : new FastqReader(path);
         }
         else if (FastaReader.isCorrectFormat(path)) {
             reader = new FastaReader(path);

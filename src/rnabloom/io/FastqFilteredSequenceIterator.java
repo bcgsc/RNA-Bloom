@@ -21,6 +21,7 @@ import static rnabloom.util.SeqUtils.reverseComplement;
 public class FastqFilteredSequenceIterator {
     private final Pattern seqPattern;
     private final Pattern qualPattern;
+    private final int minAvgBaseQual;
     private final String[] fastqPaths;
     private final boolean reverseComplement;
     private int fileCursor = 0;
@@ -28,9 +29,11 @@ public class FastqFilteredSequenceIterator {
     private final FastqRecord record = new FastqRecord();
     private boolean hasNext = true;
     
-    public FastqFilteredSequenceIterator(String[] fastqPaths, Pattern seqPattern, Pattern qualPattern, boolean reverseComplement) throws IOException {
+    public FastqFilteredSequenceIterator(String[] fastqPaths, Pattern seqPattern, Pattern qualPattern,
+            int minAvgBaseQual, boolean reverseComplement) throws IOException {
         this.seqPattern = seqPattern;
         this.qualPattern = qualPattern;
+        this.minAvgBaseQual = minAvgBaseQual;
         this.fastqPaths = fastqPaths;
         this.reverseComplement = reverseComplement;
         
@@ -41,7 +44,7 @@ public class FastqFilteredSequenceIterator {
     
     private void setReader(String path) throws IOException {
         if (FastqReader.isCorrectFormat(path)) {
-            reader = new FastqReader(path);
+            reader = minAvgBaseQual > 0 ? new FastqFilteredReader(path, minAvgBaseQual) : new FastqReader(path);
         }
         else {
             throw new FileFormatException("Incompatible file format for `" + path + "`");
@@ -81,7 +84,7 @@ public class FastqFilteredSequenceIterator {
         
         try {
             reader.nextWithoutName(record);
-            
+                        
             String seq = longestSeq(record.seq, record.qual, seqPattern, qualPattern);
 
             if (reverseComplement) {
@@ -112,7 +115,7 @@ public class FastqFilteredSequenceIterator {
         
         try {
             reader.nextWithoutName(record);
-            
+                        
             ArrayList<String> segments = filterFastq(record, seqPattern, qualPattern);
 
             if (reverseComplement) {

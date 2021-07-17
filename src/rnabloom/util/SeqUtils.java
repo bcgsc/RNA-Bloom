@@ -1376,6 +1376,10 @@ public final class SeqUtils {
     
     private static final String PHRED33 = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
     
+    public static float getAveragePhred33Score(String qual) {
+        return qual.chars().sum() / (float) qual.length() - 33;
+    }
+    
     public static Pattern getPhred33Pattern(int minQual, int minLength) {
         return Pattern.compile("[\\Q" + PHRED33.substring(minQual) + "\\E]{" + Integer.toString(minLength) + ",}");
     }
@@ -1794,6 +1798,10 @@ public final class SeqUtils {
     }
     
     public static ArrayList<String> filterFastq(String seq, String qual, Pattern seqPattern, Pattern qualPattern) {
+        if (seq.isEmpty() || qual.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
         // filter sequence by quality
         Matcher m = qualPattern.matcher(qual);
         StringBuilder qualFilteredSeq = new StringBuilder(seq.length());
@@ -1856,12 +1864,7 @@ public final class SeqUtils {
         
     public static void main(String[] args) {
         //debug
-        String seq = "";
-        ArrayList<String> segments = trimLowComplexityRegions(seq, 50);
-        System.out.println(segments.size());
-        for (String seg : segments) {
-            System.out.println(seg);
-        }
-        System.out.flush();
+        String qual = "";
+        System.out.println(getAveragePhred33Score(qual));
     }
 }

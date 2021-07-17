@@ -29,13 +29,15 @@ public class FastxPairSequenceIterator {
     private int fileCursor;
     private final Pattern seqPattern;
     private final Pattern qualPattern;
+    private final int minAvgBaseQual;
     private FastxPairReader reader;
     private PairedReadSegments n = null;
     
-    public FastxPairSequenceIterator(FastxFilePair[] fastxPairs, Pattern seqPattern, Pattern qualPattern) throws IOException {
+    public FastxPairSequenceIterator(FastxFilePair[] fastxPairs, Pattern seqPattern, Pattern qualPattern, int minAvgBaseQual) throws IOException {
         this.seqPattern = seqPattern;
         this.qualPattern = qualPattern;
         this.fastxPairs = fastxPairs;
+        this.minAvgBaseQual = minAvgBaseQual;
         this.fileCursor = 0;
         setReader(fastxPairs[fileCursor]);
         if (hasNext()) {
@@ -45,10 +47,12 @@ public class FastxPairSequenceIterator {
     
     private void setReader(FastxFilePair fxPair) throws IOException {
         if (FastqReader.isCorrectFormat(fxPair.leftPath) && FastqReader.isCorrectFormat(fxPair.rightPath)) {
-            reader = new FastqPairReader(fxPair.leftPath, fxPair.rightPath, qualPattern, seqPattern, fxPair.leftRevComp, fxPair.rightRevComp);
+            reader = new FastqPairReader(fxPair.leftPath, fxPair.rightPath, qualPattern, seqPattern,
+                    fxPair.leftRevComp, fxPair.rightRevComp, minAvgBaseQual);
         }
         else if (FastaReader.isCorrectFormat(fxPair.leftPath) && FastaReader.isCorrectFormat(fxPair.rightPath)) {
-            reader = new FastaPairReader(fxPair.leftPath, fxPair.rightPath, seqPattern, fxPair.leftRevComp, fxPair.rightRevComp);
+            reader = new FastaPairReader(fxPair.leftPath, fxPair.rightPath, seqPattern,
+                    fxPair.leftRevComp, fxPair.rightRevComp);
         }
         else {
             throw new FileFormatException("Incompatible file format for `" + fxPair.leftPath + "` and `" + fxPair.rightPath + "`");

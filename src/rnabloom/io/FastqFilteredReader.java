@@ -16,68 +16,33 @@
  */
 package rnabloom.io;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.Iterator;
 import java.util.NoSuchElementException;
-//import java.util.function.Supplier;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.zip.GZIPInputStream;
-import static rnabloom.io.Constants.BUFFER_SIZE;
-import static rnabloom.io.Constants.GZIP_EXT;
+import static rnabloom.util.SeqUtils.getAveragePhred33Score;
 
 /**
  *
  * @author Ka Ming Nip
  */
-public class FastqReader implements FastxReaderInterface {
-    protected final static Pattern RECORD_NAME_PATTERN = Pattern.compile("([^\\s]+)/[12]");
-    protected final static Pattern RECORD_NAME_COMMENT_PATTERN = Pattern.compile("^@([^\\s]+)\\s*(.*)?$");
-    protected final BufferedReader br;
-    protected final Iterator<String> itr;
-    
-    public FastqReader(String path) throws IOException {        
-        if (path.toLowerCase().endsWith(GZIP_EXT)) {
-            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))), BUFFER_SIZE);
-        }
-        else {
-            br = new BufferedReader(new InputStreamReader(new FileInputStream(path)), BUFFER_SIZE);
-        }
-        itr = br.lines().iterator();
-    }
-
-    public static boolean isCorrectFormat(String path) {
-        try {
-            // try to get the first FASTQ record
-            FastqReader reader = new FastqReader(path);
-            reader.nextWithoutName(new FastqRecord());
-            reader.close();
-        }
-        catch (Exception e) {
-            return false;
-        }
+public class FastqFilteredReader extends FastqReader {
+    private int minAvgBaseQual = 0;
         
-        return true;
-    }
-    
-    @Override
-    public synchronized boolean hasNext() {
-        return itr.hasNext();
+    public FastqFilteredReader(String path, int minAvgBaseQual) throws IOException {
+        super(path);
+        this.minAvgBaseQual = minAvgBaseQual;
     }
     
     @Override
     public String next() throws FileFormatException {
-        String line1, line3, seq;
+        String line1, line3, seq, qual;
         
         try {
             synchronized(this) {
                 line1 = itr.next();
                 seq = itr.next();
                 line3 = itr.next();
-                itr.next();
+                qual = itr.next();
             }
         }
         catch (NoSuchElementException e) {
@@ -95,19 +60,23 @@ public class FastqReader implements FastxReaderInterface {
             throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
         }
         
+        if (minAvgBaseQual > getAveragePhred33Score(qual)) {
+            seq = "";
+        }
+        
         return seq;
     }
     
     @Override
     public String[] nextWithName() throws FileFormatException {
-        String line1, line3, name, seq;
+        String line1, line3, name, seq, qual;
         
         try {
             synchronized(this) {
                 line1 = itr.next();
                 seq = itr.next();
                 line3 = itr.next();
-                itr.next(); // line 4
+                qual = itr.next(); // line 4
             }
         }
         catch (NoSuchElementException e) {
@@ -133,9 +102,14 @@ public class FastqReader implements FastxReaderInterface {
             throw new FileFormatException("Line 1 of FASTQ record is expected to start with '@'");
         }
         
+        if (minAvgBaseQual > getAveragePhred33Score(qual)) {
+            seq = "";
+        }
+        
         return new String[]{name, seq};
     }
     
+    @Override
     public void nextWithoutName(FastqRecord fr) throws FileFormatException {        
         String line1, line3;
         
@@ -174,8 +148,13 @@ public class FastqReader implements FastxReaderInterface {
             throw new FileFormatException("Line 3 of FASTQ record is expected to start with '+'");
         }
         
+        if (minAvgBaseQual > getAveragePhred33Score(fr.qual)) {
+            fr.seq = "";
+            fr.seq = "";
+        }
     }
     
+    @Override
     public void nextWithName(FastqRecord fr) throws FileFormatException {
         String line1, line3;
         
@@ -218,14 +197,10 @@ public class FastqReader implements FastxReaderInterface {
         else {
             throw new FileFormatException("Line 1 of a FASTQ record is expected to start with '@'");
         }
-    }
         
-    @Override
-    public void close() throws IOException {
-        br.close();
-    }
-    
-    public static void main(String[] args) {
-        //debug
+        if (minAvgBaseQual > getAveragePhred33Score(fr.qual)) {
+            fr.seq = "";
+            fr.qual = "";
+        }
     }
 }

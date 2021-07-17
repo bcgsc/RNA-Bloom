@@ -34,9 +34,19 @@ public class FastqPairReader implements FastxPairReader {
     private final Pattern seqPattern;
     private final NextFunction<PairedReadSegments> nextFunction;
                 
-    public FastqPairReader(String leftPath, String rightPath, Pattern qualPattern, Pattern seqPattern, boolean revCompLeft, boolean revCompRight) throws IOException {
-        leftReader = new FastqReader(leftPath);
-        rightReader = new FastqReader(rightPath);
+    public FastqPairReader(String leftPath, String rightPath,
+            Pattern qualPattern, Pattern seqPattern,
+            boolean revCompLeft, boolean revCompRight,
+            int minAvgBaseQual) throws IOException {
+        
+        if (minAvgBaseQual > 0) {
+            leftReader = new FastqFilteredReader(leftPath, minAvgBaseQual);
+            rightReader = new FastqFilteredReader(rightPath, minAvgBaseQual);
+        }
+        else {
+            leftReader = new FastqReader(leftPath);
+            rightReader = new FastqReader(rightPath);
+        }
         
         this.qualPattern = qualPattern;
         this.seqPattern = seqPattern;

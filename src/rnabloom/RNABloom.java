@@ -87,6 +87,7 @@ import rnabloom.util.NTCardHistogram;
 import static rnabloom.util.SeqUtils.*;
 import static rnabloom.io.Constants.NBITS_EXT;
 import rnabloom.io.FastaRecord;
+import rnabloom.io.FastqFilteredReader;
 import rnabloom.io.SequenceFileIteratorInterface;
 import rnabloom.olc.Interval;
 import static rnabloom.olc.OverlapLayoutConsensus.mapClusteredOLC;
@@ -121,8 +122,7 @@ public class RNABloom {
     private int k;
     private boolean strandSpecific;
     private Pattern seqPattern;
-    private Pattern qualPatternDBG;
-    private Pattern qualPatternFrag;
+    private Pattern qualPattern;
     private Pattern polyATailPattern;
     private Pattern polyATailOnlyPattern;
     private Pattern polyATailOnlyMatchingPattern;
@@ -140,8 +140,8 @@ public class RNABloom {
     private int minNumKmerPairs;
     private int longFragmentLengthThreshold = -1;
     
-    private int qDBG = -1;
-    private int qFrag = -1;
+    private int minBaseQual = -1;
+    private int minAvgBaseQual = -1;
     
     private float dbgFPR = -1;
     private float covFPR = -1;
@@ -155,7 +155,7 @@ public class RNABloom {
     private final static String STRATUM_E5 = "e5";
     private final static String[] STRATA = new String[]{STRATUM_01, STRATUM_E0, STRATUM_E1, STRATUM_E2, STRATUM_E3, STRATUM_E4, STRATUM_E5};
     private final static String[] COVERAGE_ORDER = {STRATUM_E0, STRATUM_E1, STRATUM_E2, STRATUM_E3, STRATUM_E4, STRATUM_E5};
-    private final static int[] COVERAGE_ORDER_VALUES = new int[]{1,10,100,1000,10000,10000};
+//    private final static int[] COVERAGE_ORDER_VALUES = new int[]{1,10,100,1000,10000,10000};
     
     private static boolean isValidStratumName(String name) {
         switch (name) {
@@ -194,9 +194,9 @@ public class RNABloom {
         return getStratumIndex(name1) > getStratumIndex(name2);
     }
     
-    public RNABloom(int k, int qDBG, int qFrag, boolean debug) {
-        this.qDBG = qDBG;
-        this.qFrag = qFrag;
+    public RNABloom(int k, int minBaseQual, int minAvgBaseQual, boolean debug) {
+        this.minBaseQual = minBaseQual;
+        this.minAvgBaseQual = minAvgBaseQual;
         this.debug = debug;
         this.setK(k);
     }
@@ -205,8 +205,7 @@ public class RNABloom {
         this.k = k;
         
         this.seqPattern = getNucleotideCharsPattern(k);
-        this.qualPatternDBG = getPhred33Pattern(qDBG, k);
-        this.qualPatternFrag = getPhred33Pattern(qFrag, k);
+        this.qualPattern = getPhred33Pattern(minBaseQual, k);
         
         if (graph != null) {
             graph.setK(k);
@@ -536,7 +535,7 @@ public class RNABloom {
         public void run() {
             try {
                 Matcher mSeq = seqPattern.matcher("");
-                Matcher mQual = qualPatternDBG.matcher("");
+                Matcher mQual = qualPattern.matcher("");
                 FastqRecord record = new FastqRecord();
                 long[] hashVals = itr.hVals;
                 
@@ -547,6 +546,11 @@ public class RNABloom {
                         fr.nextWithoutName(record);
                         if (record.seq == null) {
                             break;
+                        }
+                        
+                        if (record.seq.length() < k) {
+                            // skip to next read
+                            continue;
                         }
                         
                         mQual.reset(record.qual);
@@ -582,6 +586,11 @@ public class RNABloom {
                         fr.nextWithoutName(record);
                         if (record.seq == null) {
                             break;
+                        }
+                        
+                        if (record.seq.length() < k) {
+                            // skip to next read
+                            continue;
                         }
                         
                         mQual.reset(record.qual);
@@ -741,8 +750,8 @@ public class RNABloom {
                 long[] hashVals = itr.hVals;
                 
                 if (FastqReader.isCorrectFormat(path)) {
-                    FastqReader fr = new FastqReader(path);
-                    Matcher mQual = qualPatternDBG.matcher("");
+                    FastqReader fr = minAvgBaseQual > 0 ? new FastqFilteredReader(path, minAvgBaseQual) : new FastqReader(path);
+                    Matcher mQual = qualPattern.matcher("");
 
                     FastqRecord record = new FastqRecord();
 
@@ -751,6 +760,12 @@ public class RNABloom {
 
                         while (fr.hasNext()) {
                             fr.nextWithoutName(record);
+                            
+                            if (record.seq.length() < k) {
+                                // skip to next read
+                                continue;
+                            }
+                            
                             mQual.reset(record.qual);
                             mSeq.reset(record.seq);
 
@@ -782,6 +797,12 @@ public class RNABloom {
                     else {
                         while (fr.hasNext()) {
                             fr.nextWithoutName(record);
+                            
+                            if (record.seq.length() < k) {
+                                // skip to next read
+                                continue;
+                            }
+                            
                             mQual.reset(record.qual);
                             mSeq.reset(record.seq);
 
@@ -1106,7 +1127,8 @@ public class RNABloom {
         else if (FastqReader.isCorrectFormat(path)) {
             Thread[] threads = new Thread[numThreads];
 
-            FastqReader fr = new FastqReader(path);
+            FastqReader fr = minAvgBaseQual > 0 ? new FastqFilteredReader(path, minAvgBaseQual) : new FastqReader(path);
+            
             FastqToGraphWorker[] workers = new FastqToGraphWorker[numThreads];
 
             for (int i=0; i<numThreads; ++i) {
@@ -3969,7 +3991,7 @@ public class RNABloom {
         LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
         
-        FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths);
+        FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths, minAvgBaseQual);
         
         for (int i=0; i<numThreads; ++i) {
             LongReadCorrectionWorker worker = new LongReadCorrectionWorker(itr, outputQueue, maxErrCorrItr, minKmerCov,
@@ -4487,7 +4509,7 @@ public class RNABloom {
         
         boolean assemblePolyaTails = this.minPolyATailLengthRequired > 0;
         
-        FastxPairSequenceIterator rin = new FastxPairSequenceIterator(fastxPairs, seqPattern, qualPatternFrag);
+        FastxPairSequenceIterator rin = new FastxPairSequenceIterator(fastxPairs, seqPattern, qualPattern, minAvgBaseQual);
         
         ArrayBlockingQueue<Fragment> fragments = new ArrayBlockingQueue<>(sampleSize);
                 
@@ -4669,7 +4691,7 @@ public class RNABloom {
             if (!fastqPaths.isEmpty()) {
                 String[] paths = new String[fastqPaths.size()];
                 fastqPaths.toArray(paths);
-                fqItr = new FastqFilteredSequenceIterator(paths, seqPattern, qualPatternFrag, reverseComplement);
+                fqItr = new FastqFilteredSequenceIterator(paths, seqPattern, qualPattern, minAvgBaseQual, reverseComplement);
             }
         }
 
@@ -4691,7 +4713,7 @@ public class RNABloom {
             }
             
             if (fqItr != null && fqItr.hasNext()) {
-                ++numReadsParsed;
+                ++numReadsParsed;                
                 ArrayList<String> segments = fqItr.nextSegments();
                 while (segments != null) {
                     if (!segments.isEmpty()) {
@@ -5782,23 +5804,23 @@ public class RNABloom {
                                     .build();
         options.addOption(optStage);
         
-        final String optBaseQualDbgDefault = "3";
-        Option optBaseQualDbg = Option.builder("q")
-                                    .longOpt("qual-dbg")
-                                    .desc("minimum base quality in reads for constructing DBG [" + optBaseQualDbgDefault + "]")
+        final String optBaseQualDefault = "3";
+        Option optBaseQual = Option.builder("q")
+                                    .longOpt("qual")
+                                    .desc("minimum base quality in reads [" + optBaseQualDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
-        options.addOption(optBaseQualDbg);
+        options.addOption(optBaseQual);
 
-        final String optBaseQualFragDefault = "3";
-        Option optBaseQualFrag = Option.builder("Q")
-                                    .longOpt("qual-frag")
-                                    .desc("minimum base quality in reads for fragment reconstruction [" + optBaseQualFragDefault + "]")
+        final String optAvgBaseQualDefault = "0";
+        Option optAvgBaseQual = Option.builder("Q")
+                                    .longOpt("qual-avg")
+                                    .desc("minimum average base quality in reads [" + optAvgBaseQualDefault + "]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
-        options.addOption(optBaseQualFrag);        
+        options.addOption(optAvgBaseQual);        
         
         final String optMinKmerCovDefault = "1"; 
         Option optMinKmerCov = Option.builder("c")
@@ -6460,8 +6482,8 @@ public class RNABloom {
             final int longReadMinReadDepth = Integer.parseInt(line.getOptionValue(optLongReadMinReadDepth.getOpt(), optLongReadMinReadDepthDefault));
 //            final int maxMergedClusterSize = Integer.parseInt(line.getOptionValue(optLongReadMaxMergedClusterSize.getOpt(), optLongReadMaxMergedClusterSizeDefault));
             
-            final int qDBG = Integer.parseInt(line.getOptionValue(optBaseQualDbg.getOpt(), optBaseQualDbgDefault));
-            final int qFrag = Integer.parseInt(line.getOptionValue(optBaseQualFrag.getOpt(), optBaseQualFragDefault));
+            final int minBaseQual = Integer.parseInt(line.getOptionValue(optBaseQual.getOpt(), optBaseQualDefault));
+            final int minAvgBaseQual = Integer.parseInt(line.getOptionValue(optAvgBaseQual.getOpt(), optAvgBaseQualDefault));
                         
             float sbfGB = Float.parseFloat(line.getOptionValue(optSbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8f)));
             float dbgGB = Float.parseFloat(line.getOptionValue(optDbgbfMem.getOpt(), Float.toString(maxBfMem * 1f / 8f)));
@@ -6663,7 +6685,7 @@ public class RNABloom {
                 sbfGB = 0;
             }
                         
-            RNABloom assembler = new RNABloom(k, qDBG, qFrag, debug);
+            RNABloom assembler = new RNABloom(k, minBaseQual, minAvgBaseQual, debug);
             assembler.setParams(strandSpecific, maxTipLen, lookahead, maxCovGradient, maxIndelSize, percentIdentity, minNumKmerPairs, minPolyATail);
 
             FileWriter writer = new FileWriter(startedStamp, false);
