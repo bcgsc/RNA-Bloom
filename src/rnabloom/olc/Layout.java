@@ -2760,7 +2760,7 @@ public class Layout {
         Timer timer = new Timer();
         //HashMap<String, Float> readCounts = getReadCounts(mappingPafPath, vertexNames, maxEdgeClip);
         HashMap<String, Float> readCounts = getLengthNormalizedReadCounts(mappingPafPath, containedSet);
-        printMessage("Counts tallied in " + timer.elapsedDHMS());
+        printMessage("Counts tallied for " + readCounts.size() + " sequences in " + timer.elapsedDHMS());
         
 //        // assign read count to edge
 //        printMessage("Adding read counts to graph...");
@@ -2855,8 +2855,8 @@ public class Layout {
         float maxWeight = 0; //Double.MIN_VALUE;
         String maxWeightPredecessor = null;
         for (String p : Graphs.predecessorListOf(graph, vid)) {
-            float w = weights.get(getVertexName(p));
-            if (w > maxWeight) {
+            Float w = weights.get(getVertexName(p));
+            if (w != null && w > maxWeight) {
                 maxWeight = w;
                 maxWeightPredecessor = p;
             }
@@ -2869,8 +2869,8 @@ public class Layout {
         float maxWeight = 0; //Double.MIN_VALUE;
         String maxWeightSuccessor = null;
         for (String s : Graphs.successorListOf(graph, vid)) {
-            float w = weights.get(getVertexName(s));
-            if (w > maxWeight) {
+            Float w = weights.get(getVertexName(s));
+            if (w != null && w > maxWeight) {
                 maxWeight = w;
                 maxWeightSuccessor = s;
             }
