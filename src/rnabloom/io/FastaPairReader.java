@@ -62,7 +62,7 @@ public class FastaPairReader implements FastxPairReader {
     }
     
     @Override
-    public boolean hasNext() {
+    public synchronized boolean hasNext() {
         return this.leftReader.hasNext() && this.rightReader.hasNext();
     }
 

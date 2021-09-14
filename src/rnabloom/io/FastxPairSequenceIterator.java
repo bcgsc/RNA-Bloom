@@ -80,10 +80,10 @@ public class FastxPairSequenceIterator {
     }
     
     private PairedReadSegments readNext() throws FileFormatException, IOException {        
-        try {
+        if (reader.hasNext()) {
             return reader.next();
         }
-        catch (NoSuchElementException e) {
+        else {
             reader.close();
             
             if (++fileCursor >= fastxPairs.length) {
