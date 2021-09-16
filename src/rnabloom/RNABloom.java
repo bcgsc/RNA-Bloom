@@ -5305,16 +5305,13 @@ public class RNABloom {
     }
     
     private static void assembleTranscriptsNR(RNABloom assembler, String outdir, String name, boolean forceOverwrite,
-            int numThreads, boolean keepArtifact, int minTranscriptLength, boolean usePacBioPreset) throws IOException {
+            int numThreads, boolean keepArtifact, boolean usePacBioPreset) throws IOException {
         
         final File nrTxptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_NR_DONE);
 
         if (forceOverwrite || !nrTxptsDoneStamp.exists()) {
-            String tmpPrefix               = outdir + File.separator + name + ".tmp";
             String transcriptsFasta        = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
-            String shortTranscriptsFasta   = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
             String nrTranscriptsFasta      = outdir + File.separator + name + ".transcripts.nr" + FASTA_EXT;
-            String shortNrTranscriptsFasta = outdir + File.separator + name + ".transcripts.nr.short" + FASTA_EXT;
 
             deleteIfExists(nrTranscriptsFasta);
 
@@ -5322,9 +5319,8 @@ public class RNABloom {
             Timer timer = new Timer();
             timer.start();
 
-            boolean ok = assembler.generateNonRedundantTranscripts(transcriptsFasta, shortTranscriptsFasta,
-                    tmpPrefix, nrTranscriptsFasta, shortNrTranscriptsFasta, numThreads, !keepArtifact, minTranscriptLength,
-                    usePacBioPreset);
+            boolean ok = assembler.generateNonRedundantTranscripts(transcriptsFasta,
+                    nrTranscriptsFasta, numThreads, !keepArtifact, usePacBioPreset);
 
             if (ok) {
                 System.out.println("Redundancy reduced in " + timer.elapsedDHMS());
@@ -5377,7 +5373,7 @@ public class RNABloom {
         }
         
         if (reduceRedundancy) {
-            assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, minTranscriptLength, usePacBioPreset);
+            assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, usePacBioPreset);
         }
     }
     
@@ -5456,50 +5452,17 @@ public class RNABloom {
         }
                 
         if (reduceRedundancy) {
-            assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, minTranscriptLength, usePacBioPreset);
+            assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, usePacBioPreset);
         }
     }
     
-    private boolean generateNonRedundantTranscripts(String inLongFasta, String inShortFasta,
-            String tmpPrefix, String outLongFasta, String outShortFasta,
-            int numThreads, boolean removeArtifacts, int txptLengthThreshold,
-            boolean usePacBioPreset) throws IOException {
+    private boolean generateNonRedundantTranscripts(String inFasta, String outFasta,
+            int numThreads, boolean removeArtifacts, boolean usePacBioPreset) throws IOException {
         
-        String concatenatedFasta = tmpPrefix + "_ava_cat" + FASTA_EXT;
-        String reducedFasta = tmpPrefix + "_ava_cat_nr" + FASTA_EXT;
-
-        // combine assembly files
-        FastaWriter fout = new FastaWriter(concatenatedFasta, false);
-        
-        FastaReader fin = new FastaReader(inLongFasta);
-        while(fin.hasNext()) {
-            String[] nameCommentSeq = fin.nextWithComment();
-            //String comment = nameCommentSeq[1];
-            String seq = nameCommentSeq[2];
-            fout.write(nameCommentSeq[0], seq);
-        }
-        fin.close();
-        
-        fin = new FastaReader(inShortFasta);
-        while(fin.hasNext()) {
-            String[] nameCommentSeq = fin.nextWithComment();
-            //String comment = nameCommentSeq[1];
-            String seq = nameCommentSeq[2];
-            fout.write(nameCommentSeq[0], seq);
-        }
-        fin.close();
-        
-        fout.close();
-        
-        boolean ok = overlapLayout(concatenatedFasta, reducedFasta, 
+        boolean ok = overlapLayout(inFasta, outFasta, 
                         numThreads, strandSpecific, "-r " + Integer.toString(maxIndelSize),
                         maxTipLength, percentIdentity, 2*k, maxIndelSize, removeArtifacts, 1, 
                         usePacBioPreset, true);
-        
-        splitFastaByLength(reducedFasta, outLongFasta, outShortFasta, txptLengthThreshold);
-        
-        deleteIfExists(concatenatedFasta);
-        deleteIfExists(reducedFasta);
         
         return ok;
     }
