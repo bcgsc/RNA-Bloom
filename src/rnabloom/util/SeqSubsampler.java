@@ -19,8 +19,11 @@ package rnabloom.util;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.stream.IntStream;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
@@ -117,17 +120,8 @@ public class SeqSubsampler {
         HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
         
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
-        //NTHashIterator itr = h.getHashIterator(numHash);
         final int shift = k + 1;
-        PairedNTHashIterator itr = h.getPairedHashIterator(numHash, shift);
-        PairedNTHashIterator normItr = h.getPairedHashIterator(1, shift);
-        PairedNTHashIterator delItr = h.getPairedHashIterator(1, shift - 1);
-        PairedNTHashIterator insItr = h.getPairedHashIterator(1, shift + 1);
-        
-        long[] hVals = itr.hValsP;
-        long[] normHVals = normItr.hValsP;
-        long[] delHVals = delItr.hValsP;
-        long[] insHVals = insItr.hValsP;
+        NTHashIterator kmerHashItr = h.getHashIterator(1);
         
         ArrayBlockingQueue<String> queue = new ArrayBlockingQueue<>(10000);
         FastaWriter writer  = new FastaWriter(outSubsampleFasta, false);
@@ -141,15 +135,36 @@ public class SeqSubsampler {
         for (BitSequence s : seqs) {                    
             String seq = s.toString();
             
-            int seqLen = seq.length();
-            boolean tooShort = seqLen < 3 * maxEdgeClip;
-            int maxPos = seqLen - maxEdgeClip;
-            int missingChainLen = 0;
-            boolean write = false;
-            if (tooShort ? itr.start(seq) : itr.start(seq, maxEdgeClip, maxPos)) {
-                while (itr.hasNext()) {
-                    itr.next();
-                    if (cbf.getCount(hVals) <= maxMultiplicity) {
+            if (kmerHashItr.start(seq)) {
+                int seqLen = seq.length();
+                boolean tooShort = seqLen < 3 * maxEdgeClip;
+                int missingChainLen = 0;
+                boolean write = false;
+                int numKmers = seqLen - k + 1;
+                
+                // get hash value of all kmers
+                long[] kmerHashVals = new long[numKmers];
+                for (int i=0; i<numKmers; ++i) {
+                    kmerHashItr.next();
+                    kmerHashVals[i] = kmerHashItr.hVals[0];
+                }
+                
+                int start = maxEdgeClip;
+                int end = numKmers - maxEdgeClip - shift;
+                if (tooShort) {
+                    start = 0;
+                    end = numKmers - shift;
+                }
+                
+                // check whether this sequence has been seen enough by looking up multiplicities of k-mer pairs
+                for (int i=start; i<end; ++i) {
+                    long left = kmerHashVals[i];
+                    long right = kmerHashVals[i + shift];
+                    long pair = (stranded || left < right) ? 
+                            HashFunction.combineHashValues(left, right) : 
+                            HashFunction.combineHashValues(right, left);
+                    
+                    if (cbf.getCount(pair) <= maxMultiplicity) {
                         if (++missingChainLen >= missingChainThreshold) {
                             write = true;
                             break;
@@ -159,41 +174,44 @@ public class SeqSubsampler {
                         missingChainLen = 0;
                     }
                 }
-            }
                 
-            if (write) {
-                queue.put(seq);
-                
-                /*
-                Get all unique hash values from this sequence so that counts
-                are not over-inflated for duplicated kmer pairs
-                */
-                HashSet<Long> hashVals = new HashSet<>();
-                
-                if (normItr.start(seq)) {
-                    while (normItr.hasNext()) {
-                        normItr.next();
-                        hashVals.add(normHVals[0]);
-                    }
+                if (write) {
+                    queue.put(seq);
+                    
+                    // store k-mer pairs along this sequence
+                    Set<Long> hashVals = Collections.synchronizedSet(new HashSet<>(3 * (seqLen - shift + 1)));
+                    
+                    // k-mer pair gap size: 1
+                    IntStream.range(start, end).parallel().forEach(i -> {
+                        long left = kmerHashVals[i];
+                        long right = kmerHashVals[i + shift];
+                        hashVals.add((stranded || left < right) ? 
+                                HashFunction.combineHashValues(left, right) : 
+                                HashFunction.combineHashValues(right, left));
+                    });
+                    
+                    // k-mer pair gap size: 2 
+                    IntStream.range(start, end - 1).parallel().forEach(i -> {
+                        long left = kmerHashVals[i];
+                        long right = kmerHashVals[i + shift + 1];
+                        hashVals.add((stranded || left < right) ? 
+                                HashFunction.combineHashValues(left, right) : 
+                                HashFunction.combineHashValues(right, left));
+                    });
+                    
+                    // k-mer pair gap size: 0
+                    IntStream.range(start, end + 1).parallel().forEach(i -> {
+                        long left = kmerHashVals[i];
+                        long right = kmerHashVals[i + shift - 1];
+                        hashVals.add((stranded || left < right) ? 
+                                HashFunction.combineHashValues(left, right) : 
+                                HashFunction.combineHashValues(right, left));
+                    });
+                    
+                    hashVals.parallelStream().forEach(e -> {
+                        cbf.increment(e);
+                    });
                 }
-                
-                if (delItr.start(seq)) {
-                    while (delItr.hasNext()) {
-                        delItr.next();
-                        hashVals.add(delHVals[0]);
-                    }
-                }
-                
-                if (insItr.start(seq)) {
-                    while (insItr.hasNext()) {
-                        insItr.next();
-                        hashVals.add(insHVals[0]);
-                    }
-                }
-                
-                hashVals.parallelStream().forEach(e -> {
-                    cbf.increment(e);
-                });
             }
         }
         
