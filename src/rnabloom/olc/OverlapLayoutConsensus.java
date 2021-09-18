@@ -128,17 +128,25 @@ public class OverlapLayoutConsensus {
     }
     
     public static boolean overlapWithMinimap(String seqFastaPath, String outPafPath, int numThreads, 
-            boolean align, String options, boolean usePacBioPreset) {
+            boolean align, String minimapOptions, boolean usePacBioPreset) {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
+                
+        if (align && !minimapOptions.contains("-c")) {
+            minimapOptions += " -c";
+        }
+                
+        if (numThreads > 0 && !minimapOptions.contains("-t")) {
+            minimapOptions += " -t " + numThreads;
+        }
         
-        if (align) {
-            options = "-c " + options;
+        if (!minimapOptions.contains("-X")) {
+            minimapOptions += " -X"; 
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -X -x ava-" + preset + " " + options + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath + " | gzip -c > " + outPafPath);
+        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " " + seqFastaPath + " " + seqFastaPath + " | gzip -c > " + outPafPath);
         
         return runCommand(command, outPafPath + LOG_EXTENSION);
     }
@@ -155,16 +163,24 @@ public class OverlapLayoutConsensus {
         command.add("/bin/sh");
         command.add("-c");
         
-        if (align) {
-            minimapOptions = "-c " + minimapOptions;
+        if (align && !minimapOptions.contains("-c")) {
+            minimapOptions += " -c";
+        }
+                
+        if (numThreads > 0 && !minimapOptions.contains("-t")) {
+            minimapOptions += " -t " + numThreads;
         }
         
-        if (stranded) {
-            minimapOptions = "--for-only " + minimapOptions;
+        if (!minimapOptions.contains("-X")) {
+            minimapOptions += " -X"; 
+        }
+        
+        if (stranded && !minimapOptions.contains("--for-only")) {
+            minimapOptions += " --for-only";
         }
                 
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
+        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " " + seqFastaPath + " " + seqFastaPath);
         
         STATUS status = STATUS.FAIL;
         try {            
@@ -207,24 +223,28 @@ public class OverlapLayoutConsensus {
         command.add("/bin/sh");
         command.add("-c");
         
-        if (align) {
-            minimapOptions = "-c " + minimapOptions;
+        if (align && !minimapOptions.contains("-c")) {
+            minimapOptions += " -c";
+        }
+                
+        if (!minimapOptions.contains("-g")) {
+            minimapOptions += " -g 300";
         }
         
-        if (stranded) {
-            minimapOptions = "--for-only " + minimapOptions;
+        if (!minimapOptions.contains("-r")) {
+            minimapOptions += " -r " + maxIndelSize;
         }
         
-        String minimapOptionsNoGaps = minimapOptions;
-        if (!minimapOptionsNoGaps.contains("-g ")) {
-            minimapOptionsNoGaps += " -g 300";
+        if (numThreads > 0 && !minimapOptions.contains("-t")) {
+            minimapOptions += " -t " + numThreads;
         }
-        if (!minimapOptionsNoGaps.contains("-r ")) {
-            minimapOptionsNoGaps += " -r " + maxIndelSize;
+        
+        if (stranded && !minimapOptions.contains("--for-only")) {
+            minimapOptions += " --for-only";
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptionsNoGaps + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " " + targetFastaPath + " " + queryFastaPath);
         
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -263,16 +283,20 @@ public class OverlapLayoutConsensus {
         command.add("/bin/sh");
         command.add("-c");
         
-        if (align) {
-            minimapOptions = "-c " + minimapOptions;
+        if (align && !minimapOptions.contains("-c")) {
+            minimapOptions += " -c";
+        }
+                
+        if (numThreads > 0 && !minimapOptions.contains("-t")) {
+            minimapOptions += " -t " + numThreads;
         }
         
-        if (stranded) {
-            minimapOptions = "--for-only " + minimapOptions;
+        if (stranded && !minimapOptions.contains("--for-only")) {
+            minimapOptions += " --for-only";
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " " + targetFastaPath + " " + queryFastaPath);
         
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -308,16 +332,20 @@ public class OverlapLayoutConsensus {
         command.add("/bin/sh");
         command.add("-c");
         
-        if (align) {
-            minimapOptions = "-c " + minimapOptions;
+        if (align && !minimapOptions.contains("-c")) {
+            minimapOptions += " -c";
         }
         
-        if (stranded) {
-            minimapOptions = "--for-only " + minimapOptions;
+        if (numThreads > 0 && !minimapOptions.contains("-t")) {
+            minimapOptions += " -t " + numThreads;
+        }
+        
+        if (stranded && !minimapOptions.contains("--for-only")) {
+            minimapOptions += " --for-only";
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " " + targetFastaPath + " " + queryFastaPath);
         
         int[] clusterSizes = null;
         try {            
@@ -352,21 +380,29 @@ public class OverlapLayoutConsensus {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
-        
-        if (align) {
-            minimapOptions = "-c " + minimapOptions;
+                
+        if (align && !minimapOptions.contains("-c")) {
+            minimapOptions += " -c";
         }
-        
-        if (stranded) {
-            minimapOptions = "--for-only " + minimapOptions;
-        }
-        
-        if (!minimapOptions.contains("-g ")) {
+
+        if (!minimapOptions.contains("-g")) {
             minimapOptions += " -g 300";
         }
         
+        if (numThreads > 0 && !minimapOptions.contains("-t")) {
+            minimapOptions += " -t " + numThreads;
+        }
+        
+        if (!minimapOptions.contains("-X")) {
+            minimapOptions += " -X"; 
+        }
+        
+        if (stranded && !minimapOptions.contains("--for-only")) {
+            minimapOptions += " --for-only";
+        }
+        
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
+        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " " + seqFastaPath + " " + seqFastaPath);
         
         int[] clusterSizes = null;
         try {            
@@ -401,17 +437,25 @@ public class OverlapLayoutConsensus {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
-        
-        if (align) {
-            minimapOptions = "-c " + minimapOptions;
+                
+        if (align && !minimapOptions.contains("-c")) {
+            minimapOptions += " -c";
         }
         
-        if (stranded) {
-            minimapOptions = "--for-only " + minimapOptions;
+        if (numThreads > 0 && !minimapOptions.contains("-t")) {
+            minimapOptions += " -t " + numThreads;
+        }
+        
+        if (!minimapOptions.contains("-X")) {
+            minimapOptions += " -X"; 
+        }
+        
+        if (stranded && !minimapOptions.contains("--for-only")) {
+            minimapOptions += " --for-only";
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
+        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " " + seqFastaPath + " " + seqFastaPath);
         
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -452,17 +496,25 @@ public class OverlapLayoutConsensus {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
-        
-        if (align) {
-            minimapOptions = "-c " + minimapOptions;
+                
+        if (align && !minimapOptions.contains("-c")) {
+            minimapOptions += " -c";
         }
         
-        if (stranded) {
-            minimapOptions = "--for-only " + minimapOptions;
+        if (numThreads > 0 && !minimapOptions.contains("-t")) {
+            minimapOptions += " -t " + numThreads;
+        }
+        
+        if (!minimapOptions.contains("-X")) {
+            minimapOptions += " -X"; 
+        }
+        
+        if (stranded && !minimapOptions.contains("--for-only")) {
+            minimapOptions += " --for-only";
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
+        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " " + seqFastaPath + " " + seqFastaPath);
         
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -504,16 +556,24 @@ public class OverlapLayoutConsensus {
         command.add("/bin/sh");
         command.add("-c");
         
-        if (align) {
-            minimapOptions = "-c " + minimapOptions;
+        if (align && !minimapOptions.contains("-c")) {
+            minimapOptions += " -c";
+        }
+                
+        if (numThreads > 0 && !minimapOptions.contains("-t")) {
+            minimapOptions += " -t " + numThreads;
         }
         
-        if (stranded) {
-            minimapOptions = "--for-only " + minimapOptions;
+        if (!minimapOptions.contains("-X")) {
+            minimapOptions += " -X"; 
+        }
+        
+        if (stranded && !minimapOptions.contains("--for-only")) {
+            minimapOptions += " --for-only";
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -X -x ava-" + preset + " " + minimapOptions + " -t " + numThreads + " " + seqFastaPath + " " + seqFastaPath);
+        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " " + seqFastaPath + " " + seqFastaPath);
         
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -544,19 +604,27 @@ public class OverlapLayoutConsensus {
     }
     
     public static boolean mapWithMinimap(String queryFastaPath, String targetFastaPath, String outPafPath,
-            int numThreads, String options, boolean usePacBioPreset) {
+            int numThreads, String minimapOptions, boolean usePacBioPreset) {
         ArrayList<String> command = new ArrayList<>();
         command.add("/bin/sh");
         command.add("-c");
 
+        if (!minimapOptions.contains("-c")) {
+            minimapOptions += " -c";
+        }
+        
+        if (numThreads > 0 && !minimapOptions.contains("-t")) {
+            minimapOptions += " -t " + numThreads;
+        }
+        
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x map-" + preset + " -c " + options + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath + " | gzip -c > " + outPafPath);
+        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " " + targetFastaPath + " " + queryFastaPath + " | gzip -c > " + outPafPath);
         
         return runCommand(command, outPafPath + LOG_EXTENSION);
     }
     
     public static STATUS mapWithMinimapFiltered(String queryFastaPath, String targetFastaPath, String outPafPath,
-            int numThreads, String options, boolean usePacBioPreset, boolean stranded, int maxIndelSize, 
+            int numThreads, String minimapOptions, boolean usePacBioPreset, boolean stranded, int maxIndelSize, 
             int minOverlapMatches, float minAlnId, boolean verbose) {
         Timer timer = new Timer();
         if (verbose) {
@@ -567,12 +635,28 @@ public class OverlapLayoutConsensus {
         command.add("/bin/sh");
         command.add("-c");
 
-        if (stranded) {
-            options = "--for-only " + options;
+        if (!minimapOptions.contains("-c")) {
+            minimapOptions += " -c";
+        }
+        
+        if (!minimapOptions.contains("-N")) {
+            minimapOptions += " -N 10";
+        }
+        
+        if (!minimapOptions.contains("-p")) {
+            minimapOptions += " -p 0.25";
+        }
+        
+        if (numThreads > 0 && !minimapOptions.contains("-t")) {
+            minimapOptions += " -t " + numThreads;
+        }
+        
+        if (stranded && !minimapOptions.contains("--for-only")) {
+            minimapOptions += " --for-only";
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x map-" + preset + " -c -p 0.25 -N 10 " + options + " -t " + numThreads + " " + targetFastaPath + " " + queryFastaPath);
+        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " " + targetFastaPath + " " + queryFastaPath);
 
         try {
             Writer bw = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(outPafPath, false)), "UTF-8");
