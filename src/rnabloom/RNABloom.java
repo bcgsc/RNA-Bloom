@@ -6915,7 +6915,7 @@ public class RNABloom {
                         System.out.println("Extracting seed sequences...");
                         Collections.sort(correctedReads);
                         int subK = k/2;
-                        SeqSubsampler.kmerBased(correctedReads, seedReadsPath,
+                        SeqSubsampler.kmerBased(correctedReads, seedReadsPath, longCorrectedReadsPath,
                                 dbgbfSize + cbfSize, subK, dbgbfNumHash, strandSpecific, 
                                 Math.max(2, longReadMinReadDepth), maxTipLen, true);
     //                    SeqSubsampler.minimalSet(correctedReads, seedReadsPath,
@@ -6925,11 +6925,6 @@ public class RNABloom {
     //                            cbfSize, k, k, cbfNumHash, strandSpecific, false,
     //                            minTranscriptLength/k, 0.75f, 2);
                         System.out.println("Extraction completed in " + myTimer.elapsedDHMS());
-                        
-                        myTimer.start();
-                        System.out.println("Writing corrected reads...");
-                        writeToFile(correctedReads, longCorrectedReadsPath);
-                        System.out.println("Wrote corrected reads in " + myTimer.elapsedDHMS());
                     }
                     
                     touch(longReadsCorrectedStamp);

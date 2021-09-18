@@ -19,6 +19,7 @@ package rnabloom.util;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -112,28 +113,24 @@ public class SeqSubsampler {
 
     }
     
-    public static void kmerBased(ArrayList<? extends BitSequence> seqs, String outSubsampleFasta,
+    public static void kmerBased(ArrayList<? extends BitSequence> seqs,
+            String outSubsampleFasta, String outAllFasta,
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose) throws IOException, InterruptedException {
         int numSeq = seqs.size();
+        BitSet writeBits = new BitSet(numSeq);
         
         HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
         
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         final int shift = k + 1;
         NTHashIterator kmerHashItr = h.getHashIterator(1);
-        
-        ArrayBlockingQueue<String> queue = new ArrayBlockingQueue<>(10000);
-        FastaWriter writer  = new FastaWriter(outSubsampleFasta, false);
-        FastaWriterWorker writerWorker = new FastaWriterWorker(queue, writer, "s");
-        Thread writerThread = new Thread(writerWorker);
-        writerThread.start();
-        
+                
         //int missingChainThreshold = k;
         final int missingChainThreshold = k + shift;
-        
-        for (BitSequence s : seqs) {                    
-            String seq = s.toString();
+        int numSubsample = 0;
+        for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
+            String seq = seqs.get(seqIndex).toString();
             
             if (kmerHashItr.start(seq)) {
                 int seqLen = seq.length();
@@ -176,7 +173,8 @@ public class SeqSubsampler {
                 }
                 
                 if (write) {
-                    queue.put(seq);
+                    ++numSubsample;
+                    writeBits.set(seqIndex);
                     
                     // store k-mer pairs along this sequence
                     Set<Long> hashVals = Collections.synchronizedSet(new HashSet<>(3 * (seqLen - shift + 1)));
@@ -215,20 +213,27 @@ public class SeqSubsampler {
             }
         }
         
-        writerWorker.terminateWhenInputExhausts();
-        writerThread.join();
-        writer.close();
-        
-        float fpr = cbf.getFPR();
-        cbf.destroy();
-        
         if (verbose) {
-            int numSubsample = writerWorker.getNumSequencesWritten();
+            float fpr = cbf.getFPR();
             System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(fpr) + " %");
             System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
                                 "\tafter: " + NumberFormat.getInstance().format(numSubsample) +
                                 " (" + convertToRoundedPercent(numSubsample/(float)numSeq) + " %)");
-        }        
+        }
+        
+        cbf.destroy();
+        
+        FastaWriter subWriter  = new FastaWriter(outSubsampleFasta, false);
+        FastaWriter allWriter  = new FastaWriter(outAllFasta, false);
+        for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
+            String seq = seqs.get(seqIndex).toString();
+            allWriter.write("a" + seqIndex, seq);
+            if (writeBits.get(seqIndex)) {
+                subWriter.write("s" + seqIndex, seq);
+            }
+        }
+        subWriter.close();
+        allWriter.close();       
     }
     
     public static void minimalSet(ArrayList<? extends BitSequence> seqs, String outFasta,
