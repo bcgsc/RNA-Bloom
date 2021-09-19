@@ -24,6 +24,7 @@ import java.util.HashSet;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
+import rnabloom.bloom.hash.CanonicalNTHashIterator;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
@@ -106,119 +107,190 @@ public class SeqSubsampler {
                             " (" + convertToRoundedPercent(seqID/(float)numSeq) + " %)");
 
     }
-    
-    private interface CombineHashFunction {
-        long combine(long a, long b);
-    }
-    
-    private static long combineCanonicalHash(long a, long b) {
-        return a < b ? 
-                HashFunction.combineHashValues(a, b) : 
-                HashFunction.combineHashValues(b, a);
-    }
-    
+        
     public static void kmerBased(ArrayList<? extends BitSequence> seqs,
             String outSubsampleFasta, String outAllFasta,
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose) throws IOException, InterruptedException {
-        
-        CombineHashFunction combineFuction = stranded ? 
-                HashFunction::combineHashValues : 
-                SeqSubsampler::combineCanonicalHash;
-        
+                
         int numSeq = seqs.size();
         BitSet writeBits = new BitSet(numSeq);
         
-        HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
-        
-        CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         final int shift = k + 1;
         final int shiftD = k;
         final int shiftI = k + 2;
-        NTHashIterator kmerHashItr = h.getHashIterator(1);
-        
-        //int missingChainThreshold = k;
         final int missingChainThreshold = k + shift;
         int numSubsample = 0;
-        for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
-            String seq = seqs.get(seqIndex).toString();
+        float fpr = 0;
+
+        if (stranded) {
+            HashFunction h = new HashFunction(k);
+            NTHashIterator hashItr = h.getHashIterator(1);
+            CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
             
-            if (kmerHashItr.start(seq)) {
-                int seqLen = seq.length();
-                boolean tooShort = seqLen < 3 * maxEdgeClip;
-                int missingChainLen = 0;
-                boolean write = false;
-                int numKmers = seqLen - k + 1;
-                
-                // get hash value of all kmers
-                long[] kmerHashVals = new long[numKmers];
-                for (int i=0; i<numKmers; ++i) {
-                    kmerHashItr.next();
-                    kmerHashVals[i] = kmerHashItr.hVals[0];
-                }
-                
-                int start = maxEdgeClip;
-                int end = numKmers - maxEdgeClip - shift;
-                if (tooShort) {
-                    start = 0;
-                    end = numKmers - shift;
-                }
-                
-                // check whether this sequence has been seen enough by looking up multiplicities of k-mer pairs
-                for (int i=start; i<end; ++i) {
-                    long left = kmerHashVals[i];
-                    long right = kmerHashVals[i + shift];
-                    long pair = combineFuction.combine(left, right);
-                    
-                    if (cbf.getCount(pair) <= maxMultiplicity) {
-                        if (++missingChainLen >= missingChainThreshold) {
-                            write = true;
-                            break;
+            for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
+                String seq = seqs.get(seqIndex).toString();
+
+                if (hashItr.start(seq)) {
+                    int seqLen = seq.length();
+                    boolean tooShort = seqLen < 3 * maxEdgeClip;
+                    int missingChainLen = 0;
+                    boolean write = false;
+                    int numKmers = seqLen - k + 1;
+
+                    // get hash value of all kmers
+                    long[] kmerHashVals = new long[numKmers];
+                    for (int i=0; i<numKmers; ++i) {
+                        hashItr.next();
+                        kmerHashVals[i] = hashItr.hVals[0];
+                    }
+
+                    int start = maxEdgeClip;
+                    int end = numKmers - maxEdgeClip - shift;
+                    if (tooShort) {
+                        start = 0;
+                        end = numKmers - shift;
+                    }
+
+                    // check whether this sequence has been seen enough by looking up multiplicities of k-mer pairs
+                    for (int i=start; i<end; ++i) {
+                        long pair = HashFunction.combineHashValues(kmerHashVals[i], kmerHashVals[i + shift]);
+
+                        if (cbf.getCount(pair) <= maxMultiplicity) {
+                            if (++missingChainLen >= missingChainThreshold) {
+                                write = true;
+                                break;
+                            }
+                        }
+                        else {
+                            missingChainLen = 0;
                         }
                     }
-                    else {
-                        missingChainLen = 0;
+
+                    if (write) {
+                        ++numSubsample;
+                        writeBits.set(seqIndex);
+
+                        // store k-mer pairs along this sequence
+                        HashSet<Long> hashVals = new HashSet();
+
+                        // k-mer pair gap size: 1
+                        for (int i=start; i<end; ++i) {
+                            hashVals.add(HashFunction.combineHashValues(kmerHashVals[i], kmerHashVals[i + shift]));
+                        }
+
+                        // k-mer pair gap size: 2 
+                        for (int i=start; i<end - 1; ++i) {
+                            hashVals.add(HashFunction.combineHashValues(kmerHashVals[i], kmerHashVals[i + shiftI]));
+                        }
+
+                        // k-mer pair gap size: 0
+                        for (int i=start; i<end + 1; ++i) {
+                            hashVals.add(HashFunction.combineHashValues(kmerHashVals[i], kmerHashVals[i + shiftD]));
+                        }
+
+                        hashVals.parallelStream().forEach(e -> {
+                            cbf.increment(e);
+                        });
                     }
-                }
-                
-                if (write) {
-                    ++numSubsample;
-                    writeBits.set(seqIndex);
-                    
-                    // store k-mer pairs along this sequence
-                    HashSet<Long> hashVals = new HashSet();
-                    
-                    // k-mer pair gap size: 1
-                    for (int i=start; i<end; ++i) {
-                        hashVals.add(combineFuction.combine(kmerHashVals[i], kmerHashVals[i + shift]));
-                    }
-                    
-                    // k-mer pair gap size: 2 
-                    for (int i=start; i<end - 1; ++i) {
-                        hashVals.add(combineFuction.combine(kmerHashVals[i], kmerHashVals[i + shiftI]));
-                    }
-                    
-                    // k-mer pair gap size: 0
-                    for (int i=start; i<end + 1; ++i) {
-                        hashVals.add(combineFuction.combine(kmerHashVals[i], kmerHashVals[i + shiftD]));
-                    }
-                    
-                    hashVals.parallelStream().forEach(e -> {
-                        cbf.increment(e);
-                    });
                 }
             }
+            
+            fpr = cbf.getFPR();
+            cbf.destroy();
+        }
+        else {
+            CanonicalHashFunction h = new CanonicalHashFunction(k);
+            CanonicalNTHashIterator hashItr = (CanonicalNTHashIterator) h.getHashIterator(1);
+            CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
+            
+            for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
+                String seq = seqs.get(seqIndex).toString();
+
+                if (hashItr.start(seq)) {
+                    int seqLen = seq.length();
+                    boolean tooShort = seqLen < 3 * maxEdgeClip;
+                    int missingChainLen = 0;
+                    boolean write = false;
+                    int numKmers = seqLen - k + 1;
+
+                    // get hash value of all kmers
+                    long[] forwardKmerHashVals = new long[numKmers];
+                    long[] reverseKmerHashVals = new long[numKmers];
+                    for (int i=0; i<numKmers; ++i) {
+                        hashItr.next();
+                        forwardKmerHashVals[i] = hashItr.frhval[0];
+                        reverseKmerHashVals[i] = hashItr.frhval[1];
+                    }
+
+                    int start = maxEdgeClip;
+                    int end = numKmers - maxEdgeClip - shift;
+                    if (tooShort) {
+                        start = 0;
+                        end = numKmers - shift;
+                    }
+
+                    // check whether this sequence has been seen enough by looking up multiplicities of k-mer pairs
+                    for (int i=start; i<end; ++i) {
+                        long pairF = HashFunction.combineHashValues(forwardKmerHashVals[i], forwardKmerHashVals[i + shift]);
+                        long pairR = HashFunction.combineHashValues(reverseKmerHashVals[i + shift], reverseKmerHashVals[i]);
+                        
+                        if (cbf.getCount(Math.min(pairF, pairR)) <= maxMultiplicity) {
+                            if (++missingChainLen >= missingChainThreshold) {
+                                write = true;
+                                break;
+                            }
+                        }
+                        else {
+                            missingChainLen = 0;
+                        }
+                    }
+
+                    if (write) {
+                        ++numSubsample;
+                        writeBits.set(seqIndex);
+
+                        // store k-mer pairs along this sequence
+                        HashSet<Long> hashVals = new HashSet();
+
+                        // k-mer pair gap size: 1
+                        for (int i=start; i<end; ++i) {
+                            long pairF = HashFunction.combineHashValues(forwardKmerHashVals[i], forwardKmerHashVals[i + shift]);
+                            long pairR = HashFunction.combineHashValues(reverseKmerHashVals[i + shift], reverseKmerHashVals[i]);
+                            hashVals.add(Math.min(pairF, pairR));
+                        }
+
+                        // k-mer pair gap size: 2 
+                        for (int i=start; i<end - 1; ++i) {
+                            long pairF = HashFunction.combineHashValues(forwardKmerHashVals[i], forwardKmerHashVals[i + shiftI]);
+                            long pairR = HashFunction.combineHashValues(reverseKmerHashVals[i + shiftI], reverseKmerHashVals[i]);
+                            hashVals.add(Math.min(pairF, pairR));
+                        }
+
+                        // k-mer pair gap size: 0
+                        for (int i=start; i<end + 1; ++i) {
+                            long pairF = HashFunction.combineHashValues(forwardKmerHashVals[i], forwardKmerHashVals[i + shiftD]);
+                            long pairR = HashFunction.combineHashValues(reverseKmerHashVals[i + shiftD], reverseKmerHashVals[i]);
+                            hashVals.add(Math.min(pairF, pairR));
+                        }
+
+                        hashVals.parallelStream().forEach(e -> {
+                            cbf.increment(e);
+                        });
+                    }
+                }
+            }
+            
+            fpr = cbf.getFPR();
+            cbf.destroy();
         }
         
         if (verbose) {
-            float fpr = cbf.getFPR();
             System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(fpr) + " %");
             System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
                                 "\tafter: " + NumberFormat.getInstance().format(numSubsample) +
                                 " (" + convertToRoundedPercent(numSubsample/(float)numSeq) + " %)");
         }
-        
-        cbf.destroy();
         
         FastaWriter subWriter  = new FastaWriter(outSubsampleFasta, false);
         FastaWriter allWriter  = new FastaWriter(outAllFasta, false);
