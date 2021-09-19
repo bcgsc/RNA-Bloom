@@ -20,20 +20,14 @@ import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.stream.IntStream;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
-import rnabloom.bloom.hash.PairedNTHashIterator;
 import rnabloom.io.FastaWriter;
-import rnabloom.io.FastaWriterWorker;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.SeqUtils.compressHomoPolymers;
 
@@ -113,10 +107,25 @@ public class SeqSubsampler {
 
     }
     
+    private interface CombineHashFunction {
+        long combine(long a, long b);
+    }
+    
+    private static long combineCanonicalHash(long a, long b) {
+        return a < b ? 
+                HashFunction.combineHashValues(a, b) : 
+                HashFunction.combineHashValues(b, a);
+    }
+    
     public static void kmerBased(ArrayList<? extends BitSequence> seqs,
             String outSubsampleFasta, String outAllFasta,
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose) throws IOException, InterruptedException {
+        
+        CombineHashFunction combineFuction = stranded ? 
+                HashFunction::combineHashValues : 
+                SeqSubsampler::combineCanonicalHash;
+        
         int numSeq = seqs.size();
         BitSet writeBits = new BitSet(numSeq);
         
@@ -124,8 +133,10 @@ public class SeqSubsampler {
         
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         final int shift = k + 1;
+        final int shiftD = k;
+        final int shiftI = k + 2;
         NTHashIterator kmerHashItr = h.getHashIterator(1);
-                
+        
         //int missingChainThreshold = k;
         final int missingChainThreshold = k + shift;
         int numSubsample = 0;
@@ -157,9 +168,7 @@ public class SeqSubsampler {
                 for (int i=start; i<end; ++i) {
                     long left = kmerHashVals[i];
                     long right = kmerHashVals[i + shift];
-                    long pair = (stranded || left < right) ? 
-                            HashFunction.combineHashValues(left, right) : 
-                            HashFunction.combineHashValues(right, left);
+                    long pair = combineFuction.combine(left, right);
                     
                     if (cbf.getCount(pair) <= maxMultiplicity) {
                         if (++missingChainLen >= missingChainThreshold) {
@@ -177,34 +186,22 @@ public class SeqSubsampler {
                     writeBits.set(seqIndex);
                     
                     // store k-mer pairs along this sequence
-                    Set<Long> hashVals = Collections.synchronizedSet(new HashSet<>(3 * (seqLen - shift + 1)));
+                    HashSet<Long> hashVals = new HashSet();
                     
                     // k-mer pair gap size: 1
-                    IntStream.range(start, end).parallel().forEach(i -> {
-                        long left = kmerHashVals[i];
-                        long right = kmerHashVals[i + shift];
-                        hashVals.add((stranded || left < right) ? 
-                                HashFunction.combineHashValues(left, right) : 
-                                HashFunction.combineHashValues(right, left));
-                    });
+                    for (int i=start; i<end; ++i) {
+                        hashVals.add(combineFuction.combine(kmerHashVals[i], kmerHashVals[i + shift]));
+                    }
                     
                     // k-mer pair gap size: 2 
-                    IntStream.range(start, end - 1).parallel().forEach(i -> {
-                        long left = kmerHashVals[i];
-                        long right = kmerHashVals[i + shift + 1];
-                        hashVals.add((stranded || left < right) ? 
-                                HashFunction.combineHashValues(left, right) : 
-                                HashFunction.combineHashValues(right, left));
-                    });
+                    for (int i=start; i<end - 1; ++i) {
+                        hashVals.add(combineFuction.combine(kmerHashVals[i], kmerHashVals[i + shiftI]));
+                    }
                     
                     // k-mer pair gap size: 0
-                    IntStream.range(start, end + 1).parallel().forEach(i -> {
-                        long left = kmerHashVals[i];
-                        long right = kmerHashVals[i + shift - 1];
-                        hashVals.add((stranded || left < right) ? 
-                                HashFunction.combineHashValues(left, right) : 
-                                HashFunction.combineHashValues(right, left));
-                    });
+                    for (int i=start; i<end + 1; ++i) {
+                        hashVals.add(combineFuction.combine(kmerHashVals[i], kmerHashVals[i + shiftD]));
+                    }
                     
                     hashVals.parallelStream().forEach(e -> {
                         cbf.increment(e);
