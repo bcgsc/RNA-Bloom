@@ -18,6 +18,10 @@ package rnabloom.util;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 
 /**
  *
@@ -32,5 +36,94 @@ public class Common {
         BigDecimal bd = new BigDecimal(f);
         bd = bd.round(new MathContext(sigFigs));
         return bd.floatValue();
+    }
+    
+    public static float getMedian(float[] arr) {
+        int len = arr.length;
+        Arrays.sort(arr);
+        int halfLen = len/2;
+        if (len % 2 == 0) {
+            return (arr[halfLen-1] + arr[halfLen])/2.0f;
+        }
+        
+        return arr[halfLen];
+    }
+    
+    public static float getMinium(float[] arr) {
+        float min = Float.MAX_VALUE;
+        for (float c : arr) {
+            if (c < min) {
+                min = c;
+            }
+        }
+        return min;
+    }
+        
+    public static float getMedian(Collection<Float> arr) {
+        int len = arr.size();
+        ArrayList<Float> a = new ArrayList<>(arr);
+        Collections.sort(a);
+        int halfLen = len/2;
+        if (len % 2 == 0) {
+            return (a.get(halfLen-1) + a.get(halfLen))/2.0f;
+        }
+        
+        return a.get(halfLen);
+    }
+
+    public static float[] getMinMedMax(float[] a) {
+        int len = a.length;
+        Arrays.sort(a);
+        int halfLen = len/2;
+        if (len % 2 == 0) {
+            return new float[]{a[0], (a[halfLen-1] + a[halfLen])/2.0f, a[len-1]};
+        }
+        
+        return new float[]{a[0], a[halfLen], a[len-1]};
+    }
+    
+    public static class Quartiles {
+        public int min;
+        public int q1;
+        public int median;
+        public int q3;
+        public int max;
+        
+        @Override
+        public String toString() {
+            return "min:" + min + ", Q1:" + q1 + ", M:" + median + ", Q3:" + q3 + ", max:" + max;
+        }
+    }
+    
+    public static Quartiles getQuartiles(final int[] lengths) {
+        int len = lengths.length;
+        
+        Arrays.sort(lengths);
+        
+        Quartiles stats = new Quartiles();
+        int halfLen = len/2;
+        int q1Index = len/4;
+        int q3Index = halfLen+q1Index;
+                
+        stats.min = lengths[0];
+        stats.max = lengths[len-1];
+        
+        if (len % 2 == 0) {
+            stats.median = (lengths[halfLen-1] + lengths[halfLen])/2;
+        }
+        else {
+            stats.median = lengths[halfLen];
+        }
+        
+        if (len % 4 == 0) {
+            stats.q1 = (lengths[q1Index-1] + lengths[q1Index])/2;
+            stats.q3 = (lengths[q3Index-1] + lengths[q3Index])/2;
+        }
+        else {
+            stats.q1 = lengths[q1Index];
+            stats.q3 = lengths[q3Index];
+        }
+        
+        return stats;
     }
 }

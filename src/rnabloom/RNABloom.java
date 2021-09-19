@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -91,17 +92,17 @@ import rnabloom.io.FastqFilteredReader;
 import rnabloom.io.SequenceFileIteratorInterface;
 import rnabloom.olc.Interval;
 import static rnabloom.olc.OverlapLayoutConsensus.mapClusteredOLC;
-import static rnabloom.olc.OverlapLayoutConsensus.seededUniqueOLC;
 import static rnabloom.olc.OverlapLayoutConsensus.trimSplitByReadDepth;
 import static rnabloom.olc.OverlapLayoutConsensus.uniqueOLC;
+import rnabloom.util.Common.Quartiles;
 import static rnabloom.util.FileUtils.deleteIfExists;
 import static rnabloom.util.FileUtils.hasOnlyOneSequence;
 import static rnabloom.util.FileUtils.symlinkRemoveExisting;
 import static rnabloom.util.FileUtils.touch;
 import rnabloom.util.Timer;
 import static rnabloom.util.Common.convertToRoundedPercent;
+import static rnabloom.util.Common.getQuartiles;
 import rnabloom.util.PolyAAdaptorTrimmer;
-import static rnabloom.util.SeqBitsUtils.writeToFile;
 import rnabloom.util.SeqSubsampler;
 import rnabloom.util.WeightedBitSequence;
 
@@ -897,8 +898,49 @@ public class RNABloom {
             return numReads;
         }
     }
+    
+    public static int[] getReadLengths(String path, int minLength, int sample) throws FileFormatException, IOException{
+        int[] lengths = new int[sample];
+        int i = 0;
         
-    public int getMaxReadLength(String path) throws FileFormatException, IOException{
+        if (FastqReader.isCorrectFormat(path)) {
+            FastqRecord r = new FastqRecord();
+            FastqReader fr = new FastqReader(path);
+            for (; i< sample && fr.hasNext();) {
+                fr.nextWithoutName(r);
+                int len = r.seq.length();
+                if (len < minLength) {
+                    continue;
+                }
+                lengths[i] = len;
+                ++i;
+            }
+            fr.close();
+        }
+        else if (FastaReader.isCorrectFormat(path)) {
+            FastaReader fr = new FastaReader(path);
+            for (; i< sample && fr.hasNext();) {
+                int len = fr.next().length();
+                if (len < minLength) {
+                    continue;
+                }
+                lengths[i] = len;
+                ++i;
+            }
+            fr.close();                
+        }
+        else {
+            throw new FileFormatException("Incompatible file format for `" + path + "`");
+        }
+        
+        if (i < sample) {
+            return Arrays.copyOfRange(lengths, 0, i);
+        }
+        
+        return lengths;
+    }
+    
+    public static int getMaxReadLength(String path) throws FileFormatException, IOException{
         int max = -1;
 
         if (FastqReader.isCorrectFormat(path)) {
@@ -953,34 +995,27 @@ public class RNABloom {
                                     Collection<String> reverseReadPaths) throws IOException {
         
         int readLength = -1;
+        int sample = 1000;
         
-        for (String path : forwardReadPaths) {
-            int len = this.getMaxReadLength(path);
-            if (len > 0) {
-                if (readLength < 0) {
-                    readLength = len;
+        System.out.println("Sampling read lengths (l>=" + k + ", n=" + sample + ") from each file...");
+        for (Collection<String> c : new Collection[]{forwardReadPaths, reverseReadPaths}) {
+            for (String path : c) {
+                int[] lengths = getReadLengths(path, k, sample);
+
+                if (lengths.length > 0) {
+                    Quartiles quartiles = getQuartiles(lengths);
+                    System.out.println(quartiles.toString() + "\t" + path);
+                    
+                    if (readLength < 0) {
+                        readLength = quartiles.q1;
+                    }
+                    else {
+                        readLength = Math.min(readLength, quartiles.q1);
+                    }
                 }
                 else {
-                    readLength = Math.min(readLength, len);
+                    exitOnError("Cannot determine read length from `" + path + "`");
                 }
-            }
-            else {
-                exitOnError("Cannot determine read length from read files.");
-            }
-        }
-        
-        for (String path : reverseReadPaths) {
-            int len = this.getMaxReadLength(path);
-            if (len > 0) {
-                if (readLength < 0) {
-                    readLength = len;
-                }
-                else {
-                    readLength = Math.min(readLength, len);
-                }
-            }
-            else {
-                exitOnError("Cannot determine read length from read files.");
             }
         }
         
@@ -991,9 +1026,7 @@ public class RNABloom {
         if (readLength < k) {
             exitOnError("The read length (" + readLength + ") is too short for k-mer size (" + k + ").");
         }
-        
-        System.out.println("Read length: " + readLength);
-        
+                
         /*
             |<--d-->|
             ==------==     paired k-mers
@@ -1004,7 +1037,10 @@ public class RNABloom {
             ============== single read
         */
         
-        graph.setReadPairedKmerDistance(readLength - k - minNumKmerPairs);
+        int d = readLength - k - minNumKmerPairs;
+        System.out.println("Paired k-mers distance: " + d);
+        
+        graph.setReadPairedKmerDistance(d);
     }
     
     public int getReadLength() {
@@ -2763,11 +2799,7 @@ public class RNABloom {
           
         return fragStats;
     }
-    
-    private void setPairedKmerDistance(int fragStatQ1) {
-        graph.setFragPairedKmerDistance(fragStatQ1 - k - minNumKmerPairs);
-    }
-    
+        
     private int getPairedReadsMaxDistance(int[] fragStats) {
         return fragStats[3] + ((fragStats[3] - fragStats[1]) * 3 / 2); // 1.5*IQR
     }
@@ -3381,7 +3413,7 @@ public class RNABloom {
     public static final int LENGTH_STRATUM_MED_Q3_INDEX = 2;
     public static final int LENGTH_STRATUM_Q3_MAX_INDEX = 3;
     
-    public static int getLongReadLengthStratumIndex(LengthStats stats, int testLen) {
+    public static int getLongReadLengthStratumIndex(Quartiles stats, int testLen) {
         if (testLen < stats.q1) {
             return LENGTH_STRATUM_MIN_Q1_INDEX;
         }
@@ -3550,7 +3582,7 @@ public class RNABloom {
         private final FastaWriter longWriter;
         private final FastaWriter shortWriter;
         private final FastaWriter repeatsWriter;
-        private LengthStats sampleLengthStats = null;
+        private Quartiles sampleLengthStats = null;
         private boolean terminateWhenInputExhausts = false;
         private long numCorrected = 0;
         private boolean successful = false;
@@ -3601,7 +3633,7 @@ public class RNABloom {
                     lengths[i++] = seq.length;
                 }
                                 
-                sampleLengthStats = getLengthStats(lengths);
+                sampleLengthStats = getQuartiles(lengths);
                 
                 System.out.println("Corrected Read Lengths Sampling Distribution (n=" + sampleSize + ")");
                 System.out.println("\tmin\tq1\tmed\tq3\tmax");
@@ -3695,7 +3727,7 @@ public class RNABloom {
             return numCorrected;
         }
         
-        public LengthStats getSampleLengthStats() {
+        public Quartiles getSampleLengthStats() {
             return sampleLengthStats;
         }
         
@@ -4573,7 +4605,8 @@ public class RNABloom {
         
         assert longFragmentLengthThreshold - k - minNumKmerPairs > 0; // otherwise, no kmer pairs can be extracted
         
-        setPairedKmerDistance(longFragmentLengthThreshold);
+        int fragPairedKmerDistance = longFragmentLengthThreshold - k - minNumKmerPairs;
+        graph.setFragPairedKmerDistance(fragPairedKmerDistance);
         
         int newBound = getPairedReadsMaxDistance(fragLengthsStats);
         for (FragmentAssembler w : workers) {
@@ -4583,7 +4616,7 @@ public class RNABloom {
         System.out.println("Fragment Lengths Sampling Distribution (n=" + fragLengths.size() + ")");
         System.out.println("\tmin\tQ1\tM\tQ3\tmax");
         System.out.println("\t" + fragLengthsStats[0] + "\t" + fragLengthsStats[1] + "\t" + fragLengthsStats[2] + "\t" + fragLengthsStats[3] + "\t" + fragLengthsStats[4]);
-        System.out.println("Paired kmers distance:       " + (longFragmentLengthThreshold - k - minNumKmerPairs));
+        System.out.println("Paired k-mers distance:       " + fragPairedKmerDistance);
         System.out.println("Max graph traversal depth:   " + newBound);
 
         FragmentWriterWorker writer = new FragmentWriterWorker(fragments, fragPaths, assemblePolyaTails, shortestFragmentLengthAllowed);
@@ -5244,39 +5277,22 @@ public class RNABloom {
     }
     
     private static boolean mergePooledAssemblies(String outdir, String assemblyName, String[] sampleNames,
-            String txptFileExt, String shortTxptFileExt, String txptNamePrefix,
+            String txptFileExt, String txptNamePrefix,
             int k, int numThreads, boolean stranded, int maxIndelSize, int maxTipLength,
-            float percentIdentity, boolean removeArtifacts, int txptLengthThreshold, boolean writeUracil,
+            float percentIdentity, boolean removeArtifacts, boolean writeUracil,
             boolean usePacBioPreset) throws IOException {
         
         String concatenatedFasta = outdir + File.separator + assemblyName + ".all" + FASTA_EXT;
-        String reducedFasta      = outdir + File.separator + assemblyName + ".all_nr" + FASTA_EXT;
-        String tmpPrefix         = outdir + File.separator + assemblyName + ".tmp";
         String outLongFasta      = outdir + File.separator + assemblyName + ".transcripts" + FASTA_EXT;
-        String outShortFasta     = outdir + File.separator + assemblyName + ".transcripts.short" + FASTA_EXT;
 
         // combine assembly files
         FastaWriter fout = new FastaWriter(concatenatedFasta, false);
         FastaReader fin;
         for (String sampleName : sampleNames) {
             String longTxptsPath  = outdir + File.separator + sampleName + File.separator + sampleName + ".transcripts" + txptFileExt;
-            String shortTxptsPath = outdir + File.separator + sampleName + File.separator + sampleName + ".transcripts" + shortTxptFileExt;
+            //String shortTxptsPath = outdir + File.separator + sampleName + File.separator + sampleName + ".transcripts" + shortTxptFileExt;
             
             fin = new FastaReader(longTxptsPath);
-            while(fin.hasNext()) {
-                String[] nameCommentSeq = fin.nextWithComment();
-                //String comment = nameCommentSeq[1];
-                String seq = nameCommentSeq[2];
-
-                if (writeUracil) {
-                    seq = seq.replace('T', 'U');
-                }
-
-                fout.write(txptNamePrefix + sampleName + "_" + nameCommentSeq[0], seq);
-            }
-            fin.close();
-            
-            fin = new FastaReader(shortTxptsPath);
             while(fin.hasNext()) {
                 String[] nameCommentSeq = fin.nextWithComment();
                 //String comment = nameCommentSeq[1];
@@ -5292,14 +5308,11 @@ public class RNABloom {
         }
         fout.close();
 
-        boolean ok = overlapLayout(concatenatedFasta, reducedFasta, numThreads,
+        boolean ok = overlapLayout(concatenatedFasta, outLongFasta, numThreads,
                         stranded, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, 2*k,
                         maxIndelSize, removeArtifacts, 1, usePacBioPreset, true);
         
-        splitFastaByLength(reducedFasta, outLongFasta, outShortFasta, txptLengthThreshold);
-        
         deleteIfExists(concatenatedFasta);
-        deleteIfExists(reducedFasta);
         
         return ok;
     }
@@ -6861,10 +6874,10 @@ public class RNABloom {
                         mergeTimer.start();
                         
                         boolean ok = mergePooledAssemblies(outdir, name, sampleNames, 
-                                        txptFileExt, shortTxptFileExt, txptNamePrefix,
+                                        txptFileExt, txptNamePrefix,
                                         k, numThreads, strandSpecific, maxIndelSize,
                                         maxTipLen, percentIdentity, !keepArtifact, 
-                                        minTranscriptLength, writeUracil, usePacBioPreset);
+                                        writeUracil, usePacBioPreset);
                         
                         if (ok) {
                             System.out.println("Merged assembly at `" + outdir + File.separator + name + ".transcripts.fa`");
