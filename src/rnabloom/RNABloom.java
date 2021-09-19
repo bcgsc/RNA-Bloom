@@ -6084,9 +6084,10 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadPacBioPreset);
         
+        final String optSubsampleLongReadDefault = "true";
         Option optSubsampleLongRead = Option.builder("lrsub")
-                                    .desc("subsample long reads before assembly [false]")
-                                    .hasArg(false)
+                                    .desc("subsample long reads before assembly [" + optSubsampleLongReadDefault + "]")
+                                    .hasArg(true)
                                     .build();
         options.addOption(optSubsampleLongRead);
         
@@ -6405,7 +6406,7 @@ public class RNABloom {
             final boolean outputNrTxpts = mergePool ? true : !line.hasOption(optNoReduce.getOpt());
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
             final boolean usePacBioPreset = line.hasOption(optLongReadPacBioPreset.getOpt());
-            final boolean subsampleLongReads = line.hasOption(optSubsampleLongRead.getOpt());
+            final boolean subsampleLongReads = Boolean.parseBoolean(line.getOptionValue(optSubsampleLongRead.getOpt(), optSubsampleLongReadDefault));
             /*
             final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final int minimizerSize = Integer.parseInt(line.getOptionValue(optMinimizerSize.getOpt(), optMinimizerSizeDefault));
