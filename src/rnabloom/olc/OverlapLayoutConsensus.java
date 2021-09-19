@@ -137,8 +137,14 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -c";
         }
                 
-        if (numThreads > 0 && !minimapOptions.contains("-t")) {
-            minimapOptions += " -t " + numThreads;
+        if (numThreads > 0) {
+            if (numThreads >= 2) {
+                --numThreads;
+            }
+            
+            if (!minimapOptions.contains("-t")) {
+                minimapOptions += " -t " + numThreads;
+            }
         }
         
         if (!minimapOptions.contains("-X")) {
@@ -167,8 +173,14 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -c";
         }
                 
-        if (numThreads > 0 && !minimapOptions.contains("-t")) {
-            minimapOptions += " -t " + numThreads;
+        if (numThreads > 0) {
+            if (numThreads >= 2) {
+                --numThreads;
+            }
+            
+            if (!minimapOptions.contains("-t")) {
+                minimapOptions += " -t " + numThreads;
+            }
         }
         
         if (!minimapOptions.contains("-X")) {
@@ -235,8 +247,14 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -r " + maxIndelSize;
         }
         
-        if (numThreads > 0 && !minimapOptions.contains("-t")) {
-            minimapOptions += " -t " + numThreads;
+        if (numThreads > 0) {
+            if (numThreads >= 2) {
+                --numThreads;
+            }
+            
+            if (!minimapOptions.contains("-t")) {
+                minimapOptions += " -t " + numThreads;
+            }
         }
         
         if (stranded && !minimapOptions.contains("--for-only")) {
@@ -287,8 +305,14 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -c";
         }
                 
-        if (numThreads > 0 && !minimapOptions.contains("-t")) {
-            minimapOptions += " -t " + numThreads;
+        if (numThreads > 0) {
+            if (numThreads >= 2) {
+                --numThreads;
+            }
+            
+            if (!minimapOptions.contains("-t")) {
+                minimapOptions += " -t " + numThreads;
+            }
         }
         
         if (stranded && !minimapOptions.contains("--for-only")) {
@@ -336,8 +360,14 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -c";
         }
         
-        if (numThreads > 0 && !minimapOptions.contains("-t")) {
-            minimapOptions += " -t " + numThreads;
+        if (numThreads > 0) {
+            if (numThreads >= 2) {
+                --numThreads;
+            }
+            
+            if (!minimapOptions.contains("-t")) {
+                minimapOptions += " -t " + numThreads;
+            }
         }
         
         if (stranded && !minimapOptions.contains("--for-only")) {
@@ -389,8 +419,14 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -g 300";
         }
         
-        if (numThreads > 0 && !minimapOptions.contains("-t")) {
-            minimapOptions += " -t " + numThreads;
+        if (numThreads > 0) {
+            if (numThreads >= 2) {
+                --numThreads;
+            }
+            
+            if (!minimapOptions.contains("-t")) {
+                minimapOptions += " -t " + numThreads;
+            }
         }
         
         if (!minimapOptions.contains("-X")) {
@@ -442,8 +478,14 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -c";
         }
         
-        if (numThreads > 0 && !minimapOptions.contains("-t")) {
-            minimapOptions += " -t " + numThreads;
+        if (numThreads > 0) {
+            if (numThreads >= 2) {
+                --numThreads;
+            }
+            
+            if (!minimapOptions.contains("-t")) {
+                minimapOptions += " -t " + numThreads;
+            }
         }
         
         if (!minimapOptions.contains("-X")) {
@@ -501,8 +543,14 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -c";
         }
         
-        if (numThreads > 0 && !minimapOptions.contains("-t")) {
-            minimapOptions += " -t " + numThreads;
+        if (numThreads > 0) {
+            if (numThreads >= 2) {
+                --numThreads;
+            }
+            
+            if (!minimapOptions.contains("-t")) {
+                minimapOptions += " -t " + numThreads;
+            }
         }
         
         if (!minimapOptions.contains("-X")) {
@@ -560,8 +608,14 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -c";
         }
                 
-        if (numThreads > 0 && !minimapOptions.contains("-t")) {
-            minimapOptions += " -t " + numThreads;
+        if (numThreads > 0) {
+            if (numThreads >= 2) {
+                --numThreads;
+            }
+            
+            if (!minimapOptions.contains("-t")) {
+                minimapOptions += " -t " + numThreads;
+            }
         }
         
         if (!minimapOptions.contains("-X")) {
@@ -613,8 +667,14 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -c";
         }
         
-        if (numThreads > 0 && !minimapOptions.contains("-t")) {
-            minimapOptions += " -t " + numThreads;
+        if (numThreads > 0) {
+            if (numThreads >= 2) {
+                --numThreads;
+            }
+            
+            if (!minimapOptions.contains("-t")) {
+                minimapOptions += " -t " + numThreads;
+            }
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
@@ -647,8 +707,14 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -p 0.25";
         }
         
-        if (numThreads > 0 && !minimapOptions.contains("-t")) {
-            minimapOptions += " -t " + numThreads;
+        if (numThreads > 0) {
+            if (numThreads >= 2) {
+                --numThreads;
+            }
+            
+            if (!minimapOptions.contains("-t")) {
+                minimapOptions += " -t " + numThreads;
+            }
         }
         
         if (stranded && !minimapOptions.contains("--for-only")) {
