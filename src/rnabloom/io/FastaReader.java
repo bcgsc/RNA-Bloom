@@ -41,7 +41,7 @@ public class FastaReader implements FastxReaderInterface {
     
     public FastaReader(String path) throws IOException {
         if (path.toLowerCase().endsWith(GZIP_EXT)) {
-            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))), BUFFER_SIZE);
+            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path), BUFFER_SIZE)), BUFFER_SIZE);
         }
         else {
             br = new BufferedReader(new InputStreamReader(new FileInputStream(path)), BUFFER_SIZE);

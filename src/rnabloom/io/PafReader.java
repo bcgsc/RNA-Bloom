@@ -37,7 +37,7 @@ public class PafReader {
     
     public PafReader(String path) throws IOException {
         if (path.toLowerCase().endsWith(GZIP_EXT)) {
-            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path))), BUFFER_SIZE);
+            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path), BUFFER_SIZE)), BUFFER_SIZE);
         }
         else {
             br = new BufferedReader(new InputStreamReader(new FileInputStream(path)), BUFFER_SIZE);
@@ -46,7 +46,7 @@ public class PafReader {
     }
     
     public PafReader(InputStream in) {
-        br = new BufferedReader(new InputStreamReader(in));
+        br = new BufferedReader(new InputStreamReader(in), BUFFER_SIZE);
         itr = br.lines().iterator();
     }
     
