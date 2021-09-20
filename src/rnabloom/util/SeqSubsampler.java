@@ -122,7 +122,7 @@ public class SeqSubsampler {
         final int shiftI = k + 2;
         final int missingChainThreshold = k + shift;
         int numSubsample = 0;
-        float fpr = 0;
+        float fpr;
 
         if (stranded) {
             HashFunction h = new HashFunction(k);
@@ -157,7 +157,7 @@ public class SeqSubsampler {
                     }
 
                     // look up counts of k-mer pairs
-                    boolean[] seen = new boolean[end - start];
+                    final boolean[] seen = new boolean[end - start];
                     IntStream.range(start, end).parallel().forEach(i -> {
                         long pair = HashFunction.combineHashValues(kmerHashVals[i], kmerHashVals[i + shift]);
                         seen[i - start] = cbf.getCount(pair) >= maxMultiplicity;
@@ -241,7 +241,7 @@ public class SeqSubsampler {
                     }
                     
                     // look up counts of k-mer pairs
-                    boolean[] seen = new boolean[end - start];
+                    final boolean[] seen = new boolean[end - start];
                     IntStream.range(start, end).parallel().forEach(i -> {
                         long pairF = HashFunction.combineHashValues(forwardKmerHashVals[i], forwardKmerHashVals[i + shift]);
                         long pairR = HashFunction.combineHashValues(reverseKmerHashVals[i + shift], reverseKmerHashVals[i]);
@@ -307,11 +307,11 @@ public class SeqSubsampler {
         
         FastaWriter subWriter  = new FastaWriter(outSubsampleFasta, false);
         FastaWriter allWriter  = new FastaWriter(outAllFasta, false);
-        for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
-            String seq = seqs.get(seqIndex).toString();
-            allWriter.write("a" + seqIndex, seq);
-            if (writeBits.get(seqIndex)) {
-                subWriter.write("s" + seqIndex, seq);
+        for (int i=0; i<numSeq; ++i) {
+            String seq = seqs.get(i).toString();
+            allWriter.write("a" + i, seq);
+            if (writeBits.get(i)) {
+                subWriter.write("s" + i, seq);
             }
         }
         subWriter.close();
