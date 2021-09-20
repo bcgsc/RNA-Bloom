@@ -98,7 +98,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         /**@TODO Assert file size*/
     }
     
-    private long getIndex(long hashVal) {
+    private static long getIndex(long hashVal, long size) {
         // shift right to remove sign bit and modulus the size of buffer
         return (hashVal >>> 1) % size;
     }
@@ -129,11 +129,11 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     
     public void increment(final long[] hashVals) {
         // find the smallest count at all hash positions
-        byte min = counts.get(getIndex(hashVals[0]));
+        byte min = counts.get(getIndex(hashVals[0], size));
         byte c;
         int h;
         for (h=1; h<numHash; ++h) {
-            c = counts.get(getIndex(hashVals[h]));
+            c = counts.get(getIndex(hashVals[h], size));
             if (c < min) {
                 min = c;
             }
@@ -149,18 +149,18 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         if (updated != min) {
             // update min count only
             for (h=0; h<numHash; ++h) {
-                counts.compareAndSwap(getIndex(hashVals[h]), min, updated);
+                counts.compareAndSwap(getIndex(hashVals[h], size), min, updated);
             }
         }
     }
     
     public float incrementAndGet(final long[] hashVals) {
         // find the smallest count at all hash positions
-        byte min = counts.get(getIndex(hashVals[0]));
+        byte min = counts.get(getIndex(hashVals[0], size));
         byte c;
         int h;
         for (h=1; h<numHash; ++h) {
-            c = counts.get(getIndex(hashVals[h]));
+            c = counts.get(getIndex(hashVals[h], size));
             if (c < min) {
                 min = c;
             }
@@ -176,7 +176,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         if (updated != min) {
             // update min count only
             for (h=0; h<numHash; ++h) {
-                counts.compareAndSwap(getIndex(hashVals[h]), min, updated);
+                counts.compareAndSwap(getIndex(hashVals[h], size), min, updated);
             }
         }
         
@@ -196,10 +196,10 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     
     public float getCount(final long[] hashVals) {
         // find the smallest count
-        byte min = counts.get(getIndex(hashVals[0]));
+        byte min = counts.get(getIndex(hashVals[0], size));
         byte c;
         for (int h=1; h<numHash; ++h) {
-            c = counts.get(getIndex(hashVals[h]));
+            c = counts.get(getIndex(hashVals[h], size));
             if (c < min) {
                 min = c;
             }

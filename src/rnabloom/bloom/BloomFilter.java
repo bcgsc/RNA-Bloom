@@ -105,7 +105,7 @@ public class BloomFilter implements BloomFilterInterface {
         /**@TODO Assert file size*/
     }
     
-    protected long getIndex(long hashVal) {
+    protected static long getIndex(long hashVal, long size) {
         // shift right to remove sign bit and modulus the size of buffer
         return (hashVal >>> 1) % size;
     }
@@ -132,7 +132,7 @@ public class BloomFilter implements BloomFilterInterface {
     
     public void add(final long[] hashVals){
         for (int h=0; h<numHash; ++h) {
-            bitArray.set(getIndex(hashVals[h]));
+            bitArray.set(getIndex(hashVals[h], size));
         }
     }
     
@@ -148,7 +148,7 @@ public class BloomFilter implements BloomFilterInterface {
         boolean found = true;
         
         for (int h=0; h<numHash; ++h) {
-            found = bitArray.getAndSet(getIndex(hashVals[h])) && found;
+            found = bitArray.getAndSet(getIndex(hashVals[h], size)) && found;
         }
         
         return found;
@@ -156,7 +156,7 @@ public class BloomFilter implements BloomFilterInterface {
     
     public void addCAS(final long[] hashVals) {
         for (int h=0; h<numHash; ++h) {
-            bitArray.setCAS(getIndex(hashVals[h]));
+            bitArray.setCAS(getIndex(hashVals[h], size));
         }        
     }
 
@@ -169,7 +169,7 @@ public class BloomFilter implements BloomFilterInterface {
 
     public boolean lookup(final long[] hashVals) {
         for (int h=0; h<numHash; ++h) {
-            if (!bitArray.get(getIndex(hashVals[h]))) {
+            if (!bitArray.get(getIndex(hashVals[h], size))) {
                 return false;
             }
         }

@@ -117,7 +117,7 @@ public class PairedKeysBloomFilter {
         out.close();
     }
 
-    protected long getIndex(long hashVal) {
+    protected static long getIndex(long hashVal, long size) {
         // shift right to remove sign bit and modulus the size of buffer
         return (hashVal >>> 1) % size;
     }
@@ -136,7 +136,7 @@ public class PairedKeysBloomFilter {
     
     public void add(final long[] hashValsPair) {
         for (int h=0; h<numHash; ++h) {
-            bitArrayPair.set(getIndex(hashValsPair[h]));
+            bitArrayPair.set(getIndex(hashValsPair[h], size));
         }
     }
 
@@ -146,7 +146,7 @@ public class PairedKeysBloomFilter {
     
     public boolean lookup(final long[] hashValsPair) {
         for (int h=0; h<numHash; ++h) {
-            if (!bitArrayPair.get(getIndex(hashValsPair[h]))) {
+            if (!bitArrayPair.get(getIndex(hashValsPair[h], size))) {
                 return false;
             }
         }
@@ -162,7 +162,7 @@ public class PairedKeysBloomFilter {
         boolean foundAll = true;
         
         for (int h=0; h<numHash; ++h) {
-            foundAll &= bitArrayPair.getAndSet(getIndex(hashVals[h]));
+            foundAll &= bitArrayPair.getAndSet(getIndex(hashVals[h], size));
         }
         
         return foundAll;
