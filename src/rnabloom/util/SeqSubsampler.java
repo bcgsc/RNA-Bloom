@@ -21,6 +21,7 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashSet;
+import java.util.stream.IntStream;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
@@ -145,25 +146,31 @@ public class SeqSubsampler {
                         kmerHashVals[i] = hashItr.hVals[0];
                     }
 
-                    int start = maxEdgeClip;
-                    int end = numKmers - maxEdgeClip - shift;
+                    final int start, end;
                     if (tooShort) {
                         start = 0;
                         end = numKmers - shift;
                     }
+                    else {
+                        start = maxEdgeClip;
+                        end = numKmers - maxEdgeClip - shift;
+                    }
 
-                    // check whether this sequence has been seen enough by looking up multiplicities of k-mer pairs
-                    for (int i=start; i<end; ++i) {
+                    // look up counts of k-mer pairs
+                    boolean[] seen = new boolean[end - start];
+                    IntStream.range(start, end).parallel().forEach(i -> {
                         long pair = HashFunction.combineHashValues(kmerHashVals[i], kmerHashVals[i + shift]);
-
-                        if (cbf.getCount(pair) <= maxMultiplicity) {
-                            if (++missingChainLen >= missingChainThreshold) {
-                                write = true;
-                                break;
-                            }
-                        }
-                        else {
+                        seen[i - start] = cbf.getCount(pair) >= maxMultiplicity;
+                    });
+                    
+                    // look for k-mer pairs not seen
+                    for (boolean s : seen) {
+                        if (s) {
                             missingChainLen = 0;
+                        }
+                        else if (++missingChainLen >= missingChainThreshold) {
+                            write = true;
+                            break;
                         }
                     }
 
@@ -172,7 +179,7 @@ public class SeqSubsampler {
                         writeBits.set(seqIndex);
 
                         // store k-mer pairs along this sequence
-                        HashSet<Long> hashVals = new HashSet();
+                        HashSet<Long> hashVals = new HashSet((seqLen - 2*k + 1) * 4);
 
                         // k-mer pair gap size: 1
                         for (int i=start; i<end; ++i) {
@@ -223,26 +230,32 @@ public class SeqSubsampler {
                         reverseKmerHashVals[i] = hashItr.frhval[1];
                     }
 
-                    int start = maxEdgeClip;
-                    int end = numKmers - maxEdgeClip - shift;
+                    final int start, end;
                     if (tooShort) {
                         start = 0;
                         end = numKmers - shift;
                     }
-
-                    // check whether this sequence has been seen enough by looking up multiplicities of k-mer pairs
-                    for (int i=start; i<end; ++i) {
+                    else {
+                        start = maxEdgeClip;
+                        end = numKmers - maxEdgeClip - shift;
+                    }
+                    
+                    // look up counts of k-mer pairs
+                    boolean[] seen = new boolean[end - start];
+                    IntStream.range(start, end).parallel().forEach(i -> {
                         long pairF = HashFunction.combineHashValues(forwardKmerHashVals[i], forwardKmerHashVals[i + shift]);
                         long pairR = HashFunction.combineHashValues(reverseKmerHashVals[i + shift], reverseKmerHashVals[i]);
-                        
-                        if (cbf.getCount(Math.min(pairF, pairR)) <= maxMultiplicity) {
-                            if (++missingChainLen >= missingChainThreshold) {
-                                write = true;
-                                break;
-                            }
-                        }
-                        else {
+                        seen[i - start] = cbf.getCount(Math.min(pairF, pairR)) >= maxMultiplicity;
+                    });
+                    
+                    // look for k-mer pairs not seen
+                    for (boolean s : seen) {
+                        if (s) {
                             missingChainLen = 0;
+                        }
+                        else if (++missingChainLen >= missingChainThreshold) {
+                            write = true;
+                            break;
                         }
                     }
 
@@ -251,7 +264,7 @@ public class SeqSubsampler {
                         writeBits.set(seqIndex);
 
                         // store k-mer pairs along this sequence
-                        HashSet<Long> hashVals = new HashSet();
+                        HashSet<Long> hashVals = new HashSet((seqLen - 2*k + 1) * 4);
 
                         // k-mer pair gap size: 1
                         for (int i=start; i<end; ++i) {
