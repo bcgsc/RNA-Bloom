@@ -29,7 +29,7 @@ import sun.misc.Unsafe;
 public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     private final long start;
     private final long size;
-    private final Unsafe unsafe;
+    private static Unsafe unsafe;
     
     private static Unsafe getMyUnsafe() throws NoSuchFieldException, IllegalArgumentException, IllegalAccessException {
         Field theUnsafe = Unsafe.class.getDeclaredField("theUnsafe");
@@ -111,7 +111,7 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     }
     
     @Override
-    public void empty() {
+    public final void empty() {
         unsafe.setMemory(start, size, (byte) 0);
     }
     
