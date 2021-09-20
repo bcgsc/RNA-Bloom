@@ -29,7 +29,7 @@ import sun.misc.Unsafe;
 public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     private final long start;
     private final long size;
-    private static Unsafe unsafe;
+    private static Unsafe unsafe = null;
     
     private static Unsafe getMyUnsafe() throws NoSuchFieldException, IllegalArgumentException, IllegalAccessException {
         Field theUnsafe = Unsafe.class.getDeclaredField("theUnsafe");
@@ -38,7 +38,9 @@ public class UnsafeByteBuffer extends AbstractLargeByteBuffer {
     }
     
     public UnsafeByteBuffer(long size) throws NoSuchFieldException, IllegalArgumentException, IllegalAccessException {
-        unsafe = getMyUnsafe();
+        if (unsafe == null) {
+            unsafe = getMyUnsafe();
+        }
         this.start = unsafe.allocateMemory(size);
         this.size = size;
         this.empty();
