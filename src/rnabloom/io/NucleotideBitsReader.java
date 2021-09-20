@@ -8,7 +8,6 @@ package rnabloom.io;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import static rnabloom.util.SeqBitsUtils.bitsToSeq;
@@ -27,6 +26,7 @@ public class NucleotideBitsReader implements SequenceFileIteratorInterface {
         fin = new FileInputStream(path);
     }
         
+    @Override
     public synchronized String next() throws IOException {
         if (fin.read(seqLenBytes) > 0) {
             int seqLen = fourBytesToInt(seqLenBytes);

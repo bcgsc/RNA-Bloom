@@ -49,7 +49,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -998,13 +997,19 @@ public class RNABloom {
         int sample = 1000;
         
         System.out.println("Sampling read lengths (l>=" + k + ", n=" + sample + ") from each file...");
+        System.out.println("\tmin\tQ1\tM\tQ3\tmax\tfile");
         for (Collection<String> c : new Collection[]{forwardReadPaths, reverseReadPaths}) {
             for (String path : c) {
                 int[] lengths = getReadLengths(path, k, sample);
 
                 if (lengths.length > 0) {
                     Quartiles quartiles = getQuartiles(lengths);
-                    System.out.println(quartiles.toString() + "\t" + path);
+                    System.out.println("\t" + quartiles.min +
+                            "\t" + quartiles.q1 +
+                            "\t" + quartiles.median +
+                            "\t" + quartiles.q3 +
+                            "\t" + quartiles.max +
+                            "\t" + path);
                     
                     if (readLength < 0) {
                         readLength = quartiles.q1;
@@ -1037,7 +1042,7 @@ public class RNABloom {
             ============== single read
         */
         
-        int d = readLength - k - minNumKmerPairs;
+        int d = Math.max(1, readLength - k - minNumKmerPairs);
         System.out.println("Paired k-mers distance: " + d);
         
         graph.setReadPairedKmerDistance(d);
@@ -4605,7 +4610,7 @@ public class RNABloom {
         
         assert longFragmentLengthThreshold - k - minNumKmerPairs > 0; // otherwise, no kmer pairs can be extracted
         
-        int fragPairedKmerDistance = longFragmentLengthThreshold - k - minNumKmerPairs;
+        int fragPairedKmerDistance = Math.max(1, longFragmentLengthThreshold - k - minNumKmerPairs);
         graph.setFragPairedKmerDistance(fragPairedKmerDistance);
         
         int newBound = getPairedReadsMaxDistance(fragLengthsStats);
@@ -4616,7 +4621,7 @@ public class RNABloom {
         System.out.println("Fragment Lengths Sampling Distribution (n=" + fragLengths.size() + ")");
         System.out.println("\tmin\tQ1\tM\tQ3\tmax");
         System.out.println("\t" + fragLengthsStats[0] + "\t" + fragLengthsStats[1] + "\t" + fragLengthsStats[2] + "\t" + fragLengthsStats[3] + "\t" + fragLengthsStats[4]);
-        System.out.println("Paired k-mers distance:       " + fragPairedKmerDistance);
+        System.out.println("Paired k-mers distance:      " + fragPairedKmerDistance);
         System.out.println("Max graph traversal depth:   " + newBound);
 
         FragmentWriterWorker writer = new FragmentWriterWorker(fragments, fragPaths, assemblePolyaTails, shortestFragmentLengthAllowed);
