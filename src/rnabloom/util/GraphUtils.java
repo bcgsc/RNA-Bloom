@@ -244,33 +244,7 @@ public final class GraphUtils {
         
         return counts[halfNumKmers];
     }
-    
-    public static float getMedianKmerCoverage(final ArrayDeque<Kmer>... kmers) {
-        int numKmers = 0;
-        for (ArrayDeque<Kmer> c : kmers) {
-            numKmers += c.size();
-        }
         
-        float[] counts = new float[numKmers];
-        int i = -1;
-        for (ArrayDeque<Kmer> c : kmers) {
-            Iterator<Kmer> itr = c.iterator();
-            while (itr.hasNext()) {
-                counts[++i] = itr.next().count;
-            }
-        }
-        
-        Arrays.sort(counts);
-        
-        int halfNumKmers = numKmers/2;
-        
-        if (numKmers % 2 == 0) {
-            return (counts[halfNumKmers] + counts[halfNumKmers-1])/2.0f;
-        }
-        
-        return counts[halfNumKmers];
-    }
-    
     public static float getMaxMedianCoverageRight(final BloomFilterDeBruijnGraph graph, final Kmer source, final int lookahead) {
         int k = graph.getK();
         int numHash = graph.getCbfNumHash();
@@ -6612,7 +6586,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
-        ArrayDeque<ArrayDeque> frontier = new ArrayDeque<>();
+        ArrayDeque<ArrayDeque<Kmer>> frontier = new ArrayDeque<>();
         ArrayDeque<Kmer> alts = source.getSuccessors(k, numHash, graph);
         frontier.add(alts);
         
@@ -6637,7 +6611,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
-        ArrayDeque<ArrayDeque> frontier = new ArrayDeque<>();
+        ArrayDeque<ArrayDeque<Kmer>> frontier = new ArrayDeque<>();
         ArrayDeque<Kmer> alts = source.getPredecessors(k, numHash, graph);
         frontier.add(alts);
         
@@ -6662,7 +6636,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
-        ArrayDeque<ArrayDeque> frontier = new ArrayDeque<>();
+        ArrayDeque<ArrayDeque<Kmer>> frontier = new ArrayDeque<>();
         ArrayDeque<Kmer> alts = source.getSuccessors(k, numHash, graph, bf);
         frontier.add(alts);
         
@@ -6687,7 +6661,7 @@ public final class GraphUtils {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
-        ArrayDeque<ArrayDeque> frontier = new ArrayDeque<>();
+        ArrayDeque<ArrayDeque<Kmer>> frontier = new ArrayDeque<>();
         ArrayDeque<Kmer> alts = source.getPredecessors(k, numHash, graph, bf);
         frontier.add(alts);
         

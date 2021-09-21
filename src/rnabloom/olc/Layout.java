@@ -1852,7 +1852,7 @@ public class Layout {
         Timer timer = new Timer();
         
         // parse all mapping records to gather contained reads for each seed
-        HashMap<String, ArrayList> containedReadNamesMap = new HashMap<>();
+        HashMap<String, ArrayList<NamedInterval>> containedReadNamesMap = new HashMap<>();
         PafReader reader = new PafReader(overlapPafInputStream);
         for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
             reader.next(r);
@@ -2048,8 +2048,8 @@ public class Layout {
         // write fasta files
         timer.start();
         FastaReader fr = new FastaReader(seqFastaPath);
-        ArrayDeque<CompressedFastaRecord>[] clusterRecords = new ArrayDeque[numClusters+1];
-        clusterRecords[0] = new ArrayDeque<>();
+        ArrayList<ArrayDeque<CompressedFastaRecord>> clusterRecords = new ArrayList<>(numClusters+1);
+        clusterRecords.set(0, new ArrayDeque<>());
         while (fr.hasNext()) {
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
@@ -2057,15 +2057,15 @@ public class Layout {
             
             Integer cid = readClusterIDs.get(name);
             if (cid != null) {
-                ArrayDeque<CompressedFastaRecord> fastaBuffer = clusterRecords[cid];
+                ArrayDeque<CompressedFastaRecord> fastaBuffer = clusterRecords.get(cid);
                 if (fastaBuffer == null) {
                     fastaBuffer = new ArrayDeque<>();
-                    clusterRecords[cid] = fastaBuffer;
+                    clusterRecords.set(cid, fastaBuffer);
                 }
                 fastaBuffer.add(new CompressedFastaRecord(name, seq));
             } 
             else {
-                clusterRecords[0].add(new CompressedFastaRecord(name, seq));
+                clusterRecords.get(0).add(new CompressedFastaRecord(name, seq));
             }
         }
         fr.close();
@@ -2080,13 +2080,13 @@ public class Layout {
         return counts;
     }
     
-    private int[] writeClusterFastaFiles(ArrayDeque<CompressedFastaRecord>[] clusterRecords, String outdir) throws IOException {
-        int size = clusterRecords.length;
+    private int[] writeClusterFastaFiles(ArrayList<ArrayDeque<CompressedFastaRecord>> clusterRecords, String outdir) throws IOException {
+        int size = clusterRecords.size();
         int[] counts = new int[size];
         for (int cid=0; cid<size; ++cid) {
             String filePath = outdir + File.separator + cid + File.separator + cid + FASTA_EXT + GZIP_EXT;
             FastaWriter fw = new FastaWriter(filePath, false);
-            ArrayDeque<CompressedFastaRecord> records = clusterRecords[cid];
+            ArrayDeque<CompressedFastaRecord> records = clusterRecords.get(cid);
             for (CompressedFastaRecord f : records) {
                 fw.write(f.name, f.seqbits.toString());
             }

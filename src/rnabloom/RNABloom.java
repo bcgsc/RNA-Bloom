@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -998,29 +999,30 @@ public class RNABloom {
         
         System.out.println("Sampling read lengths (l>=" + k + ", n=" + sample + ") from each file...");
         System.out.println("\tmin\tQ1\tM\tQ3\tmax\tfile");
-        for (Collection<String> c : new Collection[]{forwardReadPaths, reverseReadPaths}) {
-            for (String path : c) {
-                int[] lengths = getReadLengths(path, k, sample);
+        
+        for (Iterator<String> itr = Stream.concat(forwardReadPaths.stream(), 
+                reverseReadPaths.stream()).iterator(); itr.hasNext(); ) {
+            String path = itr.next();
+            int[] lengths = getReadLengths(path, k, sample);
 
-                if (lengths.length > 0) {
-                    Quartiles quartiles = getQuartiles(lengths);
-                    System.out.println("\t" + quartiles.min +
-                            "\t" + quartiles.q1 +
-                            "\t" + quartiles.median +
-                            "\t" + quartiles.q3 +
-                            "\t" + quartiles.max +
-                            "\t" + path);
-                    
-                    if (readLength < 0) {
-                        readLength = quartiles.q1;
-                    }
-                    else {
-                        readLength = Math.min(readLength, quartiles.q1);
-                    }
+            if (lengths.length > 0) {
+                Quartiles quartiles = getQuartiles(lengths);
+                System.out.println("\t" + quartiles.min +
+                        "\t" + quartiles.q1 +
+                        "\t" + quartiles.median +
+                        "\t" + quartiles.q3 +
+                        "\t" + quartiles.max +
+                        "\t" + path);
+
+                if (readLength < 0) {
+                    readLength = quartiles.q1;
                 }
                 else {
-                    exitOnError("Cannot determine read length from `" + path + "`");
+                    readLength = Math.min(readLength, quartiles.q1);
                 }
+            }
+            else {
+                exitOnError("Cannot determine read length from `" + path + "`");
             }
         }
         
@@ -4432,7 +4434,7 @@ public class RNABloom {
             unconnectedPolyaSingletonsPath = unconnectedPolyaReadsFastaPrefix + "01" + NBITS_EXT;
         }
         
-        public ArrayList asList(boolean assemblePolya) {
+        public ArrayList<String> asList(boolean assemblePolya) {
             ArrayList<String> paths = new ArrayList<>(longFragmentsPaths.length + shortFragmentsPaths.length + unconnectedReadsPaths.length + 3);
             paths.addAll(Arrays.asList(longFragmentsPaths));
             paths.addAll(Arrays.asList(shortFragmentsPaths));

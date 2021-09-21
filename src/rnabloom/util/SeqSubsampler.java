@@ -179,7 +179,7 @@ public class SeqSubsampler {
                         writeBits.set(seqIndex);
 
                         // store k-mer pairs along this sequence
-                        HashSet<Long> hashVals = new HashSet((seqLen - 2*k + 1) * 4);
+                        HashSet<Long> hashVals = new HashSet<>((seqLen - 2*k + 1) * 4);
 
                         // k-mer pair gap size: 1
                         for (int i=start; i<end; ++i) {
@@ -264,7 +264,7 @@ public class SeqSubsampler {
                         writeBits.set(seqIndex);
 
                         // store k-mer pairs along this sequence
-                        HashSet<Long> hashVals = new HashSet((seqLen - 2*k + 1) * 4);
+                        HashSet<Long> hashVals = new HashSet<>((seqLen - 2*k + 1) * 4);
 
                         // k-mer pair gap size: 1
                         for (int i=start; i<end; ++i) {
