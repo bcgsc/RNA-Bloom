@@ -4706,40 +4706,66 @@ public class RNABloom {
     }
 
     private class SingleEndReadsIterator implements SequenceFileIteratorInterface {
-        private FastaFilteredSequenceIterator faItr = null;
-        private FastqFilteredSequenceIterator fqItr = null;
+        private FastaFilteredSequenceIterator forFaItr = null;
+        private FastqFilteredSequenceIterator forFqItr = null;
+        private FastaFilteredSequenceIterator revFaItr = null;
+        private FastqFilteredSequenceIterator revFqItr = null;
         private long numReadsParsed = 0;
         
-        public SingleEndReadsIterator(String[] readPaths, boolean reverseComplement) throws IOException {
-            ArrayList<String> fastaPaths = new ArrayList<>();
-            ArrayList<String> fastqPaths = new ArrayList<>();
-            for (String p : readPaths) {
+        public SingleEndReadsIterator(String[] forwardReadPaths, String[] reverseReadPaths) throws IOException {
+            ArrayList<String> forwardFastaPaths = new ArrayList<>();
+            ArrayList<String> forwardFastqPaths = new ArrayList<>();
+            ArrayList<String> reverseFastaPaths = new ArrayList<>();
+            ArrayList<String> reverseFastqPaths = new ArrayList<>();
+            
+            for (String p : forwardReadPaths) {
                 if (FastaReader.isCorrectFormat(p)) {
-                    fastaPaths.add(p);
+                    forwardFastaPaths.add(p);
                 }
                 else if (FastqReader.isCorrectFormat(p)) {
-                    fastqPaths.add(p);
+                    forwardFastqPaths.add(p);
+                }
+            }
+
+            for (String p : reverseReadPaths) {
+                if (FastaReader.isCorrectFormat(p)) {
+                    reverseFastaPaths.add(p);
+                }
+                else if (FastqReader.isCorrectFormat(p)) {
+                    reverseFastqPaths.add(p);
                 }
             }
             
-            if (!fastaPaths.isEmpty()) {
-                String[] paths = new String[fastaPaths.size()];
-                fastaPaths.toArray(paths);
-                faItr = new FastaFilteredSequenceIterator(paths, seqPattern, reverseComplement);
+            if (!forwardFastaPaths.isEmpty()) {
+                String[] paths = new String[forwardFastaPaths.size()];
+                forwardFastaPaths.toArray(paths);
+                forFaItr = new FastaFilteredSequenceIterator(paths, seqPattern, false);
             }
             
-            if (!fastqPaths.isEmpty()) {
-                String[] paths = new String[fastqPaths.size()];
-                fastqPaths.toArray(paths);
-                fqItr = new FastqFilteredSequenceIterator(paths, seqPattern, qualPattern, minAvgBaseQual, reverseComplement);
+            if (!forwardFastqPaths.isEmpty()) {
+                String[] paths = new String[forwardFastqPaths.size()];
+                forwardFastqPaths.toArray(paths);
+                forFqItr = new FastqFilteredSequenceIterator(paths, seqPattern, qualPattern, minAvgBaseQual, false);
+            }
+            
+            if (!reverseFastaPaths.isEmpty()) {
+                String[] paths = new String[reverseFastaPaths.size()];
+                reverseFastaPaths.toArray(paths);
+                revFaItr = new FastaFilteredSequenceIterator(paths, seqPattern, true);
+            }
+            
+            if (!reverseFastqPaths.isEmpty()) {
+                String[] paths = new String[reverseFastqPaths.size()];
+                reverseFastqPaths.toArray(paths);
+                revFqItr = new FastqFilteredSequenceIterator(paths, seqPattern, qualPattern, minAvgBaseQual, true);
             }
         }
 
         @Override
         public synchronized String next() throws IOException {
-            if (faItr != null && faItr.hasNext()) {
+            if (forFaItr != null && forFaItr.hasNext()) {
                 ++numReadsParsed;
-                ArrayList<String> segments = faItr.nextSegments();
+                ArrayList<String> segments = forFaItr.nextSegments();
                 while (segments != null) {
                     if (!segments.isEmpty()) {
                         String seq = connect(segments, graph, lookahead);
@@ -4748,13 +4774,30 @@ public class RNABloom {
                         }
                     }
                     ++numReadsParsed;
-                    segments = faItr.nextSegments();
+                    segments = forFaItr.nextSegments();
                 }
+                forFaItr = null;
+            }
+                        
+            if (forFqItr != null && forFqItr.hasNext()) {
+                ++numReadsParsed;                
+                ArrayList<String> segments = forFqItr.nextSegments();
+                while (segments != null) {
+                    if (!segments.isEmpty()) {
+                        String seq = connect(segments, graph, lookahead);
+                        if (seq.length() >= k) {
+                            return seq;
+                        }
+                    }
+                    ++numReadsParsed;
+                    segments = forFqItr.nextSegments();
+                }
+                forFqItr = null;
             }
             
-            if (fqItr != null && fqItr.hasNext()) {
-                ++numReadsParsed;                
-                ArrayList<String> segments = fqItr.nextSegments();
+            if (revFaItr != null && revFaItr.hasNext()) {
+                ++numReadsParsed;
+                ArrayList<String> segments = revFaItr.nextSegments();
                 while (segments != null) {
                     if (!segments.isEmpty()) {
                         String seq = connect(segments, graph, lookahead);
@@ -4763,16 +4806,33 @@ public class RNABloom {
                         }
                     }
                     ++numReadsParsed;
-                    segments = fqItr.nextSegments();
+                    segments = revFaItr.nextSegments();
                 }
+                revFaItr = null;
+            }
+            
+            if (revFqItr != null && revFqItr.hasNext()) {
+                ++numReadsParsed;                
+                ArrayList<String> segments = revFqItr.nextSegments();
+                while (segments != null) {
+                    if (!segments.isEmpty()) {
+                        String seq = connect(segments, graph, lookahead);
+                        if (seq.length() >= k) {
+                            return seq;
+                        }
+                    }
+                    ++numReadsParsed;
+                    segments = revFqItr.nextSegments();
+                }
+                revFqItr = null;
             }
             
             return null;
         }
     }
     
-    public void assembleSingleEndReads(String[] readPaths,
-                                    boolean reverseComplement,
+    public void assembleSingleEndReads(String[] forwardReadPaths,
+                                    String[] reverseReadPaths,
                                     String outFasta,
                                     String outFastaShort,
                                     int numThreads,
@@ -4793,7 +4853,7 @@ public class RNABloom {
         FastaWriter foutShort = new FastaWriter(outFastaShort, false);
         TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, maxTipLength, writeUracil);
         
-        SingleEndReadsIterator readsItr = new SingleEndReadsIterator(readPaths, reverseComplement);
+        SingleEndReadsIterator readsItr = new SingleEndReadsIterator(forwardReadPaths, reverseReadPaths);
         
         TranscriptAssemblyWorker[] workers = new TranscriptAssemblyWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
@@ -5358,7 +5418,7 @@ public class RNABloom {
     private static void assembleTranscriptsSE(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, String txptNamePrefix,
             long sbfSize, int sbfNumHash, int numThreads, 
-            String[] readPaths, boolean reverseComplement,
+            String[] forwardReadPaths, String[] reverseReadPaths,
             int minTranscriptLength, boolean keepArtifact, boolean keepChimera,
             float minKmerCov, boolean reduceRedundancy, boolean writeUracil,
             boolean usePacBioPreset) throws IOException, InterruptedException {
@@ -5371,8 +5431,8 @@ public class RNABloom {
             Timer timer = new Timer();
                 assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                                 
-                assembler.assembleSingleEndReads(readPaths,
-                                    reverseComplement,
+                assembler.assembleSingleEndReads(forwardReadPaths,
+                                    reverseReadPaths,
                                     transcriptsFasta,
                                     shortTranscriptsFasta,
                                     numThreads,
@@ -5678,6 +5738,20 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReads);
 
+        Option optSeForwardReads = Option.builder("sef")
+                                    .desc("single-end forward read file(s)")
+                                    .hasArgs()
+                                    .argName("FILE")
+                                    .build();
+        options.addOption(optSeForwardReads);        
+        
+        Option optSeReverseReads = Option.builder("ser")
+                                    .desc("single-end reverse read file(s)")
+                                    .hasArgs()
+                                    .argName("FILE")
+                                    .build();
+        options.addOption(optSeReverseReads);
+        
         Option optRefTranscripts = Option.builder("ref")
                                     .desc("reference transcripts file(s) for guiding the assembly process")
                                     .hasArgs()
@@ -6276,15 +6350,20 @@ public class RNABloom {
             String[] rightReadPaths = line.getOptionValues(optRightReads.getOpt());
             String[] longReadPaths = line.getOptionValues(optLongReads.getOpt());
             String[] refTranscriptPaths = line.getOptionValues(optRefTranscripts.getOpt());
+            String[] seForwardReadPaths = line.getOptionValues(optSeForwardReads.getOpt());
+            String[] seReverseReadPaths = line.getOptionValues(optSeReverseReads.getOpt());
                         
             final String pooledReadsListFile = line.getOptionValue(optPooledAssembly.getOpt());
             final boolean pooledGraphMode = pooledReadsListFile != null;
             boolean hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
             boolean hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
             boolean hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
+            boolean hasSeForwardReadFiles = seForwardReadPaths != null && seForwardReadPaths.length > 0;
+            boolean hasSeReverseReadFiles = seReverseReadPaths != null && seReverseReadPaths.length > 0;
             
-            if (pooledGraphMode && (leftReadPaths != null || rightReadPaths != null || longReadPaths != null) ) {
-                exitOnError("Option `-pool` cannot be used with options `-left`, `-right`, or `-long`");
+            if (pooledGraphMode && (leftReadPaths != null || rightReadPaths != null || 
+                    longReadPaths != null || seForwardReadPaths != null || seReverseReadPaths != null) ) {
+                exitOnError("Option `-pool` cannot be used with options `-left`, `-right`, `-long`, `-sef`, or `-ser`");
             }
                                     
             HashMap<String, ArrayList<String>> pooledLeftReadPaths = new HashMap<>();
@@ -6395,11 +6474,42 @@ public class RNABloom {
                     
                     hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
                 }
+                
+                if (hasSeForwardReadFiles) {
+                    if (isListFile(seForwardReadPaths)) {
+                        // input path is a list file
+                        seForwardReadPaths = getPathsFromListFile(seForwardReadPaths);
+                    }
+                    
+                    checkInputFileFormat(seForwardReadPaths);
+                    
+                    for (String p : seForwardReadPaths) {
+                        readFilesTotalBytes += new File(p).length();
+                    }
+                    
+                    hasSeForwardReadFiles = seForwardReadPaths != null && seForwardReadPaths.length > 0;
+                }
+                
+                if (hasSeReverseReadFiles) {
+                    if (isListFile(seReverseReadPaths)) {
+                        // input path is a list file
+                        seReverseReadPaths = getPathsFromListFile(seReverseReadPaths);
+                    }
+                    
+                    checkInputFileFormat(seReverseReadPaths);
+                    
+                    for (String p : seReverseReadPaths) {
+                        readFilesTotalBytes += new File(p).length();
+                    }
+                    
+                    hasSeReverseReadFiles = seReverseReadPaths != null && seReverseReadPaths.length > 0;
+                }
                                 
                 maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
                 
                 if (!hasLongReadFiles) {
-                    if (!hasLeftReadFiles && !hasRightReadFiles) {
+                    if (!hasLeftReadFiles && !hasRightReadFiles &&
+                            !hasSeForwardReadFiles && !hasSeReverseReadFiles) {
                         exitOnError("Please specify read files!");
                     }
 
@@ -6540,6 +6650,18 @@ public class RNABloom {
                 
                 if (hasRightReadFiles && rightReadPaths != null) {
                     for (String p : rightReadPaths) {
+                        writer.write(p + '\n');
+                    }
+                }
+                
+                if (hasSeForwardReadFiles && seForwardReadPaths != null) {
+                    for (String p : seForwardReadPaths) {
+                        writer.write(p + '\n');
+                    }
+                }
+                
+                if (hasSeReverseReadFiles && seReverseReadPaths != null) {
+                    for (String p : seReverseReadPaths) {
                         writer.write(p + '\n');
                     }
                 }
@@ -6718,7 +6840,15 @@ public class RNABloom {
                             forwardFilesList.addAll(Arrays.asList(rightReadPaths));
                         }
                     }
+                    
+                    if (hasSeForwardReadFiles) {
+                        forwardFilesList.addAll(Arrays.asList(seForwardReadPaths));
+                    }
 
+                    if (hasSeReverseReadFiles) {
+                        backwardFilesList.addAll(Arrays.asList(seReverseReadPaths));
+                    }
+                    
                     if (hasLongReadFiles) {
                         longFilesList.addAll(Arrays.asList(longReadPaths));
                     }
@@ -7020,7 +7150,8 @@ public class RNABloom {
                 
                 System.out.println("> Stage 3 completed in " + stageTimer.elapsedDHMS());
             }
-            else if (hasLeftReadFiles && !hasRightReadFiles) {
+            else if (!hasLeftReadFiles && !hasRightReadFiles && 
+                    (hasSeForwardReadFiles || hasSeReverseReadFiles)) {
                 // Note: no stage 2
                 System.out.println("\n> Skipping Stage 2 for single-end reads.");
                 
@@ -7031,7 +7162,7 @@ public class RNABloom {
                 assembleTranscriptsSE(assembler, forceOverwrite,
                                     outdir, name, txptNamePrefix,
                                     sbfSize, sbfNumHash, numThreads, 
-                                    leftReadPaths, revCompLeft,
+                                    seForwardReadPaths, seReverseReadPaths,
                                     minTranscriptLength, keepArtifact, keepChimera,
                                     minKmerCov,
                                     outputNrTxpts, writeUracil, usePacBioPreset);
