@@ -100,14 +100,14 @@ public class FastqReader implements FastxReaderInterface {
     
     @Override
     public String[] nextWithName() throws FileFormatException {
-        String line1, line3, name, seq;
+        String line1, line3, name, seq, qual;
         
         try {
             synchronized(this) {
                 line1 = itr.next();
                 seq = itr.next();
                 line3 = itr.next();
-                itr.next(); // line 4
+                qual = itr.next(); // line 4
             }
         }
         catch (NoSuchElementException e) {
@@ -133,7 +133,7 @@ public class FastqReader implements FastxReaderInterface {
             throw new FileFormatException("Line 1 of FASTQ record is expected to start with '@'");
         }
         
-        return new String[]{name, seq};
+        return new String[]{name, seq, qual};
     }
     
     public void nextWithoutName(FastqRecord fr) throws FileFormatException {        

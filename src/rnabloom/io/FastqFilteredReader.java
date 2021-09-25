@@ -106,7 +106,7 @@ public class FastqFilteredReader extends FastqReader {
             seq = "";
         }
         
-        return new String[]{name, seq};
+        return new String[]{name, seq, qual};
     }
     
     @Override

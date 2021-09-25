@@ -17,6 +17,10 @@
 package rnabloom.io;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.regex.Pattern;
+import static rnabloom.util.SeqUtils.filterFasta;
+import static rnabloom.util.SeqUtils.filterFastq;
 
 /**
  *
@@ -28,6 +32,10 @@ public final class FastxSequenceIterator {
     private int fileCursor;
     private FastxReaderInterface reader;
     private String[] n = null;
+    private final Pattern seqPattern;
+    private final Pattern qualPattern;
+    boolean isFastq = false;
+    boolean isFasta = false;
     
     public FastxSequenceIterator(String[] fastxPaths, int minAvgBaseQual) throws IOException {
         this.fastxPaths = fastxPaths;
@@ -37,14 +45,34 @@ public final class FastxSequenceIterator {
         if (hasNext()) {
             n = readNext();
         }
+        
+        seqPattern = null;
+        qualPattern = null;
+    }
+    
+    public FastxSequenceIterator(String[] fastxPaths, int minAvgBaseQual, Pattern seqPattern, Pattern qualPattern) throws IOException {
+        this.fastxPaths = fastxPaths;
+        this.minAvgBaseQual = minAvgBaseQual;
+        fileCursor = 0;
+        setReader(fastxPaths[fileCursor]);
+        if (hasNext()) {
+            n = readNext();
+        }
+        
+        this.seqPattern = seqPattern;
+        this.qualPattern = qualPattern;
     }
     
     private void setReader(String path) throws IOException {
         if (FastqReader.isCorrectFormat(path)) {
             reader = minAvgBaseQual > 0 ? new FastqFilteredReader(path, minAvgBaseQual) : new FastqReader(path);
+            isFastq = true;
+            isFasta = false;
         }
         else if (FastaReader.isCorrectFormat(path)) {
             reader = new FastaReader(path);
+            isFasta = true;
+            isFastq = false;
         }
         else {
             throw new FileFormatException("Incompatible file format for `" + path + "`");
@@ -97,5 +125,27 @@ public final class FastxSequenceIterator {
         this.n = readNext();
         
         return p;
+    }
+    
+    public synchronized ArrayList<String> nextSegments() throws IOException {
+        if (n == null) {
+            return null;
+        }
+        
+        String[] p = this.n;
+        ArrayList<String> segments = null;
+        if (isFasta) {
+            segments = filterFasta(p[1], seqPattern);
+        }
+        else if (isFastq) {
+            segments = filterFastq(p[1], p[2], seqPattern, qualPattern);
+        }
+        else {
+            throw new FileFormatException("Incompatible file format");
+        }
+        
+        this.n = readNext();
+        
+        return segments;
     }
 }

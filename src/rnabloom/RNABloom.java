@@ -1909,197 +1909,109 @@ public class RNABloom {
             }
         }
     }
-    
-    /*
-    private class TranscriptWriterWorker implements Runnable {
-        
-        private final ArrayBlockingQueue<Transcript> transcripts;
-        private final TranscriptWriter writer;
-        private boolean keepGoing = true;
-        
-        public TranscriptWriterWorker(ArrayBlockingQueue<Transcript> transcripts,
-                                        TranscriptWriter writer) {
-            this.transcripts = transcripts;
-            this.writer = writer;
-        }
 
-        public void stopWhenEmpty () {
-            keepGoing = false;
+    private class SingleEndReadExtractor implements Runnable {
+        FastxSequenceIterator rin;
+        private ArrayBlockingQueue<Fragment> outList;
+        private int errorCorrectionIterations;
+        private int readLengthThreshold;
+        private int minKmerCov;
+        private long numParsed = 0;
+        private long numKept = 0;
+        private boolean done = false;
+        private boolean reverseComplement = false;
+        
+        public SingleEndReadExtractor(FastxSequenceIterator rin,
+                                ArrayBlockingQueue<Fragment> outList,
+                                int errorCorrectionIterations,
+                                int readLengthThreshold,
+                                int minKmerCov,
+                                boolean reverseComplement) {
+            
+            this.rin = rin;
+            this.outList = outList;
+            this.errorCorrectionIterations = errorCorrectionIterations;
+            this.readLengthThreshold = readLengthThreshold;
+            this.minKmerCov = minKmerCov;
+            this.reverseComplement = reverseComplement;
         }
         
         @Override
         public void run() {
             try {
-                while (true) {
-                    Transcript t = transcripts.poll(10, TimeUnit.MICROSECONDS);
-                                        
-                    if (t == null) {
-                        if (!keepGoing) {
-                            break;
+                ArrayList<String> segments;
+                while((segments = rin.nextSegments()) != null) {
+                    ++numParsed;
+                    
+                    if (reverseComplement) {
+                        int numSegments = segments.size();
+
+                        if (numSegments > 1) {
+                            Collections.reverse(segments);
+                        }
+
+                        for (int i=0; i<numSegments; ++i) {
+                            segments.set(i, reverseComplement(segments.get(i)));
                         }
                     }
-                    else {
-                        writer.write(t.fragment, t.transcriptKmers);
-                    }
-                }
-            }
-            catch (Exception ex) {
-                throw new RuntimeException(ex);
-            }
-        }
-    }
-    */
-    
-    /*
-    private class ReadConnector implements Runnable {
-        private String left;
-        private String right;
-        private ArrayBlockingQueue<Fragment> outList;
-        private int bound;
-        private int minOverlap;
-        private boolean storeKmerPairs;
-        private boolean extendFragments;
-        private int errorCorrectionIterations = 0;
-        private float minKmerCov;
-        
-        public ReadConnector(String left,
-                                String right,
-                                ArrayBlockingQueue<Fragment> outList,
-                                int bound, 
-                                int minOverlap,
-                                int errorCorrectionIterations,
-                                boolean storeKmerPairs,
-                                boolean extendFragments,
-                                float minKmerCov) {
-            
-            this.left = left;
-            this.right = right;
-            this.outList = outList;
-            this.bound = bound;
-            this.minOverlap = minOverlap;
-            this.storeKmerPairs = storeKmerPairs;
-            this.extendFragments = extendFragments;
-            this.errorCorrectionIterations = errorCorrectionIterations;
-            this.minKmerCov = minKmerCov;
-        }
-        
-        @Override
-        public void run() {
-            try {
-                
-//                System.out.println("L: " + left);
-//                System.out.println("R: " + right);
-                
-                ArrayList<Kmer> leftKmers = graph.getKmers(left);
-                ArrayList<Kmer> rightKmers = graph.getKmers(right);
-
-                if (this.errorCorrectionIterations > 0) {
-
-                    ReadPair correctedReadPair = correctErrorsPE(leftKmers,
-                                                        rightKmers,
-                                                        graph, 
-                                                        lookahead, 
-                                                        maxIndelSize, 
-                                                        maxCovGradient, 
-                                                        covFPR,
-                                                        this.errorCorrectionIterations,
-                                                        2,
-                                                        percentIdentity,
-                                                        minKmerCov);
-
-                    if (correctedReadPair.corrected) {
-                        leftKmers = correctedReadPair.leftKmers;
-                        rightKmers = correctedReadPair.rightKmers;
-                    }
-                }
-                
-                if (!leftKmers.isEmpty() && !rightKmers.isEmpty()) {
-
-                    ArrayList<Kmer> fragmentKmers = overlapAndConnect(leftKmers, rightKmers, graph, bound-k+1-leftKmers.size()-rightKmers.size(),
-                            lookahead, minOverlap, maxCovGradient, maxTipLength, maxIndelSize, percentIdentity, minKmerCov);
-
-                    ArrayDeque<int[]> ranges = breakWithReadPairedKmers(fragmentKmers, graph, lookahead);
                     
-                    if (ranges.size() != 1) {
-                        fragmentKmers = null;
-                    }
+                    String seq = connect(segments, graph, lookahead);
                     
-                    if (fragmentKmers != null) {
-                        int fragLength = fragmentKmers.size() + k - 1;
-
-                        if (fragLength >= k + lookahead) {
-                            boolean hasComplexKmer = false;
-
-                            float minCov = Float.MAX_VALUE;
-                            for (Kmer kmer : fragmentKmers) {
-                                if (kmer.count < minCov) {
-                                    minCov = kmer.count;
+                    if (seq.length() >= this.readLengthThreshold) {
+                        if (!isLowComplexityShort(seq)) {
+                            ArrayList<Kmer> kmers = graph.getKmers(seq);
+                            
+                            if (!kmers.isEmpty()) {
+                                ArrayList<Kmer> corrected = null;
+                                
+                                if (errorCorrectionIterations > 0) {
+                                    corrected = correctErrorsSE(kmers,
+                                                                graph, 
+                                                                lookahead, 
+                                                                maxIndelSize, 
+                                                                maxCovGradient, 
+                                                                covFPR,
+                                                                percentIdentity,
+                                                                minKmerCov);
+                                    if (corrected != null && !corrected.isEmpty()) {
+                                        kmers = corrected;
+                                    }
                                 }
+                            
+                                if (kmers.size() >= lookahead) {
+                                    float minCov = Float.MAX_VALUE;
+                                    boolean hasComplexKmer = false;
 
-                                if (!hasComplexKmer) {
-                                    if (!graph.isLowComplexity(kmer)) {
-                                        hasComplexKmer = true;
+                                    for (Kmer kmer : kmers) {
+                                        if (kmer.count < minCov) {
+                                            minCov = kmer.count;
+                                        }
+
+                                        if (!hasComplexKmer && !graph.isRepeatKmer(kmer)) {
+                                            hasComplexKmer = true;
+                                        }
+                                    }
+
+                                    if (hasComplexKmer) {
+                                        if (corrected != null && !corrected.isEmpty()) {
+                                            seq = graph.assemble(kmers);
+                                        }
+                                        ++numKept;
+                                        outList.put(new Fragment(seq, null, null, 0, minCov, true));
                                     }
                                 }
                             }
-
-                            if (hasComplexKmer) {
-                                if (extendFragments) {
-                                    fragmentKmers = naiveExtend(fragmentKmers, graph, maxTipLength, minKmerCov);
-                                }
-
-                                if (this.storeKmerPairs) {
-                                    graph.addFragmentPairKmers(fragmentKmers);
-                                }
-
-                                outList.put(new Fragment(left, right, fragmentKmers, fragLength, minCov, false));
-                            }
-                        }
-                    }
-                    else {
-                        // this is an unconnected read pair
-                        float minCov = Float.MAX_VALUE;
-
-                        boolean hasComplexLeftKmer = false;
-
-                        if (leftKmers.size() >= lookahead) {
-                            for (Kmer kmer : leftKmers) {
-                                if (kmer.count < minCov) {
-                                    minCov = kmer.count;
-                                }
-
-                                if (!hasComplexLeftKmer && !graph.isLowComplexity(kmer)) {
-                                    hasComplexLeftKmer = true;
-                                }
-                            }
-                        }
-
-                        boolean hasComplexRightKmer = false;
-
-                        if (rightKmers.size() >= lookahead) {
-                            for (Kmer kmer : rightKmers) {
-                                if (kmer.count < minCov) {
-                                    minCov = kmer.count;
-                                }
-
-                                if (!hasComplexRightKmer && !graph.isLowComplexity(kmer)) {
-                                    hasComplexRightKmer = true;
-                                }
-                            }
-                        }
-
-                        if (hasComplexLeftKmer && hasComplexRightKmer) {
-                            outList.put(new Fragment(graph.assemble(leftKmers), graph.assemble(rightKmers), null, 0, minCov, true));
                         }
                     }
                 }
             }
             catch (Exception ex) {
+                ex.printStackTrace();
                 throw new RuntimeException(ex);
             }
-        }
+            done = true;
+        }   
     }
-    */
     
     private class FragmentAssembler implements Runnable {
         FastxPairSequenceIterator rin;
@@ -2114,6 +2026,8 @@ public class RNABloom {
         private int minKmerCov;
         private boolean trimArtifact;
         private long numParsed = 0;
+        private long numConnected = 0;
+        private long numUnconnected = 0;
         private boolean done = false;
         
         public FragmentAssembler(FastxPairSequenceIterator rin,
@@ -2325,6 +2239,7 @@ public class RNABloom {
                                    right = "";
                                 }
 
+                                ++numConnected;
                                 outList.put(new Fragment(left, right, fragmentKmers, preExtensionFragLen, minCov, false));
                             }
                         }
@@ -2365,6 +2280,7 @@ public class RNABloom {
                             left = leftBad ? "" : left;
                             right = rightBad ? "" : right;
 
+                            ++numConnected;
                             outList.put(new Fragment(left, right, null, 0, minCov, true));
                         }
                     }
@@ -4531,7 +4447,9 @@ public class RNABloom {
     }
     */
     
-    public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastxPairs, 
+    public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastxPairs,
+                                                String[] forwardReadPaths,
+                                                String[] reverseReadPaths,
                                                 FragmentPaths fragPaths,
                                                 int bound,
                                                 int minOverlap,
@@ -4641,23 +4559,88 @@ public class RNABloom {
         for (Thread t : threads) {
             t.join();
         }
+        
+        long numPairsParsed = 0;
+        long numConnected = 0;
+        long numUnconnected = 0;
+        for (FragmentAssembler w : workers) {
+            numPairsParsed += w.numParsed;
+            numConnected += w.numConnected;
+            numUnconnected += w.numUnconnected;
+        }
+        
+        long numDiscarded = numPairsParsed - numConnected - numUnconnected;
+        System.out.println("Parsed " + NumberFormat.getInstance().format(numPairsParsed) + " read pairs.");
+        System.out.println("\tconnected:\t" + NumberFormat.getInstance().format(numConnected) + "\t(" + numConnected*100f/numPairsParsed + "%)");
+        System.out.println("\tnot connected:\t" + NumberFormat.getInstance().format(numUnconnected) + "\t(" + numUnconnected*100f/numPairsParsed + "%)");
+        System.out.println("\tdiscarded:\t" + NumberFormat.getInstance().format(numDiscarded) + "\t(" + numDiscarded*100f/numPairsParsed + "%)");
+        
+        long numSEParsed = 0;
+        long numSEKept = 0;
+        if (forwardReadPaths != null && forwardReadPaths.length > 0) {
+            int readLengthThreshold = k;
+            FastxSequenceIterator rin2 = new FastxSequenceIterator(forwardReadPaths, minAvgBaseQual, seqPattern, qualPattern);
+            SingleEndReadExtractor[] workers2 = new SingleEndReadExtractor[numThreads];
+            
+            for (int i=0; i<numThreads; ++i) {
+                workers2[i] = new SingleEndReadExtractor(rin2,
+                                                    fragments,
+                                                    maxErrCorrIterations, 
+                                                    readLengthThreshold,
+                                                    minKmerCov,
+                                                    false // no reverse complement
+                                                   );
+                threads[i] = new Thread(workers2[i]);
+                threads[i].start();
+            }
+            
+            for (Thread t : threads) {
+                t.join();
+            }
+            
+            for (SingleEndReadExtractor w : workers2) {
+                numSEParsed += w.numParsed;
+                numSEKept += w.numKept;
+            }
+        }
+        
+        if (reverseReadPaths != null && reverseReadPaths.length > 0) {
+            int readLengthThreshold = k;
+            FastxSequenceIterator rin2 = new FastxSequenceIterator(reverseReadPaths, minAvgBaseQual, seqPattern, qualPattern);
+            SingleEndReadExtractor[] workers2 = new SingleEndReadExtractor[numThreads];
+            
+            for (int i=0; i<numThreads; ++i) {
+                workers2[i] = new SingleEndReadExtractor(rin2,
+                                                    fragments,
+                                                    maxErrCorrIterations, 
+                                                    readLengthThreshold,
+                                                    minKmerCov,
+                                                    true //reverse complement
+                                                   );
+                threads[i] = new Thread(workers2[i]);
+                threads[i].start();
+            }
+            
+            for (Thread t : threads) {
+                t.join();
+            }
+            
+            for (SingleEndReadExtractor w : workers2) {
+                numSEParsed += w.numParsed;
+                numSEKept += w.numKept;
+            }
+        }
 
         writer.stopWhenEmpty();
         writerThread.join();
         
-        long numParsed = 0;
-        for (FragmentAssembler w : workers) {
-            numParsed += w.numParsed;
+        if (numSEParsed > 0) {
+            System.out.println("Parsed " + NumberFormat.getInstance().format(numSEParsed) + " SE reads.");
+            long numSEDiscarded = numSEParsed - numSEKept;
+            System.out.println("\tretained:\t" + NumberFormat.getInstance().format(numSEKept) + "\t(" + numSEKept*100f/numSEParsed + "%)");
+            System.out.println("\tdiscarded:\t" + NumberFormat.getInstance().format(numSEDiscarded) + "\t(" + numSEDiscarded*100f/numSEParsed + "%)");
         }
         
-        long numConnected = writer.getNumConnected();
-        long numUnconnected = writer.getNumUnconnected();
-        long numDiscarded = numParsed - numConnected - numUnconnected;
-
-        System.out.println("Parsed " + NumberFormat.getInstance().format(numParsed) + " read pairs.");
-        System.out.println("\tconnected:\t" + NumberFormat.getInstance().format(numConnected) + "\t(" + numConnected*100f/numParsed + "%)");
-        System.out.println("\tnot connected:\t" + NumberFormat.getInstance().format(numUnconnected) + "\t(" + numUnconnected*100f/numParsed + "%)");
-        System.out.println("\tdiscarded:\t" + NumberFormat.getInstance().format(numDiscarded) + "\t(" + numDiscarded*100f/numParsed + "%)");
         System.out.println("Fragments paired kmers Bloom filter FPR: " + graph.getPkbfFPR() * 100   + " %");
         System.out.println("Screening Bloom filter FPR:              " + screeningBf.getFPR() * 100 + " %");
 
@@ -5288,6 +5271,7 @@ public class RNABloom {
     
     private static void assembleFragments(RNABloom assembler, boolean forceOverwrite,
             String outdir, String name, FastxFilePair[] fqPairs,
+            String[] forwardReadPaths, String[] reverseReadPaths,
             long sbfSize, long pkbfSize, int sbfNumHash, int pkbfNumHash, int numThreads,
             int bound, int minOverlap, int sampleSize, int maxErrCorrItr, boolean extendFragments,
             int minKmerCoverage, boolean keepArtifact) throws FileFormatException, IOException, InterruptedException {
@@ -5301,16 +5285,10 @@ public class RNABloom {
             assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
             assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
 
-            int[] fragStats = assembler.assembleFragmentsMultiThreaded(fqPairs, 
-                                                                        fragPaths,
-                                                                        bound, 
-                                                                        minOverlap,
-                                                                        sampleSize,
-                                                                        numThreads,
-                                                                        maxErrCorrItr,
-                                                                        extendFragments,
-                                                                        minKmerCoverage,
-                                                                        keepArtifact);
+            int[] fragStats = assembler.assembleFragmentsMultiThreaded(fqPairs,
+                    forwardReadPaths, reverseReadPaths, fragPaths,
+                    bound, minOverlap, sampleSize, numThreads,
+                    maxErrCorrItr, extendFragments, minKmerCoverage, keepArtifact);
 
             String fragStatsFile = outdir + File.separator + name + ".fragstats";
             String graphFile = outdir + File.separator + name + ".graph";
@@ -6967,7 +6945,7 @@ public class RNABloom {
                     sampleTimer.start();
                     
                     assembleFragments(assembler, forceOverwrite,
-                                    sampleOutdir, sampleName, fqPairs,
+                                    sampleOutdir, sampleName, fqPairs, null, null,
                                     sbfSize, pkbfSize, sbfNumHash, pkbfNumHash, numThreads,
                                     bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments, minKmerCov, keepArtifact);
                     
@@ -7188,7 +7166,7 @@ public class RNABloom {
                 stageTimer.start();
                 
                 assembleFragments(assembler, forceOverwrite,
-                                    outdir, name, fqPairs,
+                                    outdir, name, fqPairs, seForwardReadPaths, seReverseReadPaths,
                                     sbfSize, pkbfSize, sbfNumHash, pkbfNumHash, numThreads,
                                     bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments, minKmerCov, keepArtifact);
                 
