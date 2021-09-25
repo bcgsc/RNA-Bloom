@@ -994,12 +994,16 @@ public class RNABloom {
     public void setReadKmerDistance(Collection<String> forwardReadPaths,
                                     Collection<String> reverseReadPaths) throws IOException {
         
-        int readLength = -1;
+        long totalFileSize = 0;
+        ArrayList<Long> fileSizeList = new ArrayList<>();
+        ArrayList<Quartiles> quartilesList = new ArrayList<>();
+        
+        int maxLen = 0;
         int sample = 1000;
         
         System.out.println("Sampling read lengths (l>=" + k + ", n=" + sample + ") from each file...");
         System.out.println("\tmin\tQ1\tM\tQ3\tmax\tfile");
-        
+                
         for (Iterator<String> itr = Stream.concat(forwardReadPaths.stream(), 
                 reverseReadPaths.stream()).iterator(); itr.hasNext(); ) {
             String path = itr.next();
@@ -1013,27 +1017,31 @@ public class RNABloom {
                         "\t" + quartiles.q3 +
                         "\t" + quartiles.max +
                         "\t" + path);
-
-                if (readLength < 0) {
-                    readLength = quartiles.q1;
-                }
-                else {
-                    readLength = Math.min(readLength, quartiles.q1);
-                }
+                
+                maxLen = Math.max(maxLen, quartiles.max);
+                
+                quartilesList.add(quartiles);
+                long fileSize = Files.size(Paths.get(path));
+                fileSizeList.add(fileSize);
+                totalFileSize += fileSize;
             }
             else {
                 exitOnError("Cannot determine read length from `" + path + "`");
             }
         }
-        
-        if (readLength < 0) {
-            exitOnError("Cannot determine read length from read files.");
-        }
-
-        if (readLength < k) {
-            exitOnError("The read length (" + readLength + ") is too short for k-mer size (" + k + ").");
-        }
                 
+        double normQ1 = 0;
+        for (int i=0; i<fileSizeList.size(); ++i) {
+            normQ1 += fileSizeList.get(i)/(double)totalFileSize * quartilesList.get(i).q1;
+        }
+        
+        int readLength = (int) Math.rint(normQ1);
+        System.out.println("Normalized Q1 length: " + readLength);
+        
+        if (maxLen < k) {
+            exitOnError("The max. read length (" + maxLen + ") is too short for k-mer size (" + k + ").");
+        }
+        
         /*
             |<--d-->|
             ==------==     paired k-mers
