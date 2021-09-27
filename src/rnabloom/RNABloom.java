@@ -132,7 +132,7 @@ public class RNABloom {
     private BloomFilterDeBruijnGraph graph = null;
     private BloomFilter screeningBf = null;
 
-    private int maxTipLength;
+    private int maxTipLength = -1;
     private int lookahead;
     private float maxCovGradient;
     private int maxIndelSize;
@@ -991,15 +991,37 @@ public class RNABloom {
         }
     }
         
-    public void setReadKmerDistance(Collection<String> forwardReadPaths,
-                                    Collection<String> reverseReadPaths) throws IOException {
+    public void setReadLengthBasedParams(Quartiles quartiles) {
+        /*
+            |<--d-->|
+            ==------==     paired k-mers
+             ==------==    
+              ==------==   
+               ==------==  
+                ==------== 
+            ============== single read
+        */
+        
+        int d = Math.max(1, quartiles.q1 - k - minNumKmerPairs);
+        System.out.println("Paired k-mers distance: " + d);
+        graph.setReadPairedKmerDistance(d);
+        
+        if (maxTipLength < 0) {
+            maxTipLength = quartiles.median - k;
+            System.out.println("Max. tip length: " + maxTipLength);
+        }
+    }
+    
+    public Quartiles getReadLengthQuartiles(Collection<String> forwardReadPaths,
+                                    Collection<String> reverseReadPaths,
+                                    int sample) throws IOException {
         
         long totalFileSize = 0;
         ArrayList<Long> fileSizeList = new ArrayList<>();
         ArrayList<Quartiles> quartilesList = new ArrayList<>();
         
+        int minLen = Integer.MAX_VALUE;
         int maxLen = 0;
-        int sample = 1000;
         
         System.out.println("Sampling read lengths (l>=" + k + ", n=" + sample + ") from each file...");
         System.out.println("\tmin\tQ1\tM\tQ3\tmax\tfile");
@@ -1011,14 +1033,10 @@ public class RNABloom {
 
             if (lengths.length > 0) {
                 Quartiles quartiles = getQuartiles(lengths);
-                System.out.println("\t" + quartiles.min +
-                        "\t" + quartiles.q1 +
-                        "\t" + quartiles.median +
-                        "\t" + quartiles.q3 +
-                        "\t" + quartiles.max +
-                        "\t" + path);
+                System.out.println("\t" + quartiles.toString("\t") + "\t" + path);
                 
                 maxLen = Math.max(maxLen, quartiles.max);
+                minLen = Math.min(minLen, quartiles.min);
                 
                 quartilesList.add(quartiles);
                 long fileSize = Files.size(Paths.get(path));
@@ -1031,31 +1049,34 @@ public class RNABloom {
         }
                 
         double normQ1 = 0;
+        double normM = 0;
+        double normQ3 = 0;
         for (int i=0; i<fileSizeList.size(); ++i) {
-            normQ1 += fileSizeList.get(i)/(double)totalFileSize * quartilesList.get(i).q1;
+            double p = fileSizeList.get(i)/(double)totalFileSize;
+            Quartiles q = quartilesList.get(i);
+            normQ1 += p * q.q1;
+            normM += p * q.median;
+            normQ3 += p * q.q3;
         }
         
-        int readLength = (int) Math.rint(normQ1);
-        System.out.println("Normalized Q1 length: " + readLength);
+        int normQ1Int = (int) Math.rint(normQ1);
+        int normMInt = (int) Math.rint(normM);
+        int normQ3Int = (int) Math.rint(normQ3);
+        System.out.println("Weighted [Q1,M,Q3]: [" + normQ1Int + ", " + normMInt + ", " + normQ3Int + "]");
+        System.out.println("Absolute [min,max]: [" + minLen + ", " + maxLen + "]");
         
         if (maxLen < k) {
             exitOnError("The max. read length (" + maxLen + ") is too short for k-mer size (" + k + ").");
         }
         
-        /*
-            |<--d-->|
-            ==------==     paired k-mers
-             ==------==    
-              ==------==   
-               ==------==  
-                ==------== 
-            ============== single read
-        */
+        Quartiles q = new Quartiles();
+        q.min = minLen;
+        q.max = maxLen;
+        q.q1 = normQ1Int;
+        q.median = normMInt;
+        q.q3 = normQ3Int;
         
-        int d = Math.max(1, readLength - k - minNumKmerPairs);
-        System.out.println("Paired k-mers distance: " + d);
-        
-        graph.setReadPairedKmerDistance(d);
+        return q;
     }
     
     public int getReadLength() {
@@ -1073,11 +1094,6 @@ public class RNABloom {
                             boolean storeReadKmerPairs) throws IOException, InterruptedException {        
         
 //        screeningBf = new BloomFilter(sbfNumBits, sbfNumHash, graph.getHashFunction());
-
-        if (storeReadKmerPairs) {
-            setReadKmerDistance(forwardReadPaths, reverseReadPaths);
-        }
-
         /** parse the reads */
         
         long numReads = 0;
@@ -1259,11 +1275,7 @@ public class RNABloom {
                             boolean reverseComplementLong,
                             int numThreads,
                             boolean addCountsOnly,
-                            boolean storeReadKmerPairs) throws IOException, InterruptedException {
-        if (storeReadKmerPairs) {
-            setReadKmerDistance(forwardReadPaths, reverseReadPaths);
-        }
-        
+                            boolean storeReadKmerPairs) throws IOException, InterruptedException {        
         long numReads = 0;
         int numReadFiles = 0;
            
@@ -2327,47 +2339,6 @@ public class RNABloom {
             return queue.remainingCapacity();
         }
     }
-        
-    private int[] getMinQ1MedianQ3Max(ArrayList<Integer> a) {
-        if (a.isEmpty()) {
-            int[] result = new int[5];
-            Arrays.fill(result, 0);
-            return result;
-        }
-        
-        if (a.size() == 1) {
-            int[] result = new int[5];
-            Arrays.fill(result, a.get(0));
-            return result;
-        }
-        
-        Collections.sort(a);
-        
-        int arrLen = a.size();
-        int halfLen = arrLen/2;
-        int q1Index = arrLen/4;
-        int q3Index = halfLen+q1Index;
-        
-        int q1, median, q3;
-        
-        if (arrLen % 2 == 0) {
-            median = (a.get(halfLen-1) + a.get(halfLen))/2;
-        }
-        else {
-            median = a.get(halfLen);
-        }
-        
-        if (arrLen % 4 == 0) {
-            q1 = (a.get(q1Index-1) + a.get(q1Index))/2;
-            q3 = (a.get(q3Index-1) + a.get(q3Index))/2;
-        }
-        else {
-            q1 = a.get(q1Index);
-            q3 = a.get(q3Index);
-        }
-        
-        return new int[]{a.get(0), q1, median, q3, a.get(arrLen-1)};
-    }
     
     private static int getCoverageOrderOfMagnitude(float c) {
         if (c >= 1e5) {
@@ -2685,20 +2656,20 @@ public class RNABloom {
     private final static String LABEL_Q3 = "Q3";
     private final static String LABEL_MAX = "max";
     
-    public void writeFragStatsToFile(int[] fragStats, String path) throws IOException {
+    public void writeQuartilesToFile(Quartiles q, String path) throws IOException {
         FileWriter writer = new FileWriter(path, false);
 
-        writer.write(LABEL_MIN + LABEL_SEPARATOR + fragStats[0] + "\n" +
-                    LABEL_Q1 + LABEL_SEPARATOR + fragStats[1] + "\n" +
-                    LABEL_MEDIAN + LABEL_SEPARATOR + fragStats[2] + "\n" +
-                    LABEL_Q3 + LABEL_SEPARATOR + fragStats[3] + "\n" +
-                    LABEL_MAX + LABEL_SEPARATOR + fragStats[4] + "\n"
+        writer.write(LABEL_MIN + LABEL_SEPARATOR + q.min + "\n" +
+                    LABEL_Q1 + LABEL_SEPARATOR + q.q1 + "\n" +
+                    LABEL_MEDIAN + LABEL_SEPARATOR + q.median + "\n" +
+                    LABEL_Q3 + LABEL_SEPARATOR + q.q3 + "\n" +
+                    LABEL_MAX + LABEL_SEPARATOR + q.max + "\n"
                 );
         writer.close();
     }
     
-    public int[] restoreFragStatsFromFile(String path) throws IOException {
-        int[] fragStats = new int[5];
+    public Quartiles restoreQuartilesFromFile(String path) throws IOException {
+        Quartiles q = new Quartiles();
         
         BufferedReader br = new BufferedReader(new FileReader(path));
         String line;
@@ -2708,31 +2679,31 @@ public class RNABloom {
             String val = entry[1];
             switch(key) {
                 case LABEL_MIN:
-                    fragStats[0] = Integer.parseInt(val);
+                    q.min = Integer.parseInt(val);
                     break;
                 case LABEL_Q1:
-                    fragStats[1] = Integer.parseInt(val);
+                    q.q1 = Integer.parseInt(val);
                     break;
                 case LABEL_MEDIAN:
-                    fragStats[2] = Integer.parseInt(val);
+                    q.median = Integer.parseInt(val);
                     break;
                 case LABEL_Q3:
-                    fragStats[3] = Integer.parseInt(val);
+                    q.q3 = Integer.parseInt(val);
                     break;
                 case LABEL_MAX:
-                    fragStats[4] = Integer.parseInt(val);
+                    q.max = Integer.parseInt(val);
                     break;
             }
         }
         br.close();
 
-        longFragmentLengthThreshold = fragStats[1];
+        longFragmentLengthThreshold = q.q1;
           
-        return fragStats;
+        return q;
     }
         
-    private int getPairedReadsMaxDistance(int[] fragStats) {
-        return fragStats[3] + ((fragStats[3] - fragStats[1]) * 3 / 2); // 1.5*IQR
+    private static int getPairedReadsMaxDistance(Quartiles q) {
+        return q.q3 + ((q.q3 - q.q1) * 3 / 2); // 1.5*IQR
     }
     
     public class ContainmentCalculator implements Runnable {
@@ -3098,9 +3069,9 @@ public class RNABloom {
         }
         
         System.out.println("Cluster Sizes Distribution");
-        int[] csd = getMinQ1MedianQ3Max(clusterSizes);
+        Quartiles q = getQuartiles(clusterSizes);
         System.out.println("\tmin\tQ1\tM\tQ3\tmax");
-        System.out.println("\t" + csd[0] + "\t" + csd[1] + "\t" + csd[2] + "\t" + csd[3] + "\t" + csd[4]);
+        System.out.println("\t" + q.toString("\t"));
         System.out.println(NumberFormat.getInstance().format(seqID) + " reads were assigned to " + NumberFormat.getInstance().format(clusterID) + " clusters.");
     }
     
@@ -3568,11 +3539,7 @@ public class RNABloom {
                 
                 System.out.println("Corrected Read Lengths Sampling Distribution (n=" + sampleSize + ")");
                 System.out.println("\tmin\tq1\tmed\tq3\tmax");
-                System.out.println("\t" + sampleLengthStats.min + "\t" + 
-                                            sampleLengthStats.q1 + "\t" +
-                                            sampleLengthStats.median + "\t" +
-                                            sampleLengthStats.q3 + "\t" +
-                                            sampleLengthStats.max);
+                System.out.println("\t" + sampleLengthStats.toString("\t"));
 
                 // write the sample sequences to file
                 for (Sequence2 seq : sample) {
@@ -4447,7 +4414,7 @@ public class RNABloom {
     }
     */
     
-    public int[] assembleFragmentsMultiThreaded(FastxFilePair[] fastxPairs,
+    public Quartiles assembleFragmentsMultiThreaded(FastxFilePair[] fastxPairs,
                                                 String[] forwardReadPaths,
                                                 String[] reverseReadPaths,
                                                 FragmentPaths fragPaths,
@@ -4532,9 +4499,9 @@ public class RNABloom {
             }
         }
         
-        int[] fragLengthsStats = getMinQ1MedianQ3Max(fragLengths);
+        Quartiles fragLengthsStats = getQuartiles(fragLengths);
         
-        longFragmentLengthThreshold = fragLengthsStats[1];
+        longFragmentLengthThreshold = fragLengthsStats.q1;
         
         assert longFragmentLengthThreshold - k - minNumKmerPairs > 0; // otherwise, no kmer pairs can be extracted
         
@@ -4548,9 +4515,9 @@ public class RNABloom {
         
         System.out.println("Fragment Lengths Sampling Distribution (n=" + fragLengths.size() + ")");
         System.out.println("\tmin\tQ1\tM\tQ3\tmax");
-        System.out.println("\t" + fragLengthsStats[0] + "\t" + fragLengthsStats[1] + "\t" + fragLengthsStats[2] + "\t" + fragLengthsStats[3] + "\t" + fragLengthsStats[4]);
+        System.out.println("\t" + fragLengthsStats.toString("\t"));
         System.out.println("Paired k-mers distance:      " + fragPairedKmerDistance);
-        System.out.println("Max graph traversal depth:   " + newBound);
+        System.out.println("Max. graph traversal depth:  " + newBound);
 
         FragmentWriterWorker writer = new FragmentWriterWorker(fragments, fragPaths, assemblePolyaTails, shortestFragmentLengthAllowed);
         Thread writerThread = new Thread(writer);
@@ -5285,7 +5252,7 @@ public class RNABloom {
             assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
             assembler.setupFragmentPairedKmersBloomFilter(pkbfSize, pkbfNumHash);
 
-            int[] fragStats = assembler.assembleFragmentsMultiThreaded(fqPairs,
+            Quartiles fragStats = assembler.assembleFragmentsMultiThreaded(fqPairs,
                     forwardReadPaths, reverseReadPaths, fragPaths,
                     bound, minOverlap, sampleSize, numThreads,
                     maxErrCorrItr, extendFragments, minKmerCoverage, keepArtifact);
@@ -5294,7 +5261,7 @@ public class RNABloom {
             String graphFile = outdir + File.separator + name + ".graph";
             
             assembler.updateGraphDesc(new File(graphFile));
-            assembler.writeFragStatsToFile(fragStats, fragStatsFile);
+            assembler.writeQuartilesToFile(fragStats, fragStatsFile);
 
             touch(fragsDoneStamp);
         }
@@ -5329,10 +5296,10 @@ public class RNABloom {
         fin.close();
     }
     
-    private static boolean mergePooledAssemblies(String outdir, String assemblyName, String[] sampleNames,
+    private static boolean mergePooledAssemblies(RNABloom assembler, 
+            String outdir, String assemblyName, String[] sampleNames,
             String txptFileExt, String txptNamePrefix,
-            int k, int numThreads, boolean stranded, int maxIndelSize, int maxTipLength,
-            float percentIdentity, boolean removeArtifacts, boolean writeUracil,
+            int numThreads, boolean removeArtifacts, boolean writeUracil,
             boolean usePacBioPreset) throws IOException {
         
         String concatenatedFasta = outdir + File.separator + assemblyName + ".all" + FASTA_EXT;
@@ -5360,10 +5327,11 @@ public class RNABloom {
             fin.close();
         }
         fout.close();
-
+        
         boolean ok = overlapLayout(concatenatedFasta, outLongFasta, numThreads,
-                        stranded, "-r " + Integer.toString(maxIndelSize), maxTipLength, percentIdentity, 2*k,
-                        maxIndelSize, removeArtifacts, 1, usePacBioPreset, true);
+                        assembler.strandSpecific, "-r " + Integer.toString(assembler.maxIndelSize),
+                        assembler.maxTipLength, assembler.percentIdentity, 2*assembler.k,
+                        assembler.maxIndelSize, removeArtifacts, 1, usePacBioPreset, true);
         
         deleteIfExists(concatenatedFasta);
         
@@ -5983,9 +5951,8 @@ public class RNABloom {
                                     .build();
         options.addOption(optSaveBf);  
         
-        final String optTipLengthDefault = "5";
         Option optTipLength = Option.builder("tiplength")
-                                    .desc("maximum number of bases in a tip [" + optTipLengthDefault + "]")
+                                    .desc("maximum number of bases in a tip [auto]")
                                     .hasArg(true)
                                     .argName("INT")
                                     .build();
@@ -6555,7 +6522,7 @@ public class RNABloom {
             String defaultMinKmerCov = hasLongReadFiles ? defaultMinCoverageLR : optMinKmerCovDefault;
             int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), defaultMinKmerCov));
                         
-            String defaultMaxTipLen = hasLongReadFiles ? defaultMaxTipLengthLR : optTipLengthDefault;
+            String defaultMaxTipLen = hasLongReadFiles ? defaultMaxTipLengthLR : "-1";
             final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), defaultMaxTipLen));
             
             final float longReadOverlapProportion = Float.parseFloat(line.getOptionValue(optLongReadOverlapProportion.getOpt(), optLongReadOverlapProportionDefault));
@@ -6584,7 +6551,6 @@ public class RNABloom {
             
             final float maxFPR = Float.parseFloat(line.getOptionValue(optFpr.getOpt(), optFprDefault));
             final boolean saveGraph = line.hasOption(optSaveBf.getOpt());
-            boolean storeReadPairedKmers = !hasLongReadFiles && (hasLeftReadFiles || hasRightReadFiles || hasRefTranscriptFiles);
             
             boolean useNTCard = line.hasOption(optNtcard.getOpt());
             
@@ -6769,11 +6735,8 @@ public class RNABloom {
             final int minNumKmerPairs = Integer.parseInt(line.getOptionValue(optMinKmerPairs.getOpt(), optMinKmerPairsDefault));
             final String txptNamePrefix = line.getOptionValue(optPrefix.getOpt(), optPrefixDefault);
 
-            if (!storeReadPairedKmers) {
-                pkbfGB = 0;
-            }
-            
             if (hasLongReadFiles) {
+                pkbfGB = 0;
                 sbfGB = 0;
             }
                         
@@ -6783,6 +6746,8 @@ public class RNABloom {
             FileWriter writer = new FileWriter(startedStamp, false);
             writer.write(String.join(" ", args));
             writer.close();
+            
+            String readStatsFile = outdir + File.separator + name + ".readstats";
             
             if (endstage >= 1 &&
                     ((!txptsDone && !hasLongReadFiles) ||
@@ -6796,6 +6761,8 @@ public class RNABloom {
                         System.exit(0);
                     }
 
+                    assembler.setReadLengthBasedParams(assembler.restoreQuartilesFromFile(readStatsFile));
+                    
                     if (!fragmentsDone || (outputNrTxpts && !txptsNrDone) || !txptsDone) {
                         System.out.println("Loading graph from file `" + graphFile + "`...");
                         assembler.restoreGraph(new File(graphFile), noFragDBG || !fragmentsDone || (outputNrTxpts && !txptsNrDone));
@@ -6848,13 +6815,19 @@ public class RNABloom {
 
                     assembler.initializeGraph(strandSpecific, 
                             dbgbfSize, cbfSize, pkbfSize, 
-                            dbgbfNumHash, cbfNumHash, pkbfNumHash, false, storeReadPairedKmers);
+                            dbgbfNumHash, cbfNumHash, pkbfNumHash, false, !hasLongReadFiles);
 
                     if (!hasLongReadFiles) {
                         assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
                     }
 
-                    assembler.populateGraph2(forwardFilesList, backwardFilesList, longFilesList, refFilesList, revCompLong, numThreads, false, storeReadPairedKmers);
+                    Quartiles readLengthQuartiles = assembler.getReadLengthQuartiles(forwardFilesList, backwardFilesList, sampleSize);
+                    assembler.writeQuartilesToFile(readLengthQuartiles, readStatsFile);
+                    
+                    assembler.setReadLengthBasedParams(readLengthQuartiles);
+                    
+                    assembler.populateGraph2(forwardFilesList, backwardFilesList, longFilesList, refFilesList, 
+                            revCompLong, numThreads, false, !hasLongReadFiles);
 
                     if (!useNTCard && !assembler.withinMaxFPR(maxFPR)) {
                         System.out.println("WARNING: Bloom filter FPR is higher than the maximum allowed FPR (" + maxFPR*100 +"%)!");
@@ -6875,11 +6848,8 @@ public class RNABloom {
                         pkbfGB = pkbfSize / (float) NUM_BITS_1GB;
                         sbfGB = sbfSize / (float) NUM_BITS_1GB;
 
-                        if (!storeReadPairedKmers) {
-                            pkbfGB = 0;
-                        }
-
                         if (hasLongReadFiles) {
+                            pkbfGB = 0;
                             sbfGB = 0;
                         }
 
@@ -6887,7 +6857,7 @@ public class RNABloom {
 
                         assembler.initializeGraph(strandSpecific, 
                                 dbgbfSize, cbfSize, pkbfSize, 
-                                dbgbfNumHash, cbfNumHash, pkbfNumHash, false, storeReadPairedKmers);
+                                dbgbfNumHash, cbfNumHash, pkbfNumHash, false, !hasLongReadFiles);
 
                         if (!hasLongReadFiles) {
                             assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
@@ -6895,7 +6865,8 @@ public class RNABloom {
 
                         System.out.println("Repopulate graph...");
 
-                        assembler.populateGraph2(forwardFilesList, backwardFilesList, longFilesList, refFilesList, revCompLong, numThreads, false, storeReadPairedKmers);
+                        assembler.populateGraph2(forwardFilesList, backwardFilesList, longFilesList,
+                                refFilesList, revCompLong, numThreads, false, !hasLongReadFiles);
                     }    
 
                     if (saveGraph) {
@@ -6996,10 +6967,10 @@ public class RNABloom {
                         Timer mergeTimer = new Timer();
                         mergeTimer.start();
                         
-                        boolean ok = mergePooledAssemblies(outdir, name, sampleNames, 
+                        boolean ok = mergePooledAssemblies(assembler,
+                                        outdir, name, sampleNames, 
                                         txptFileExt, txptNamePrefix,
-                                        k, numThreads, strandSpecific, maxIndelSize,
-                                        maxTipLen, percentIdentity, !keepArtifact, 
+                                        numThreads, !keepArtifact, 
                                         writeUracil, usePacBioPreset);
                         
                         if (ok) {

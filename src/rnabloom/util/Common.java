@@ -93,35 +93,71 @@ public class Common {
         public String toString() {
             return "min:" + min + ", Q1:" + q1 + ", M:" + median + ", Q3:" + q3 + ", max:" + max;
         }
+        
+        public String toString(String sep) {
+            return min + sep + q1 + sep + median + sep + q3 + sep + max;
+        }
     }
     
-    public static Quartiles getQuartiles(final int[] lengths) {
-        int len = lengths.length;
+    public static Quartiles getQuartiles(final ArrayList<Integer> arr) {
+        int len = arr.size();
         
-        Arrays.sort(lengths);
+        Collections.sort(arr);
         
         Quartiles stats = new Quartiles();
         int halfLen = len/2;
         int q1Index = len/4;
         int q3Index = halfLen+q1Index;
                 
-        stats.min = lengths[0];
-        stats.max = lengths[len-1];
+        stats.min = arr.get(0);
+        stats.max = arr.get(len-1);
         
         if (len % 2 == 0) {
-            stats.median = (lengths[halfLen-1] + lengths[halfLen])/2;
+            stats.median = (arr.get(halfLen-1) + arr.get(halfLen))/2;
         }
         else {
-            stats.median = lengths[halfLen];
+            stats.median = arr.get(halfLen);
         }
         
         if (len % 4 == 0) {
-            stats.q1 = (lengths[q1Index-1] + lengths[q1Index])/2;
-            stats.q3 = (lengths[q3Index-1] + lengths[q3Index])/2;
+            stats.q1 = (arr.get(q1Index-1) + arr.get(q1Index))/2;
+            stats.q3 = (arr.get(q3Index-1) + arr.get(q3Index))/2;
         }
         else {
-            stats.q1 = lengths[q1Index];
-            stats.q3 = lengths[q3Index];
+            stats.q1 = arr.get(q1Index);
+            stats.q3 = arr.get(q3Index);
+        }
+        
+        return stats;
+    }
+    
+    public static Quartiles getQuartiles(final int[] arr) {
+        int len = arr.length;
+        
+        Arrays.sort(arr);
+        
+        Quartiles stats = new Quartiles();
+        int halfLen = len/2;
+        int q1Index = len/4;
+        int q3Index = halfLen+q1Index;
+                
+        stats.min = arr[0];
+        stats.max = arr[len-1];
+        
+        if (len % 2 == 0) {
+            stats.median = (arr[halfLen-1] + arr[halfLen])/2;
+        }
+        else {
+            stats.median = arr[halfLen];
+        }
+        
+        if (len % 4 == 0) {
+            stats.q1 = (arr[q1Index-1] + arr[q1Index])/2;
+            stats.q3 = (arr[q3Index-1] + arr[q3Index])/2;
+        }
+        else {
+            stats.q1 = arr[q1Index];
+            stats.q3 = arr[q3Index];
         }
         
         return stats;
