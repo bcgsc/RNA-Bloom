@@ -3245,16 +3245,15 @@ public class Layout {
     public static void main(String[] args) {
         try {
             //debug
-            String dir = "/projects/btl_scratch/kmnip/ont_work/rna_consortium/2021-05-29_19-35";
-            String paf = dir + "/75582.paf.gz";
-            String in = dir + "/rnabloom.longreads.corrected.long.fa.gz";
-            String target = dir + "/rnabloom.longreads.corrected.long.seed3.fa.gz";
-            String out = dir + "/test.fa";
+            String dir = "/home/gengar/test_assemblies/sandbox/overlap";
+            String paf = dir + "/test_reads.ava.paf.gz";
+            String in = dir + "/test_reads.fa";
+            String out = dir + "/out.fa";
             
-            Layout layout = new Layout(in, new GZIPInputStream(new FileInputStream(paf)), false,
-                    50, 0.7f, 150, 50,
-                    false, 2, true);
-            layout.trimSplitByReadDepth(target, out, 150);
+            Layout layout = new Layout(in, new GZIPInputStream(new FileInputStream(paf)), true,
+                    100, 0.9f, 50, 3,
+                    false, 1, true);
+            layout.layoutBackbones(out);
         } catch (IOException ex) {
             Logger.getLogger(Layout.class.getName()).log(Level.SEVERE, null, ex);
         }
