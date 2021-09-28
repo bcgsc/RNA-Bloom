@@ -6756,7 +6756,10 @@ public class RNABloom {
                         System.exit(0);
                     }
 
-                    assembler.setReadLengthBasedParams(assembler.restoreQuartilesFromFile(readStatsFile));
+                    if (!hasLongReadFiles) {
+                        // short read assembly only
+                        assembler.setReadLengthBasedParams(assembler.restoreQuartilesFromFile(readStatsFile));
+                    }
                     
                     if (!fragmentsDone || (outputNrTxpts && !txptsNrDone) || !txptsDone) {
                         System.out.println("Loading graph from file `" + graphFile + "`...");
@@ -6813,13 +6816,13 @@ public class RNABloom {
                             dbgbfNumHash, cbfNumHash, pkbfNumHash, false, !hasLongReadFiles);
 
                     if (!hasLongReadFiles) {
+                        // short read assembly only
                         assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+                        
+                        Quartiles readLengthQuartiles = assembler.getReadLengthQuartiles(forwardFilesList, backwardFilesList, sampleSize);
+                        assembler.writeQuartilesToFile(readLengthQuartiles, readStatsFile);
+                        assembler.setReadLengthBasedParams(readLengthQuartiles);
                     }
-
-                    Quartiles readLengthQuartiles = assembler.getReadLengthQuartiles(forwardFilesList, backwardFilesList, sampleSize);
-                    assembler.writeQuartilesToFile(readLengthQuartiles, readStatsFile);
-                    
-                    assembler.setReadLengthBasedParams(readLengthQuartiles);
                     
                     assembler.populateGraph2(forwardFilesList, backwardFilesList, longFilesList, refFilesList, 
                             revCompLong, numThreads, false, !hasLongReadFiles);
