@@ -204,7 +204,7 @@ RNA-Bloom is written in Java with Apache NetBeans IDE. It uses the [Apache Commo
 
 ## Citing RNA-Bloom :scroll:
 
-If you use RNA-Bloom in your work, please cite us:
+If you use RNA-Bloom in your work, please cite [our publication](https://genome.cshlp.org/content/30/8/1191.full):
 
 > Ka Ming Nip, Readman Chiu, Chen Yang, Justin Chu, Hamid Mohamadi, René L. Warren, and Inanc Birol. RNA-Bloom enables reference-free and reference-guided sequence assembly for single-cell transcriptomes. Genome Research. August 2020 30: 1191-1200; Published in Advance August 17, 2020, doi:10.1101/gr.260174.119
 
