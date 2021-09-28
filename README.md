@@ -59,7 +59,7 @@ RNA-Bloom can be run as `java -jar /path/to/RNA-Bloom.jar ...`
 
 ### (A) assemble bulk RNA-seq data:
 
-* paired-end reads (use `-revcomp-right` to indicate that `-right` reads needs to be reverse-complemented)
+* paired-end reads (use `-revcomp-right` to reverse-complement `-right` reads, which are in the opposite orientation as `-left` reads)
 ```
 java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
@@ -125,13 +125,13 @@ The `-ref` option specifies the reference transcriptome FASTA file for guiding s
 
 ### (A) assemble nanopore cDNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -long READS.fasta -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long LONG.fastq -ntcard -t THREADS -outdir OUTDIR
 ```
 Input reads are expected to be in a mix of both forward and reverse orientations.
 
 ### (B) assemble nanopore direct RNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -long READS.fasta -stranded -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long LONG.fastq -stranded -ntcard -t THREADS -outdir OUTDIR
 ```
 Input reads are expected to be only in the forward orientation.
 
@@ -139,6 +139,10 @@ By default, uracil (`U`) is written as `T`. Use the `-uracil` option to write `U
 
 ntCard v1.2.1 supports uracil in reads.
 
+### (C) assemble nanopore sequencing data with short-read polishing:
+```
+java -jar RNA-Bloom.jar -long LONG.fastq -sef SHORT.fastq -ntcard -t THREADS -outdir OUTDIR
+```
 
 ## General Settings :gear:
 
