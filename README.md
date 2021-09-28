@@ -19,7 +19,7 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 ## Dependency :pushpin:
 
-* [Java SE Runtime Environment (JRE) 8](http://www.oracle.com/technetwork/java/javase/downloads/jre8-downloads-2133155.html)
+* [Java SE Development Kit (JDK) 11](https://www.oracle.com/java/technologies/downloads/#java11)
 
 * External software used:
 
@@ -59,17 +59,22 @@ RNA-Bloom can be run as `java -jar /path/to/RNA-Bloom.jar ...`
 
 ### (A) assemble bulk RNA-seq data:
 
-* paired-end reads
+* paired-end reads (use `-revcomp-right` to indicate that `-right` reads needs to be reverse-complemented)
 ```
 java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
 
-* single-end reads
+* single-end reads (use `-sef` for forward reads and `-ser` for reverse reads)
 ```
-java -jar RNA-Bloom.jar -left READS.fastq -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -sef SE.fastq -ntcard -t THREADS -outdir OUTDIR
 ```
 
-### (B) assemble single-cell RNA-seq data:
+* paired-end and single-end reads
+```
+java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -sef SE.fastq -ntcard -t THREADS -outdir OUTDIR
+```
+
+### (B) assemble single-cell RNA-seq data with pooled assembly mode:
 ```
 java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
@@ -89,6 +94,7 @@ cell1 /path/to/cell1/left.fastq /path/to/cell1/right.fastq
 cell2 /path/to/cell2/left.fastq /path/to/cell2/right.fastq
 cell3 /path/to/cell3/left.fastq /path/to/cell3/right.fastq
 ```
+Currently, pooled assembly only supports paired-end reads.
 
 ### (C) strand-specific assembly:
 ```
@@ -98,9 +104,9 @@ The `-stranded` option indicates that input reads are strand-specific.
 
 Strand-specific reads are typically in the F2R1 orientation, where `/2` denotes *left* reads in *forward* orientation and `/1` denotes *right* reads in *reverse* orientation.
 
-Configure the read file paths accordingly for bulk RNA-seq data:
+Configure the read file paths accordingly for bulk RNA-seq data and indicate read orientation:
 
-`-left /path/to/reads_2.fastq -right /path/to/reads_1.fastq`
+`-stranded -left /path/to/reads_2.fastq -right /path/to/reads_1.fastq -revcomp-right`
 
 and for scRNA-seq data:
 ```
