@@ -30,6 +30,7 @@ import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
 import rnabloom.olc.ComparableInterval;
 import rnabloom.olc.Interval;
+import static rnabloom.util.IntervalUtils.merge;
 
 /**
  *
@@ -171,7 +172,7 @@ public class PafUtils {
         int bestScore = 0;
         
         for (Entry<String, Interval> e : map.entrySet()) {
-            Interval merged = ComparableInterval.merge(source, e.getValue());
+            Interval merged = merge(source, e.getValue());
             if (merged != null) {
                 int score = (merged.end - source.end) + (source.start - merged.start);
                 if (score > bestScore && score >= tolerance) {

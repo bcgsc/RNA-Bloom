@@ -488,12 +488,14 @@ public class OverlapLayoutConsensus {
             }
         }
         
-        if (!minimapOptions.contains("-X")) {
-            minimapOptions += " -X"; 
-        }
-        
-        if (stranded && !minimapOptions.contains("--for-only")) {
-            minimapOptions += " --for-only";
+        if (!cutRevCompArtifact) {
+            if (!minimapOptions.contains("-X")) {
+                minimapOptions += " -X"; 
+            }
+
+            if (stranded && !minimapOptions.contains("--for-only")) {
+                minimapOptions += " --for-only";
+            }
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;

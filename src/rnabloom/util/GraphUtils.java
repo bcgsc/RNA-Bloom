@@ -33,6 +33,7 @@ import rnabloom.RNABloom.ReadPair;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.graph.BloomFilterDeBruijnGraph;
+import rnabloom.graph.CanonicalKmer;
 import rnabloom.graph.Kmer;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
@@ -8488,6 +8489,81 @@ public final class GraphUtils {
         }
         
         return false;
+    }
+    
+    public static ArrayList<Kmer> trimReverseComplementArtifact(ArrayList<Kmer> kmers,
+            BloomFilterDeBruijnGraph graph, boolean stranded) {
+        int numKmers = kmers.size();
+        int k = graph.getK();
+        
+        if (stranded) {
+            HashSet<Long> leftHalfKmerRCHashes = new HashSet<>(numKmers);
+            for (int i=0; i<numKmers/2; ++i) {
+                leftHalfKmerRCHashes.add(kmers.get(i).getReverseComplementHash());
+            }
+            
+            int start = -1;
+            int numMatch = 0;
+            for (int i=numKmers/2; i<numKmers; ++i) {
+                if (leftHalfKmerRCHashes.contains(kmers.get(i).getHash())) {
+                    if (start < 0) {
+                        start = i;
+                    }
+                    ++numMatch;
+                }
+            }
+            
+            if (numMatch >= k) {
+                if (start > numKmers/2) {
+                    return new ArrayList<>(kmers.subList(start, numKmers));
+                }
+                else if (start == numKmers/2) {
+                    // need to adjust start position
+                    for (int i=numKmers/2; i>=0; --i) {
+                        if (leftHalfKmerRCHashes.contains(kmers.get(i).getHash())) {
+                            start = i;
+                            ++numMatch;
+                        }
+                    }
+                    return new ArrayList<>(kmers.subList(start, numKmers));
+                }
+            }
+        }
+        else {
+            HashSet<Long> leftHalfKmerRCHashes = new HashSet<>(numKmers);
+            for (int i=0; i<numKmers/2; ++i) {
+                leftHalfKmerRCHashes.add(((CanonicalKmer) kmers.get(i)).getRHash());
+            }
+            
+            int start = -1;
+            int numMatch = 0;
+            for (int i=numKmers/2; i<numKmers; ++i) {
+                if (leftHalfKmerRCHashes.contains(((CanonicalKmer)kmers.get(i)).getFHash())) {
+                    if (start < 0) {
+                        start = i;
+                    }
+                    ++numMatch;
+                }
+            }
+            
+            if (numMatch >= k) {
+                if (start > numKmers/2) {
+                    return new ArrayList<>(kmers.subList(start, numKmers));
+                }
+                else if (start == numKmers/2) {
+                    // need to adjust start position
+                    for (int i=numKmers/2; i>=0; --i) {
+                        if (leftHalfKmerRCHashes.contains(((CanonicalKmer)kmers.get(i)).getFHash())) {
+                            start = i;
+                            ++numMatch;
+                        }
+                    }
+                    return new ArrayList<>(kmers.subList(start, numKmers));
+                }
+            }            
+        }
+        
+        return null;
     }
     
     public static boolean isRepeatSequence(ArrayList<Kmer> kmers, int k, float minUniqueFraction) {

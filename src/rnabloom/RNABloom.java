@@ -1895,19 +1895,14 @@ public class RNABloom {
                                         String fragInfo = debug ? fragment : "";
 
                                         if (!keepArtifact) {
-                                            txptKmers = trimReverseComplementArtifact(txptKmers, maxTipLength, maxIndelSize, percentIdentity, graph);
+                                            //txptKmers = trimReverseComplementArtifact(txptKmers, maxTipLength, maxIndelSize, percentIdentity, graph);
+                                            ArrayList<Kmer> trimmed = trimReverseComplementArtifact(txptKmers, graph, strandSpecific);
+                                            if (trimmed != null) {
+                                                txptKmers = trimmed;
+                                            }
                                         }
 
                                         writer.write(fragInfo, txptKmers);
-//                                            if (!keepArtifact) {
-//                                                if (!isTemplateSwitch2(txptKmers, graph, screeningBf, lookahead, percentIdentity)) {
-//                                                    txptKmers = trimHairpinBySequenceMatching(txptKmers, k, percentIdentity, graph);
-//                                                    transcripts.put(new Transcript(fragInfo, txptKmers));
-//                                                }
-//                                            }
-//                                            else {
-//                                            transcripts.put(new Transcript(fragInfo, txptKmers));
-//                                            }     
                                     }
                                 }
                             }

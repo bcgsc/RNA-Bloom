@@ -18,7 +18,6 @@ package rnabloom.olc;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,6 +26,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -39,12 +39,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
-import org.jgrapht.Graph;
 import org.jgrapht.Graphs;
-import org.jgrapht.alg.TransitiveReduction;
-import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
-import org.jgrapht.graph.DefaultDirectedWeightedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import rnabloom.util.MiniFloat;
 import rnabloom.io.CompressedFastaRecord;
@@ -58,6 +54,8 @@ import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
 import rnabloom.util.BitSequence;
 import static rnabloom.util.Common.convertToRoundedPercent;
+import static rnabloom.util.IntervalUtils.isContained;
+import static rnabloom.util.IntervalUtils.merge;
 import static rnabloom.util.PafUtils.*;
 import static rnabloom.util.SeqUtils.isLowComplexityLongWindowed;
 import rnabloom.util.Timer;
@@ -2455,11 +2453,89 @@ public class Layout {
         }
     }
     
+    private class TargetOverlapComparator implements Comparator<Overlap> {
+        @Override
+        public int compare(Overlap o1, Overlap o2) {
+            return o1.tName.compareTo(o2.tName);
+        }
+    }
+    
+    private void removeReverseComplementArtifacts(
+            ArrayList<StrandedOverlap> overlaps,
+            HashSet<String> containedSet) {
+        
+        int numOverlaps = overlaps.size();
+
+        StrandedOverlap o1 = overlaps.get(0);
+        for (int i=1; i<numOverlaps; ++i) {
+            StrandedOverlap o2 = overlaps.get(i);
+            String qName = o2.qName;
+            String tName = o2.tName;
+            if (o1.reverseComplemented != o2.reverseComplemented &&
+                    o1.tName.equals(tName) && !containedSet.contains(tName)) {
+                Interval q1 = new Interval(o1.qStart, o1.qEnd);
+                Interval q2 = new Interval(o2.qStart, o2.qEnd);
+                Interval t1 = new Interval(o1.tStart, o1.tEnd);
+                Interval t2 = new Interval(o2.tStart, o2.tEnd);
+
+                if (isContained(q1, q2)) {
+                    containedSet.add(tName);
+                }
+                else if (isContained(t1, t2)) {
+                    containedSet.add(qName);
+                    break;
+                }
+                else {
+                    int tLen = o1.tLen;
+                    int qLen = o1.qLen;
+                    int tUnmapped = tLen;
+                    int qUnmapped = qLen;
+
+                    Interval qMerged = merge(q1, q2);
+                    if (qMerged == null) {
+                        qUnmapped -= q1.end - q1.start;
+                        qUnmapped -= q2.end - q2.start;
+                    }
+                    else {
+                        qUnmapped -= qMerged.end - qMerged.start;
+                    }
+
+                    Interval tMerged = merge(t1, t2);
+                    if (tMerged == null) {
+                        tUnmapped -= t1.end - t1.start;
+                        tUnmapped -= t2.end - t2.start;
+                    }
+                    else {
+                        tUnmapped -= tMerged.end - tMerged.start;
+                    }
+
+                    if (tUnmapped > qUnmapped) {
+                        int qMin = Math.min(q1.start, q2.start);
+                        int qMax = Math.max(q1.end, q2.end);
+                        if (qMin <= maxEdgeClip && qMax + maxEdgeClip >= qLen) {
+                            containedSet.add(qName);
+                            break;
+                        }
+                    }
+                    else {
+                        int tMin = Math.min(t1.start, t2.start);
+                        int tMax = Math.max(t1.end, t2.end);
+                        if (tMin <= maxEdgeClip && tMax + maxEdgeClip >= tLen) {
+                            containedSet.add(tName);
+                        }
+                    }
+                }
+            }
+            o1 = o2;
+        }
+    }
+    
     private HashSet<String> populateGraphFromOverlaps() throws IOException {
         Timer timer = new Timer();
         
         HashSet<String> containedSet = new HashSet<>();
         PafReader reader = new PafReader(overlapPafInputStream);
+        TargetOverlapComparator overlapComparator = new TargetOverlapComparator();
         
         // look for containment and overlaps
         if (stranded) {
@@ -2468,10 +2544,16 @@ public class Layout {
             String prevName = null;
             boolean prevContained = false;
             ArrayDeque<Overlap> pendingOverlaps = new ArrayDeque<>();
+            ArrayList<StrandedOverlap> nonStandardOverlaps = new ArrayList<>();
             
             for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
-                reader.next(r);            
-                if (!r.reverseComplemented && !r.qName.equals(r.tName)) {
+                reader.next(r);
+                if (r.reverseComplemented) {
+                    if (this.cutRevCompArtifact && hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                        nonStandardOverlaps.add(pafToStrandedOverlap(r));
+                    }
+                }
+                else if (!r.qName.equals(r.tName)) {
                     if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
                         if (prevName == null) {
                             prevName = r.qName;
@@ -2482,6 +2564,15 @@ public class Layout {
                                     overlaps.addAll(pendingOverlaps);
                                 }
                                 pendingOverlaps.clear();
+                            }
+                            
+                            if (this.cutRevCompArtifact && !nonStandardOverlaps.isEmpty()) {
+                                if (!prevContained) {
+                                    // remove artifacts based on non standard overlaps
+                                    nonStandardOverlaps.sort(overlapComparator);
+                                    removeReverseComplementArtifacts(nonStandardOverlaps, containedSet);
+                                }
+                                nonStandardOverlaps.clear();
                             }
                             
                             prevName = r.qName;
@@ -2520,6 +2611,9 @@ public class Layout {
                                     if (isForwardDovetailPafRecord(r)) {
                                         pendingOverlaps.add(pafToOverlap(r));
                                     }
+                                    else {
+                                        nonStandardOverlaps.add(pafToStrandedOverlap(r));
+                                    }
                                     break;
                             }
                         }
@@ -2535,6 +2629,15 @@ public class Layout {
                 pendingOverlaps.clear();
             }
             
+            if (this.cutRevCompArtifact && !nonStandardOverlaps.isEmpty()) {
+                if (!prevContained) {
+                    // remove artifacts based on non standard overlaps
+                    nonStandardOverlaps.sort(overlapComparator);
+                    removeReverseComplementArtifacts(nonStandardOverlaps, containedSet);
+                }
+                nonStandardOverlaps.clear();
+            }
+            
             for (Overlap r : overlaps) {
                 if (!containedSet.contains(r.qName) &&
                     !containedSet.contains(r.tName)) {
@@ -2544,6 +2647,7 @@ public class Layout {
         }
         else {
             ArrayDeque<StrandedOverlap> overlaps = new ArrayDeque<>();
+            ArrayList<StrandedOverlap> nonStandardOverlaps = new ArrayList<>();
             
             String prevName = null;
             boolean prevContained = false;
@@ -2552,7 +2656,7 @@ public class Layout {
             for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
                 reader.next(r);            
                 if (!r.qName.equals(r.tName)) {
-                    if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                    if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                        
                         if (prevName == null) {
                             prevName = r.qName;
                         }
@@ -2562,6 +2666,15 @@ public class Layout {
                                     overlaps.addAll(pendingOverlaps);
                                 }
                                 pendingOverlaps.clear();
+                            }
+                            
+                            if (this.cutRevCompArtifact && !nonStandardOverlaps.isEmpty()) {
+                                if (!prevContained) {
+                                    // remove artifacts based on non standard overlaps
+                                    nonStandardOverlaps.sort(overlapComparator);
+                                    removeReverseComplementArtifacts(nonStandardOverlaps, containedSet);
+                                }
+                                nonStandardOverlaps.clear();
                             }
                             
                             prevName = r.qName;
@@ -2600,6 +2713,9 @@ public class Layout {
                                     if (isDovetailPafRecord(r)) {
                                         pendingOverlaps.add(pafToStrandedOverlap(r));
                                     }
+                                    else {
+                                        nonStandardOverlaps.add(pafToStrandedOverlap(r));
+                                    }
                                     break;
                             }
                         }
@@ -2613,6 +2729,15 @@ public class Layout {
                     overlaps.addAll(pendingOverlaps);
                 }
                 pendingOverlaps.clear();
+            }
+            
+            if (this.cutRevCompArtifact && !nonStandardOverlaps.isEmpty()) {
+                if (!prevContained) {
+                    // remove artifacts based on non standard overlaps
+                    nonStandardOverlaps.sort(overlapComparator);
+                    removeReverseComplementArtifacts(nonStandardOverlaps, containedSet);
+                }
+                nonStandardOverlaps.clear();
             }
             
             for (StrandedOverlap r : overlaps) {
@@ -3245,14 +3370,14 @@ public class Layout {
     public static void main(String[] args) {
         try {
             //debug
-            String dir = "/home/gengar/test_assemblies/sandbox/overlap";
-            String paf = dir + "/test_reads.ava.paf.gz";
-            String in = dir + "/test_reads.fa";
+            String dir = "wd";
+            String paf = dir + "/in.paf.gz";
+            String in = dir + "/in.fa";
             String out = dir + "/out.fa";
             
             Layout layout = new Layout(in, new GZIPInputStream(new FileInputStream(paf)), true,
-                    100, 0.9f, 50, 3,
-                    false, 1, true);
+                    75, 0.9f, 50, 3,
+                    true, 1, true);
             layout.layoutBackbones(out);
         } catch (IOException ex) {
             Logger.getLogger(Layout.class.getName()).log(Level.SEVERE, null, ex);
