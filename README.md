@@ -41,7 +41,7 @@ RNA-Bloom can be installed in two ways:
 ```
 conda install -c bioconda rnabloom
 ```
-RNA-Bloom can be run as `rnabloom ...`
+All dependent software (listed above) will be installed. RNA-Bloom can be run as `rnabloom ...`
 
 ### (B) download from GitHub: 
 1. Download the binary tarball `rnabloom_vX.X.X.tar.gz` from the [releases](https://github.com/bcgsc/RNA-Bloom/releases) section.
