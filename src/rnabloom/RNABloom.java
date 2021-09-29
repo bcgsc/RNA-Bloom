@@ -2287,7 +2287,7 @@ public class RNABloom {
                             left = leftBad ? "" : left;
                             right = rightBad ? "" : right;
 
-                            ++numConnected;
+                            ++numUnconnected;
                             outList.put(new Fragment(left, right, null, 0, minCov, true));
                         }
                     }

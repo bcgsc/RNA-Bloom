@@ -19,7 +19,7 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 ## Dependency :pushpin:
 
-* [Java SE Runtime Environment (JRE) 8](http://www.oracle.com/technetwork/java/javase/downloads/jre8-downloads-2133155.html)
+* [Java SE Development Kit (JDK) 11](https://www.oracle.com/java/technologies/downloads/#java11)
 
 * External software used:
 
@@ -41,7 +41,7 @@ RNA-Bloom can be installed in two ways:
 ```
 conda install -c bioconda rnabloom
 ```
-RNA-Bloom can be run as `rnabloom ...`
+All dependent software (listed above) will be installed. RNA-Bloom can be run as `rnabloom ...`
 
 ### (B) download from GitHub: 
 1. Download the binary tarball `rnabloom_vX.X.X.tar.gz` from the [releases](https://github.com/bcgsc/RNA-Bloom/releases) section.
@@ -59,17 +59,22 @@ RNA-Bloom can be run as `java -jar /path/to/RNA-Bloom.jar ...`
 
 ### (A) assemble bulk RNA-seq data:
 
-* paired-end reads
+* paired-end reads (use `-revcomp-right` to reverse-complement `-right` reads, which are in the opposite orientation as `-left` reads)
 ```
 java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
 
-* single-end reads
+* single-end reads (use `-sef` for forward reads and `-ser` for reverse reads)
 ```
-java -jar RNA-Bloom.jar -left READS.fastq -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -sef SE.fastq -ntcard -t THREADS -outdir OUTDIR
 ```
 
-### (B) assemble single-cell RNA-seq data:
+* paired-end and single-end reads
+```
+java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -sef SE.fastq -ntcard -t THREADS -outdir OUTDIR
+```
+
+### (B) assemble single-cell RNA-seq data with pooled assembly mode:
 ```
 java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
@@ -89,6 +94,7 @@ cell1 /path/to/cell1/left.fastq /path/to/cell1/right.fastq
 cell2 /path/to/cell2/left.fastq /path/to/cell2/right.fastq
 cell3 /path/to/cell3/left.fastq /path/to/cell3/right.fastq
 ```
+Currently, pooled assembly only supports paired-end reads.
 
 ### (C) strand-specific assembly:
 ```
@@ -98,9 +104,9 @@ The `-stranded` option indicates that input reads are strand-specific.
 
 Strand-specific reads are typically in the F2R1 orientation, where `/2` denotes *left* reads in *forward* orientation and `/1` denotes *right* reads in *reverse* orientation.
 
-Configure the read file paths accordingly for bulk RNA-seq data:
+Configure the read file paths accordingly for bulk RNA-seq data and indicate read orientation:
 
-`-left /path/to/reads_2.fastq -right /path/to/reads_1.fastq`
+`-stranded -left /path/to/reads_2.fastq -right /path/to/reads_1.fastq -revcomp-right`
 
 and for scRNA-seq data:
 ```
@@ -119,13 +125,13 @@ The `-ref` option specifies the reference transcriptome FASTA file for guiding s
 
 ### (A) assemble nanopore cDNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -long READS.fasta -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long LONG.fastq -ntcard -t THREADS -outdir OUTDIR
 ```
 Input reads are expected to be in a mix of both forward and reverse orientations.
 
 ### (B) assemble nanopore direct RNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -long READS.fasta -stranded -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long LONG.fastq -stranded -ntcard -t THREADS -outdir OUTDIR
 ```
 Input reads are expected to be only in the forward orientation.
 
@@ -133,6 +139,10 @@ By default, uracil (`U`) is written as `T`. Use the `-uracil` option to write `U
 
 ntCard v1.2.1 supports uracil in reads.
 
+### (C) assemble nanopore sequencing data with short-read polishing:
+```
+java -jar RNA-Bloom.jar -long LONG.fastq -sef SHORT.fastq -ntcard -t THREADS -outdir OUTDIR
+```
 
 ## General Settings :gear:
 
@@ -194,7 +204,7 @@ RNA-Bloom is written in Java with Apache NetBeans IDE. It uses the [Apache Commo
 
 ## Citing RNA-Bloom :scroll:
 
-If you use RNA-Bloom in your work, please cite us:
+If you use RNA-Bloom in your work, please cite [our publication](https://genome.cshlp.org/content/30/8/1191.full):
 
 > Ka Ming Nip, Readman Chiu, Chen Yang, Justin Chu, Hamid Mohamadi, René L. Warren, and Inanc Birol. RNA-Bloom enables reference-free and reference-guided sequence assembly for single-cell transcriptomes. Genome Research. August 2020 30: 1191-1200; Published in Advance August 17, 2020, doi:10.1101/gr.260174.119
 
