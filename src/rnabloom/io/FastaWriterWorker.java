@@ -16,23 +16,22 @@
  */
 package rnabloom.io;
 
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.Queue;
 
 /**
  *
  * @author Ka Ming Nip
  */
 public class FastaWriterWorker implements Runnable {
-    private final ArrayBlockingQueue<String> inputQueue;
+    private final Queue<String> inputQueue;
     private final FastaWriter writer;
     private boolean terminateWhenInputExhausts = false;
     private boolean successful = false;
     private Exception exception = null;
     private int numSeq = 0;
-    private String seqPrefix;
+    private final String seqPrefix;
 
-    public FastaWriterWorker(ArrayBlockingQueue<String> inputQueue, 
+    public FastaWriterWorker(Queue<String> inputQueue, 
             FastaWriter writer, String seqPrefix) {
         this.inputQueue = inputQueue;
         this.writer = writer;
@@ -43,7 +42,7 @@ public class FastaWriterWorker implements Runnable {
     public void run() {
         try {
             while(true) {
-                String seq = inputQueue.poll(100, TimeUnit.MILLISECONDS);
+                String seq = inputQueue.poll();
 
                 if (seq == null) {
                     if (terminateWhenInputExhausts) {
@@ -51,7 +50,7 @@ public class FastaWriterWorker implements Runnable {
                     }
                     continue;
                 }
-
+                
                 String header = seqPrefix + ++numSeq + " l=" + Integer.toString(seq.length());
 
                 writer.write(header, seq);
