@@ -111,7 +111,7 @@ public class SeqSubsampler {
     }
         
     public static void kmerBased(ArrayList<? extends BitSequence> seqs,
-            String outSubsampleFasta, String outAllFasta,
+            String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose) throws IOException, InterruptedException {
                 
@@ -124,16 +124,11 @@ public class SeqSubsampler {
         int numSubsample = 0;
         float fpr;
 
-        ConcurrentLinkedQueue<String> allQueue = new ConcurrentLinkedQueue<>();
         ConcurrentLinkedQueue<String> subQueue = new ConcurrentLinkedQueue<>();
         FastaWriter subWriter  = new FastaWriter(outSubsampleFasta, false);
-        FastaWriter allWriter  = new FastaWriter(outAllFasta, false);
-        FastaWriterWorker allWriterWorker = new FastaWriterWorker(allQueue, allWriter, "a");
         FastaWriterWorker subWriterWorker = new FastaWriterWorker(subQueue, subWriter, "s");
-        Thread[] writerThreads = new Thread[]{new Thread(allWriterWorker), new Thread(subWriterWorker)};
-        for (Thread t : writerThreads) {
-            t.start();
-        }
+        Thread subWriterThread = new Thread(subWriterWorker);
+        subWriterThread.start();
         
         CountingBloomFilter cbf;
         
@@ -144,7 +139,6 @@ public class SeqSubsampler {
             
             for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
                 String seq = seqs.get(seqIndex).toString();
-                allQueue.add(seq);
 
                 if (hashItr.start(seq)) {
                     int seqLen = seq.length();
@@ -224,7 +218,6 @@ public class SeqSubsampler {
             
             for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
                 String seq = seqs.get(seqIndex).toString();
-                allQueue.add(seq);
 
                 if (hashItr.start(seq)) {
                     int seqLen = seq.length();
@@ -307,19 +300,14 @@ public class SeqSubsampler {
             }
         }
         
-        allWriterWorker.terminateWhenInputExhausts();
         subWriterWorker.terminateWhenInputExhausts();
         
         fpr = cbf.getFPR();
         cbf.destroy();
         
-        for (Thread t : writerThreads) {
-            t.join();
-        }
-        
+        subWriterThread.join();
         subWriter.close();
-        allWriter.close();  
-                
+        
         if (verbose) {
             System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(fpr) + " %");
             System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 

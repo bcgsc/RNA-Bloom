@@ -16,6 +16,7 @@
  */
 package rnabloom.io;
 
+import static java.lang.Thread.sleep;
 import java.util.Queue;
 
 /**
@@ -48,6 +49,7 @@ public class FastaWriterWorker implements Runnable {
                     if (terminateWhenInputExhausts) {
                         break;
                     }
+                    sleep(100);
                     continue;
                 }
                 

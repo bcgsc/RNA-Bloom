@@ -3551,9 +3551,7 @@ public class RNABloom {
                         if (storeLongReads) {
                             bits.add(new WeightedBitSequence(seq.seq, seq.score));
                         }
-                        else {
-                            longWriter.write(header, seq.seq);
-                        }
+                        longWriter.write(header, seq.seq);
                     }
                     else {
                         shortWriter.write(header, seq.seq);
@@ -3586,9 +3584,7 @@ public class RNABloom {
                         if (storeLongReads) {
                             bits.add(new WeightedBitSequence(seq.seq, seq.score));
                         }
-                        else {
-                            longWriter.write(header, seq.seq);
-                        }
+                        longWriter.write(header, seq.seq);
                     }
                     else {
                         shortWriter.write(header, seq.seq);
@@ -7021,7 +7017,7 @@ public class RNABloom {
                         System.out.println("Extracting seed sequences...");
                         Collections.sort(correctedReads);
                         int subK = k/2;
-                        SeqSubsampler.kmerBased(correctedReads, seedReadsPath, longCorrectedReadsPath,
+                        SeqSubsampler.kmerBased(correctedReads, seedReadsPath,
                                 dbgbfSize + cbfSize, subK, dbgbfNumHash, strandSpecific, 
                                 Math.max(2, longReadMinReadDepth), maxTipLen, true);
     //                    SeqSubsampler.minimalSet(correctedReads, seedReadsPath,
