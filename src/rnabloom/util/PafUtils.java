@@ -135,10 +135,13 @@ public class PafUtils {
     public static boolean isQueryContained(PafRecord r, int maxEdgeClip) {
         return r.qStart <= maxEdgeClip && r.qLen - r.qEnd <= maxEdgeClip;
     }
+
+    public static boolean isTargetContained(PafRecord r, int maxEdgeClip) {
+        return r.tStart <= maxEdgeClip && r.tLen - r.tEnd <= maxEdgeClip;
+    }
     
     public static boolean isContainmentPafRecord(PafRecord r, int maxEdgeClip) {
-        return ((r.qStart <= maxEdgeClip && r.qLen - r.qEnd <= maxEdgeClip) ||
-            (r.tStart <= maxEdgeClip && r.tLen - r.tEnd <= maxEdgeClip));
+        return isQueryContained(r, maxEdgeClip) || isTargetContained(r, maxEdgeClip);
     }
         
     public static boolean isForwardContainmentPafRecord(PafRecord r, int maxEdgeClip) {

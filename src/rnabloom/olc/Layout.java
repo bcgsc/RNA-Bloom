@@ -2554,7 +2554,7 @@ public class Layout {
                     }
                 }
                 else if (!r.qName.equals(r.tName)) {
-                    if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
+                    if ((hasLargeOverlap(r) || isContainmentPafRecord(r)) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
                         if (prevName == null) {
                             prevName = r.qName;
                         }
@@ -2656,7 +2656,7 @@ public class Layout {
             for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
                 reader.next(r);            
                 if (!r.qName.equals(r.tName)) {
-                    if (hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                        
+                    if ((hasLargeOverlap(r) || isContainmentPafRecord(r)) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                        
                         if (prevName == null) {
                             prevName = r.qName;
                         }
