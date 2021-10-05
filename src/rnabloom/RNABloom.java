@@ -7047,7 +7047,13 @@ public class RNABloom {
                 }
                 else {                    
                     final String tmpFilePathPrefix = outdir + File.separator + name + ".longreads.assembly";
-                    final String assembledTranscriptsPath = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
+                    final String assembledTranscriptsPath = outdir + File.separator + name + ".transcripts.tmp" + FASTA_EXT;
+                    final String longTranscriptsFasta = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
+                    final String shortTranscriptsFasta = outdir + File.separator + name + ".transcripts.short" + FASTA_EXT;
+                    deleteIfExists(assembledTranscriptsPath);
+                    deleteIfExists(longTranscriptsFasta);
+                    deleteIfExists(shortTranscriptsFasta);
+                    
                     String inputReadsPath;
 //                    
                     if (subsampleLongReads) {                        
@@ -7072,31 +7078,17 @@ public class RNABloom {
                                     !keepArtifact,
                                     longReadMinReadDepth,
                                     usePacBioPreset);
-
-//                    final String clusteredLongReadsDirectory = outdir + File.separator + name + ".longreads.clusters";
-//                    
-//                    boolean ok = assembleClusteredLongReads(assembler,
-//                            longCorrectedReadsPath, seedReadsPath, seedReadsPath2, seedReadsPath3,
-//                            clusteredLongReadsDirectory,
-//                            assembledTranscriptsPath, writeUracil, 
-//                            numThreads, forceOverwrite, minimapOptions, minKmerCov, 
-//                            maxTipLen, longReadOverlapProportion, minOverlap,
-//                            txptNamePrefix, strandSpecific, !keepArtifact,
-//                            longReadMinReadDepth, usePacBioPreset, cbfSize, cbfNumHash,
-//                            minTranscriptLength);
-                    
                     
                     if (ok) {
+                        splitFastaByLength(assembledTranscriptsPath, longTranscriptsFasta, shortTranscriptsFasta, minTranscriptLength);
+                        deleteIfExists(assembledTranscriptsPath);
+                        
                         touch(longReadsAssembledStamp);
                     }
                     else {
                         exitOnError("Error assembling long reads!");
                     }
                 }
-                
-//                if (outputNrTxpts) {
-//                    generateNonRedundantTranscripts(assembler, forceOverwrite, outdir, name, sbfSize, sbfNumHash);
-//                }
                 
                 System.out.println("> Stage 3 completed in " + stageTimer.elapsedDHMS());
             }
