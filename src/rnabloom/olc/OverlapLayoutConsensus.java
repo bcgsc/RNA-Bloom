@@ -466,6 +466,10 @@ public class OverlapLayoutConsensus {
             }
         }
         
+        if (maxIndelSize >= 0 && !minimapOptions.contains("-r ")) {
+            minimapOptions += " -r " + maxIndelSize;
+        }
+        
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
         command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " " + seqFastaPath + " " + seqFastaPath);
         
@@ -1077,7 +1081,7 @@ public class OverlapLayoutConsensus {
         if (!minimapOptionsNoGaps.contains("-g ")) {
             minimapOptionsNoGaps += " -g 300";
         }
-        if (!minimapOptionsNoGaps.contains("-r ")) {
+        if (maxIndelSize >= 0 && !minimapOptionsNoGaps.contains("-r ")) {
             minimapOptionsNoGaps += " -r " + maxIndelSize;
         }
         
@@ -1093,7 +1097,7 @@ public class OverlapLayoutConsensus {
         }
         
         System.gc();
-        
+                
         // 2. overlap (with alignment) unique reads and extract unitigs
         status = overlapWithMinimapAndLayoutSimple(uniqueFastaPath, simpleFastaPath,
             numThreads, true, minimapOptionsNoGaps, stranded, maxEdgeClip,
@@ -1124,7 +1128,7 @@ public class OverlapLayoutConsensus {
         
         // 5. overlap (with alignment) unitigs and lay out paths
         status = overlapWithMinimapAndLayoutGreedy(polishedSimpleFastaPath, outFastaPath,
-            numThreads, true, minimapOptions, stranded, maxEdgeClip,
+            numThreads, true, minimapOptionsNoGaps, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset, readsToSimplePafPath, verbose);
         if (status != STATUS.SUCCESS) {
