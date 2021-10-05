@@ -29,9 +29,9 @@ import java.lang.ProcessBuilder.Redirect;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.zip.GZIPOutputStream;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
+import rnabloom.io.FastGZIPOutputStream;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.FileUtils.deleteIfExists;
 import static rnabloom.util.FileUtils.hasOnlyOneSequence;
@@ -77,40 +77,7 @@ public class OverlapLayoutConsensus {
             return false;
         }
     }
-    
-    private static boolean runCommand(List<String> command, String logPath, String gzipOutPath) {
-        try {            
-            ProcessBuilder pb = new ProcessBuilder(command);
             
-            if (logPath != null) {
-                File logFile = new File(logPath);
-                pb.redirectError(Redirect.to(logFile));
-            }
-            
-            Process process = pb.start();
-            
-            File outFile = new File(gzipOutPath);
-            GZIPOutputStream zip = new GZIPOutputStream(new FileOutputStream(outFile));
-            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(zip, "UTF-8"));
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            
-            String line;
-            while ((line = reader.readLine()) != null) {
-                writer.append(line);
-            }
-            
-            int exitStatus = process.waitFor();
-            
-            reader.close();
-            writer.close();
-            
-            return exitStatus == 0;
-        }
-        catch (IOException | InterruptedException e) {
-            return false;
-        }        
-    }
-        
     public static boolean hasMinimap2() {
         ArrayList<String> command = new ArrayList<>();
         command.add(MINIMAP2);
@@ -152,7 +119,7 @@ public class OverlapLayoutConsensus {
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " " + seqFastaPath + " " + seqFastaPath + " | gzip -c > " + outPafPath);
+        command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " " + seqFastaPath + " " + seqFastaPath + " | gzip --fast -c > " + outPafPath);
         
         return runCommand(command, outPafPath + LOG_EXTENSION);
     }
@@ -680,7 +647,7 @@ public class OverlapLayoutConsensus {
         }
         
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
-        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " " + targetFastaPath + " " + queryFastaPath + " | gzip -c > " + outPafPath);
+        command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " " + targetFastaPath + " " + queryFastaPath + " | gzip --fast -c > " + outPafPath);
         
         return runCommand(command, outPafPath + LOG_EXTENSION);
     }
@@ -727,7 +694,7 @@ public class OverlapLayoutConsensus {
         command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " " + targetFastaPath + " " + queryFastaPath);
 
         try {
-            Writer bw = new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(outPafPath, false)), "UTF-8");
+            Writer bw = new OutputStreamWriter(new FastGZIPOutputStream(new FileOutputStream(outPafPath, false)), "UTF-8");
             ProcessBuilder pb = new ProcessBuilder(command);
 
             File logFile = new File(outPafPath + LOG_EXTENSION);
