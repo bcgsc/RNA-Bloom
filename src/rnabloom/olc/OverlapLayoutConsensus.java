@@ -41,6 +41,7 @@ import static rnabloom.util.FileUtils.touch;
 import static rnabloom.util.FileUtils.writeIntArrayToFile;
 import static rnabloom.util.PafUtils.hasGoodAlignment;
 import static rnabloom.util.PafUtils.hasLargeOverlap;
+import static rnabloom.util.PafUtils.isContainmentPafRecord;
 import rnabloom.util.Timer;
 
 /**
@@ -687,7 +688,7 @@ public class OverlapLayoutConsensus {
     
     public static STATUS mapWithMinimapFiltered(String queryFastaPath, String targetFastaPath, String outPafPath,
             int numThreads, String minimapOptions, boolean usePacBioPreset, boolean stranded, int maxIndelSize, 
-            int minOverlapMatches, float minAlnId, boolean verbose) {
+            int minOverlapMatches, float minAlnId, int maxEdgeClip, boolean verbose) {
         Timer timer = new Timer();
         if (verbose) {
             System.out.println("Mapping sequences...");
@@ -741,7 +742,8 @@ public class OverlapLayoutConsensus {
             for (String line; (line = br.readLine()) != null; ) {
                 record.update(line.trim().split("\t"));
                 if (!stranded || !record.reverseComplemented) {
-                    if (hasLargeOverlap(record, minOverlapMatches) &&
+                    if ((hasLargeOverlap(record, minOverlapMatches) ||
+                            isContainmentPafRecord(record, maxEdgeClip)) &&
                             hasGoodAlignment(record, maxIndelSize, minAlnId)) {
                         bw.write(line);
                         bw.write('\n');
@@ -1061,7 +1063,7 @@ public class OverlapLayoutConsensus {
         // 4. align all reads to unitigs
         status = mapWithMinimapFiltered(readsPath, unitigsFastaPath, readsToSimplePafPath,
             numThreads, minimapOptionsNoGaps, usePacBioPreset, stranded, maxIndelSize,
-            minOverlapMatches, minAlnId, verbose);
+            minOverlapMatches, minAlnId, maxEdgeClip, verbose);
         if (status != STATUS.SUCCESS) {
             return false;
         }
@@ -1139,7 +1141,7 @@ public class OverlapLayoutConsensus {
         // 3. map all reads to unitigs
         status = mapWithMinimapFiltered(readsPath, simpleFastaPath, readsToSimplePafPath,
             numThreads, minimapOptionsNoGaps, usePacBioPreset, stranded, maxIndelSize,
-            minOverlapMatches, minAlnId, verbose);
+            minOverlapMatches, minAlnId, maxEdgeClip, verbose);
         if (status != STATUS.SUCCESS) {
             return false;
         }
