@@ -3905,7 +3905,7 @@ public class RNABloom {
                                                 boolean trimArtifact,
                                                 boolean storeReads) throws InterruptedException, IOException, Exception {
 
-        int minNumSolidKmers = Math.max(0, (int) Math.floor(minSeqLen * percentIdentity * percentIdentity) - k + 1);
+        int minNumSolidKmers = Math.max(0, (int) Math.floor((minSeqLen-k+1) * percentIdentity / k));
         long numReads = 0;
         ArrayBlockingQueue<Sequence2> outputQueue = new ArrayBlockingQueue<>(maxSampleSize);
                 
