@@ -470,6 +470,10 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -r " + maxIndelSize;
         }
         
+        if (!minimapOptions.contains("-f ")) {
+            minimapOptions += " -f 0";
+        }
+                
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
         command.add(MINIMAP2 + " -x ava-" + preset + " " + minimapOptions + " " + seqFastaPath + " " + seqFastaPath);
         
@@ -1124,6 +1128,10 @@ public class OverlapLayoutConsensus {
             readsToSimplePafPath, polishedSimpleFastaPath, numThreads, true, verbose);
         if (!success) {
             return false;
+        }
+        
+        if (!minimapOptionsNoGaps.contains("-f ")) {
+            minimapOptionsNoGaps += " -f 0";
         }
         
         // 5. overlap (with alignment) unitigs and lay out paths
