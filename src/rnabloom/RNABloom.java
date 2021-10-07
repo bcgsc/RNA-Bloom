@@ -6741,8 +6741,7 @@ public class RNABloom {
             String readStatsFile = outdir + File.separator + name + ".readstats";
             
             if (endstage >= 1 &&
-                    ((!txptsDone && !hasLongReadFiles) ||
-                    (!fragmentsDone && hasLeftReadFiles && hasRightReadFiles) || 
+                    (((!txptsDone || !fragmentsDone) && !hasLongReadFiles) ||
                     (hasLongReadFiles && !longReadsCorrected))) {
                 
                 if (dbgDone) {
