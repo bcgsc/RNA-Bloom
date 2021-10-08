@@ -471,7 +471,7 @@ public class OverlapLayoutConsensus {
         }
         
         if (!minimapOptions.contains("-f ")) {
-            minimapOptions += " -f 0.00001";
+            minimapOptions += " -f 0.0001";
         }
                 
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
@@ -1131,7 +1131,7 @@ public class OverlapLayoutConsensus {
         }
         
         if (!minimapOptionsNoGaps.contains("-f ")) {
-            minimapOptionsNoGaps += " -f 0.00001";
+            minimapOptionsNoGaps += " -f 0.0001";
         }
         
         // 5. overlap (with alignment) unitigs and lay out paths
