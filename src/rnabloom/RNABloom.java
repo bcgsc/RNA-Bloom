@@ -338,11 +338,21 @@ public class RNABloom {
         covFPR = 0;
     }
     
+    public static void checkInputFileFormat(String path) throws FileFormatException {
+        if (!FastaReader.isCorrectFormat(path) && !FastqReader.isCorrectFormat(path)) {
+            throw new FileFormatException("Unsupported file format detected in input file `" + path + "`. Only FASTA and FASTQ formats are supported.");
+        }
+    }
+    
+    public static void checkInputFileFormat(Iterable<String> paths) throws FileFormatException {
+        for (String p : paths) {
+            checkInputFileFormat(p);
+        }
+    }
+    
     public static void checkInputFileFormat(String[] paths) throws FileFormatException {
         for (String p : paths) {
-            if (!FastaReader.isCorrectFormat(p) && !FastqReader.isCorrectFormat(p)) {
-                throw new FileFormatException("Unsupported file format detected in input file `" + p + "`. Only FASTA and FASTQ formats are supported.");
-            }
+            checkInputFileFormat(p);
         }
     }
     
@@ -5004,6 +5014,118 @@ public class RNABloom {
     
     private static boolean getPooledReadPaths(String pooledReadPathsListFile,
             HashMap<String, ArrayList<String>> pooledLeftReadPaths,
+            HashMap<String, ArrayList<String>> pooledRightReadPaths,
+            HashMap<String, ArrayList<String>> pooledUnpairedForwardReadPaths,
+            HashMap<String, ArrayList<String>> pooledUnpairedReverseReadPaths) throws FileNotFoundException, IOException {
+        
+        BufferedReader br = new BufferedReader(new FileReader(pooledReadPathsListFile));
+        
+        int nameColumnIndex = 0;
+        int leftColumnIndex = 1;
+        int rightColumnIndex = 2;
+        int sefColumnIndex = -1;
+        int serColumnIndex = -1;
+        int numColumns = 3;
+        
+        String line;
+        int lineNumber = 0;
+        while ((line = br.readLine()) != null) {
+            ++lineNumber;
+            
+            line = line.trim();
+            if (!line.isEmpty()) { 
+                if (line.charAt(0) == '#') {
+                    String[] header = line.substring(1).split(FIELD_SEPARATOR);
+                    nameColumnIndex = -1;
+                    leftColumnIndex = -1;
+                    rightColumnIndex = -1;
+                    sefColumnIndex = -1;
+                    serColumnIndex = -1;
+                    numColumns = header.length;
+                    for (int i=0; i<header.length; ++i) {
+                        switch(header[i]) {
+                            case "name":
+                                nameColumnIndex = i;
+                                break;
+                            case "left":
+                                leftColumnIndex = i;
+                                break;
+                            case "right":
+                                rightColumnIndex = i;
+                                break;
+                            case "sef":
+                                sefColumnIndex = i;
+                                break;
+                            case "ser":
+                                serColumnIndex = i;
+                                break;
+                            default:
+                                exitOnError("`-pool` input file has unrecognized column identifier \"" + header[i] + "\" on line " + lineNumber + ":\n\t" + line);
+                                return false;
+                        }
+                    }
+                }
+                else {
+                    String[] entry = line.split(FIELD_SEPARATOR);
+                    int numFields = entry.length;
+                    if (numFields != numColumns) {
+                        exitOnError("`-pool` input file has unexpected number of columns on line " + lineNumber + ":\n\t" + line);
+                        return false;
+                    }
+
+                    if (nameColumnIndex >= 0 && nameColumnIndex < numFields) {
+                        String name = entry[nameColumnIndex];
+
+                        if (leftColumnIndex >= 0 && leftColumnIndex < numFields) {
+                            ArrayList<String> paths = pooledLeftReadPaths.get(name);
+                            if (paths == null) {
+                                paths = new ArrayList<>();
+                                pooledLeftReadPaths.put(name, paths);
+                            }
+                            paths.add(entry[leftColumnIndex]);
+                        }
+
+                        if (rightColumnIndex >= 0 && rightColumnIndex < numFields) {
+                            ArrayList<String> paths = pooledRightReadPaths.get(name);
+                            if (paths == null) {
+                                paths = new ArrayList<>();
+                                pooledRightReadPaths.put(name, paths);
+                            }
+                            paths.add(entry[rightColumnIndex]);
+                        }
+
+                        if (sefColumnIndex >= 0 && sefColumnIndex < numFields) {
+                            ArrayList<String> paths = pooledUnpairedForwardReadPaths.get(name);
+                            if (paths == null) {
+                                paths = new ArrayList<>();
+                                pooledUnpairedForwardReadPaths.put(name, paths);
+                            }
+                            paths.add(entry[sefColumnIndex]);
+                        }
+
+                        if (serColumnIndex >= 0 && serColumnIndex < numFields) {
+                            ArrayList<String> paths = pooledUnpairedReverseReadPaths.get(name);
+                            if (paths == null) {
+                                paths = new ArrayList<>();
+                                pooledUnpairedReverseReadPaths.put(name, paths);
+                            }
+                            paths.add(entry[serColumnIndex]);
+                        }
+                    }
+                    else {
+                        exitOnError("`-pool` input file is missing sample name on line " + lineNumber + ":\n\t" + line);
+                        return false;
+                    }
+                }
+            }
+        }
+        
+        br.close();
+        return true;
+    }
+    
+    private static boolean getPooledReadPaths(String pooledReadPathsListFile,
+            HashMap<String, ArrayList<String>> pooledLeftReadPaths,
             HashMap<String, ArrayList<String>> pooledRightReadPaths) throws FileNotFoundException, IOException {
         
         BufferedReader br = new BufferedReader(new FileReader(pooledReadPathsListFile));
@@ -6094,7 +6216,7 @@ public class RNABloom {
         
         final String optMinimapOptionsDefault = "-K 250M";
         Option optMinimapOptions = Option.builder("mmopt")
-                                    .desc("options for minimap2 [\"" + optMinimapOptionsDefault + "\"]\n(`-x` and `-t` are already in use)")
+                                    .desc("options for minimap2 [\"'" + optMinimapOptionsDefault + "'\"]\n(`-x` and `-t` are already in use)")
                                     .hasArg(true)
                                     .argName("OPTIONS")
                                     .build();
@@ -6312,6 +6434,8 @@ public class RNABloom {
                                     
             HashMap<String, ArrayList<String>> pooledLeftReadPaths = new HashMap<>();
             HashMap<String, ArrayList<String>> pooledRightReadPaths = new HashMap<>();
+            HashMap<String, ArrayList<String>> pooledUnpairedForwardReadPaths = new HashMap<>();
+            HashMap<String, ArrayList<String>> pooledUnpairedReverseReadPaths = new HashMap<>();
             
             float maxBfMem = 0;
             
@@ -6323,7 +6447,9 @@ public class RNABloom {
                 }
                 
                 System.out.println("Parsing pool reads list file `" + pooledReadsListFile + "`...");
-                boolean parseOK = getPooledReadPaths(pooledReadsListFile, pooledLeftReadPaths, pooledRightReadPaths);
+                boolean parseOK = getPooledReadPaths(pooledReadsListFile,
+                        pooledLeftReadPaths, pooledRightReadPaths,
+                        pooledUnpairedForwardReadPaths, pooledUnpairedReverseReadPaths);
                 
                 if (!parseOK) {
                     exitOnError("Incorrect format of pooled read paths list file!");
@@ -6331,40 +6457,65 @@ public class RNABloom {
                 
                 int numLeftIds = pooledLeftReadPaths.size();
                 int numRightIds = pooledRightReadPaths.size();
+                int numSefIds = pooledUnpairedForwardReadPaths.size();
+                int numSerIds = pooledUnpairedReverseReadPaths.size();
                 
                 if (numLeftIds != numRightIds) {
                     exitOnError("Pooled read paths list file has disagreeing number of sample IDs for left (" + numLeftIds + ") and right (" + numRightIds + ") reads!");
                 }
                 
-                if (numLeftIds == 0) {
+                if (numLeftIds == 0 && numRightIds == 0 && numSefIds == 0 && numSerIds == 0) {
                     exitOnError("Pooled read paths list file is empty!");
                 }
                 
                 ArrayList<String> leftPathsQueue = new ArrayList<>();
                 ArrayList<String> rightPathsQueue = new ArrayList<>();
+                ArrayList<String> seForwardPathsQueue = new ArrayList<>();
+                ArrayList<String> seReversePathsQueue = new ArrayList<>();
                 
-                for (String id : pooledLeftReadPaths.keySet()) {
-                    leftPathsQueue.addAll(pooledLeftReadPaths.get(id));
-                    rightPathsQueue.addAll(pooledRightReadPaths.get(id));
+                double readFilesTotalBytes = 0;
+                                
+                for (ArrayList<String> list : pooledLeftReadPaths.values()) {
+                    checkInputFileFormat(list);
+                    leftPathsQueue.addAll(list);
+                    for (String p : list) {
+                        readFilesTotalBytes += new File(p).length();
+                    }
                 }
                 
+                for (ArrayList<String> list : pooledRightReadPaths.values()) {
+                    checkInputFileFormat(list);
+                    rightPathsQueue.addAll(list);
+                    for (String p : list) {
+                        readFilesTotalBytes += new File(p).length();
+                    }
+                }
+                                                
+                for (ArrayList<String> list : pooledUnpairedForwardReadPaths.values()) {
+                    checkInputFileFormat(list);
+                    seForwardPathsQueue.addAll(list);
+                    for (String p : list) {
+                        readFilesTotalBytes += new File(p).length();
+                    }
+                }
+                
+                for (ArrayList<String> list : pooledUnpairedReverseReadPaths.values()) {
+                    checkInputFileFormat(list);
+                    seReversePathsQueue.addAll(list);
+                    for (String p : list) {
+                        readFilesTotalBytes += new File(p).length();
+                    }
+                }
+
                 leftReadPaths = new String[leftPathsQueue.size()];
                 rightReadPaths = new String[rightPathsQueue.size()];
+                seForwardReadPaths = new String[seForwardPathsQueue.size()];
+                seReverseReadPaths = new String[seReversePathsQueue.size()];
                 
                 leftPathsQueue.toArray(leftReadPaths);
                 rightPathsQueue.toArray(rightReadPaths);
-                
-                checkInputFileFormat(leftReadPaths);
-                checkInputFileFormat(rightReadPaths);
-                
-                double readFilesTotalBytes = 0;
-
-                for (String fq : leftReadPaths) {
-                    readFilesTotalBytes += new File(fq).length();
-                }
-                for (String fq : rightReadPaths) {
-                    readFilesTotalBytes += new File(fq).length();
-                }
+                seForwardPathsQueue.toArray(seForwardReadPaths);
+                seReversePathsQueue.toArray(seReverseReadPaths);
                 
                 maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
                 
@@ -6382,8 +6533,8 @@ public class RNABloom {
 
                     checkInputFileFormat(longReadPaths);
 
-                    for (String fq : longReadPaths) {
-                        readFilesTotalBytes += new File(fq).length();
+                    for (String p : longReadPaths) {
+                        readFilesTotalBytes += new File(p).length();
                     }
                     
                     hasLongReadFiles = longReadPaths != null && longReadPaths.length > 0;
@@ -6895,12 +7046,25 @@ public class RNABloom {
                     
                     ArrayList<String> lefts = pooledLeftReadPaths.get(sampleName);
                     ArrayList<String> rights = pooledRightReadPaths.get(sampleName);
-                    
+                    ArrayList<String> sefsList = pooledUnpairedForwardReadPaths.get(sampleName);
+                    ArrayList<String> sersList = pooledUnpairedReverseReadPaths.get(sampleName);
+                                        
                     FastxFilePair[] fqPairs = new FastxFilePair[lefts.size()];
                     for (int i=0; i<lefts.size(); ++i) {
                         fqPairs[i] = new FastxFilePair(lefts.get(i), rights.get(i), revCompLeft, revCompRight);
                     }
 
+                    String [] sefs = null;
+                    if (sefsList != null && !sefsList.isEmpty()) {
+                        sefs = new String[sefsList.size()];
+                        sefsList.toArray(sefs);
+                    }
+                    String [] sers = null;
+                    if (sersList != null && !sersList.isEmpty()) {
+                        sers = new String[sersList.size()];
+                        sersList.toArray(sefs);
+                    }
+                    
                     String sampleOutdir = outdir + File.separator + sampleName;
                     new File(sampleOutdir).mkdirs();
                     
@@ -6909,7 +7073,7 @@ public class RNABloom {
                     sampleTimer.start();
                     
                     assembleFragments(assembler, forceOverwrite,
-                                    sampleOutdir, sampleName, fqPairs, null, null,
+                                    sampleOutdir, sampleName, fqPairs, sefs, sers,
                                     sbfSize, pkbfSize, sbfNumHash, pkbfNumHash, numThreads,
                                     bound, minOverlap, sampleSize, maxErrCorrItr, extendFragments, minKmerCov, keepArtifact);
                     
