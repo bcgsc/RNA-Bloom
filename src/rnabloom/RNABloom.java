@@ -1000,7 +1000,9 @@ public class RNABloom {
             graph.initializePairKmersBloomFilter(pkbfNumBits, pkbfNumHash);
         }
     }
-        
+    
+    private boolean isReadLengthBasedParamsSet = false;
+    
     public void setReadLengthBasedParams(Quartiles quartiles) {
         /*
             |<--d-->|
@@ -1020,6 +1022,8 @@ public class RNABloom {
             maxTipLength = quartiles.median - k;
             System.out.println("Max. tip length: " + maxTipLength);
         }
+        
+        isReadLengthBasedParamsSet = true;
     }
     
     public Quartiles getReadLengthQuartiles(Collection<String> forwardReadPaths,
@@ -7026,7 +7030,13 @@ public class RNABloom {
                         System.exit(0);
                     }
                 }
-            }           
+            }
+            
+            if (!hasLongReadFiles && !assembler.isReadLengthBasedParamsSet) {
+                // this is necessary for short read assembly
+                // this condition will be met in a re-run but not a typical fresh run
+                assembler.setReadLengthBasedParams(assembler.restoreQuartilesFromFile(readStatsFile));
+            }
 
             if (pooledGraphMode) {
                 // assemble fragments for each sample
