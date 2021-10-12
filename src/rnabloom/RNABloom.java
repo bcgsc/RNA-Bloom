@@ -6523,8 +6523,10 @@ public class RNABloom {
                 
                 maxBfMem = (float) Float.parseFloat(line.getOptionValue(optAllMem.getOpt(), Float.toString((float) (Math.max(NUM_BYTES_1MB * 100, readFilesTotalBytes) / NUM_BYTES_1GB))));
                 
-                hasLeftReadFiles = leftReadPaths != null && leftReadPaths.length > 0;
-                hasRightReadFiles = rightReadPaths != null && rightReadPaths.length > 0;
+                hasLeftReadFiles = leftReadPaths.length > 0;
+                hasRightReadFiles = rightReadPaths.length > 0;
+                hasSeForwardReadFiles = seForwardReadPaths.length > 0;
+                hasSeReverseReadFiles = seReverseReadPaths.length > 0;
             }
             else{
                 double readFilesTotalBytes = 0;
@@ -7072,7 +7074,7 @@ public class RNABloom {
                     String [] sers = null;
                     if (sersList != null && !sersList.isEmpty()) {
                         sers = new String[sersList.size()];
-                        sersList.toArray(sefs);
+                        sersList.toArray(sers);
                     }
                     
                     String sampleOutdir = outdir + File.separator + sampleName;
