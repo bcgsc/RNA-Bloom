@@ -74,7 +74,7 @@ java -jar RNA-Bloom.jar -sef SE.fastq -ntcard -t THREADS -outdir OUTDIR
 java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -sef SE.fastq -ntcard -t THREADS -outdir OUTDIR
 ```
 
-### (B) assemble single-cell RNA-seq data with pooled assembly mode:
+### (B) assemble multi-sample (e.g. single-cell) RNA-seq data with pooled assembly mode:
 ```
 java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
@@ -82,19 +82,26 @@ RNA-Bloom was tested on Smart-seq2 and SMARTer datasets.
 
 #### file format for the `-pool` option:
 
-This text file is expected to have 3 columns, ie.
+This is a tabular file that describes the read file paths for all cells/samples to be used pooled assembly. The column header is on the first line, leading with `#`. Columns are separated by space/tab characters.
 
-| column 1 | column 2           | column 3            |
-| -------- | ------------------ | ------------------- |
-| cell ID  | path of left reads | path of right reads |
-
-Columns are separated by space/tab characters, eg.
+##### (i) Paired-end reads only:
+Only `name`, `left`, `right` columns are specified.
 ```
+#name left right
 cell1 /path/to/cell1/left.fastq /path/to/cell1/right.fastq
 cell2 /path/to/cell2/left.fastq /path/to/cell2/right.fastq
 cell3 /path/to/cell3/left.fastq /path/to/cell3/right.fastq
 ```
-Currently, pooled assembly only supports paired-end reads.
+The legacy header-less tri-column format is still supported.
+
+##### (ii) Paired and unpaired reads:
+In addition to `name`, `left`, `right`, either `sef` or `ser` or both are specified. 
+```
+#name left right sef ser
+cell1 /path/to/cell1/left.fastq /path/to/cell1/right.fastq /path/to/cell1/sef.fastq /path/to/cell1/ser.fastq
+cell2 /path/to/cell2/left.fastq /path/to/cell2/right.fastq /path/to/cell2/sef.fastq /path/to/cell2/ser.fastq
+cell3 /path/to/cell3/left.fastq /path/to/cell3/right.fastq /path/to/cell3/sef.fastq /path/to/cell3/ser.fastq
+```
 
 ### (C) strand-specific assembly:
 ```
