@@ -59,12 +59,16 @@ RNA-Bloom can be run as `java -jar /path/to/RNA-Bloom.jar ...`
 
 ### (A) assemble bulk RNA-seq data:
 
-* paired-end reads (use `-revcomp-right` to reverse-complement `-right` reads, which are in the opposite orientation as `-left` reads)
+* paired-end reads only
+  * when `left` reads are sense and `right` reads are antisense, use `-revcomp-right` to reverse-complement `right` reads
+  * when `left` reads are antisense and `right` reads are sense, use `-revcomp-left` to reverse-complement `left` reads
+  * for non-stranded data, use either `-revcomp-right` or `-revcomp-left`
 ```
 java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
 
-* single-end reads (use `-sef` for forward reads and `-ser` for reverse reads)
+* single-end reads only
+  * use `-sef` for forward reads and `-ser` for reverse reads
 ```
 java -jar RNA-Bloom.jar -sef SE.fastq -ntcard -t THREADS -outdir OUTDIR
 ```
