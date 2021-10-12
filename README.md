@@ -74,11 +74,11 @@ java -jar RNA-Bloom.jar -sef SE.fastq -ntcard -t THREADS -outdir OUTDIR
 java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -sef SE.fastq -ntcard -t THREADS -outdir OUTDIR
 ```
 
-### (B) assemble multi-sample (e.g. single-cell) RNA-seq data with pooled assembly mode:
+### (B) assemble multi-sample RNA-seq data with pooled assembly mode:
 ```
 java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -ntcard -t THREADS -outdir OUTDIR
 ```
-RNA-Bloom was tested on Smart-seq2 and SMARTer datasets.
+This is especially useful for single-cell datasets. RNA-Bloom was tested on Smart-seq2 and SMARTer datasets.
 
 #### file format for the `-pool` option:
 
