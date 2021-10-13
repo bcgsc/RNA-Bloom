@@ -9,7 +9,7 @@
 **RNA-Bloom** is a fast and memory-efficient *de novo* transcript sequence assembler. It is designed for the following sequencing data types:
 * single-end/paired-end bulk RNA-seq (strand-specific/agnostic)
 * paired-end single-cell RNA-seq (strand-specific/agnostic)
-* nanopore RNA-seq (cDNA/direct RNA)
+* long-read RNA-seq (ONT cDNA/direct RNA, PacBio cDNA)
 
 Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
@@ -134,9 +134,10 @@ The `-ref` option specifies the reference transcriptome FASTA file for guiding s
 
 
 
-## Quick Start for Nanopore Reads :running:
+## Quick Start for Long Reads :running:
 
-### (A) assemble nanopore cDNA sequencing data:
+### (A) assemble long-read cDNA sequencing data:
+Default presets for `-long` are intended for ONT data. Please add the `-lrpb` flag for PacBio data.
 ```
 java -jar RNA-Bloom.jar -long LONG.fastq -ntcard -t THREADS -outdir OUTDIR
 ```
@@ -152,7 +153,7 @@ By default, uracil (`U`) is written as `T`. Use the `-uracil` option to write `U
 
 ntCard v1.2.1 supports uracil in reads.
 
-### (C) assemble nanopore sequencing data with short-read polishing:
+### (C) assemble long-read sequencing data with short-read polishing:
 ```
 java -jar RNA-Bloom.jar -long LONG.fastq -sef SHORT.fastq -ntcard -t THREADS -outdir OUTDIR
 ```

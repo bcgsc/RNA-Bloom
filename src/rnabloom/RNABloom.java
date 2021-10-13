@@ -6242,8 +6242,19 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadMinReadDepth);
         
+        String defaultMaxIndelSizePB = "5";
+        String defaultMaxTipLengthPB = "10";
+        String defaultMaxErrorCorrItrPB = "1";
+        String defaultPercentIdentityPB = "0.9";
+        String defaultLongReadOverlapProportionPB = "0.9";
+        String defaultPacbioPreset = "-indel " + defaultMaxIndelSizePB +
+                " -e " + defaultMaxErrorCorrItrPB +
+                " -p " + defaultPercentIdentityPB + 
+                " -lrop " + defaultLongReadOverlapProportionPB +
+                " -tip " + defaultMaxTipLengthPB;
         Option optLongReadPacBioPreset = Option.builder("lrpb")
-                                    .desc("use PacBio preset for minimap2 [false]")
+                                    .desc("use PacBio presets [false].\n(Used in conjunction with `-long` option. Presets `" + 
+                                            defaultPacbioPreset + "` unless each option is defined otherwise.)")
                                     .hasArg(false)
                                     .build();
         options.addOption(optLongReadPacBioPreset);
@@ -6658,22 +6669,35 @@ public class RNABloom {
                 exitOnError("`-mergepool` option requires `-pool` to be used!");
             }
                         
-            String defaultPercentIdentity = hasLongReadFiles ? defaultPercentIdentityLR : optPercentIdentityDefault;
+            String defaultPercentIdentity = optPercentIdentityDefault;
+            if (hasLongReadFiles) {
+                defaultPercentIdentity = usePacBioPreset ? defaultPercentIdentityPB : defaultPercentIdentityLR;
+            }
             final float percentIdentity = Float.parseFloat(line.getOptionValue(optPercentIdentity.getOpt(), defaultPercentIdentity));
             
-            String defaultMaxIndelSize = hasLongReadFiles ? defaultMaxIndelSizeLR : optIndelSizeDefault;
+            String defaultMaxIndelSize = optIndelSizeDefault;
+            if (hasLongReadFiles) {
+                defaultMaxIndelSize = usePacBioPreset ? defaultMaxIndelSizePB : defaultMaxIndelSizeLR;
+            }
             final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), defaultMaxIndelSize));
             
-            String defaultMaxErrCorrItr = hasLongReadFiles ? defaultMaxErrorCorrItrLR : optErrCorrItrDefault;
+            String defaultMaxErrCorrItr = optErrCorrItrDefault;
+            if (hasLongReadFiles) {
+                defaultMaxErrCorrItr = hasLongReadFiles ? defaultMaxErrorCorrItrPB : defaultMaxErrorCorrItrLR;
+            }
             final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), defaultMaxErrCorrItr));
             
             String defaultMinKmerCov = hasLongReadFiles ? defaultMinCoverageLR : optMinKmerCovDefault;
             int minKmerCov = Integer.parseInt(line.getOptionValue(optMinKmerCov.getOpt(), defaultMinKmerCov));
                         
-            String defaultMaxTipLen = hasLongReadFiles ? defaultMaxTipLengthLR : "-1";
+            String defaultMaxTipLen = "-1";
+            if (hasLongReadFiles) {
+                defaultMaxTipLen = usePacBioPreset ? defaultMaxTipLengthPB : defaultMaxTipLengthLR;
+            }
             final int maxTipLen = Integer.parseInt(line.getOptionValue(optTipLength.getOpt(), defaultMaxTipLen));
             
-            final float longReadOverlapProportion = Float.parseFloat(line.getOptionValue(optLongReadOverlapProportion.getOpt(), optLongReadOverlapProportionDefault));
+            String defaultLongReadOverlapProportion = usePacBioPreset ? defaultLongReadOverlapProportionPB : optLongReadOverlapProportionDefault;
+            final float longReadOverlapProportion = Float.parseFloat(line.getOptionValue(optLongReadOverlapProportion.getOpt(), defaultLongReadOverlapProportion));
             final int longReadMinReadDepth = Integer.parseInt(line.getOptionValue(optLongReadMinReadDepth.getOpt(), optLongReadMinReadDepthDefault));
 //            final int maxMergedClusterSize = Integer.parseInt(line.getOptionValue(optLongReadMaxMergedClusterSize.getOpt(), optLongReadMaxMergedClusterSizeDefault));
             
