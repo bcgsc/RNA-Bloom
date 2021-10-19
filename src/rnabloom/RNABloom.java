@@ -6242,16 +6242,18 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadMinReadDepth);
         
-        String defaultMaxIndelSizePB = "5";
+        String defaultKmerSizePB = "25";
+        String defaultMaxIndelSizePB = "10";
         String defaultMaxTipLengthPB = "10";
         String defaultMaxErrorCorrItrPB = "1";
-        String defaultPercentIdentityPB = "0.9";
-        String defaultLongReadOverlapProportionPB = "0.9";
-        String defaultPacbioPreset = "-indel " + defaultMaxIndelSizePB +
+        String defaultPercentIdentityPB = "0.8";
+        String defaultLongReadOverlapProportionPB = "0.8";
+        String defaultPacbioPreset = "-k" + defaultKmerSizePB +
+                " -indel " + defaultMaxIndelSizePB +
+                " -tip " + defaultMaxTipLengthPB +
                 " -e " + defaultMaxErrorCorrItrPB +
                 " -p " + defaultPercentIdentityPB + 
-                " -lrop " + defaultLongReadOverlapProportionPB +
-                " -tip " + defaultMaxTipLengthPB;
+                " -lrop " + defaultLongReadOverlapProportionPB;
         Option optLongReadPacBioPreset = Option.builder("lrpb")
                                     .desc("use PacBio presets [false].\n(Used in conjunction with `-long` option. Presets `" + 
                                             defaultPacbioPreset + "` unless each option is defined otherwise.)")
@@ -6668,7 +6670,7 @@ public class RNABloom {
             if (mergePool && !pooledGraphMode) {
                 exitOnError("`-mergepool` option requires `-pool` to be used!");
             }
-                        
+            
             String defaultPercentIdentity = optPercentIdentityDefault;
             if (hasLongReadFiles) {
                 defaultPercentIdentity = usePacBioPreset ? defaultPercentIdentityPB : defaultPercentIdentityLR;
@@ -6726,7 +6728,10 @@ public class RNABloom {
             
             boolean useNTCard = line.hasOption(optNtcard.getOpt());
             
-            String defaultK = hasLongReadFiles ? defaultKmerSizeLR : optKmerSizeDefault;
+            String defaultK = optKmerSizeDefault;
+            if (hasLongReadFiles) {
+                defaultK = usePacBioPreset ? defaultKmerSizePB : defaultKmerSizeLR;
+            }
             String kArg = line.getOptionValue(optKmerSize.getOpt(), defaultK);
             int k = Integer.parseInt(defaultK);
             
