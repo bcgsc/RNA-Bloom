@@ -24,7 +24,7 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 * External software used:
 
 | software                                            | short reads            | long reads             |
-| --------------------------------------------------- | ---------------------- | ---------------------- |
+| :-------------------------------------------------- | :--------------------- | :--------------------- |
 | [minimap2](https://github.com/lh3/minimap2)         | required               | required               |
 | [Racon](https://github.com/lbcb-sci/racon)          | not used               | required               |
 | [ntCard](https://github.com/bcgsc/ntCard) >=1.2.1   | required for `-ntcard` | required for `-ntcard` |
@@ -89,7 +89,15 @@ This is especially useful for single-cell datasets. RNA-Bloom was tested on Smar
 This is a tabular file that describes the read file paths for all cells/samples to be used pooled assembly.
 - Column header is on the first line, leading with `#`
 - Columns are separated by space/tab characters
-- Lines sharing the same `name` will be grouped together as the same sample during assembly
+- Each sample can have more than one lines; lines sharing the same `name` will be grouped together during assembly
+
+| column  | description |
+| :------ | :---------- |
+| `name`  | sample name | 
+| `left`  | path to left read file |
+| `right` | path to right read file |
+| `sef`   | path to single-end forward read file |
+| `ser`   | path to single-end reverse read file |
 
 ##### (i) paired-end reads only:
 Only `name`, `left`, and `right` columns are specified for a total of 3 columns. The legacy header-less tri-column format is still supported.
@@ -185,7 +193,7 @@ This sets the total size to 10 GB. If neither `-nk`, `-ntcard`, or `-mem` are us
 java -jar RNA-Bloom.jar -stage N ...
 ```
 | N   | short reads          | long reads           |
-| --- | -------------------- | -------------------- |
+| :-- | :------------------- | :------------------- |
 | 1   | construct graph      | construct graph      |
 | 2   | assemble fragments   | correct reads        |
 | 3   | assemble transcripts | assemble transcripts |
