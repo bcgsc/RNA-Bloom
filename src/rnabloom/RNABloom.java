@@ -6242,16 +6242,14 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadMinReadDepth);
         
-        String defaultKmerSizePB = "25";
-        String defaultMaxIndelSizePB = "10";
+        String defaultKmerSizePB = "35";
+        String defaultMaxIndelSizePB = "30";
         String defaultMaxTipLengthPB = "10";
-        String defaultMaxErrorCorrItrPB = "1";
-        String defaultPercentIdentityPB = "0.8";
-        String defaultLongReadOverlapProportionPB = "0.8";
+        String defaultPercentIdentityPB = "0.7";
+        String defaultLongReadOverlapProportionPB = "0.7";
         String defaultPacbioPreset = "-k" + defaultKmerSizePB +
                 " -indel " + defaultMaxIndelSizePB +
                 " -tip " + defaultMaxTipLengthPB +
-                " -e " + defaultMaxErrorCorrItrPB +
                 " -p " + defaultPercentIdentityPB + 
                 " -lrop " + defaultLongReadOverlapProportionPB;
         Option optLongReadPacBioPreset = Option.builder("lrpb")
@@ -6683,10 +6681,7 @@ public class RNABloom {
             }
             final int maxIndelSize = Integer.parseInt(line.getOptionValue(optIndelSize.getOpt(), defaultMaxIndelSize));
             
-            String defaultMaxErrCorrItr = optErrCorrItrDefault;
-            if (hasLongReadFiles) {
-                defaultMaxErrCorrItr = hasLongReadFiles ? defaultMaxErrorCorrItrPB : defaultMaxErrorCorrItrLR;
-            }
+            String defaultMaxErrCorrItr = hasLongReadFiles ? defaultMaxErrorCorrItrLR : optErrCorrItrDefault;
             final int maxErrCorrItr = Integer.parseInt(line.getOptionValue(optErrCorrItr.getOpt(), defaultMaxErrCorrItr));
             
             String defaultMinKmerCov = hasLongReadFiles ? defaultMinCoverageLR : optMinKmerCovDefault;
