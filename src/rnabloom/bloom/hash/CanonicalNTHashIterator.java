@@ -25,9 +25,11 @@ import static rnabloom.bloom.hash.NTHash.NTMC64;
  */
 public class CanonicalNTHashIterator extends NTHashIterator {
     public final long[] frhval = new long[2];
+    private final int kMinus1Mod64;
 
     public CanonicalNTHashIterator(int k, int h) {
         super(k, h);
+        kMinus1Mod64 = (k-1)%64;
     }
 
     @Override
@@ -36,7 +38,7 @@ public class CanonicalNTHashIterator extends NTHashIterator {
             NTMC64(seq, k, h, ++pos, frhval, hVals);
         }
         else if (pos < max) {
-            NTMC64(seq.charAt(pos), seq.charAt(pos+k), k, h, frhval, hVals);
+            NTMC64(seq.charAt(pos), seq.charAt(pos+k), k, h, frhval, hVals, kMod64, kMinus1Mod64);
             ++pos;
         }
         else {

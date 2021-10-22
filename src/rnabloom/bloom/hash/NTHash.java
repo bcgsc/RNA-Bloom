@@ -488,6 +488,12 @@ public class NTHash {
         return (frhVals[1]<frhVals[0])? frhVals[1] : frhVals[0]; // canonical
     }
 
+    public static long NTPC64(final char charOut, final char charIn, final long[] frhVals, final int kMod64, final int kMinus1Mod64) {
+        frhVals[0] = Long.rotateLeft(frhVals[0], 1) ^ msTab[charOut][kMod64] ^ msTab[charIn][0]; // forward strand
+        frhVals[1] = Long.rotateRight(frhVals[1], 1) ^ msTab[charOut&cpOff][63] ^ msTab[charIn&cpOff][kMinus1Mod64]; // reverse strand
+        return (frhVals[1]<frhVals[0])? frhVals[1] : frhVals[0]; // canonical
+    }
+    
     /**
      * Canonical ntHash for backward-sliding k-mers
      * @param charOut   nucleotide to remove
@@ -715,6 +721,10 @@ public class NTHash {
         NTM64(NTPC64(charOut, charIn, k, frhVals), hVal, k, m);
     }
 
+    public static void NTMC64(final char charOut, final char charIn, final int k, final int m, final long[] frhVals, final long[] hVal, final int kMod64, final int kMinus1Mod64) {
+        NTM64(NTPC64(charOut, charIn, frhVals, kMod64, kMinus1Mod64), hVal, k, m);
+    }
+    
     /**
      * Canonical Multihash ntHash for backward-sliding k-mers
      * @param charOut   nucleotide to remove
