@@ -25,7 +25,7 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 | software                                            | short reads            | long reads             |
 | :-------------------------------------------------- | :--------------------- | :--------------------- |
-| [minimap2](https://github.com/lh3/minimap2)         | required               | required               |
+| [minimap2](https://github.com/lh3/minimap2) >=2.22  | required               | required               |
 | [Racon](https://github.com/lbcb-sci/racon)          | not used               | required               |
 | [ntCard](https://github.com/bcgsc/ntCard) >=1.2.1   | required for `-ntcard` | required for `-ntcard` |
 

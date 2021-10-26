@@ -6218,7 +6218,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optPolyATail);  
         
-        final String optMinimapOptionsDefault = "-K 250M";
+        final String optMinimapOptionsDefault = "-K 250M -e 30";
         Option optMinimapOptions = Option.builder("mmopt")
                                     .desc("options for minimap2 [\"'" + optMinimapOptionsDefault + "'\"]\n(`-x` and `-t` are already in use)")
                                     .hasArg(true)
@@ -7056,14 +7056,14 @@ public class RNABloom {
                         System.exit(0);
                     }
                 }
+                
+                if (!hasLongReadFiles && !assembler.isReadLengthBasedParamsSet) {
+                    // this is necessary for short read assembly
+                    // this condition will be met in a re-run but not a typical fresh run
+                    assembler.setReadLengthBasedParams(assembler.restoreQuartilesFromFile(readStatsFile));
+                }
             }
             
-            if (!hasLongReadFiles && !assembler.isReadLengthBasedParamsSet) {
-                // this is necessary for short read assembly
-                // this condition will be met in a re-run but not a typical fresh run
-                assembler.setReadLengthBasedParams(assembler.restoreQuartilesFromFile(readStatsFile));
-            }
-
             if (pooledGraphMode) {
                 // assemble fragments for each sample
                 int numSamples = pooledLeftReadPaths.size();
