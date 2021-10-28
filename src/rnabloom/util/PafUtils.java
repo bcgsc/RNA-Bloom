@@ -17,18 +17,17 @@
 package rnabloom.util;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
-import rnabloom.olc.ComparableInterval;
 import rnabloom.olc.Interval;
 import static rnabloom.util.IntervalUtils.merge;
 
@@ -188,22 +187,69 @@ public class PafUtils {
         return bestPartner;
     }
     
+    private static class TargetMatch implements Comparable<TargetMatch> {
+        String name;
+        int match, length;
+        int start, end;
+        
+        public TargetMatch(PafRecord r) {
+            this.name = r.tName;
+            this.match = r.numMatch;
+            this.length = r.tLen;
+            this.start = r.tStart;
+            this.end = r.tEnd;
+        }
+        
+        @Override
+        public int compareTo(TargetMatch other) {
+            return other.match - this.match;
+        }
+    }
+    
+    private static boolean isTargetMatchContained(TargetMatch q, Collection<TargetMatch> list) {
+        for (TargetMatch m : list) {
+            if (q.start >= m.start && q.end <= m.end) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     public static HashMap<String, Float> getLengthNormalizedReadCounts(String pafPath, Set<String> skipSet) throws IOException {
         HashMap<String, Float> counts = new HashMap<>();
         
         PafReader reader = new PafReader(pafPath);
+        String prevName = null;
+        ArrayList<TargetMatch> targets = new ArrayList<>();
         for (PafRecord r = new PafRecord(); reader.hasNext();) {
             reader.next(r);
+            if (!r.qName.equals(prevName)) {
+                Collections.sort(targets);
+                
+                ArrayList<TargetMatch> targetsKept = new ArrayList<>();
+                for (TargetMatch m : targets) {
+                    if (!isTargetMatchContained(m, targetsKept)) {
+                        targetsKept.add(m);
+                    }
+                }
+                
+                for (TargetMatch m : targetsKept) {
+                    Float c = counts.get(m.name);
+                    if (c == null) {
+                        c = m.match/(float) m.length;
+                    }
+                    else {
+                        c += m.match/(float) m.length;
+                    }
+                    counts.put(m.name, c);
+                }
+                
+                targets = new ArrayList<>();
+                prevName = r.qName;
+            }
             
             if (!skipSet.contains(r.tName)) {
-                Float c = counts.get(r.tName);
-                if (c == null) {
-                    c = r.numMatch/(float) r.tLen;
-                }
-                else {
-                    c += r.numMatch/(float) r.tLen;
-                }
-                counts.put(r.tName, c);
+                targets.add(new TargetMatch(r));
             }
         }
         reader.close();
