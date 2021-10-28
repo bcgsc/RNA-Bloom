@@ -682,7 +682,7 @@ public class OverlapLayoutConsensus {
         }
         
         if (!minimapOptions.contains("-p")) {
-            minimapOptions += " -p 0";
+            minimapOptions += " -p 0.1";
         }
         
         if (numThreads > 0) {
