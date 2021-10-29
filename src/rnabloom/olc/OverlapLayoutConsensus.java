@@ -211,9 +211,9 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -g 300";
         }
         
-        if (!minimapOptions.contains("-r")) {
-            minimapOptions += " -r " + maxIndelSize;
-        }
+//        if (!minimapOptions.contains("-r")) {
+//            minimapOptions += " -r " + maxIndelSize;
+//        }
         
         if (numThreads > 0) {
             if (numThreads >= 2) {
@@ -466,9 +466,9 @@ public class OverlapLayoutConsensus {
             }
         }
         
-        if (maxIndelSize >= 0 && !minimapOptions.contains("-r ")) {
-            minimapOptions += " -r " + maxIndelSize;
-        }
+//        if (maxIndelSize >= 0 && !minimapOptions.contains("-r ")) {
+//            minimapOptions += " -r " + maxIndelSize;
+//        }
         
 //        if (!minimapOptions.contains("-f ")) {
 //            minimapOptions += " -f 0.0001";
@@ -989,9 +989,9 @@ public class OverlapLayoutConsensus {
         if (!minimapOptionsNoGaps.contains("-g ")) {
             minimapOptionsNoGaps += " -g 300";
         }
-        if (!minimapOptionsNoGaps.contains("-r ")) {
-            minimapOptionsNoGaps += " -r " + maxIndelSize;
-        }
+//        if (!minimapOptionsNoGaps.contains("-r ")) {
+//            minimapOptionsNoGaps += " -r " + maxIndelSize;
+//        }
 
         // 0. overlap seeds
         boolean success = overlapLayout(seedsPath, overlappedSeedsPath,
@@ -1085,9 +1085,9 @@ public class OverlapLayoutConsensus {
         if (!minimapOptionsNoGaps.contains("-g ")) {
             minimapOptionsNoGaps += " -g 300";
         }
-        if (maxIndelSize >= 0 && !minimapOptionsNoGaps.contains("-r ")) {
-            minimapOptionsNoGaps += " -r " + maxIndelSize;
-        }
+//        if (maxIndelSize >= 0 && !minimapOptionsNoGaps.contains("-r ")) {
+//            minimapOptionsNoGaps += " -r " + maxIndelSize;
+//        }
         
         System.gc();
         
