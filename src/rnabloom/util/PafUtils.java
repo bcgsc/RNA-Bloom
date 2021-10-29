@@ -187,32 +187,41 @@ public class PafUtils {
         return bestPartner;
     }
     
-    private static class TargetMatch implements Comparable<TargetMatch> {
-        String name;
-        int match, length;
-        int start, end;
+    private static class Overlap implements Comparable<Overlap> {
+        String tName;
+        int numMatch, tLen;
+        int qStart, qEnd;
         
-        public TargetMatch(PafRecord r) {
-            this.name = r.tName;
-            this.match = r.numMatch;
-            this.length = r.tLen;
-            this.start = r.tStart;
-            this.end = r.tEnd;
+        public Overlap(PafRecord r) {
+            this.tName = r.tName;
+            this.numMatch = r.numMatch;
+            this.tLen = r.tLen;
+            this.qStart = r.qStart;
+            this.qEnd = r.qEnd;
         }
         
         @Override
-        public int compareTo(TargetMatch other) {
-            return other.match - this.match;
+        public int compareTo(Overlap other) {
+            return (other.qEnd - other.qStart) - (this.qEnd - this.qStart);
         }
     }
     
-    private static boolean isTargetMatchContained(TargetMatch q, Collection<TargetMatch> list) {
-        for (TargetMatch m : list) {
-            if (q.start >= m.start && q.end <= m.end) {
+    private static boolean isOverlapContained(Overlap q, Collection<Overlap> list) {
+        for (Overlap m : list) {
+            if (q.qStart >= m.qStart && q.qEnd <= m.qEnd && q.numMatch < m.numMatch * 0.95f) {
                 return true;
             }
         }
         return false;
+    }
+    
+    private static Overlap getOverlapContainer(Overlap q, Collection<Overlap> list) {
+        for (Overlap m : list) {
+            if (q.qStart >= m.qStart && q.qEnd <= m.qEnd) {
+                return m;
+            }
+        }
+        return null;
     }
     
     public static HashMap<String, Float> getLengthNormalizedReadCounts(String pafPath, Set<String> skipSet) throws IOException {
@@ -220,36 +229,90 @@ public class PafUtils {
         
         PafReader reader = new PafReader(pafPath);
         String prevName = null;
-        ArrayList<TargetMatch> targets = new ArrayList<>();
+        ArrayList<Overlap> targets = new ArrayList<>();
         for (PafRecord r = new PafRecord(); reader.hasNext();) {
             reader.next(r);
             if (!r.qName.equals(prevName)) {
-                Collections.sort(targets);
-                
-                ArrayList<TargetMatch> targetsKept = new ArrayList<>();
-                for (TargetMatch m : targets) {
-                    if (!isTargetMatchContained(m, targetsKept)) {
-                        targetsKept.add(m);
-                    }
-                }
-                
-                for (TargetMatch m : targetsKept) {
-                    Float c = counts.get(m.name);
-                    if (c == null) {
-                        c = m.match/(float) m.length;
+                if (!targets.isEmpty()) {
+                    if (targets.size() == 1) {
+                        Overlap t = targets.get(0);
+                        Float c = counts.get(t.tName);
+                        if (c == null) {
+                            c = t.numMatch/(float) t.tLen;
+                        }
+                        else {
+                            c += t.numMatch/(float) t.tLen;
+                        }
+                        counts.put(t.tName, c);
                     }
                     else {
-                        c += m.match/(float) m.length;
+                        Collections.sort(targets);
+
+                        ArrayList<Overlap> targetsKept = new ArrayList<>();
+                        HashMap<Overlap, ArrayList<Overlap>> multiTargets = new HashMap<>();
+                        for (Overlap m : targets) {
+                            Overlap c = getOverlapContainer(m, targetsKept);
+                            if (c == null) {
+                                // region not contained
+                                targetsKept.add(m);
+                            }
+                            else if (m.qEnd - m.qStart >= (c.qEnd - c.qStart) * 0.95f) {
+                                // region multimaps
+                                ArrayList<Overlap> multimaps = multiTargets.get(c);
+                                if (multimaps == null) {
+                                    multimaps = new ArrayList<>();
+                                    multiTargets.put(c, multimaps);
+                                }
+                                multimaps.add(m);
+                            }
+                        }
+
+                        for (Overlap t : targetsKept) {
+                            ArrayList<Overlap> multimaps = multiTargets.get(t);
+                            if (multimaps != null) {
+                                // fractional assignment of multimapped region
+                                float fraction = 1f/(multimaps.size() + 1);
+
+                                Float c = counts.get(t.tName);
+                                if (c == null) {
+                                    c = t.numMatch/(float) t.tLen * fraction;
+                                }
+                                else {
+                                    c += t.numMatch/(float) t.tLen * fraction;
+                                }
+                                counts.put(t.tName, c);
+
+                                for (Overlap mm : multimaps) {
+                                    c = counts.get(mm.tName);
+                                    if (c == null) {
+                                        c = mm.numMatch/(float) mm.tLen * fraction;
+                                    }
+                                    else {
+                                        c += mm.numMatch/(float) mm.tLen * fraction;
+                                    }
+                                    counts.put(mm.tName, c);
+                                }
+                            }
+                            else {
+                                Float c = counts.get(t.tName);
+                                if (c == null) {
+                                    c = t.numMatch/(float) t.tLen;
+                                }
+                                else {
+                                    c += t.numMatch/(float) t.tLen;
+                                }
+                                counts.put(t.tName, c);
+                            }
+                        }
                     }
-                    counts.put(m.name, c);
+
+                    targets = new ArrayList<>();
                 }
-                
-                targets = new ArrayList<>();
                 prevName = r.qName;
             }
             
             if (!skipSet.contains(r.tName)) {
-                targets.add(new TargetMatch(r));
+                targets.add(new Overlap(r));
             }
         }
         reader.close();
