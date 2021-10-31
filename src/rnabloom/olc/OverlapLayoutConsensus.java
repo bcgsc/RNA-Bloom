@@ -207,10 +207,10 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -c";
         }
                 
-        if (!minimapOptions.contains("-g")) {
-            minimapOptions += " -g 300";
-        }
-        
+//        if (!minimapOptions.contains("-g")) {
+//            minimapOptions += " -g 300";
+//        }
+//        
 //        if (!minimapOptions.contains("-r")) {
 //            minimapOptions += " -r " + maxIndelSize;
 //        }
@@ -383,9 +383,9 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -c";
         }
 
-        if (!minimapOptions.contains("-g")) {
-            minimapOptions += " -g 300";
-        }
+//        if (!minimapOptions.contains("-g")) {
+//            minimapOptions += " -g 300";
+//        }
         
         if (numThreads > 0) {
             if (numThreads >= 2) {
@@ -985,10 +985,10 @@ public class OverlapLayoutConsensus {
         deleteIfExists(polishedFastaPath);
         deleteIfExists(outFastaPath);
         
-        String minimapOptionsNoGaps = minimapOptions;
-        if (!minimapOptionsNoGaps.contains("-g ")) {
-            minimapOptionsNoGaps += " -g 300";
-        }
+//        String minimapOptionsNoGaps = minimapOptions;
+//        if (!minimapOptionsNoGaps.contains("-g ")) {
+//            minimapOptionsNoGaps += " -g 300";
+//        }
 //        if (!minimapOptionsNoGaps.contains("-r ")) {
 //            minimapOptionsNoGaps += " -r " + maxIndelSize;
 //        }
@@ -1007,7 +1007,7 @@ public class OverlapLayoutConsensus {
         // 1. map all reads and extract unique reads
         mapWithMinimapAndExtractUnique(readsPath,
             overlappedSeedsPath, uniqueFastaPath,
-            numThreads, true, minimapOptionsNoGaps, stranded,
+            numThreads, true, minimapOptions, stranded,
             maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
             false, minSeqDepth, usePacBioPreset, verbose);
         
@@ -1015,7 +1015,7 @@ public class OverlapLayoutConsensus {
         
         // 2. overlap all reads and cut reads
         STATUS status = overlapWithMinimapAndExtractUnique(uniqueFastaPath, cutFastaPath,
-            numThreads, false, minimapOptionsNoGaps, stranded,
+            numThreads, false, minimapOptions, stranded,
             maxEdgeClip, minAlnId*minAlnId, minOverlapMatches, maxIndelSize,
             minSeqDepth, usePacBioPreset, verbose);
         if (status != STATUS.SUCCESS) {
@@ -1026,7 +1026,7 @@ public class OverlapLayoutConsensus {
         
         // 3. overlap (with alignment) cutted reads and extract unitigs
         status = overlapWithMinimapAndLayoutSimple(cutFastaPath, unitigsFastaPath,
-            numThreads, true, minimapOptionsNoGaps, stranded, maxEdgeClip,
+            numThreads, true, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset, verbose);
         if (status != STATUS.SUCCESS) {
@@ -1037,7 +1037,7 @@ public class OverlapLayoutConsensus {
         
         // 4. align all reads to unitigs
         status = mapWithMinimapFiltered(readsPath, unitigsFastaPath, readsToSimplePafPath,
-            numThreads, minimapOptionsNoGaps, usePacBioPreset, stranded, maxIndelSize,
+            numThreads, minimapOptions, usePacBioPreset, stranded, maxIndelSize,
             minOverlapMatches, minAlnId, maxEdgeClip, verbose);
         if (status != STATUS.SUCCESS) {
             return false;
@@ -1081,10 +1081,10 @@ public class OverlapLayoutConsensus {
         deleteIfExists(polishedSimpleFastaPath);
         deleteIfExists(outFastaPath);
         
-        String minimapOptionsNoGaps = minimapOptions;
-        if (!minimapOptionsNoGaps.contains("-g ")) {
-            minimapOptionsNoGaps += " -g 300";
-        }
+//        String minimapOptionsNoGaps = minimapOptions;
+//        if (!minimapOptionsNoGaps.contains("-g ")) {
+//            minimapOptionsNoGaps += " -g 300";
+//        }
 //        if (maxIndelSize >= 0 && !minimapOptionsNoGaps.contains("-r ")) {
 //            minimapOptionsNoGaps += " -r " + maxIndelSize;
 //        }
@@ -1093,7 +1093,7 @@ public class OverlapLayoutConsensus {
         
         // 1. overlap all reads and extract unique reads
         STATUS status = overlapWithMinimapAndExtractUnique(inFastaPath, uniqueFastaPath,
-            numThreads, false, minimapOptionsNoGaps, stranded,
+            numThreads, false, minimapOptions, stranded,
             maxEdgeClip, minAlnId*minAlnId, minOverlapMatches, maxIndelSize,
             minSeqDepth, usePacBioPreset, verbose);
         if (status != STATUS.SUCCESS) {
@@ -1104,7 +1104,7 @@ public class OverlapLayoutConsensus {
                 
         // 2. overlap (with alignment) unique reads and extract unitigs
         status = overlapWithMinimapAndLayoutSimple(uniqueFastaPath, simpleFastaPath,
-            numThreads, true, minimapOptionsNoGaps, stranded, maxEdgeClip,
+            numThreads, true, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset, verbose);
         if (status != STATUS.SUCCESS) {
@@ -1115,7 +1115,7 @@ public class OverlapLayoutConsensus {
         
         // 3. map all reads to unitigs
         status = mapWithMinimapFiltered(readsPath, simpleFastaPath, readsToSimplePafPath,
-            numThreads, minimapOptionsNoGaps, usePacBioPreset, stranded, maxIndelSize,
+            numThreads, minimapOptions, usePacBioPreset, stranded, maxIndelSize,
             minOverlapMatches, minAlnId, maxEdgeClip, verbose);
         if (status != STATUS.SUCCESS) {
             return false;
@@ -1136,7 +1136,7 @@ public class OverlapLayoutConsensus {
         
         // 5. overlap (with alignment) unitigs and lay out paths
         status = overlapWithMinimapAndLayoutGreedy(polishedSimpleFastaPath, outFastaPath,
-            numThreads, true, minimapOptionsNoGaps, stranded, maxEdgeClip,
+            numThreads, true, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset, readsToSimplePafPath, verbose);
         if (status != STATUS.SUCCESS) {
