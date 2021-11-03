@@ -1081,19 +1081,19 @@ public class OverlapLayoutConsensus {
         deleteIfExists(polishedSimpleFastaPath);
         deleteIfExists(outFastaPath);
         
-//        String minimapOptionsNoGaps = minimapOptions;
-//        if (!minimapOptionsNoGaps.contains("-g ")) {
-//            minimapOptionsNoGaps += " -g 300";
-//        }
-//        if (maxIndelSize >= 0 && !minimapOptionsNoGaps.contains("-r ")) {
-//            minimapOptionsNoGaps += " -r " + maxIndelSize;
-//        }
+        String minimapOptionsNoGaps = minimapOptions;
+        if (!minimapOptionsNoGaps.contains("-g ")) {
+            minimapOptionsNoGaps += " -g 300";
+        }
+        if (maxIndelSize >= 0 && !minimapOptionsNoGaps.contains("-r ")) {
+            minimapOptionsNoGaps += " -r " + maxIndelSize;
+        }
         
         System.gc();
         
         // 1. overlap all reads and extract unique reads
         STATUS status = overlapWithMinimapAndExtractUnique(inFastaPath, uniqueFastaPath,
-            numThreads, false, minimapOptions, stranded,
+            numThreads, false, minimapOptionsNoGaps, stranded,
             maxEdgeClip, minAlnId*minAlnId, minOverlapMatches, maxIndelSize,
             minSeqDepth, usePacBioPreset, verbose);
         if (status != STATUS.SUCCESS) {
