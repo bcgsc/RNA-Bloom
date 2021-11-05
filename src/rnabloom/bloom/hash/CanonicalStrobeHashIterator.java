@@ -17,16 +17,17 @@
 package rnabloom.bloom.hash;
 
 import static rnabloom.bloom.hash.HashFunction.combineHashValues;
+import rnabloom.olc.HashedInterval;
 
 /**
  *
  * @author Ka Ming Nip
  */
 public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface {
-    private int wMin = -1;
-    private int wMax = -1;
-    private int k = -1;
-    private CanonicalNTHashIterator itr = null;
+    private final int wMin;
+    private final int wMax;
+    private final int k;
+    private final CanonicalNTHashIterator itr;
     private int pos = -1;
     private int pos2 = -1;
     private int max = -2;
@@ -43,6 +44,7 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
     @Override
     public boolean start(String seq) {
         pos = -1;
+        pos2 = -1;
         max = -2;
         fHashVals = null;
         rHashVals = null;
@@ -69,15 +71,17 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
         return pos < max;
     }
     
+    @Override
     public long next() {
         ++pos;
         long s1f = fHashVals[pos];
         long s1r = rHashVals[pos];
         
-        pos2 = pos+wMin;
+        pos2 = pos + wMin;
         long strobe = Math.min(combineHashValues(s1f, fHashVals[pos2]), combineHashValues(rHashVals[pos2], s1r));
         
-        for (int i=pos+wMin+1; i<pos+wMax; ++i) {
+        int end = pos + wMax;
+        for (int i=pos+wMin+1; i<end; ++i) {
             long strobe2 = Math.min(combineHashValues(s1f, fHashVals[i]), combineHashValues(rHashVals[i], s1r));
             if (strobe2 < strobe) {
                 pos2 = i;
@@ -85,6 +89,26 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
             }
         }
         return strobe;
+    }
+    
+    @Override
+    public HashedInterval get(int p1) {
+        long s1f = fHashVals[p1];
+        long s1r = rHashVals[p1];
+        
+        int p2 = p1 + wMin;
+        long strobe = Math.min(combineHashValues(s1f, fHashVals[p2]), combineHashValues(rHashVals[p2], s1r));
+        
+        int end = pos + wMax;
+        for (int i=p1+wMin+1; i<end; ++i) {
+            long strobe2 = Math.min(combineHashValues(s1f, fHashVals[i]), combineHashValues(rHashVals[i], s1r));
+            if (strobe2 < strobe) {
+                p2 = i;
+                strobe = strobe2;
+            }
+        }
+        
+        return new HashedInterval(p1, p2, strobe);
     }
     
     @Override
@@ -107,10 +131,11 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
         
         StrobeHashIterator itr = new StrobeHashIterator(15, 20, 70);
         String seq = "";
-        itr.start(seq);
-        while(itr.hasNext()) {
-            itr.next();
-            System.out.println(itr.getPos() + "\t" + itr.getPos2());
+        if (itr.start(seq)) {
+            while(itr.hasNext()) {
+                itr.next();
+                System.out.println(itr.getPos() + "\t" + itr.getPos2());
+            }
         }
     }
 }

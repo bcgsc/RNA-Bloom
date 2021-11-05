@@ -14,20 +14,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package rnabloom.bloom.hash;
-
-import rnabloom.olc.HashedInterval;
+package rnabloom.olc;
 
 /**
  *
  * @author Ka Ming Nip
  */
-public interface StrobeHashIteratorInterface {
-    public boolean start(String seq);
-    public boolean hasNext();
-    public long next();
-    public HashedInterval get(int pos);
-    public int getPos();
-    public int getPos2();
-    public int getMax();
+public class HashedInterval extends Interval {
+    public long hash = Long.MIN_VALUE ;
+    
+    public HashedInterval(int start, int end, long hash) {
+        super(start, end);
+        this.hash = hash;
+    }
 }

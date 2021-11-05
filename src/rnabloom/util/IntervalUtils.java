@@ -24,14 +24,22 @@ import rnabloom.olc.Interval;
  */
 public class IntervalUtils {
     
+    public static boolean isContained(int start1, int end1, int start2, int end2) {
+        return (start1 >= start2 && end1 <= end2) || (start2 >= start1 && end2 <= end1);
+    }
+    
     public static boolean isContained(Interval i1, Interval i2) {
-        return (i1.start >= i2.start && i1.end <= i2.end) || (i2.start >= i1.start && i2.end <= i1.end);
+        return isContained(i1.start, i1.end, i2.start, i2.end);
+    }
+    
+    public static int getOverlap(int start1, int end1, int start2, int end2) {
+        return Math.max(0, Math.min(end1, end2) - Math.max(start1, start2));
     }
     
     public static int getOverlap(Interval i1, Interval i2) {
-        return Math.max(0, Math.min(i1.end, i2.end) - Math.max(i1.start, i2.start));
+        return getOverlap(i1.start, i1.end, i2.start, i2.end);
     }
-    
+        
     public static Interval merge(Interval i1, Interval i2) {
         if (getOverlap(i1, i2) > 0) {
             return new Interval(Math.min(i1.start, i2.start), Math.max(i1.end, i2.end));

@@ -35,6 +35,7 @@ import rnabloom.bloom.hash.StrobeHashIteratorInterface;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.FastaWriterWorker;
 import rnabloom.olc.ComparableInterval;
+import rnabloom.olc.HashedInterval;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.SeqUtils.compressHomoPolymers;
 
@@ -351,23 +352,35 @@ public class SeqSubsampler {
             if (strobeItr.start(seq)) {
                 boolean write = false;
                 int numKmers = seq.length() - k + 1;
-                HashSet<Long> hashVals = new HashSet<>();
+                int numStrobes = strobeItr.getMax();
+                
+                HashedInterval[] strobes = new HashedInterval[numStrobes];
+                boolean[] seen = new boolean[numStrobes];
+                
+                // extract all strobemers in parallel and look up their multiplicities
+                IntStream.range(0, numStrobes).parallel().forEach(i -> {
+                    HashedInterval s = strobeItr.get(i);
+                    strobes[i] = s;
+                    seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
+                });
+                
+                // hash values are stored in a set to avoid double-counting
+                HashSet<Long> hashVals = new HashSet<>(numStrobes * 4/3);
 
+                // check whether stobemers with sufficient multiplicites are present and overlap
                 ComparableInterval namInterval = null;
-
-                while (strobeItr.hasNext()) {
-                    long hval = strobeItr.next();
-                    hashVals.add(hval);
+                for (HashedInterval s : strobes) {
+                    hashVals.add(s.hash);
                     if (!write) {
-                        int pos1 = strobeItr.getPos();
-                        int pos2 = strobeItr.getPos2();
+                        int pos1 = s.start;
+                        int pos2 = s.end;
 
-                        if (cbf.getCount(hval) >= maxMultiplicity) {
+                        if (seen[pos1]) {
                             if (namInterval == null) {
                                 namInterval = new ComparableInterval(pos1, pos2);
                             }
                             else {
-                                if (!namInterval.merge(new ComparableInterval(pos1, pos2))) {
+                                if (!namInterval.merge(pos1, pos2)) {
                                     write = true;
                                 }
                             }
@@ -390,6 +403,7 @@ public class SeqSubsampler {
                     ++numSubsample;
                 }
 
+                // increment strobemer multiplicities in parallel
                 hashVals.parallelStream().forEach(e -> {
                     cbf.increment(e);
                 });
