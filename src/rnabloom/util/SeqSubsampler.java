@@ -26,11 +26,15 @@ import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
 import rnabloom.bloom.hash.CanonicalNTHashIterator;
+import rnabloom.bloom.hash.CanonicalStrobeHashIterator;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
+import rnabloom.bloom.hash.StrobeHashIterator;
+import rnabloom.bloom.hash.StrobeHashIteratorInterface;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.FastaWriterWorker;
+import rnabloom.olc.ComparableInterval;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.SeqUtils.compressHomoPolymers;
 
@@ -297,6 +301,98 @@ public class SeqSubsampler {
                         });
                     }
                 }
+            }
+        }
+        
+        subWriterWorker.terminateWhenInputExhausts();
+        
+        fpr = cbf.getFPR();
+        cbf.destroy();
+        
+        subWriterThread.join();
+        subWriter.close();
+        
+        if (verbose) {
+            System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(fpr) + " %");
+            System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
+                                "\tafter: " + NumberFormat.getInstance().format(numSubsample) +
+                                " (" + convertToRoundedPercent(numSubsample/(float)numSeq) + " %)");
+        }
+             
+    }
+    
+    public static void strobemerBased(ArrayList<? extends BitSequence> seqs,
+            String outSubsampleFasta,
+            long bfSize, int k, int numHash, boolean stranded, 
+            int maxMultiplicity, int maxEdgeClip, boolean verbose) throws IOException, InterruptedException {
+                
+        int numSeq = seqs.size();
+        
+        int numSubsample = 0;
+        int wMin = 20;
+        int wMax = 70;
+        maxEdgeClip = Math.max(maxEdgeClip, wMax);
+        float fpr;
+
+        ConcurrentLinkedQueue<String> subQueue = new ConcurrentLinkedQueue<>();
+        FastaWriter subWriter  = new FastaWriter(outSubsampleFasta, false);
+        FastaWriterWorker subWriterWorker = new FastaWriterWorker(subQueue, subWriter, "s");
+        Thread subWriterThread = new Thread(subWriterWorker);
+        subWriterThread.start();
+                
+        HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
+        CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
+        
+        StrobeHashIteratorInterface strobeItr = stranded ? new StrobeHashIterator(k, wMin, wMax) : new CanonicalStrobeHashIterator(k, wMin, wMax);
+
+        for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
+            String seq = seqs.get(seqIndex).toString();
+
+            if (strobeItr.start(seq)) {
+                boolean write = false;
+                int numKmers = seq.length() - k + 1;
+                HashSet<Long> hashVals = new HashSet<>();
+
+                ComparableInterval namInterval = null;
+
+                while (strobeItr.hasNext()) {
+                    long hval = strobeItr.next();
+                    hashVals.add(hval);
+                    if (!write) {
+                        int pos1 = strobeItr.getPos();
+                        int pos2 = strobeItr.getPos2();
+
+                        if (cbf.getCount(hval) >= maxMultiplicity) {
+                            if (namInterval == null) {
+                                namInterval = new ComparableInterval(pos1, pos2);
+                            }
+                            else {
+                                if (!namInterval.merge(new ComparableInterval(pos1, pos2))) {
+                                    write = true;
+                                }
+                            }
+                        }
+
+                        if (pos1 > maxEdgeClip) {
+                            if (namInterval == null || namInterval.end < pos1) {
+                                write = true;
+                            }
+                        }
+                    }
+                }
+
+                if (namInterval == null || namInterval.end < numKmers - maxEdgeClip) {
+                    write = true;
+                }
+
+                if (write) {
+                    subQueue.add(seq);
+                    ++numSubsample;
+                }
+
+                hashVals.parallelStream().forEach(e -> {
+                    cbf.increment(e);
+                });
             }
         }
         

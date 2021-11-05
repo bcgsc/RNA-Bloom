@@ -7215,7 +7215,7 @@ public class RNABloom {
                         System.out.println("Extracting seed sequences...");
                         Collections.sort(correctedReads);
                         int subK = k/2;
-                        SeqSubsampler.kmerBased(correctedReads, seedReadsPath,
+                        SeqSubsampler.strobemerBased(correctedReads, seedReadsPath,
                                 dbgbfSize + cbfSize, subK, dbgbfNumHash, strandSpecific, 
                                 Math.max(2, longReadMinReadDepth), maxTipLen, true);
     //                    SeqSubsampler.minimalSet(correctedReads, seedReadsPath,
