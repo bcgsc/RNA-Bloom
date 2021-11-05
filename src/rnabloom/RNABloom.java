@@ -6218,7 +6218,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optPolyATail);  
         
-        final String optMinimapOptionsDefault = "-K 250M -e 25";
+        final String optMinimapOptionsDefault = "-K 250M -e 25 -f 0.00001";
         Option optMinimapOptions = Option.builder("mmopt")
                                     .desc("options for minimap2 [\"'" + optMinimapOptionsDefault + "'\"]\n(`-x` and `-t` are already in use)")
                                     .hasArg(true)
