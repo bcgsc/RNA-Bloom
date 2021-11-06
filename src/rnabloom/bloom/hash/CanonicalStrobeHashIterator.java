@@ -99,7 +99,7 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
         int p2 = p1 + wMin;
         long strobe = Math.min(combineHashValues(s1f, fHashVals[p2]), combineHashValues(rHashVals[p2], s1r));
         
-        int end = pos + wMax;
+        int end = p1 + wMax;
         for (int i=p1+wMin+1; i<end; ++i) {
             long strobe2 = Math.min(combineHashValues(s1f, fHashVals[i]), combineHashValues(rHashVals[i], s1r));
             if (strobe2 < strobe) {

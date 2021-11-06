@@ -352,7 +352,7 @@ public class SeqSubsampler {
             if (strobeItr.start(seq)) {
                 boolean write = false;
                 int numKmers = seq.length() - k + 1;
-                int numStrobes = strobeItr.getMax();
+                int numStrobes = strobeItr.getMax() + 1;
                 
                 HashedInterval[] strobes = new HashedInterval[numStrobes];
                 boolean[] seen = new boolean[numStrobes];
