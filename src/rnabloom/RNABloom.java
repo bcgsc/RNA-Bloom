@@ -7217,13 +7217,8 @@ public class RNABloom {
                         int subK = k/2;
                         SeqSubsampler.strobemerBased(correctedReads, seedReadsPath,
                                 dbgbfSize + cbfSize, subK, dbgbfNumHash, strandSpecific, 
-                                Math.max(2, longReadMinReadDepth), maxTipLen, true);
-    //                    SeqSubsampler.minimalSet(correctedReads, seedReadsPath,
-    //                        dbgbfSize, k, dbgbfNumHash, strandSpecific, false, k,
-    //                        10, 0.9f, minTranscriptLength);
-    //                    SeqSubsampler.minimizerBased(correctedReads, seedReadsPath,
-    //                            cbfSize, k, k, cbfNumHash, strandSpecific, false,
-    //                            minTranscriptLength/k, 0.75f, 2);
+                                Math.max(2, longReadMinReadDepth), maxTipLen, true,
+                                numThreads);
                         System.out.println("Extraction completed in " + myTimer.elapsedDHMS());
                     }
                     

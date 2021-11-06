@@ -21,6 +21,8 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
@@ -118,7 +120,8 @@ public class SeqSubsampler {
     public static void kmerBased(ArrayList<? extends BitSequence> seqs,
             String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded, 
-            int maxMultiplicity, int maxEdgeClip, boolean verbose) throws IOException, InterruptedException {
+            int maxMultiplicity, int maxEdgeClip, boolean verbose,
+            int numThreads) throws IOException, InterruptedException, ExecutionException {
                 
         int numSeq = seqs.size();
         
@@ -136,6 +139,7 @@ public class SeqSubsampler {
         subWriterThread.start();
         
         CountingBloomFilter cbf;
+        ForkJoinPool customThreadPool = new ForkJoinPool(numThreads);
         
         if (stranded) {
             HashFunction h = new HashFunction(k);
@@ -171,10 +175,12 @@ public class SeqSubsampler {
 
                     // look up counts of k-mer pairs
                     final boolean[] seen = new boolean[end - start];
-                    IntStream.range(start, end).parallel().forEach(i -> {
-                        long pair = HashFunction.combineHashValues(kmerHashVals[i], kmerHashVals[i + shift]);
-                        seen[i - start] = cbf.getCount(pair) >= maxMultiplicity;
-                    });
+                    customThreadPool.submit(() ->
+                        IntStream.range(start, end).parallel().forEach(i -> {
+                            long pair = HashFunction.combineHashValues(kmerHashVals[i], kmerHashVals[i + shift]);
+                            seen[i - start] = cbf.getCount(pair) >= maxMultiplicity;
+                        })
+                    ).get();
                     
                     // look for k-mer pairs not seen
                     for (boolean s : seen) {
@@ -209,9 +215,11 @@ public class SeqSubsampler {
                             hashVals.add(HashFunction.combineHashValues(kmerHashVals[i], kmerHashVals[i + shiftD]));
                         }
 
-                        hashVals.parallelStream().forEach(e -> {
-                            cbf.increment(e);
-                        });
+                        customThreadPool.submit(() ->
+                            hashVals.parallelStream().forEach(e -> {
+                                cbf.increment(e);
+                            })
+                        ).get();
                     }
                 }
             }
@@ -252,11 +260,13 @@ public class SeqSubsampler {
                     
                     // look up counts of k-mer pairs
                     final boolean[] seen = new boolean[end - start];
-                    IntStream.range(start, end).parallel().forEach(i -> {
-                        long pairF = HashFunction.combineHashValues(forwardKmerHashVals[i], forwardKmerHashVals[i + shift]);
-                        long pairR = HashFunction.combineHashValues(reverseKmerHashVals[i + shift], reverseKmerHashVals[i]);
-                        seen[i - start] = cbf.getCount(Math.min(pairF, pairR)) >= maxMultiplicity;
-                    });
+                    customThreadPool.submit(() -> 
+                        IntStream.range(start, end).parallel().forEach(i -> {
+                            long pairF = HashFunction.combineHashValues(forwardKmerHashVals[i], forwardKmerHashVals[i + shift]);
+                            long pairR = HashFunction.combineHashValues(reverseKmerHashVals[i + shift], reverseKmerHashVals[i]);
+                            seen[i - start] = cbf.getCount(Math.min(pairF, pairR)) >= maxMultiplicity;
+                        })
+                    ).get();
                     
                     // look for k-mer pairs not seen
                     for (boolean s : seen) {
@@ -297,9 +307,11 @@ public class SeqSubsampler {
                             hashVals.add(Math.min(pairF, pairR));
                         }
 
-                        hashVals.parallelStream().forEach(e -> {
-                            cbf.increment(e);
-                        });
+                        customThreadPool.submit(() ->
+                            hashVals.parallelStream().forEach(e -> {
+                                cbf.increment(e);
+                            })
+                        ).get();
                     }
                 }
             }
@@ -312,6 +324,7 @@ public class SeqSubsampler {
         
         subWriterThread.join();
         subWriter.close();
+        customThreadPool.shutdown();
         
         if (verbose) {
             System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(fpr) + " %");
@@ -325,7 +338,8 @@ public class SeqSubsampler {
     public static void strobemerBased(ArrayList<? extends BitSequence> seqs,
             String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded, 
-            int maxMultiplicity, int maxEdgeClip, boolean verbose) throws IOException, InterruptedException {
+            int maxMultiplicity, int maxEdgeClip, boolean verbose,
+            int numThreads) throws IOException, InterruptedException, ExecutionException {
                 
         int numSeq = seqs.size();
         
@@ -345,6 +359,7 @@ public class SeqSubsampler {
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         
         StrobeHashIteratorInterface strobeItr = stranded ? new StrobeHashIterator(k, wMin, wMax) : new CanonicalStrobeHashIterator(k, wMin, wMax);
+        ForkJoinPool customThreadPool = new ForkJoinPool(numThreads);
 
         for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
             String seq = seqs.get(seqIndex).toString();
@@ -358,11 +373,13 @@ public class SeqSubsampler {
                 boolean[] seen = new boolean[numStrobes];
                 
                 // extract all strobemers in parallel and look up their multiplicities
-                IntStream.range(0, numStrobes).parallel().forEach(i -> {
-                    HashedInterval s = strobeItr.get(i);
-                    strobes[i] = s;
-                    seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
-                });
+                customThreadPool.submit(() ->
+                    IntStream.range(0, numStrobes).parallel().forEach(i -> {
+                        HashedInterval s = strobeItr.get(i);
+                        strobes[i] = s;
+                        seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
+                    })
+                ).get();
                 
                 // hash values are stored in a set to avoid double-counting
                 HashSet<Long> hashVals = new HashSet<>(numStrobes * 4/3);
@@ -404,9 +421,11 @@ public class SeqSubsampler {
                 }
 
                 // increment strobemer multiplicities in parallel
-                hashVals.parallelStream().forEach(e -> {
-                    cbf.increment(e);
-                });
+                customThreadPool.submit(() ->
+                    hashVals.parallelStream().forEach(e -> {
+                        cbf.increment(e);
+                    })
+                ).get();
             }
         }
         
@@ -417,6 +436,7 @@ public class SeqSubsampler {
         
         subWriterThread.join();
         subWriter.close();
+        customThreadPool.shutdown();
         
         if (verbose) {
             System.out.println("Bloom filter FPR:\t" + convertToRoundedPercent(fpr) + " %");
