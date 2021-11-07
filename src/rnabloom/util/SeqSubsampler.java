@@ -339,14 +339,13 @@ public class SeqSubsampler {
             String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose,
-            int numThreads) throws IOException, InterruptedException, ExecutionException {
+            int numThreads, int maxIndelSize) throws IOException, InterruptedException, ExecutionException {
                 
         int numSeq = seqs.size();
         
         int numSubsample = 0;
-        int wMin = 20;
-        int wMax = 70;
-        maxEdgeClip = Math.max(maxEdgeClip, wMax);
+        int wMin = k + 1;
+        int wMax = k + Math.max(k, maxIndelSize);
         float fpr;
 
         ConcurrentLinkedQueue<String> subQueue = new ConcurrentLinkedQueue<>();

@@ -7218,7 +7218,7 @@ public class RNABloom {
                         SeqSubsampler.strobemerBased(correctedReads, seedReadsPath,
                                 dbgbfSize + cbfSize, subK, dbgbfNumHash, strandSpecific, 
                                 Math.max(2, longReadMinReadDepth), maxTipLen, true,
-                                numThreads);
+                                numThreads, maxIndelSize);
                         System.out.println("Extraction completed in " + myTimer.elapsedDHMS());
                     }
                     
