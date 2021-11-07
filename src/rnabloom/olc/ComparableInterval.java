@@ -39,4 +39,13 @@ public class ComparableInterval extends Interval implements Comparable<Interval>
         }
         return c;
     }
+    
+    public static void main(String[] args) {
+        //debug
+        ComparableInterval itv = new ComparableInterval(100, 200);
+        System.out.println(itv.merge(0, 90));
+        System.out.println(itv.merge(210, 300));
+        System.out.println(itv.merge(110, 190));
+        System.out.println(itv.merge(150, 250));
+    }
 }
