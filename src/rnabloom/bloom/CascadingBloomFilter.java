@@ -59,6 +59,10 @@ public class CascadingBloomFilter implements BloomFilterInterface {
         add(hashVals);
     }
 
+    public void add(long hashVal) {
+        add(this.hashFunction.getHashValues(hashVal, numHash));
+    }
+    
     public void add(long[] hashVals) {
         for (BloomFilter bf : bfs) {
             if (!bf.lookupThenAdd(hashVals)) {
@@ -74,6 +78,10 @@ public class CascadingBloomFilter implements BloomFilterInterface {
         return lookup(hashVals);
     }
 
+    public boolean lookup(long hashVal) {
+        return topLevelBf.lookup(hashVal);
+    }
+    
     public boolean lookup(long[] hashVals) {
         return topLevelBf.lookup(hashVals);
     }
