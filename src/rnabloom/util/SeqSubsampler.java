@@ -18,6 +18,7 @@ package rnabloom.util;
 
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -384,33 +385,30 @@ public class SeqSubsampler {
                 HashSet<Long> hashVals = new HashSet<>(numStrobes * 4/3);
 
                 // check whether stobemers with sufficient multiplicites are present and overlap
-                ComparableInterval namInterval = null;
+                ArrayDeque<ComparableInterval> namIntervals = new ArrayDeque<>();
                 for (HashedInterval s : strobes) {
                     hashVals.add(s.hash);
-                    if (!write) {
-                        int pos1 = s.start;
-                        int pos2 = s.end;
+                    int pos1 = s.start;
+                    int pos2 = s.end;
 
-                        if (seen[pos1]) {
-                            if (namInterval == null) {
-                                namInterval = new ComparableInterval(pos1, pos2);
-                            }
-                            else {
-                                if (!namInterval.merge(pos1, pos2)) {
-                                    write = true;
-                                }
-                            }
+                    if (seen[pos1]) {
+                        if (namIntervals.isEmpty()) {
+                            namIntervals.add(new ComparableInterval(pos1, pos2));
                         }
-
-                        if (pos1 > maxEdgeClip) {
-                            if (namInterval == null || namInterval.end < pos1) {
+                        else {
+                            if (!namIntervals.getLast().merge(pos1, pos2)) {
+                                namIntervals.add(new ComparableInterval(pos1, pos2));
                                 write = true;
                             }
                         }
                     }
                 }
 
-                if (namInterval == null || namInterval.end < numKmers - maxEdgeClip) {
+                if (!write &&
+                        (namIntervals.isEmpty() ||
+                        namIntervals.size() > 1 ||
+                        namIntervals.getFirst().start > maxEdgeClip ||
+                        namIntervals.getLast().end < numKmers - maxEdgeClip)) {
                     write = true;
                 }
 
