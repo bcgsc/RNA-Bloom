@@ -346,7 +346,7 @@ public class SeqSubsampler {
         
         int numSubsample = 0;
         int wMin = k + 1;
-        int wMax = k + Math.max(k, maxIndelSize);
+        int wMax = Math.max(k + k, maxIndelSize);
         float fpr;
 
         ConcurrentLinkedQueue<String> subQueue = new ConcurrentLinkedQueue<>();
