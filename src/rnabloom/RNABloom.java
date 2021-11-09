@@ -6259,9 +6259,9 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadPacBioPreset);
         
-        final String optSubsampleLongReadDefault = "true";
+        final String optSubsampleLongReadDefault = "3,11";
         Option optSubsampleLongRead = Option.builder("lrsub")
-                                    .desc("subsample long reads before assembly [" + optSubsampleLongReadDefault + "]")
+                                    .desc("subsample long reads before assembly using strobemers (order,size) [" + optSubsampleLongReadDefault + "]")
                                     .hasArg(true)
                                     .build();
         options.addOption(optSubsampleLongRead);
@@ -6648,7 +6648,23 @@ public class RNABloom {
             final boolean outputNrTxpts = mergePool ? true : !line.hasOption(optNoReduce.getOpt());
             final String minimapOptions = line.getOptionValue(optMinimapOptions.getOpt(), optMinimapOptionsDefault);
             final boolean usePacBioPreset = line.hasOption(optLongReadPacBioPreset.getOpt());
-            final boolean subsampleLongReads = Boolean.parseBoolean(line.getOptionValue(optSubsampleLongRead.getOpt(), optSubsampleLongReadDefault));
+            
+            boolean subsampleLongReads = false;
+            int strobemerOrder = 3;
+            int strobemerSize = 11;
+            String subsampleLongReadsArg = line.getOptionValue(optSubsampleLongRead.getOpt(), optSubsampleLongReadDefault);
+            String[] subsampleLongReadsArgVals = subsampleLongReadsArg.split(",");
+            if (subsampleLongReadsArgVals.length == 2) {
+                try {
+                    strobemerOrder = Integer.parseInt(subsampleLongReadsArgVals[0]);
+                    strobemerSize = Integer.parseInt(subsampleLongReadsArgVals[1]);
+                    subsampleLongReads = true;
+                }
+                catch (NumberFormatException e) {
+                    
+                }
+            }
+            
             /*
             final boolean useCompressedMinimizers = line.hasOption(optHomopolymerCompressed.getOpt());
             final int minimizerSize = Integer.parseInt(line.getOptionValue(optMinimizerSize.getOpt(), optMinimizerSizeDefault));
@@ -7214,9 +7230,9 @@ public class RNABloom {
                         myTimer.start();
                         System.out.println("Extracting seed sequences...");
                         Collections.sort(correctedReads);
-                        int subK = 11;
                         SeqSubsampler.strobemerBased(correctedReads, seedReadsPath,
-                                dbgbfSize + cbfSize, subK, dbgbfNumHash, strandSpecific, 
+                                dbgbfSize + cbfSize, strobemerOrder, strobemerSize,
+                                dbgbfNumHash, strandSpecific, 
                                 Math.max(2, longReadMinReadDepth), maxTipLen, true,
                                 numThreads, maxIndelSize);
                         System.out.println("Extraction completed in " + myTimer.elapsedDHMS());

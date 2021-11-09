@@ -339,7 +339,7 @@ public class SeqSubsampler {
     
     public static void strobemerBased(ArrayList<? extends BitSequence> seqs,
             String outSubsampleFasta,
-            long bfSize, int k, int numHash, boolean stranded, 
+            long bfSize, int order, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose,
             int numThreads, int maxIndelSize) throws IOException, InterruptedException, ExecutionException {
                 
@@ -393,17 +393,19 @@ public class SeqSubsampler {
                 ArrayDeque<ComparableInterval> namIntervals = new ArrayDeque<>();
                 for (HashedPositions s : strobes) {
                     hashVals.add(s.hash);
-                    int pos1 = s.pos[0];
-                    int pos2 = s.pos[lastStrobeIndex];
+                    if (!write) {
+                        int pos1 = s.pos[0];
+                        int pos2 = s.pos[lastStrobeIndex];
 
-                    if (seen[pos1]) {
-                        if (namIntervals.isEmpty()) {
-                            namIntervals.add(new ComparableInterval(pos1, pos2));
-                        }
-                        else {
-                            if (!namIntervals.getLast().merge(pos1, pos2)) {
+                        if (seen[pos1]) {
+                            if (namIntervals.isEmpty()) {
                                 namIntervals.add(new ComparableInterval(pos1, pos2));
-                                write = true;
+                            }
+                            else {
+                                if (!namIntervals.getLast().merge(pos1, pos2)) {
+                                    namIntervals.add(new ComparableInterval(pos1, pos2));
+                                    write = true;
+                                }
                             }
                         }
                     }
