@@ -16,17 +16,16 @@
  */
 package rnabloom.bloom.hash;
 
-
 /**
  *
  * @author Ka Ming Nip
  */
-public interface StrobeHashIteratorInterface {
-    public boolean start(String seq);
-    public boolean hasNext();
-    public long next();
-    public HashedPositions get(int pos);
-    public int getPos();
-    public int[] getStrobes();
-    public int getMax();
+public class HashedPositions {
+    public long hash;
+    public int[] pos;
+    
+    public HashedPositions(long hash, int[] pos) {
+        this.hash = hash;
+        this.pos = pos;
+    }
 }

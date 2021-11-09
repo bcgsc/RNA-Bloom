@@ -31,6 +31,7 @@ import rnabloom.bloom.hash.CanonicalHashFunction;
 import rnabloom.bloom.hash.CanonicalNTHashIterator;
 import rnabloom.bloom.hash.CanonicalStrobeHashIterator;
 import rnabloom.bloom.hash.HashFunction;
+import rnabloom.bloom.hash.HashedPositions;
 import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
 import rnabloom.bloom.hash.StrobeHashIterator;
@@ -345,10 +346,8 @@ public class SeqSubsampler {
         int numSeq = seqs.size();
         
         int numSubsample = 0;
-        int wMin = k + 1;
-        int wMax = Math.max(k + k, maxIndelSize);
-        float fpr;
-
+        int numTooShort = 0;
+        
         ConcurrentLinkedQueue<String> subQueue = new ConcurrentLinkedQueue<>();
         FastaWriter subWriter  = new FastaWriter(outSubsampleFasta, false);
         FastaWriterWorker subWriterWorker = new FastaWriterWorker(subQueue, subWriter, "s");
@@ -358,7 +357,13 @@ public class SeqSubsampler {
         HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         
-        StrobeHashIteratorInterface strobeItr = stranded ? new StrobeHashIterator(k, wMin, wMax) : new CanonicalStrobeHashIterator(k, wMin, wMax);
+        int n = 3;
+        int lastStrobeIndex = n - 1;
+        int wMin = k + 1;
+        int wMax = k + Math.max(k, maxIndelSize);
+        System.out.println("n=" + n + ", k=" + k + ", wMin=" + wMin + ", wMax=" + wMax);
+        
+        StrobeHashIteratorInterface strobeItr = stranded ? new StrobeHashIterator(n, k, wMin, wMax) : new CanonicalStrobeHashIterator(n, k, wMin, wMax);
         ForkJoinPool customThreadPool = new ForkJoinPool(numThreads);
 
         for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
@@ -369,13 +374,13 @@ public class SeqSubsampler {
                 int numKmers = seq.length() - k + 1;
                 int numStrobes = strobeItr.getMax() + 1;
                 
-                HashedInterval[] strobes = new HashedInterval[numStrobes];
+                HashedPositions[] strobes = new HashedPositions[numStrobes];
                 boolean[] seen = new boolean[numStrobes];
                 
                 // extract all strobemers in parallel and look up their multiplicities
                 customThreadPool.submit(() ->
                     IntStream.range(0, numStrobes).parallel().forEach(i -> {
-                        HashedInterval s = strobeItr.get(i);
+                        HashedPositions s = strobeItr.get(i);
                         strobes[i] = s;
                         seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
                     })
@@ -386,10 +391,10 @@ public class SeqSubsampler {
 
                 // check whether stobemers with sufficient multiplicites are present and overlap
                 ArrayDeque<ComparableInterval> namIntervals = new ArrayDeque<>();
-                for (HashedInterval s : strobes) {
+                for (HashedPositions s : strobes) {
                     hashVals.add(s.hash);
-                    int pos1 = s.start;
-                    int pos2 = s.end;
+                    int pos1 = s.pos[0];
+                    int pos2 = s.pos[lastStrobeIndex];
 
                     if (seen[pos1]) {
                         if (namIntervals.isEmpty()) {
@@ -424,11 +429,16 @@ public class SeqSubsampler {
                     })
                 ).get();
             }
+            else {
+                ++numTooShort;
+                subQueue.add(seq);
+                ++numSubsample;
+            }
         }
         
         subWriterWorker.terminateWhenInputExhausts();
         
-        fpr = cbf.getFPR();
+        float fpr = cbf.getFPR();
         cbf.destroy();
         
         subWriterThread.join();
@@ -440,6 +450,7 @@ public class SeqSubsampler {
             System.out.println("before: " + NumberFormat.getInstance().format(numSeq) + 
                                 "\tafter: " + NumberFormat.getInstance().format(numSubsample) +
                                 " (" + convertToRoundedPercent(numSubsample/(float)numSeq) + " %)");
+            System.out.println("too short: " + NumberFormat.getInstance().format(numTooShort));
         }
              
     }

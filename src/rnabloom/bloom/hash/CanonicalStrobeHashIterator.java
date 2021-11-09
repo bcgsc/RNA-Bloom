@@ -16,6 +16,8 @@
  */
 package rnabloom.bloom.hash;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import static rnabloom.bloom.hash.HashFunction.combineHashValues;
 import rnabloom.olc.HashedInterval;
 
@@ -29,12 +31,15 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
     private final int k;
     private final CanonicalNTHashIterator itr;
     private int pos = -1;
-    private int pos2 = -1;
     private int max = -2;
     private long[] fHashVals = null;
     private long[] rHashVals = null;
+    private int n;
+    private int[] strobes;
     
-    public CanonicalStrobeHashIterator(int k, int wMin, int wMax) {
+    public CanonicalStrobeHashIterator(int n, int k, int wMin, int wMax) {
+        this.n = n;
+        this.strobes = new int[n-1];
         this.wMin = wMin;
         this.wMax = wMax;
         this.k = k;
@@ -44,16 +49,16 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
     @Override
     public boolean start(String seq) {
         pos = -1;
-        pos2 = -1;
+        Arrays.fill(strobes, 0);
         max = -2;
         fHashVals = null;
         rHashVals = null;
         if (itr.start(seq)) {
             int numKmers = seq.length() - k + 1;
-            if (numKmers > wMax) {
+            if (numKmers > wMax * (n-1)) {
                 fHashVals = new long[numKmers];
                 rHashVals = new long[numKmers];
-                max = numKmers - wMax;
+                max = numKmers - wMax * (n-1);
                 for (int i=0; i<numKmers; ++i) {
                     itr.next();
                     fHashVals[i] = itr.frhval[0];
@@ -74,41 +79,63 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
     @Override
     public long next() {
         ++pos;
-        long s1f = fHashVals[pos];
-        long s1r = rHashVals[pos];
+        long strobemerHash = fHashVals[pos];
         
-        pos2 = pos + wMin;
-        long strobe = Math.min(combineHashValues(s1f, fHashVals[pos2]), combineHashValues(rHashVals[pos2], s1r));
-        
-        int end = pos + wMax;
-        for (int i=pos+wMin+1; i<end; ++i) {
-            long strobe2 = Math.min(combineHashValues(s1f, fHashVals[i]), combineHashValues(rHashVals[i], s1r));
-            if (strobe2 < strobe) {
-                pos2 = i;
-                strobe = strobe2;
+        for (int s=0; s<n-1; ++s) {
+            int pos2 = pos + s*wMax + wMin;
+            long h = combineHashValues(strobemerHash, fHashVals[pos2]);
+            
+            int end = pos + s*wMax + wMax;
+            for (int i=pos + s*wMax + wMin +1; i<end; ++i) {
+                long h2 = combineHashValues(strobemerHash, fHashVals[i]);
+                if (Long.compareUnsigned(h, h2) > 0) {
+                    pos2 = i;
+                    h = h2;
+                }
             }
+            
+            strobemerHash = h;
+            strobes[s] = pos2;
         }
-        return strobe;
+        
+        long rStrobemerHash = rHashVals[strobes[n-2]];
+        for (int s=n-3; s>=0; --s) {
+            rStrobemerHash = combineHashValues(rHashVals[strobes[s]], rStrobemerHash);
+        }
+        rStrobemerHash = combineHashValues(rHashVals[pos], rStrobemerHash);
+        
+        return Math.min(strobemerHash, rStrobemerHash);
     }
     
     @Override
-    public HashedInterval get(int p1) {
-        long s1f = fHashVals[p1];
-        long s1r = rHashVals[p1];
+    public HashedPositions get(int p1) {
+        long strobemerHash = fHashVals[p1];
+        int[] positions = new int[n];
+        positions[0] = p1;
         
-        int p2 = p1 + wMin;
-        long strobe = Math.min(combineHashValues(s1f, fHashVals[p2]), combineHashValues(rHashVals[p2], s1r));
-        
-        int end = p1 + wMax;
-        for (int i=p1+wMin+1; i<end; ++i) {
-            long strobe2 = Math.min(combineHashValues(s1f, fHashVals[i]), combineHashValues(rHashVals[i], s1r));
-            if (strobe2 < strobe) {
-                p2 = i;
-                strobe = strobe2;
+        for (int s=0; s<n-1; ++s) {
+            int pos2 = p1 + s*wMax + wMin;
+            long h = combineHashValues(strobemerHash, fHashVals[pos2]);
+            
+            int end = p1 + s*wMax + wMax;
+            for (int i=p1 + s*wMax + wMin +1; i<end; ++i) {
+                long h2 = combineHashValues(strobemerHash, fHashVals[i]);
+                if (Long.compareUnsigned(h, h2) > 0) {
+                    pos2 = i;
+                    h = h2;
+                }
             }
+            
+            strobemerHash = h;
+            positions[s+1] = pos2;
         }
         
-        return new HashedInterval(p1, p2, strobe);
+        long rStrobemerHash = rHashVals[positions[n-1]];
+        for (int s=n-2; s>=0; --s) {
+            rStrobemerHash = combineHashValues(rHashVals[positions[s]], rStrobemerHash);
+        }
+        
+        return new HashedPositions(Math.min(strobemerHash, rStrobemerHash), positions);
     }
     
     @Override
@@ -117,8 +144,8 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
     }
     
     @Override
-    public int getPos2() {
-        return pos2;
+    public int[] getStrobes() {
+        return strobes;
     }
     
     @Override
@@ -129,13 +156,33 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
     public static void main(String[] args) {
         //debug
         
-        StrobeHashIterator itr = new StrobeHashIterator(15, 20, 70);
-        String seq = "";
+        CanonicalStrobeHashIterator itr = new CanonicalStrobeHashIterator(3, 15, 20, 50);
+        String seq = "TCGAATCCGTCTGATGCCTGACTGTAGCTGCGACTGATCGTAGCTAGCGACGAGCAGTCGCCCCATCGTACGTAGTCATGCATGCATGCATGCAGTACTATCTGCACACATGATGCATGCAATCTATATATTTTTATAT";
+        String seqRC = "ATATAAAAATATATAGATTGCATGCATCATGTGTGCAGATAGTACTGCATGCATGCATGCATGACTACGTACGATGGGGCGACTGCTCGTCGCTAGCTACGATCAGTCGCAGCTACAGTCAGGCATCAGACGGATTCGA";
+        HashSet<Long> hashVals = new HashSet<>();
         if (itr.start(seq)) {
+            int[] strobes = itr.getStrobes();
             while(itr.hasNext()) {
-                itr.next();
-                System.out.println(itr.getPos() + "\t" + itr.getPos2());
+                hashVals.add(itr.next());
+                //int pos = itr.getPos();
+                //System.out.println(pos + "\t" + strobes[0] + "\t" + strobes[1]);
             }
         }
+        
+        HashSet<Long> hashValsRC = new HashSet<>();
+        if (itr.start(seqRC)) {
+            int[] strobes = itr.getStrobes();
+            while(itr.hasNext()) {
+                hashValsRC.add(itr.next());
+                //int pos = itr.getPos();
+                //System.out.println(pos + "\t" + strobes[0] + "\t" + strobes[1]);
+            }
+        }
+        
+        int numF = hashVals.size();
+        int numR = hashValsRC.size();
+        boolean changed = hashVals.retainAll(hashValsRC);
+        int numI = hashVals.size();
+        System.out.println(numF + "\n" + numR + "\n" + numI);
     }
 }
