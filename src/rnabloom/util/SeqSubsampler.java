@@ -357,7 +357,7 @@ public class SeqSubsampler {
         HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         
-        int n = 3;
+        int n = order;
         int lastStrobeIndex = n - 1;
         int wMin = k + 1;
         int wMax = k + Math.max(k, maxIndelSize);
