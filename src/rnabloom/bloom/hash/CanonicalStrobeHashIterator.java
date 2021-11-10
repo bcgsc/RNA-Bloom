@@ -19,7 +19,6 @@ package rnabloom.bloom.hash;
 import java.util.Arrays;
 import java.util.HashSet;
 import static rnabloom.bloom.hash.HashFunction.combineHashValues;
-import rnabloom.olc.HashedInterval;
 
 /**
  *
@@ -108,17 +107,17 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
     }
     
     @Override
-    public HashedPositions get(int p1) {
-        long strobemerHash = fHashVals[p1];
+    public HashedPositions get(int p) {
+        long strobemerHash = fHashVals[p];
         int[] positions = new int[n];
-        positions[0] = p1;
+        positions[0] = p;
         
         for (int s=0; s<n-1; ++s) {
-            int pos2 = p1 + s*wMax + wMin;
+            int pos2 = p + s*wMax + wMin;
             long h = combineHashValues(strobemerHash, fHashVals[pos2]);
             
-            int end = p1 + s*wMax + wMax;
-            for (int i=p1 + s*wMax + wMin +1; i<end; ++i) {
+            int end = p + s*wMax + wMax;
+            for (int i=p + s*wMax + wMin +1; i<end; ++i) {
                 long h2 = combineHashValues(strobemerHash, fHashVals[i]);
                 if (Long.compareUnsigned(h, h2) > 0) {
                     pos2 = i;
