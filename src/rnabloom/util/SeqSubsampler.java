@@ -371,7 +371,6 @@ public class SeqSubsampler {
 
             if (strobeItr.start(seq)) {
                 boolean write = false;
-                int numKmers = seq.length() - k + 1;
                 int numStrobes = strobeItr.getMax() + 1;
                 
                 HashedPositions[] strobes = new HashedPositions[numStrobes];
@@ -395,7 +394,7 @@ public class SeqSubsampler {
                     hashVals.add(s.hash);
                     if (!write) {
                         int pos1 = s.pos[0];
-                        int pos2 = s.pos[lastStrobeIndex];
+                        int pos2 = s.pos[lastStrobeIndex] + k - 1;
 
                         if (seen[pos1]) {
                             if (namIntervals.isEmpty()) {
@@ -415,7 +414,7 @@ public class SeqSubsampler {
                         (namIntervals.isEmpty() ||
                         namIntervals.size() > 1 ||
                         namIntervals.getFirst().start > maxEdgeClip ||
-                        namIntervals.getLast().end < numKmers - maxEdgeClip)) {
+                        namIntervals.getLast().end < seq.length() - maxEdgeClip)) {
                     write = true;
                 }
 
