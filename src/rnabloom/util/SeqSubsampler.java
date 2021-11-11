@@ -124,7 +124,8 @@ public class SeqSubsampler {
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose,
             int numThreads) throws IOException, InterruptedException, ExecutionException {
-                
+        
+        System.out.println("k-mers: n=2, k=" + k);
         int numSeq = seqs.size();
         
         final int shift = k + 1;
@@ -361,7 +362,7 @@ public class SeqSubsampler {
         int lastStrobeIndex = n - 1;
         int wMin = k + 1;
         int wMax = k + Math.max(k, maxIndelSize);
-        System.out.println("n=" + n + ", k=" + k + ", wMin=" + wMin + ", wMax=" + wMax);
+        System.out.println("strobemers: n=" + n + ", k=" + k + ", wMin=" + wMin + ", wMax=" + wMax);
         
         //StrobeHashIteratorInterface strobeItr = stranded ? new StrobeHashIterator(n, k, wMin, wMax) : new CanonicalStrobeHashIterator(n, k, wMin, wMax);
         StrobeHashIteratorInterface strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
