@@ -363,7 +363,8 @@ public class SeqSubsampler {
         int wMax = k + Math.max(k, maxIndelSize);
         System.out.println("n=" + n + ", k=" + k + ", wMin=" + wMin + ", wMax=" + wMax);
         
-        StrobeHashIteratorInterface strobeItr = stranded ? new StrobeHashIterator(n, k, wMin, wMax) : new CanonicalStrobeHashIterator(n, k, wMin, wMax);
+        //StrobeHashIteratorInterface strobeItr = stranded ? new StrobeHashIterator(n, k, wMin, wMax) : new CanonicalStrobeHashIterator(n, k, wMin, wMax);
+        StrobeHashIteratorInterface strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
         ForkJoinPool customThreadPool = new ForkJoinPool(numThreads);
 
         for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
@@ -386,35 +387,49 @@ public class SeqSubsampler {
                 ).get();
                 
                 // hash values are stored in a set to avoid double-counting
-                HashSet<Long> hashVals = new HashSet<>(numStrobes * 4/3);
-
-                // check whether stobemers with sufficient multiplicites are present and overlap
-                ArrayDeque<ComparableInterval> namIntervals = new ArrayDeque<>();
+                HashSet<Long> hashVals = new HashSet<>(numStrobes * 4/3 + 1);
                 for (HashedPositions s : strobes) {
                     hashVals.add(s.hash);
-                    if (!write) {
-                        int pos1 = s.pos[0];
-                        int pos2 = s.pos[lastStrobeIndex] + k - 1;
+                }
 
-                        if (seen[pos1]) {
-                            if (namIntervals.isEmpty()) {
-                                namIntervals.add(new ComparableInterval(pos1, pos2));
+                // check whether stobemers with sufficient multiplicites are present and overlap
+                ComparableInterval namInterval = null;
+                for (HashedPositions s : strobes) {
+                    int pos1 = s.pos[0];
+
+                    if (seen[pos1]) {
+                        int pos2 = s.pos[lastStrobeIndex] + k - 1;
+                        
+                        if (namInterval == null) {
+                            namInterval = new ComparableInterval(pos1, pos2);
+                        }
+                        else if (!namInterval.merge(pos1, pos2)) {
+                            write = true;
+                            break;
+                        }
+                    }
+                    else {
+                        if (namInterval == null) {
+                            if (pos1 > maxEdgeClip) {
+                                // left edge is not seen
+                                write = true;
+                                break;
                             }
-                            else {
-                                if (!namIntervals.getLast().merge(pos1, pos2)) {
-                                    namIntervals.add(new ComparableInterval(pos1, pos2));
-                                    write = true;
-                                }
-                            }
+                        }
+                        else {
+                            if (pos1 > namInterval.end) {
+                                // either there is a gap or the right edge is not seen
+                                write = true;
+                                break;
+                            }    
                         }
                     }
                 }
 
                 if (!write &&
-                        (namIntervals.isEmpty() ||
-                        namIntervals.size() > 1 ||
-                        namIntervals.getFirst().start > maxEdgeClip ||
-                        namIntervals.getLast().end < seq.length() - maxEdgeClip)) {
+                        (namInterval == null ||
+                        namInterval.start > maxEdgeClip ||
+                        namInterval.end < seq.length() - maxEdgeClip)) {
                     write = true;
                 }
 
