@@ -244,4 +244,8 @@ public class HashFunction {
 //        a ^= b + 0x9e3779b9 + (a << 6) + (b >> 2);
 //        return a < 0 ? -a : a;
     }
+    
+    public static long combineHashValues(long h1, long h2, long h3) {
+        return combineHashValues(combineHashValues(h1, h2), h3);
+    }
 }

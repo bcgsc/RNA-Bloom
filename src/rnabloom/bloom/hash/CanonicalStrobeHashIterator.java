@@ -108,6 +108,10 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
     
     @Override
     public HashedPositions get(int p) {
+        if (p > max) {
+            return null;
+        }
+        
         long strobemerHash = fHashVals[p];
         int[] positions = new int[n];
         positions[0] = p;
