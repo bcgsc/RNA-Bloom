@@ -55,14 +55,20 @@ public class PolyAAdaptorTrimmer {
             }
 
             if (m.find()) {
+                // polyT head found
                 int start = m.start();
                 if (start > 0) {
+                    // adaptor trimmed
                     return seq.substring(start);
                 }
+                
+                // adaptor not found; no trimming
+                return seq;
             }
         }
         
-        return seq;
+        // polyT head not found
+        return null;
     }
     
     public String chompTailAdaptor(String seq, int searchRange) {
@@ -76,14 +82,21 @@ public class PolyAAdaptorTrimmer {
             }
 
             if (m.find()) {
+                // polyA tail found
+                
                 int end = m.end();
                 if (end < seqLen) {
+                    // adaptor trimmed
                     return seq.substring(0, end);
                 }
+                
+                // adaptor not found; no trimming
+                return seq;
             }
         }
         
-        return seq;
+        // no polyA tail
+        return null;
     }
     
     public static void main(String[] args) {

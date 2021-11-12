@@ -3711,19 +3711,21 @@ public class RNABloom {
                     ++numReads;
                     String seq = reverseComplement ? reverseComplement(nameSeqPair[1]) : nameSeqPair[1];
                     boolean kept = false;
-                    int seqLen = seq.length();
                     
-                    if (seqLen >= k) {
+                    if (seq.length() >= k) {
                         String name = nameSeqPair[0];
                         
-                        seq = polyATrimmer.chompTailAdaptor(seq, 150);
-                        seqLen = seq.length();
+                        String seqTrimmed = polyATrimmer.chompTailAdaptor(seq, 150);
+                        if (seqTrimmed != null) {
+                            // polyA tail found
+                            seq = seqTrimmed;
+                        }
                         
                         if (!strandSpecific) {
-                            seq = polyATrimmer.chompHeadAdaptor(seq, 150);
-                            if (seq.length() < seqLen) {
-                                // polyT found, rev-comp sequence
-                                seq = reverseComplement(seq);
+                            seqTrimmed = polyATrimmer.chompHeadAdaptor(seq, 150);
+                            if (seqTrimmed != null) {
+                                // polyT head found, reverse-complement sequence
+                                seq = reverseComplement(seqTrimmed);
                             }
                         }
                         
