@@ -132,6 +132,11 @@ public class StrobeHashIterator implements StrobeHashIteratorInterface {
     }
     
     @Override
+    public int getMin() {
+        return 0;
+    }
+    
+    @Override
     public int getMax() {
         return max;
     }

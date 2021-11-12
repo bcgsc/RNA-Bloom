@@ -28,5 +28,6 @@ public interface StrobeHashIteratorInterface {
     public HashedPositions get(int pos);
     public int getPos();
     public int[] getStrobes();
+    public int getMin();
     public int getMax();
 }
