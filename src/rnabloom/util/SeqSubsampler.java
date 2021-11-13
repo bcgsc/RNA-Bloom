@@ -397,12 +397,6 @@ public class SeqSubsampler {
                     })
                 ).get();
                 
-                // hash values are stored in a set to avoid double-counting
-                HashSet<Long> hashVals = new HashSet<>(numStrobes * 4/3 + 1);
-                for (HashedPositions s : strobes) {
-                    hashVals.add(s.hash);
-                }
-
                 // check whether stobemers with sufficient multiplicites are present and overlap
                 ComparableInterval namInterval = null;
                 for (int i=0; i<numStrobes; ++i) {
@@ -432,14 +426,20 @@ public class SeqSubsampler {
                 if (write) {
                     subQueue.add(seq);
                     ++numSubsample;
+                    
+                    // hash values are stored in a set to avoid double-counting
+                    HashSet<Long> hashVals = new HashSet<>(numStrobes * 4/3 + 1);
+                    for (HashedPositions s : strobes) {
+                        hashVals.add(s.hash);
+                    }
+                    
+                    // increment strobemer multiplicities in parallel
+                    customThreadPool.submit(() ->
+                        hashVals.parallelStream().forEach(e -> {
+                            cbf.increment(e);
+                        })
+                    ).get();
                 }
-                
-                // increment strobemer multiplicities in parallel
-                customThreadPool.submit(() ->
-                    hashVals.parallelStream().forEach(e -> {
-                        cbf.increment(e);
-                    })
-                ).get();
             }
             else {
                 ++numTooShort;
