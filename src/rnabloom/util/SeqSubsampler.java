@@ -29,11 +29,13 @@ import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
 import rnabloom.bloom.hash.CanonicalNTHashIterator;
+import rnabloom.bloom.hash.CanonicalStrobe3HashIterator;
 import rnabloom.bloom.hash.CanonicalStrobeHashIterator;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.HashedPositions;
 import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
+import rnabloom.bloom.hash.Strobe3HashIterator;
 import rnabloom.bloom.hash.StrobeHashIterator;
 import rnabloom.bloom.hash.StrobeHashIteratorInterface;
 import rnabloom.io.FastaWriter;
@@ -340,7 +342,7 @@ public class SeqSubsampler {
     
     public static void strobemerBased(ArrayList<? extends BitSequence> seqs,
             String outSubsampleFasta,
-            long bfSize, int order, int k, int numHash, boolean stranded, 
+            long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose,
             int numThreads, int maxIndelSize) throws IOException, InterruptedException, ExecutionException {
                 
@@ -358,14 +360,14 @@ public class SeqSubsampler {
         HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         
-        int n = order;
-        int lastStrobeIndex = n - 1;
+        int n = 3;
+        int lastStrobeIndex = 2;
         int wMin = k + 1;
         int wMax = k + Math.max(k, maxIndelSize);
         System.out.println("strobemers: n=" + n + ", k=" + k + ", wMin=" + wMin + ", wMax=" + wMax);
         
-        //StrobeHashIteratorInterface strobeItr = stranded ? new StrobeHashIterator(n, k, wMin, wMax) : new CanonicalStrobeHashIterator(n, k, wMin, wMax);
-        StrobeHashIteratorInterface strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
+        StrobeHashIteratorInterface strobeItr = stranded ? new Strobe3HashIterator(k, wMin, wMax) : new CanonicalStrobe3HashIterator(k, wMin, wMax);
+        //StrobeHashIteratorInterface strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
         ForkJoinPool customThreadPool = new ForkJoinPool(numThreads);
 
         for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
@@ -373,17 +375,19 @@ public class SeqSubsampler {
 
             if (strobeItr.start(seq)) {
                 boolean write = false;
-                int numStrobes = strobeItr.getMax() + 1;
+                int minPos = strobeItr.getMin();
+                int maxPos = strobeItr.getMax();
+                int numStrobes = maxPos + 1 - minPos;
                 
                 HashedPositions[] strobes = new HashedPositions[numStrobes];
                 boolean[] seen = new boolean[numStrobes];
                 
                 // extract all strobemers in parallel and look up their multiplicities
                 customThreadPool.submit(() ->
-                    IntStream.range(0, numStrobes).parallel().forEach(i -> {
+                    IntStream.range(minPos, maxPos+1).parallel().forEach(i -> {
                         HashedPositions s = strobeItr.get(i);
-                        strobes[i] = s;
-                        seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
+                        strobes[i-minPos] = s;
+                        seen[i-minPos] = cbf.getCount(s.hash) >= maxMultiplicity;
                     })
                 ).get();
                 
@@ -395,10 +399,11 @@ public class SeqSubsampler {
 
                 // check whether stobemers with sufficient multiplicites are present and overlap
                 ComparableInterval namInterval = null;
-                for (HashedPositions s : strobes) {
+                for (int i=0; i<numStrobes; ++i) {
+                    HashedPositions s = strobes[i];
                     int pos1 = s.pos[0];
 
-                    if (seen[pos1]) {
+                    if (seen[i]) {
                         int pos2 = s.pos[lastStrobeIndex] + k - 1;
                         
                         if (namInterval == null) {
@@ -409,21 +414,10 @@ public class SeqSubsampler {
                             break;
                         }
                     }
-                    else {
-                        if (namInterval == null) {
-                            if (pos1 > maxEdgeClip) {
-                                // left edge is not seen
-                                write = true;
-                                break;
-                            }
-                        }
-                        else {
-                            if (pos1 > namInterval.end) {
-                                // either there is a gap or the right edge is not seen
-                                write = true;
-                                break;
-                            }    
-                        }
+                    else if (namInterval != null && pos1 - wMax + 1 > namInterval.end) {
+                        // either there is a gap or the right edge is not seen
+                        write = true;
+                        break;
                     }
                 }
 

@@ -6264,9 +6264,9 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadPacBioPreset);
         
-        final String optSubsampleLongReadDefault = "s,3,11";
+        final String optSubsampleLongReadDefault = "s,11";
         Option optSubsampleLongRead = Option.builder("lrsub")
-                                    .desc("subsample long reads before assembly using strobemers (s,order,size) or k-mer pairs (k,size) [" + optSubsampleLongReadDefault + "]")
+                                    .desc("subsample long reads before assembly using strobemers (s,size) or k-mer pairs (k,size) [" + optSubsampleLongReadDefault + "]")
                                     .hasArg(true)
                                     .build();
         options.addOption(optSubsampleLongRead);
@@ -6656,7 +6656,6 @@ public class RNABloom {
             
             boolean subsampleLongReads = false;
             String subsampleProtocol = null;
-            int strobemerOrder = 3;
             int strobemerSize = 11;
             int subKmerSize = 8;
             String subsampleLongReadsArg = line.getOptionValue(optSubsampleLongRead.getOpt(), optSubsampleLongReadDefault);
@@ -6665,8 +6664,7 @@ public class RNABloom {
                 switch (subsampleLongReadsArgVals[0]) {
                     case SUBSAMPLE_STROBEMER:
                         try {
-                            strobemerOrder = Integer.parseInt(subsampleLongReadsArgVals[1]);
-                            strobemerSize = Integer.parseInt(subsampleLongReadsArgVals[2]);
+                            strobemerSize = Integer.parseInt(subsampleLongReadsArgVals[1]);
                             subsampleProtocol = SUBSAMPLE_STROBEMER;
                             subsampleLongReads = true;
                         }
@@ -7258,7 +7256,7 @@ public class RNABloom {
                         switch (subsampleProtocol) {
                             case SUBSAMPLE_STROBEMER:
                                 SeqSubsampler.strobemerBased(correctedReads, seedReadsPath,
-                                        dbgbfSize + cbfSize, strobemerOrder, strobemerSize,
+                                        dbgbfSize + cbfSize, strobemerSize,
                                         dbgbfNumHash, strandSpecific, 
                                         Math.max(2, longReadMinReadDepth), maxTipLen, true,
                                         numThreads, maxIndelSize);
