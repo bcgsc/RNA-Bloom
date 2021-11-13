@@ -23,11 +23,11 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 * External software used:
 
-| software                                            | short reads            | long reads             |
-| :-------------------------------------------------- | :--------------------- | :--------------------- |
-| [minimap2](https://github.com/lh3/minimap2) >=2.22  | required               | required               |
-| [Racon](https://github.com/lbcb-sci/racon)          | not used               | required               |
-| [ntCard](https://github.com/bcgsc/ntCard) >=1.2.1   | required for `-ntcard` | required for `-ntcard` |
+| software                                            | short reads   | long reads   |
+| :-------------------------------------------------- | :------------ | :----------- |
+| [minimap2](https://github.com/lh3/minimap2) >=2.22  | required      | required     |
+| [Racon](https://github.com/lbcb-sci/racon)          | not used      | required     |
+| [ntCard](https://github.com/bcgsc/ntCard) >=1.2.1   | required      | required     |
 
 :warning: Their executables must be accessible from your `PATH`!
 
@@ -64,23 +64,23 @@ RNA-Bloom can be run as `java -jar /path/to/RNA-Bloom.jar ...`
   * when `left` reads are antisense and `right` reads are sense, use `-revcomp-left` to reverse-complement `left` reads
   * for non-stranded data, use either `-revcomp-right` or `-revcomp-left`
 ```
-java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -t THREADS -outdir OUTDIR
 ```
 
 * single-end reads only
   * use `-sef` for forward reads and `-ser` for reverse reads
 ```
-java -jar RNA-Bloom.jar -sef SE.fastq -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -sef SE.fastq -t THREADS -outdir OUTDIR
 ```
 
 * paired-end and single-end reads
 ```
-java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -sef SE.fastq -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -sef SE.fastq -t THREADS -outdir OUTDIR
 ```
 
 ### (B) assemble multi-sample RNA-seq data with pooled assembly mode:
 ```
-java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -t THREADS -outdir OUTDIR
 ```
 This is especially useful for single-cell datasets. RNA-Bloom was tested on Smart-seq2 and SMARTer datasets.
 
@@ -147,13 +147,13 @@ The `-ref` option specifies the reference transcriptome FASTA file for guiding s
 ### (A) assemble long-read cDNA sequencing data:
 Default presets for `-long` are intended for ONT data. Please add the `-lrpb` flag for PacBio data.
 ```
-java -jar RNA-Bloom.jar -long LONG.fastq -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long LONG.fastq -t THREADS -outdir OUTDIR
 ```
 Input reads are expected to be in a mix of both forward and reverse orientations.
 
 ### (B) assemble nanopore direct RNA sequencing data:
 ```
-java -jar RNA-Bloom.jar -long LONG.fastq -stranded -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long LONG.fastq -stranded -t THREADS -outdir OUTDIR
 ```
 Input reads are expected to be only in the forward orientation.
 
@@ -163,22 +163,24 @@ ntCard v1.2.1 supports uracil in reads.
 
 ### (C) assemble long-read sequencing data with short-read polishing:
 ```
-java -jar RNA-Bloom.jar -long LONG.fastq -sef SHORT.fastq -ntcard -t THREADS -outdir OUTDIR
+java -jar RNA-Bloom.jar -long LONG.fastq -sef SHORT.fastq -t THREADS -outdir OUTDIR
 ```
 
 ## General Settings :gear:
 
 ### (A) set Bloom filter sizes automatically:
+
+If `ntcard` is found in your `PATH`, then the `-ntcard` option is automatically turned on to count the number of unique k-mers in your reads.
+```
+java -jar RNA-Bloom.jar -fpr 0.01 ...
+```
+This sets the size of Bloom filters automatically to accommodate a false positive rate (FPR) of ~1%.
+
+Alternatively, you can specify the exact number of unique k-mers:
 ```
 java -jar RNA-Bloom.jar -fpr 0.01 -nk 28077715 ...
 ```
-This sets the size of Bloom filters automatically to accommodate 28,077,715 unique k-mers for a max false positive rate (FPR) of 1%.
-
-Instead of specifying the exact number of k-mers, you may use ntCard to count k-mers:
-```
-java -jar RNA-Bloom.jar -fpr 0.01 -ntcard ...
-```
-To use the `-ntcard` option, `ntcard` must be found in your `PATH`.
+This sets the size of Bloom filters automatically to accommodate 28,077,715 unique k-mers for a FPR of ~1%.
 
 As a rule of thumb, a lower FPR may result in a better assembly but requires more memory for a larger Bloom filter.
 

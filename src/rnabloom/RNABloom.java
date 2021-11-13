@@ -6800,10 +6800,19 @@ public class RNABloom {
                     break;
             }
             
-            long expNumKmers = -1L;
+            long expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt(), "-1"));;
+            boolean hasNtcard = hasNtcard();
             NTCardHistogram hist = null;
+            if (expNumKmers < 0 && !useNTCard && hasNtcard) {
+                // 1. `-nk` option not specified
+                // 2. `-ntcard` option not specified
+                // 3. `ntcard` found in environment
+                System.out.println("\nTurning on option `-ntcard` to count k-mers");
+                useNTCard = true;
+            }
+            
             if (useNTCard) {
-                if (!hasNtcard()) {
+                if (!hasNtcard) {
                     exitOnError("`ntcard` not found in your PATH!");
                 }
                 
@@ -6880,24 +6889,12 @@ public class RNABloom {
                 if (kmerSizes.length > 1) {
                     System.out.println("Setting k to " + k);
                 }
-                
-//                if (hasLongReadFiles) {
-//                    if (!line.hasOption(optMinKmerCov.getOpt())) {
-//                        minKmerCov = hist.getMinCovThreshold(3);
-//                    }
-//                    
-//                    System.out.println("Min k-mer coverage threshold: " + NumberFormat.getInstance().format(minKmerCov));
-//                }
-                    
+                                    
                 if (expNumKmers <= 0) {
                     exitOnError("Cannot get number of unique k-mers from ntCard! (" + expNumKmers + ")");
                 }
                 
                 System.out.println("K-mer counting completed in " + timer.elapsedDHMS());                
-            }
-            else {
-                expNumKmers = Long.parseLong(line.getOptionValue(optNumKmers.getOpt(), "-1"));
-                System.out.println("Min k-mer coverage threshold: " + NumberFormat.getInstance().format(minKmerCov));
             }
             
             String defaultMinOverlap = hasLongReadFiles ? defaultMinOverlapLR : Integer.toString(k-1);
