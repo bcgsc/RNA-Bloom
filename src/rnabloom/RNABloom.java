@@ -6661,31 +6661,39 @@ public class RNABloom {
             String subsampleLongReadsArg = line.getOptionValue(optSubsampleLongRead.getOpt(), optSubsampleLongReadDefault);
             String[] subsampleLongReadsArgVals = subsampleLongReadsArg.split(",");
             if (subsampleLongReadsArgVals.length > 0) {
-                switch (subsampleLongReadsArgVals[0]) {
-                    case SUBSAMPLE_STROBEMER:
-                        try {
-                            strobemerSize = Integer.parseInt(subsampleLongReadsArgVals[1]);
-                            subsampleProtocol = SUBSAMPLE_STROBEMER;
-                            subsampleLongReads = true;
-                        }
-                        catch (NumberFormatException e) {
+                if (subsampleLongReadsArgVals.length == 2) {
+                    switch (subsampleLongReadsArgVals[0]) {
+                        case SUBSAMPLE_STROBEMER:
+                            try {
+                                strobemerSize = Integer.parseInt(subsampleLongReadsArgVals[1]);
+                                subsampleProtocol = SUBSAMPLE_STROBEMER;
+                                subsampleLongReads = true;
+                            }
+                            catch (NumberFormatException e) {
 
-                        }
-                        break;
-                    case SUBSAMPLE_KMER:
-                        try {
-                            subKmerSize = Integer.parseInt(subsampleLongReadsArgVals[1]);
-                            subsampleProtocol = SUBSAMPLE_KMER;
-                            subsampleLongReads = true;
-                        }
-                        catch (NumberFormatException e) {
+                            }
+                            break;
+                        case SUBSAMPLE_KMER:
+                            try {
+                                subKmerSize = Integer.parseInt(subsampleLongReadsArgVals[1]);
+                                subsampleProtocol = SUBSAMPLE_KMER;
+                                subsampleLongReads = true;
+                            }
+                            catch (NumberFormatException e) {
 
-                        }
-                        break;
-                    default:
-                        subsampleLongReads = false;
-                        subsampleProtocol = null;
+                            }
+                            break;
+                        default:
+                            subsampleLongReads = false;
+                            subsampleProtocol = null;
+                    }
                 }
+                else {
+                    exitOnError("Incorrect argument format for `-lrsub`: \"" + subsampleLongReadsArg + "\"");
+                }
+            }
+            else {
+                System.out.println("read subsampling: off");
             }
             
             /*

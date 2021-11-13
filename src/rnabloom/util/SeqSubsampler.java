@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
@@ -367,7 +368,7 @@ public class SeqSubsampler {
         System.out.println("strobemers: n=" + n + ", k=" + k + ", wMin=" + wMin + ", wMax=" + wMax);
         
         StrobeHashIteratorInterface strobeItr = stranded ? new Strobe3HashIterator(k, wMin, wMax) : new CanonicalStrobe3HashIterator(k, wMin, wMax);
-        //StrobeHashIteratorInterface strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
+//        StrobeHashIteratorInterface strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
         ForkJoinPool customThreadPool = new ForkJoinPool(numThreads);
 
         for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
@@ -378,6 +379,7 @@ public class SeqSubsampler {
                 int minPos = strobeItr.getMin();
                 int maxPos = strobeItr.getMax();
                 int numStrobes = maxPos + 1 - minPos;
+//                int numStrobes = strobeItr.getMax() + 1;
                 
                 HashedPositions[] strobes = new HashedPositions[numStrobes];
                 boolean[] seen = new boolean[numStrobes];
@@ -388,6 +390,10 @@ public class SeqSubsampler {
                         HashedPositions s = strobeItr.get(i);
                         strobes[i-minPos] = s;
                         seen[i-minPos] = cbf.getCount(s.hash) >= maxMultiplicity;
+//                        IntStream.range(0, numStrobes).parallel().forEach(i -> {
+//                        HashedPositions s = strobeItr.get(i);
+//                        strobes[i] = s;
+//                        seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
                     })
                 ).get();
                 
@@ -414,11 +420,6 @@ public class SeqSubsampler {
                             break;
                         }
                     }
-                    else if (namInterval != null && pos1 - wMax + 1 > namInterval.end) {
-                        // either there is a gap or the right edge is not seen
-                        write = true;
-                        break;
-                    }
                 }
 
                 if (!write &&
@@ -432,7 +433,7 @@ public class SeqSubsampler {
                     subQueue.add(seq);
                     ++numSubsample;
                 }
-
+                
                 // increment strobemer multiplicities in parallel
                 customThreadPool.submit(() ->
                     hashVals.parallelStream().forEach(e -> {
