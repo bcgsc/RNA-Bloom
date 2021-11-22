@@ -144,7 +144,7 @@ public class StrobeHashIterator implements StrobeHashIteratorInterface {
     public static void main(String[] args) {
         //debug
         
-        StrobeHashIterator itr = new StrobeHashIterator(3, 15, 20, 50);
+        StrobeHashIterator itr = new StrobeHashIterator(3, 11, 12, 50);
         String seq = "TCGAATCCGTCTGATGCCTGACTGTAGCTGCGACTGATCGTAGCTAGCGACGAGCAGTCGCCCCATCGTACGTAGTCATGCATGCATGCATGCAGTACTATCTGCACACATGATGCATGCAATCTATATATTTTTATAT";
         if (itr.start(seq)) {
             int[] strobes = itr.getStrobes();
@@ -153,8 +153,8 @@ public class StrobeHashIterator implements StrobeHashIteratorInterface {
                 int pos = itr.getPos();
                 System.out.println(pos + "\t" + strobes[0] + "\t" + strobes[1]);
                 
-                HashedPositions hp = itr.get(pos);
-                System.out.println(hp.pos[0] + "\t" + hp.pos[1] + "\t" + hp.pos[2]);
+//                HashedPositions hp = itr.get(pos);
+//                System.out.println(hp.pos[0] + "\t" + hp.pos[1] + "\t" + hp.pos[2]);
             }
         }
     }

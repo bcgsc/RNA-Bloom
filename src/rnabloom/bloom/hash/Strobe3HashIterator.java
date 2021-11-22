@@ -79,22 +79,10 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
         ++pos;
         long fKmerHash = fHashVals[pos];
         
-        // fetch downstream strobe
-        int pos3 = pos + wMin;
-        long h3 = combineHashValues(fKmerHash, fHashVals[pos3]);
-        int end = pos + wMax;
-        for (int i=pos3+1; i<end; ++i) {
-            long h = combineHashValues(fKmerHash, fHashVals[i]);
-            if (Long.compareUnsigned(h3, h) > 0) {
-                pos3 = i;
-                h3 = h;
-            }
-        }
-        
         // fetch upstream strobe
         int pos1 = pos - wMax + 1;
         long h1 = combineHashValues(fHashVals[pos1], fKmerHash);
-        end = pos - wMin + 1;
+        int end = pos - wMin + 1;
         for (int i=pos1+1; i<end; ++i) {
             long h = combineHashValues(fHashVals[i], fKmerHash);
             if (Long.compareUnsigned(h1, h) > 0) {
@@ -103,10 +91,22 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
             }
         }
         
+        // fetch downstream strobe
+        int pos3 = pos + wMin;
+        long h3 = combineHashValues(h1, fHashVals[pos3]);
+        end = pos + wMax;
+        for (int i=pos3+1; i<end; ++i) {
+            long h = combineHashValues(h1, fHashVals[i]);
+            if (Long.compareUnsigned(h3, h) > 0) {
+                pos3 = i;
+                h3 = h;
+            }
+        }
+        
         strobes[0] = pos1;
         strobes[1] = pos3;
         
-        return combineHashValues(fHashVals[pos1], fKmerHash, fHashVals[pos3]);
+        return h3;
     }
     
     @Override
@@ -117,22 +117,10 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
         
         long fKmerHash = fHashVals[p];
         
-        // fetch downstream strobe
-        int pos3 = p + wMin;
-        long h3 = combineHashValues(fKmerHash, fHashVals[pos3]);
-        int end = p + wMax;
-        for (int i=pos3+1; i<end; ++i) {
-            long h = combineHashValues(fKmerHash, fHashVals[i]);
-            if (Long.compareUnsigned(h3, h) > 0) {
-                pos3 = i;
-                h3 = h;
-            }
-        }
-        
         // fetch upstream strobe
         int pos1 = p - wMax + 1;
         long h1 = combineHashValues(fHashVals[pos1], fKmerHash);
-        end = p - wMin + 1;
+        int end = p - wMin + 1;
         for (int i=pos1+1; i<end; ++i) {
             long h = combineHashValues(fHashVals[i], fKmerHash);
             if (Long.compareUnsigned(h1, h) > 0) {
@@ -141,10 +129,22 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
             }
         }
         
+        // fetch downstream strobe
+        int pos3 = p + wMin;
+        long h3 = combineHashValues(h1, fHashVals[pos3]);
+        end = p + wMax;
+        for (int i=pos3+1; i<end; ++i) {
+            long h = combineHashValues(h1, fHashVals[i]);
+            if (Long.compareUnsigned(h3, h) > 0) {
+                pos3 = i;
+                h3 = h;
+            }
+        }
+        
         strobes[0] = pos1;
         strobes[1] = pos3;
-        
-        return new HashedPositions(combineHashValues(fHashVals[pos1], fKmerHash, fHashVals[pos3]), new int[]{pos1, p, pos3});
+                
+        return new HashedPositions(h3, new int[]{pos1, p, pos3});
     }
 
     @Override
@@ -157,6 +157,7 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
         return strobes;
     }
 
+    @Override
     public int getMin() {
         return min;
     }
@@ -175,6 +176,7 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
         if (itr.start(seq)) {
             while(itr.hasNext()) {
                 hashVals.add(itr.next());
+                System.out.println(itr.strobes[0] + " " + itr.pos + " " + itr.strobes[1]);
             }
         }
         
