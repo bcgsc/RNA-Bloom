@@ -3758,7 +3758,7 @@ public class RNABloom {
                                                                                         percentIdentity, 
                                                                                         minKmerCov,
                                                                                         minNumSolidKmers,
-                                                                                        minKmerCov > 1, // trim edges
+                                                                                        false, //minKmerCov > 1, // trim edges
                                                                                         500);
 
                                     if (correctedKmers != null && !correctedKmers.isEmpty()) {
@@ -3772,9 +3772,9 @@ public class RNABloom {
                                         }
 
                                         if (!correctedKmers.isEmpty()) {                                      
-                                            ArrayList<Interval> splitted = splitAtLowCoverage(correctedKmers, graph, minKmerCov, maxLowCovGapSize, lookahead);
-
-                                            if (splitted.isEmpty()) {
+//                                            ArrayList<Interval> splitted = splitAtLowCoverage(correctedKmers, graph, minKmerCov, maxLowCovGapSize, lookahead);
+//
+//                                            if (splitted.isEmpty()) {
                                                 segment = graph.assemble(correctedKmers);
 
                                                 int segLength = segment.length();
@@ -3783,21 +3783,21 @@ public class RNABloom {
 //                                                float score = countSolidKmers(correctedKmers, minKmerCov);
 
                                                 outputQueue.put(new Sequence2(segName, segment, segLength, score, false));
-                                            }
-                                            else {
-                                                int pid = 0;
-                                                for (Interval i : splitted) {
-                                                    List<Kmer> component = correctedKmers.subList(i.start, i.end);
-                                                    String componentSeq = graph.assemble(component);
-
-                                                    int segLength = componentSeq.length();
-                                                    //boolean isRepeat = isLowComplexityLongWindowed(componentSeq);
-                                                    float score = (float) getTotalLogKmerCoverage(component, minKmerCov);
-//                                                    float score = countSolidKmers(component, minKmerCov);
-
-                                                    outputQueue.put(new Sequence2(segName + "_p" + ++pid, componentSeq, segLength, score, false));
-                                                }
-                                            }
+//                                            }
+//                                            else {
+//                                                int pid = 0;
+//                                                for (Interval i : splitted) {
+//                                                    List<Kmer> component = correctedKmers.subList(i.start, i.end);
+//                                                    String componentSeq = graph.assemble(component);
+//
+//                                                    int segLength = componentSeq.length();
+//                                                    //boolean isRepeat = isLowComplexityLongWindowed(componentSeq);
+//                                                    float score = (float) getTotalLogKmerCoverage(component, minKmerCov);
+////                                                    float score = countSolidKmers(component, minKmerCov);
+//
+//                                                    outputQueue.put(new Sequence2(segName + "_p" + ++pid, componentSeq, segLength, score, false));
+//                                                }
+//                                            }
 
                                             kept = true;
                                         }
