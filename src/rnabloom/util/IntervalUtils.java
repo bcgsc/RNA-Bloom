@@ -16,6 +16,11 @@
  */
 package rnabloom.util;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import rnabloom.olc.ComparableInterval;
 import rnabloom.olc.Interval;
 
 /**
@@ -45,5 +50,23 @@ public class IntervalUtils {
             return new Interval(Math.min(i1.start, i2.start), Math.max(i1.end, i2.end));
         }
         return null;
+    }
+    
+    public static ArrayDeque<ComparableInterval> mergeIntervals(Collection<ComparableInterval> intervals) {
+        ArrayList<ComparableInterval> intervalsList = new ArrayList<>(intervals);
+        Collections.sort(intervalsList);
+        
+        ArrayDeque<ComparableInterval> newList = new ArrayDeque<>();
+        newList.add(intervalsList.get(0));
+        
+        int numIntervals = intervalsList.size();
+        for (int i=1; i<numIntervals; ++i) {
+            ComparableInterval interval = intervalsList.get(i);
+            if (!newList.getLast().merge(interval)) {
+                newList.add(interval);
+            }
+        }
+        
+        return newList;
     }
 }
