@@ -365,6 +365,7 @@ public class SeqSubsampler {
         int lastStrobeIndex = 2;
         int wMin = k + 1;
         int wMax = k + Math.max(k, maxIndelSize);
+        maxEdgeClip = Math.max(maxEdgeClip, wMax);
         System.out.println("strobemers: n=" + n + ", k=" + k + ", wMin=" + wMin + ", wMax=" + wMax);
         
         StrobeHashIteratorInterface strobeItr = stranded ? new Strobe3HashIterator(k, wMin, wMax) : new CanonicalStrobe3HashIterator(k, wMin, wMax);
