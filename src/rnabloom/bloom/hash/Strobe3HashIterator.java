@@ -33,6 +33,7 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
     private int pos = -1;
     private int min = 0;
     private int max = -2;
+    private int numKmers = 0;
     private long[] fHashVals = null;
     private final int[] strobes;
     
@@ -52,12 +53,12 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
         Arrays.fill(strobes, 0);
         fHashVals = null;
         if (itr.start(seq)) {
-            int numKmers = seq.length() - k + 1;
-            if (numKmers > wMax * 2) {
+            numKmers = seq.length() - k + 1;
+            if (numKmers > wMin * 2) {
                 fHashVals = new long[numKmers];
-                min = wMax - 1;
+                min = wMin;
                 pos = min - 1;
-                max = numKmers - wMax;
+                max = numKmers - 1 - wMin;
                 for (int i=0; i<numKmers; ++i) {
                     itr.next();
                     fHashVals[i] = itr.hVals[0];
@@ -80,7 +81,7 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
         long fKmerHash = fHashVals[pos];
         
         // fetch upstream strobe
-        int pos1 = pos - wMax + 1;
+        int pos1 = Math.max(0, pos - wMax + 1);
         long h1 = combineHashValues(fHashVals[pos1], fKmerHash);
         int end = pos - wMin + 1;
         for (int i=pos1+1; i<end; ++i) {
@@ -94,7 +95,7 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
         // fetch downstream strobe
         int pos3 = pos + wMin;
         long h3 = combineHashValues(h1, fHashVals[pos3]);
-        end = pos + wMax;
+        end = Math.min(pos + wMax, numKmers);
         for (int i=pos3+1; i<end; ++i) {
             long h = combineHashValues(h1, fHashVals[i]);
             if (Long.compareUnsigned(h3, h) > 0) {
@@ -118,7 +119,7 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
         long fKmerHash = fHashVals[p];
         
         // fetch upstream strobe
-        int pos1 = p - wMax + 1;
+        int pos1 = Math.max(0, p - wMax + 1);
         long h1 = combineHashValues(fHashVals[pos1], fKmerHash);
         int end = p - wMin + 1;
         for (int i=pos1+1; i<end; ++i) {
@@ -132,7 +133,7 @@ public class Strobe3HashIterator implements StrobeHashIteratorInterface {
         // fetch downstream strobe
         int pos3 = p + wMin;
         long h3 = combineHashValues(h1, fHashVals[pos3]);
-        end = p + wMax;
+        end = Math.min(p + wMax, numKmers);
         for (int i=pos3+1; i<end; ++i) {
             long h = combineHashValues(h1, fHashVals[i]);
             if (Long.compareUnsigned(h3, h) > 0) {
