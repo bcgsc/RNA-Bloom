@@ -235,6 +235,11 @@ public class CanonicalStrobe3HashIterator implements StrobeHashIteratorInterface
         return max;
     }
     
+    @Override
+    public int getNumStrobemers() {
+        return max + 1 - min;
+    }
+    
     public static void main(String[] args) {
         //debug
         

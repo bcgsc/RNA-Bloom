@@ -31,6 +31,7 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
     private final CanonicalNTHashIterator itr;
     private int pos = -1;
     private int max = -2;
+    private int numKmers = 0;
     private long[] fHashVals = null;
     private long[] rHashVals = null;
     private int n;
@@ -53,11 +54,11 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
         fHashVals = null;
         rHashVals = null;
         if (itr.start(seq)) {
-            int numKmers = seq.length() - k + 1;
+            numKmers = seq.length() - k + 1;
             if (numKmers > wMax * (n-1)) {
                 fHashVals = new long[numKmers];
                 rHashVals = new long[numKmers];
-                max = numKmers - wMax * (n-1);
+                max = numKmers - wMax * (n-2) - wMin -1;
                 for (int i=0; i<numKmers; ++i) {
                     itr.next();
                     fHashVals[i] = itr.frhval[0];
@@ -84,7 +85,7 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
             int pos2 = pos + s*wMax + wMin;
             long h = combineHashValues(strobemerHash, fHashVals[pos2]);
             
-            int end = pos + s*wMax + wMax;
+            int end = Math.min(pos + s*wMax + wMax, numKmers);
             for (int i=pos + s*wMax + wMin +1; i<end; ++i) {
                 long h2 = combineHashValues(strobemerHash, fHashVals[i]);
                 if (Long.compareUnsigned(h, h2) > 0) {
@@ -120,7 +121,7 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
             int pos2 = p + s*wMax + wMin;
             long h = combineHashValues(strobemerHash, fHashVals[pos2]);
             
-            int end = p + s*wMax + wMax;
+            int end = Math.min(p + s*wMax + wMax, numKmers);
             for (int i=p + s*wMax + wMin +1; i<end; ++i) {
                 long h2 = combineHashValues(strobemerHash, fHashVals[i]);
                 if (Long.compareUnsigned(h, h2) > 0) {
@@ -159,6 +160,11 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
     @Override
     public int getMax() {
         return max;
+    }
+    
+    @Override
+    public int getNumStrobemers() {
+        return max + 1;
     }
     
     public static void main(String[] args) {

@@ -30,6 +30,7 @@ public class StrobeHashIterator implements StrobeHashIteratorInterface {
     private final NTHashIterator itr;
     private int pos = -1;
     private int max = -2;
+    private int numKmers = 0;
     private long[] kmerHashVals = null;
     private final int n;
     private int[] strobes = null;
@@ -50,10 +51,10 @@ public class StrobeHashIterator implements StrobeHashIteratorInterface {
         max = -2;
         kmerHashVals = null;
         if (itr.start(seq)) {
-            int numKmers = seq.length() - k + 1;
+            numKmers = seq.length() - k + 1;
             if (numKmers > wMax * (n-1)) {
                 kmerHashVals = new long[numKmers];
-                max = numKmers - wMax * (n-1);
+                max = numKmers - wMax * (n-2) - wMin -1;
                 for (int i=0; i<numKmers; ++i) {
                     itr.next();
                     kmerHashVals[i] = itr.hVals[0];
@@ -72,14 +73,14 @@ public class StrobeHashIterator implements StrobeHashIteratorInterface {
     
     @Override
     public long next() {
-        ++pos;
+        ++pos;        
         long strobemerHash = kmerHashVals[pos];
         
         for (int s=0; s<n-1; ++s) {
             int pos2 = pos + s*wMax + wMin;
             long h = combineHashValues(strobemerHash, kmerHashVals[pos2]);
             
-            int end = pos + s*wMax + wMax;
+            int end = Math.min(pos + s*wMax + wMax, numKmers);
             for (int i=pos + s*wMax + wMin +1; i<end; ++i) {
                 long h2 = combineHashValues(strobemerHash, kmerHashVals[i]);
                 if (Long.compareUnsigned(h, h2) > 0) {
@@ -105,7 +106,7 @@ public class StrobeHashIterator implements StrobeHashIteratorInterface {
             int pos2 = p + s*wMax + wMin;
             long h = combineHashValues(strobemerHash, kmerHashVals[pos2]);
             
-            int end = p + s*wMax + wMax;
+            int end = Math.min(p + s*wMax + wMax, numKmers);
             for (int i=p + s*wMax + wMin +1; i<end; ++i) {
                 long h2 = combineHashValues(strobemerHash, kmerHashVals[i]);
                 if (Long.compareUnsigned(h, h2) > 0) {
@@ -139,6 +140,11 @@ public class StrobeHashIterator implements StrobeHashIteratorInterface {
     @Override
     public int getMax() {
         return max;
+    }
+    
+    @Override
+    public int getNumStrobemers() {
+        return max + 1;
     }
     
     public static void main(String[] args) {

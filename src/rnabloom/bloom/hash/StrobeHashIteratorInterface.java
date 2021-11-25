@@ -30,4 +30,5 @@ public interface StrobeHashIteratorInterface {
     public int[] getStrobes();
     public int getMin();
     public int getMax();
+    public int getNumStrobemers();
 }

@@ -358,7 +358,8 @@ public class SeqSubsampler {
         Thread subWriterThread = new Thread(subWriterWorker);
         subWriterThread.start();
                 
-        HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
+        //HashFunction h = stranded ? new HashFunction(k) : new CanonicalHashFunction(k);
+        HashFunction h = new HashFunction(k);
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         
         int n = 3;
@@ -368,8 +369,8 @@ public class SeqSubsampler {
         maxEdgeClip = Math.max(maxEdgeClip, wMax);
         System.out.println("strobemers: n=" + n + ", k=" + k + ", wMin=" + wMin + ", wMax=" + wMax);
         
-        StrobeHashIteratorInterface strobeItr = stranded ? new Strobe3HashIterator(k, wMin, wMax) : new CanonicalStrobe3HashIterator(k, wMin, wMax);
-//        StrobeHashIteratorInterface strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
+//        StrobeHashIteratorInterface strobeItr = stranded ? new Strobe3HashIterator(k, wMin, wMax) : new CanonicalStrobe3HashIterator(k, wMin, wMax);
+        StrobeHashIteratorInterface strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
         ForkJoinPool customThreadPool = new ForkJoinPool(numThreads);
 
         for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
@@ -377,24 +378,23 @@ public class SeqSubsampler {
 
             if (strobeItr.start(seq)) {
                 boolean write = false;
-                int minPos = strobeItr.getMin();
-                int maxPos = strobeItr.getMax();
-                int numStrobes = maxPos + 1 - minPos;
-//                int numStrobes = strobeItr.getMax() + 1;
+//                int minPos = strobeItr.getMin();
+//                int maxPos = strobeItr.getMax();
+                int numStrobes = strobeItr.getNumStrobemers();
                 
                 HashedPositions[] strobes = new HashedPositions[numStrobes];
                 boolean[] seen = new boolean[numStrobes];
                 
                 // extract all strobemers in parallel and look up their multiplicities
                 customThreadPool.submit(() ->
-                    IntStream.range(minPos, maxPos+1).parallel().forEach(i -> {
-                        HashedPositions s = strobeItr.get(i);
-                        strobes[i-minPos] = s;
-                        seen[i-minPos] = cbf.getCount(s.hash) >= maxMultiplicity;
-//                        IntStream.range(0, numStrobes).parallel().forEach(i -> {
+//                    IntStream.range(minPos, maxPos+1).parallel().forEach(i -> {
 //                        HashedPositions s = strobeItr.get(i);
-//                        strobes[i] = s;
-//                        seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
+//                        strobes[i-minPos] = s;
+//                        seen[i-minPos] = cbf.getCount(s.hash) >= maxMultiplicity;
+                        IntStream.range(0, numStrobes).parallel().forEach(i -> {
+                        HashedPositions s = strobeItr.get(i);
+                        strobes[i] = s;
+                        seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
                     })
                 ).get();
                 
