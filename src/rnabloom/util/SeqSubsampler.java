@@ -401,13 +401,16 @@ public class SeqSubsampler {
                 // check whether stobemers with sufficient multiplicites are present and overlap
                 ComparableInterval namInterval = null;
                 for (int i=0; i<numStrobes; ++i) {
-                    HashedPositions s = strobes[i];
-                    int pos1 = s.pos[0];
-
                     if (seen[i]) {
+                        HashedPositions s = strobes[i];
+                        int pos1 = s.pos[0];
                         int pos2 = s.pos[lastStrobeIndex] + k - 1;
                         
                         if (namInterval == null) {
+                            if (pos1 > maxEdgeClip) {
+                                write = true;
+                                break;
+                            }
                             namInterval = new ComparableInterval(pos1, pos2);
                         }
                         else if (!namInterval.merge(pos1, pos2)) {
