@@ -7254,29 +7254,39 @@ public class RNABloom {
                     
                     assembler.destroyAllBf();
                     
-                    if (subsampleLongReads) {
-                        myTimer.start();
-                        System.out.println("Extracting seed sequences...");
-                        Collections.sort(correctedReads);
-                        switch (subsampleProtocol) {
-                            case SUBSAMPLE_STROBEMER:
-                                SeqSubsampler.strobemerBased(correctedReads, seedReadsPath,
-                                        dbgbfSize + cbfSize, strobemerSize,
-                                        dbgbfNumHash, strandSpecific, 
-                                        Math.max(2, longReadMinReadDepth), maxTipLen, true,
-                                        numThreads, maxIndelSize);
-                                break;
-                            case SUBSAMPLE_KMER:
-                                SeqSubsampler.kmerBased(correctedReads, seedReadsPath,
-                                        dbgbfSize + cbfSize, subKmerSize,
-                                        dbgbfNumHash, strandSpecific, 
-                                        Math.max(2, longReadMinReadDepth), maxTipLen, true,
-                                        numThreads);
-                                break;
-                            default:
-                                subsampleLongReads = false;
+                    if (subsampleLongReads) {                        
+                        if (subsampleProtocol == null) {
+                            subsampleLongReads = false;
                         }
-                        System.out.println("Extraction completed in " + myTimer.elapsedDHMS());
+                        else {
+                            myTimer.start();
+                            System.out.println("Extracting seed sequences...");
+                            
+                            Collections.sort(correctedReads);
+                            
+                            long bfSize = dbgbfSize/8 + cbfSize;
+                            
+                            switch (subsampleProtocol) {
+                                case SUBSAMPLE_STROBEMER:
+                                    SeqSubsampler.strobemerBased(correctedReads, seedReadsPath,
+                                            bfSize, strobemerSize,
+                                            dbgbfNumHash, strandSpecific, 
+                                            Math.max(2, longReadMinReadDepth), maxTipLen, true,
+                                            numThreads, maxIndelSize);
+                                    break;
+                                case SUBSAMPLE_KMER:
+                                    SeqSubsampler.kmerBased(correctedReads, seedReadsPath,
+                                            bfSize, subKmerSize,
+                                            dbgbfNumHash, strandSpecific, 
+                                            Math.max(2, longReadMinReadDepth), maxTipLen, true,
+                                            numThreads);
+                                    break;
+                                default:
+                                    subsampleLongReads = false;
+                            }
+                            
+                            System.out.println("Extraction completed in " + myTimer.elapsedDHMS());
+                        }
                     }
                     
                     touch(longReadsCorrectedStamp);
