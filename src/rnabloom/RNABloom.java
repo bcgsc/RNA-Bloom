@@ -3758,7 +3758,7 @@ public class RNABloom {
                                                                                         percentIdentity, 
                                                                                         minKmerCov,
                                                                                         minNumSolidKmers,
-                                                                                        false, //minKmerCov > 1, // trim edges
+                                                                                        minKmerCov > 1, // trim edges
                                                                                         500);
 
                                     if (correctedKmers != null && !correctedKmers.isEmpty()) {

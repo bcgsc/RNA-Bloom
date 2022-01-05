@@ -3110,13 +3110,7 @@ public final class GraphUtils {
             int shift = windowSize/2;
             
             // trim head and tail
-            ArrayList<Kmer> testKmers = trimLowCovEdges ?
-                                        trimLowCoverageEdgeKmers(kmers, graph, minKmerCov) :
-                                        null;
-            
-            if (testKmers == null) {
-                testKmers = kmers;
-            }
+            ArrayList<Kmer> testKmers = kmers;
             
             boolean toShift = false;
             for (int itr=0; itr<maxErrCorrItr; ++itr) {
@@ -3174,27 +3168,9 @@ public final class GraphUtils {
                 toShift = !toShift;
             }
             
-//            int numKmers = testKmers.size();
-//            if (trimLowCovEdges && numKmers > lookahead) {
-//                ArrayList<Kmer> window = new ArrayList<>(testKmers.subList(0, Math.min(windowSize, numKmers)));
-//                CoverageStats headCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
-//
-//                window = new ArrayList<>(testKmers.subList(Math.max(0, numKmers-windowSize), numKmers));
-//                CoverageStats tailCovStat = getCoverageStats(window, maxCovGradient, lookahead, true);
-//
-//                if (headCovStat.dropoff > 0 || tailCovStat.dropoff > 0) {
-//                    ArrayList<Kmer> correctedKmers = correctEdgeErrors(testKmers,
-//                                                                        graph,
-//                                                                        lookahead,
-//                                                                        Math.max(minKmerCov, headCovStat.dropoff),
-//                                                                        Math.max(minKmerCov, tailCovStat.dropoff),
-//                                                                        percentIdentity,
-//                                                                        minKmerCov);
-//                    if (correctedKmers != null) {
-//                        testKmers = correctedKmers;
-//                    }
-//                }
-//            }
+            if (trimLowCovEdges && getMedianKmerCoverage(testKmers) >= minKmerCov*2) {
+                testKmers = trimLowCoverageEdgeKmers(testKmers, graph, minKmerCov);
+            }
             
             return testKmers;
         }
@@ -3243,10 +3219,10 @@ public final class GraphUtils {
             }
         }
         
-        if (headIndex > 0 || tailIndex < numKmers) {
+        if (headIndex > 0 || tailIndex < numKmers-1) {
             if (tailIndex - headIndex > 1) {
                 // trimming was done
-                return new ArrayList<>(kmers.subList(headIndex, tailIndex));
+                return new ArrayList<>(kmers.subList(headIndex, tailIndex+1));
             }
             else {
                 // sequence was trimmed to nothing
