@@ -3211,7 +3211,7 @@ public final class GraphUtils {
             Kmer kmer = kmers.get(i);
             if (kmer.count >= threshold) {
                 if (prevGood) {
-                    tailIndex = i+1;
+                    tailIndex = i+2;
                     break;
                 }
                 else {
@@ -3223,10 +3223,10 @@ public final class GraphUtils {
             }
         }
         
-        if (headIndex > 0 || tailIndex < numKmers-1) {
+        if (headIndex > 0 || tailIndex < numKmers) {
             if (tailIndex - headIndex > 1) {
                 // trimming was done
-                return new ArrayList<>(kmers.subList(headIndex, tailIndex+1));
+                return new ArrayList<>(kmers.subList(headIndex, tailIndex));
             }
             else {
                 // sequence was trimmed to nothing
