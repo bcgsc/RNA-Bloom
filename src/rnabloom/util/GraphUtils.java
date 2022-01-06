@@ -3169,7 +3169,11 @@ public final class GraphUtils {
             }
             
             if (trimLowCovEdges && getMedianKmerCoverage(testKmers) >= minKmerCov*2) {
-                testKmers = trimLowCoverageEdgeKmers(testKmers, graph, minKmerCov);
+                ArrayList<Kmer> trimmed = trimLowCoverageEdgeKmers(testKmers, graph, minKmerCov);
+                if (trimmed != null) {
+                    // trimming was done
+                    testKmers = trimmed;
+                }
             }
             
             return testKmers;
