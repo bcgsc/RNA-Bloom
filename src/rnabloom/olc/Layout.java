@@ -1620,9 +1620,6 @@ public class Layout {
             ++originalNumSeq;
             fr.nextWithName(record);
             String seqName = record.name;
-            if (seqName.equals("s10104")) {
-                System.out.println("jere");
-            }
             if (!containedSet.contains(seqName)) {
                 if (checkNumAltReads) {
                     if (readsWithOverlap.contains(seqName)) {
