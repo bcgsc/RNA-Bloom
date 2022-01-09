@@ -6264,9 +6264,9 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadPacBioPreset);
         
-        final String optSubsampleLongReadDefault = "s,11";
+        final String optSubsampleLongReadDefault = "3,s,11";
         Option optSubsampleLongRead = Option.builder("lrsub")
-                                    .desc("subsample long reads before assembly using strobemers (s,size) or k-mer pairs (k,size) [" + optSubsampleLongReadDefault + "]")
+                                    .desc("subsample long reads before assembly using strobemers (depth,s,size) or k-mer pairs (depth,k,size) [" + optSubsampleLongReadDefault + "]")
                                     .hasArg(true)
                                     .build();
         options.addOption(optSubsampleLongRead);
@@ -6658,14 +6658,16 @@ public class RNABloom {
             String subsampleProtocol = null;
             int strobemerSize = 11;
             int subKmerSize = 8;
+            int subsampleDepth = 3;
             String subsampleLongReadsArg = line.getOptionValue(optSubsampleLongRead.getOpt(), optSubsampleLongReadDefault);
             String[] subsampleLongReadsArgVals = subsampleLongReadsArg.split(",");
             if (subsampleLongReadsArgVals.length > 0) {
-                if (subsampleLongReadsArgVals.length == 2) {
-                    switch (subsampleLongReadsArgVals[0]) {
+                if (subsampleLongReadsArgVals.length == 3) {
+                    subsampleDepth = Integer.parseInt(subsampleLongReadsArgVals[0]);
+                    switch (subsampleLongReadsArgVals[1]) {
                         case SUBSAMPLE_STROBEMER:
                             try {
-                                strobemerSize = Integer.parseInt(subsampleLongReadsArgVals[1]);
+                                strobemerSize = Integer.parseInt(subsampleLongReadsArgVals[2]);
                                 subsampleProtocol = SUBSAMPLE_STROBEMER;
                                 subsampleLongReads = true;
                             }
@@ -6675,7 +6677,7 @@ public class RNABloom {
                             break;
                         case SUBSAMPLE_KMER:
                             try {
-                                subKmerSize = Integer.parseInt(subsampleLongReadsArgVals[1]);
+                                subKmerSize = Integer.parseInt(subsampleLongReadsArgVals[2]);
                                 subsampleProtocol = SUBSAMPLE_KMER;
                                 subsampleLongReads = true;
                             }
@@ -7271,14 +7273,14 @@ public class RNABloom {
                                     SeqSubsampler.strobemerBased(correctedReads, seedReadsPath,
                                             bfSize, strobemerSize,
                                             dbgbfNumHash, strandSpecific, 
-                                            Math.max(2, longReadMinReadDepth), maxTipLen, true,
+                                            Math.max(subsampleDepth, longReadMinReadDepth), maxTipLen, true,
                                             numThreads, maxIndelSize);
                                     break;
                                 case SUBSAMPLE_KMER:
                                     SeqSubsampler.kmerBased(correctedReads, seedReadsPath,
                                             bfSize, subKmerSize,
                                             dbgbfNumHash, strandSpecific, 
-                                            Math.max(2, longReadMinReadDepth), maxTipLen, true,
+                                            Math.max(subsampleDepth, longReadMinReadDepth), maxTipLen, true,
                                             numThreads);
                                     break;
                                 default:
