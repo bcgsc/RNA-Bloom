@@ -1362,5 +1362,22 @@ public class OverlapLayoutConsensus {
     
     public static void main(String[] args) {
         //debug
+        String seqFastaPath = "seed.fa";
+        String uniqueFastaPath = "out.fa";
+        int numThreads = 1;
+        boolean align = true;
+        String minimapOptions = "-K 250M -e 25 -f 0.0001 -c";
+        boolean stranded = false;
+        int maxEdgeClip = 50;
+        float minAlnId = 0.6f;
+        int minOverlapMatches = 150;
+        int maxIndelSize = 50;
+        int minSeqDepth = 2;
+        boolean usePacBioPreset = false;
+        boolean verbose = false;
+        overlapWithMinimapAndExtractUnique(seqFastaPath, uniqueFastaPath,
+            numThreads, align, minimapOptions, stranded,
+            maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
+            minSeqDepth, usePacBioPreset, verbose);
     }
 }
