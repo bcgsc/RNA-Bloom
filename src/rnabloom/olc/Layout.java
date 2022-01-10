@@ -866,7 +866,8 @@ public class Layout {
     }
     
     private boolean isFullyCovered(Histogram h) {
-        return h.minStart <= maxEdgeClip && h.maxEnd >= h.length - maxEdgeClip;
+        //return h.minStart <= maxEdgeClip && h.maxEnd >= h.length - maxEdgeClip;
+        return h.minStart <= 1 && h.maxEnd >= h.length - 1;
     }
     
     private static int updateHistogram(int[] hist, int binSize, int origLen, int start, int end) {
