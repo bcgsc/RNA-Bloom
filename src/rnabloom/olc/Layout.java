@@ -1464,7 +1464,7 @@ public class Layout {
             }
         });
     }
-    
+        
     private void findContainedTargetOverlaps(String qName, Histogram qHist,
             ArrayDeque<TargetOverlap> records, Set<String> contained, HashMap<String, Histogram> histogramMap) {
         records.parallelStream().forEach(r -> {

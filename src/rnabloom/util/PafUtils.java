@@ -148,22 +148,38 @@ public class PafUtils {
     }
         
     public static boolean isDovetailPafRecord(PafRecord r, int maxEdgeClip) {
+//        if (r.reverseComplemented) {
+//            return (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip && r.qStart > r.tLen - r.tEnd) ||
+//                    (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip && r.qLen - r.qStart > r.tStart);
+//        }
+//        else {
+//            return (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip && r.qStart > r.tStart) ||
+//                    (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip && r.tStart > r.qStart);
+//        }
+        int qHead = r.qStart;
+        int qTail = r.qLen - r.qEnd;
+        int tHead = r.tStart;
+        int tTail = r.tLen - r.tEnd;
+
         if (r.reverseComplemented) {
-            return (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip && r.qStart > r.tLen - r.tEnd) ||
-                    (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip && r.qLen - r.qStart > r.tStart);
+            return ((qHead > tTail && tHead > qTail && tTail <= maxEdgeClip && qTail <= maxEdgeClip) ||
+                    (qTail > tHead && tTail > qHead && qHead <= maxEdgeClip && tHead <= maxEdgeClip));
         }
         else {
-            return (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip && r.qStart > r.tStart) ||
-                    (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip && r.tStart > r.qStart);
+            return ((qHead > tHead && qTail < tTail && tHead <= maxEdgeClip && qTail <= maxEdgeClip) ||
+                    (tHead > qHead && tTail < qTail && qHead <= maxEdgeClip && tTail <= maxEdgeClip));
         }
     }
     
     public static boolean isForwardDovetailPafRecord(PafRecord r, int maxEdgeClip) {
         if (!r.reverseComplemented) {
-            if ((r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) ||
-                    (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip)) {
-                return true;
-            }
+            int qHead = r.qStart;
+            int qTail = r.qLen - r.qEnd;
+            int tHead = r.tStart;
+            int tTail = r.tLen - r.tEnd;
+            
+            return ((qHead > tHead && qTail < tTail && tHead <= maxEdgeClip && qTail <= maxEdgeClip) ||
+                    (tHead > qHead && tTail < qTail && qHead <= maxEdgeClip && tTail <= maxEdgeClip));
         }
         
         return false;
