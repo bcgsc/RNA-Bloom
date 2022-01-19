@@ -1,8 +1,0 @@
-<#if licenseFirst??>
-${licenseFirst}
-</#if>
-${licensePrefix}RNA-Bloom
-${licensePrefix}Copyright 2018-present BC Cancer, Genome Sciences Centre
-<#if licenseLast??>
-${licenseLast}
-</#if>
