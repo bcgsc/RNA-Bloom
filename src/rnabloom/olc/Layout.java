@@ -579,12 +579,16 @@ public class Layout {
         while (itr.hasNext()) {
             String vid2 = itr.next();
             
-            OverlapEdge edge = graph.getEdge(vid, vid2);
+            OverlapEdge edge = graph.getEdge(vid, vid2);            
             if (reverseComplement) {
-                sb.append(bitseq.subStringRevComp(edge.sourceEnd, end));
+                if (end > edge.sourceEnd) {
+                    sb.append(bitseq.subStringRevComp(edge.sourceEnd, end));
+                }
             }
             else {
-                sb.append(bitseq.subString(start, edge.sourceStart));
+                if (edge.sourceStart > start) {
+                    sb.append(bitseq.subString(start, edge.sourceStart));
+                }
             }
             
             vid = vid2;
@@ -2404,14 +2408,48 @@ public class Layout {
     }
     
     private void addEdges(StrandedOverlap r) {
+//        if (r.reverseComplemented) {
+//            if (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip) {
+//                addVertex(r.qName);
+//                addVertex(r.tName);
+//                graph.addEdge(r.tName+"+", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+//                graph.addEdge(r.qName+"+", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+//            }
+//            else if (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip) {
+//                addVertex(r.qName);
+//                addVertex(r.tName);
+//                graph.addEdge(r.qName+"-", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+//                graph.addEdge(r.tName+"-", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+//            }
+//        }
+//        else {
+//            if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
+//                addVertex(r.qName);
+//                addVertex(r.tName);
+//                graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+//                graph.addEdge(r.tName+"-", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+//            }
+//            else if (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip) {
+//                addVertex(r.qName);
+//                addVertex(r.tName);
+//                graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+//                graph.addEdge(r.qName+"-", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+//            }
+//        }
+        
+        int qHead = r.qStart;
+        int qTail = r.qLen - r.qEnd;
+        int tHead = r.tStart;
+        int tTail = r.tLen - r.tEnd;
+        
         if (r.reverseComplemented) {
-            if (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip) {
+            if (qHead > tTail && tHead > qTail && tTail <= maxEdgeClip && qTail <= maxEdgeClip) {
                 addVertex(r.qName);
                 addVertex(r.tName);
                 graph.addEdge(r.tName+"+", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
                 graph.addEdge(r.qName+"+", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
             }
-            else if (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip) {
+            else if (qTail > tHead && tTail > qHead && qHead <= maxEdgeClip && tHead <= maxEdgeClip) {
                 addVertex(r.qName);
                 addVertex(r.tName);
                 graph.addEdge(r.qName+"-", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
@@ -2419,13 +2457,13 @@ public class Layout {
             }
         }
         else {
-            if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
+            if (qHead > tHead && qTail < tTail && tHead <= maxEdgeClip && qTail <= maxEdgeClip) {
                 addVertex(r.qName);
                 addVertex(r.tName);
                 graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
                 graph.addEdge(r.tName+"-", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
             }
-            else if (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip) {
+            else if (tHead > qHead && tTail < qTail && qHead <= maxEdgeClip && tTail <= maxEdgeClip) {
                 addVertex(r.qName);
                 addVertex(r.tName);
                 graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
@@ -2435,15 +2473,33 @@ public class Layout {
     }
     
     private void addForwardEdge(Overlap r) {
-        if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
-            addVertexStranded(r.qName+"+");
-            addVertexStranded(r.tName+"+");
+//        if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
+//            addVertexStranded(r.qName+"+");
+//            addVertexStranded(r.tName+"+");
+//            graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+//        }
+//        else if (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip) {
+//            addVertexStranded(r.qName+"+");
+//            addVertexStranded(r.tName+"+");
+//            graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+//        }
+
+        int qHead = r.qStart;
+        int qTail = r.qLen - r.qEnd;
+        int tHead = r.tStart;
+        int tTail = r.tLen - r.tEnd;
+        
+        if (qHead > tHead && qTail < tTail && tHead <= maxEdgeClip && qTail <= maxEdgeClip) {
+            addVertex(r.qName);
+            addVertex(r.tName);
             graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+            graph.addEdge(r.tName+"-", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
         }
-        else if (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip) {
-            addVertexStranded(r.qName+"+");
-            addVertexStranded(r.tName+"+");
+        else if (tHead > qHead && tTail < qTail && qHead <= maxEdgeClip && tTail <= maxEdgeClip) {
+            addVertex(r.qName);
+            addVertex(r.tName);
             graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+            graph.addEdge(r.qName+"-", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
         }
     }
     
