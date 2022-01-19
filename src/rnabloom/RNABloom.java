@@ -3711,7 +3711,7 @@ public class RNABloom {
                     ++numReads;
                     String seq = reverseComplement ? reverseComplement(nameSeqPair[1]) : nameSeqPair[1];
                     boolean kept = false;
-                    
+                                      
                     if (seq.length() >= k) {
                         String name = nameSeqPair[0];
                         

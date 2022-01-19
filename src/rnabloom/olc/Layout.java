@@ -2333,7 +2333,7 @@ public class Layout {
         fw.close();
         records.clear();
     }
-    
+        
     private void removeVertex(String name) {
         removeVertexStranded(name + '+');
         removeVertexStranded(name + '-');
@@ -2541,6 +2541,7 @@ public class Layout {
         // look for containment and overlaps
         if (stranded) {
             ArrayDeque<Overlap> overlaps = new ArrayDeque<>();
+            ArrayDeque<Overlap> containedDoveTailOverlaps = new ArrayDeque<>();
             
             String prevName = null;
             boolean prevContained = false;
@@ -2582,34 +2583,50 @@ public class Layout {
                         
                         if (!prevContained && !containedSet.contains(r.tName)) {
                             CONTAIN_STATUS c = getContained(r);
+                            boolean isDoveTail = isForwardDovetailPafRecord(r);
                             switch (c) {
                                 case QUERY:
-                                    containedSet.add(r.qName);
-                                    prevContained = true;
-                                    break;
-                                case TARGET:
-                                    containedSet.add(r.tName);
-                                    break;
-                                case BOTH:
-                                    if (r.qLen > r.tLen) {
-                                        containedSet.add(r.tName);
+                                    if (isDoveTail) {
+                                        containedDoveTailOverlaps.add(pafToOverlap(r));
                                     }
-                                    else if (r.tLen > r.qLen) {
+                                    else {
                                         containedSet.add(r.qName);
                                         prevContained = true;
                                     }
+                                    break;
+                                case TARGET:
+                                    if (isDoveTail) {
+                                        containedDoveTailOverlaps.add(pafToOverlap(r));
+                                    }
                                     else {
-                                        if (r.qName.compareTo(r.tName) > 0) {
+                                        containedSet.add(r.tName);
+                                    }
+                                    break;
+                                case BOTH:
+                                    if (isDoveTail) {
+                                        containedDoveTailOverlaps.add(pafToOverlap(r));
+                                    }
+                                    else {
+                                        if (r.qLen > r.tLen) {
                                             containedSet.add(r.tName);
                                         }
-                                        else {
+                                        else if (r.tLen > r.qLen) {
                                             containedSet.add(r.qName);
                                             prevContained = true;
+                                        }
+                                        else {
+                                            if (r.qName.compareTo(r.tName) > 0) {
+                                                containedSet.add(r.tName);
+                                            }
+                                            else {
+                                                containedSet.add(r.qName);
+                                                prevContained = true;
+                                            }
                                         }
                                     }
                                     break;
                                 case NEITHER:
-                                    if (isForwardDovetailPafRecord(r)) {
+                                    if (isDoveTail) {
                                         pendingOverlaps.add(pafToOverlap(r));
                                     }
                                     else {
@@ -2645,9 +2662,24 @@ public class Layout {
                     addForwardEdge(r);
                 }
             }
+            
+            for (Overlap r : containedDoveTailOverlaps) {
+                String tName = r.tName;
+                String qName = r.qName;
+                if (!containedSet.contains(qName) &&
+                    !containedSet.contains(tName)) {
+                    qName = qName + '+';
+                    tName = tName + '+';
+                    if ((!graph.containsVertex(qName) || (graph.inDegreeOf(qName) == 0 || graph.outDegreeOf(qName) == 0)) &&
+                        (!graph.containsVertex(tName) || (graph.inDegreeOf(tName) == 0 || graph.outDegreeOf(tName) == 0))) {
+                        addForwardEdge(r);
+                    }
+                }
+            }
         }
         else {
             ArrayDeque<StrandedOverlap> overlaps = new ArrayDeque<>();
+            ArrayDeque<StrandedOverlap> containedDoveTailOverlaps = new ArrayDeque<>();
             ArrayList<StrandedOverlap> nonStandardOverlaps = new ArrayList<>();
             
             String prevName = null;
@@ -2684,34 +2716,50 @@ public class Layout {
                         
                         if (!prevContained && !containedSet.contains(r.tName)) {
                             CONTAIN_STATUS c = getContained(r);
+                            boolean isDoveTail = isDovetailPafRecord(r);
                             switch (c) {
                                 case QUERY:
-                                    containedSet.add(r.qName);
-                                    prevContained = true;
-                                    break;
-                                case TARGET:
-                                    containedSet.add(r.tName);
-                                    break;
-                                case BOTH:
-                                    if (r.qLen > r.tLen) {
-                                        containedSet.add(r.tName);
+                                    if (isDoveTail) {
+                                        containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
                                     }
-                                    else if (r.tLen > r.qLen) {
+                                    else {
                                         containedSet.add(r.qName);
                                         prevContained = true;
                                     }
+                                    break;
+                                case TARGET:
+                                    if (isDoveTail) {
+                                        containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
+                                    }
                                     else {
-                                        if (r.qName.compareTo(r.tName) > 0) {
+                                        containedSet.add(r.tName);
+                                    }
+                                    break;
+                                case BOTH:
+                                    if (isDoveTail) {
+                                        containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
+                                    }
+                                    else {
+                                        if (r.qLen > r.tLen) {
                                             containedSet.add(r.tName);
                                         }
-                                        else {
+                                        else if (r.tLen > r.qLen) {
                                             containedSet.add(r.qName);
                                             prevContained = true;
+                                        }
+                                        else {
+                                            if (r.qName.compareTo(r.tName) > 0) {
+                                                containedSet.add(r.tName);
+                                            }
+                                            else {
+                                                containedSet.add(r.qName);
+                                                prevContained = true;
+                                            }
                                         }
                                     }
                                     break;
                                 case NEITHER:
-                                    if (isDovetailPafRecord(r)) {
+                                    if (isDoveTail) {
                                         pendingOverlaps.add(pafToStrandedOverlap(r));
                                     }
                                     else {
@@ -2745,6 +2793,20 @@ public class Layout {
                 if (!containedSet.contains(r.qName) &&
                     !containedSet.contains(r.tName)) {
                     addEdges(r);
+                }
+            }
+            
+            for (StrandedOverlap r : containedDoveTailOverlaps) {
+                String tName = r.tName;
+                String qName = r.qName;
+                if (!containedSet.contains(qName) &&
+                    !containedSet.contains(tName)) {
+                    qName = qName + '+';
+                    tName = tName + '+';
+                    if ((!graph.containsVertex(qName) || (graph.inDegreeOf(qName) == 0 || graph.outDegreeOf(qName) == 0)) &&
+                        (!graph.containsVertex(tName) || (graph.inDegreeOf(tName) == 0 || graph.outDegreeOf(tName) == 0))) {
+                        addEdges(r);
+                    }
                 }
             }
         }
