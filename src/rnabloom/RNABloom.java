@@ -4683,21 +4683,25 @@ public class RNABloom {
             ArrayList<String> reverseFastaPaths = new ArrayList<>();
             ArrayList<String> reverseFastqPaths = new ArrayList<>();
             
-            for (String p : forwardReadPaths) {
-                if (FastaReader.isCorrectFormat(p)) {
-                    forwardFastaPaths.add(p);
-                }
-                else if (FastqReader.isCorrectFormat(p)) {
-                    forwardFastqPaths.add(p);
+            if (forwardReadPaths != null) {
+                for (String p : forwardReadPaths) {
+                    if (FastaReader.isCorrectFormat(p)) {
+                        forwardFastaPaths.add(p);
+                    }
+                    else if (FastqReader.isCorrectFormat(p)) {
+                        forwardFastqPaths.add(p);
+                    }
                 }
             }
 
-            for (String p : reverseReadPaths) {
-                if (FastaReader.isCorrectFormat(p)) {
-                    reverseFastaPaths.add(p);
-                }
-                else if (FastqReader.isCorrectFormat(p)) {
-                    reverseFastqPaths.add(p);
+            if (reverseReadPaths != null) {
+                for (String p : reverseReadPaths) {
+                    if (FastaReader.isCorrectFormat(p)) {
+                        reverseFastaPaths.add(p);
+                    }
+                    else if (FastqReader.isCorrectFormat(p)) {
+                        reverseFastqPaths.add(p);
+                    }
                 }
             }
             
