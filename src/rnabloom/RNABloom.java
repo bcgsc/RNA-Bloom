@@ -5800,7 +5800,7 @@ public class RNABloom {
         
         String defaultMinTranscriptLengthLR = "200";
         String defaultMinOverlapLR = "150";
-        String defaultKmerSizeLR = "17";
+        String defaultKmerSizeLR = "25";
         String defaultMinCoverageLR = "2";
         String defaultMaxIndelSizeLR = "50";
         String defaultMaxTipLengthLR = "50";
@@ -6227,7 +6227,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optPolyATail);  
         
-        final String optMinimapOptionsDefault = "-K 250M -e 25 -f 0.0001";
+        final String optMinimapOptionsDefault = "-K 250M -e 25 -f 0.0001 -c";
         Option optMinimapOptions = Option.builder("mmopt")
                                     .desc("options for minimap2 [\"'" + optMinimapOptionsDefault + "'\"]\n(`-x` and `-t` are already in use)")
                                     .hasArg(true)
