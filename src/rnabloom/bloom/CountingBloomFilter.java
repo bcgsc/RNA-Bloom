@@ -130,25 +130,24 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     public void increment(final long[] hashVals) {
         // find the smallest count at all hash positions
         byte min = counts.get(getIndex(hashVals[0], size));
-        byte c;
-        int h;
-        for (h=1; h<numHash; ++h) {
-            c = counts.get(getIndex(hashVals[h], size));
-            if (c < min) {
-                min = c;
-            }
-            if (min == 0) {
-                break;
+        if (min != 0) {
+            for (int h=1; h<numHash; ++h) {
+                byte c = counts.get(getIndex(hashVals[h], size));
+                if (c < min) {
+                    min = c;
+                    if (min == 0) {
+                        break;
+                    }
+                }
             }
         }
         
         // increment the smallest count
-        
         byte updated = MiniFloat.increment(min);
         
         if (updated != min) {
-            // update min count only
-            for (h=0; h<numHash; ++h) {
+            for (int h=0; h<numHash; ++h) {
+                // update min count only
                 counts.compareAndSwap(getIndex(hashVals[h], size), min, updated);
             }
         }
@@ -157,25 +156,24 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     public float incrementAndGet(final long[] hashVals) {
         // find the smallest count at all hash positions
         byte min = counts.get(getIndex(hashVals[0], size));
-        byte c;
-        int h;
-        for (h=1; h<numHash; ++h) {
-            c = counts.get(getIndex(hashVals[h], size));
-            if (c < min) {
-                min = c;
-            }
-            if (min == 0) {
-                break;
+        if (min != 0) {
+            for (int h=1; h<numHash; ++h) {
+                byte c = counts.get(getIndex(hashVals[h], size));
+                if (c < min) {
+                    min = c;
+                    if (min == 0) {
+                        break;
+                    }
+                }
             }
         }
         
         // increment the smallest count
-        
         byte updated = MiniFloat.increment(min);
         
         if (updated != min) {
-            // update min count only
-            for (h=0; h<numHash; ++h) {
+            for (int h=0; h<numHash; ++h) {
+                // update min count only
                 counts.compareAndSwap(getIndex(hashVals[h], size), min, updated);
             }
         }
