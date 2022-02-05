@@ -391,7 +391,7 @@ public class SeqSubsampler {
 //                        HashedPositions s = strobeItr.get(i);
 //                        strobes[i-minPos] = s;
 //                        seen[i-minPos] = cbf.getCount(s.hash) >= maxMultiplicity;
-                        IntStream.range(0, numStrobes).parallel().forEach(i -> {
+                    IntStream.range(0, numStrobes).parallel().forEach(i -> {
                         HashedPositions s = strobeItr.get(i);
                         strobes[i] = s;
                         seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
@@ -433,8 +433,10 @@ public class SeqSubsampler {
                     
                     // hash values are stored in a set to avoid double-counting
                     HashSet<Long> hashVals = new HashSet<>(numStrobes * 4/3 + 1);
-                    for (HashedPositions s : strobes) {
-                        hashVals.add(s.hash);
+                    for (int i=0; i<numStrobes; ++i) {
+                        if (!seen[i]) {
+                            hashVals.add(strobes[i].hash);
+                        }
                     }
                     
                     // increment strobemer multiplicities in parallel
