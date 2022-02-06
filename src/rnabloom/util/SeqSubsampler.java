@@ -418,6 +418,20 @@ public class SeqSubsampler {
                             break;
                         }
                     }
+                    else if (namInterval == null) {
+                        if (strobes[i].pos[0] > maxEdgeClip) {
+                            // beyond left edge region
+                            write = true;
+                            break;
+                        }
+                    }
+                    else {
+                        if (strobes[i].pos[0] > namInterval.end) {
+                            // there is a gap
+                            write = true;
+                            break;
+                        }
+                    }
                 }
 
                 if (!write &&
