@@ -31,6 +31,7 @@ import rnabloom.bloom.buffer.LargeByteBuffer;
 import static java.lang.Math.exp;
 import static java.lang.Math.log;
 import static java.lang.Math.pow;
+import java.util.function.Consumer;
 import rnabloom.bloom.buffer.BufferComparator;
 import rnabloom.bloom.hash.HashFunction;
 
@@ -44,6 +45,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     protected long size;
     protected HashFunction hashFunction;
     protected long popcount = -1;
+    protected Consumer<long[]> incrementFunction;
     
     public CountingBloomFilter(long size, int numHash, HashFunction hashFunction) {
         this.size = size;
@@ -56,6 +58,17 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         }
         this.numHash = numHash;
         this.hashFunction = hashFunction;
+        switch (numHash) {
+            case 1:
+                this.incrementFunction = this::incrementHash1;
+                break;
+            case 2:
+                this.incrementFunction = this::incrementHash2;
+                break;
+            default:
+                this.incrementFunction = this::incrementHashN;
+                break;
+        }
     }
     
     private static final String LABEL_SEPARATOR = ":";
@@ -126,8 +139,48 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     public void increment(long hashVal) {
         increment(hashFunction.getHashValues(hashVal, numHash));
     }
+
+    private void incrementHash1(final long[] hashVals) {
+        long i = getIndex(hashVals[0], size);
+        byte b = counts.get(i);
+        byte b2 = MiniFloat.increment(b);
+        if (b2 != b) {
+            counts.set(i, b2);
+        }
+    }
     
-    public void increment(final long[] hashVals) {
+    private void incrementHash2(final long[] hashVals) {
+        long index1 = getIndex(hashVals[0], size);
+        byte b1 = counts.get(index1);
+
+        long index2 = getIndex(hashVals[1], size);
+        byte b2 = counts.get(index2);
+      
+        if (b1 == b2) {
+            // both are min
+            b2 = MiniFloat.increment(b1);
+            if (b2 != b1) {
+                counts.set(index1, b2);
+                counts.set(index2, b2);
+            }
+        }
+        else if (b1 < b2) {
+            // 1 is min
+            b2 = MiniFloat.increment(b1);
+            if (b2 != b1) {
+                counts.set(index1, b2);
+            }
+        }
+        else {
+            // 2 is min
+            b1 = MiniFloat.increment(b2);
+            if (b1 != b2) {
+                counts.set(index2, b1);
+            }
+        }
+    }
+    
+    private void incrementHashN(final long[] hashVals) {
         // find the smallest count at all hash positions
         byte min = counts.get(getIndex(hashVals[0], size));
         if (min != 0) {
@@ -151,6 +204,10 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
                 counts.compareAndSwap(getIndex(hashVals[h], size), min, updated);
             }
         }
+    }
+    
+    public void increment(final long[] hashVals) {
+        incrementFunction.accept(hashVals);
     }
     
     public float incrementAndGet(final long[] hashVals) {
