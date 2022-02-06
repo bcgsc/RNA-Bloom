@@ -13,5 +13,5 @@ public class Constants {
     public final static String FASTA_EXT = ".fa";
     public final static String GZIP_EXT = ".gz";
     public final static String NBITS_EXT = ".nbits";
-    public final static int BUFFER_SIZE = 1024 * 8;
+    public final static int BUFFER_SIZE = 1024 * 128;
 }
