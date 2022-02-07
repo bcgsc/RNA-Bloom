@@ -31,7 +31,6 @@ import rnabloom.bloom.buffer.LargeByteBuffer;
 import static java.lang.Math.exp;
 import static java.lang.Math.log;
 import static java.lang.Math.pow;
-import java.util.function.Consumer;
 import rnabloom.bloom.buffer.BufferComparator;
 import rnabloom.bloom.hash.HashFunction;
 
@@ -45,7 +44,6 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
     protected long size;
     protected HashFunction hashFunction;
     protected long popcount = -1;
-    protected Consumer<long[]> incrementFunction;
     
     public CountingBloomFilter(long size, int numHash, HashFunction hashFunction) {
         this.size = size;
@@ -58,17 +56,6 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         }
         this.numHash = numHash;
         this.hashFunction = hashFunction;
-        switch (numHash) {
-            case 1:
-                this.incrementFunction = this::incrementHash1;
-                break;
-            case 2:
-                this.incrementFunction = this::incrementHash2;
-                break;
-            default:
-                this.incrementFunction = this::incrementHashN;
-                break;
-        }
     }
     
     private static final String LABEL_SEPARATOR = ":";
@@ -180,7 +167,7 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
         }
     }
     
-    private void incrementHashN(final long[] hashVals) {
+    public void increment(final long[] hashVals) {
         // find the smallest count at all hash positions
         byte min = counts.get(getIndex(hashVals[0], size));
         if (min != 0) {
@@ -204,10 +191,6 @@ public class CountingBloomFilter implements CountingBloomFilterInterface {
                 counts.compareAndSwap(getIndex(hashVals[h], size), min, updated);
             }
         }
-    }
-    
-    public void increment(final long[] hashVals) {
-        incrementFunction.accept(hashVals);
     }
     
     public float incrementAndGet(final long[] hashVals) {
