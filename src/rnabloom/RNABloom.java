@@ -103,6 +103,7 @@ import rnabloom.util.Timer;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.Common.getQuartiles;
 import rnabloom.util.PolyAAdaptorTrimmer;
+import rnabloom.util.PolyATailFinder;
 import rnabloom.util.SeqSubsampler;
 import rnabloom.util.WeightedBitSequence;
 
@@ -3705,7 +3706,9 @@ public class RNABloom {
             //boolean stranded = graph.isStranded();
             
             try {
-                PolyAAdaptorTrimmer polyATrimmer = new PolyAAdaptorTrimmer(10);
+                PolyATailFinder tailFinder = new PolyATailFinder();
+                tailFinder.setProfile(PolyATailFinder.Profile.ONT);
+                
                 String[] nameSeqPair;
                 while((nameSeqPair = itr.next()) != null) {
                     ++numReads;
@@ -3715,17 +3718,57 @@ public class RNABloom {
                     if (seq.length() >= k) {
                         String name = nameSeqPair[0];
                         
-                        String seqTrimmed = polyATrimmer.chompTailAdaptor(seq, 150);
-                        if (seqTrimmed != null) {
-                            // polyA tail found
-                            seq = seqTrimmed;
-                        }
+                        Interval tailRegion = tailFinder.findPolyATail(seq);
                         
-                        if (!strandSpecific) {
-                            seqTrimmed = polyATrimmer.chompHeadAdaptor(seq, 150);
-                            if (seqTrimmed != null) {
-                                // polyT head found, reverse-complement sequence
-                                seq = reverseComplement(seqTrimmed);
+                        if (strandSpecific) {
+                            if (tailRegion != null && tailRegion.end < seq.length()) {
+                                seq = seq.substring(0, tailRegion.end);
+                            }
+                        }
+                        else {
+                            Interval headRegion = tailFinder.findPolyTHead(seq);
+                            
+                            if (tailRegion != null && headRegion == null) {
+                                if (tailRegion.end < seq.length()) {
+                                    seq = seq.substring(0, tailRegion.end);
+                                }
+                            }
+                            else if (tailRegion == null && headRegion != null) {
+                                if (headRegion.start > 0) {
+                                    seq = seq.substring(headRegion.start);
+                                }
+                                seq = reverseComplement(seq);
+                            }
+                            else if (tailRegion != null && headRegion != null) {                                
+                                boolean hasPas = tailFinder.hasPolyASignal(seq, tailRegion.start);
+                                boolean hasPasRC = tailFinder.hasPolyASignalRC(seq, headRegion.end);
+                                
+                                if (hasPas && !hasPasRC) {
+                                    if (tailRegion.end < seq.length()) { 
+                                        seq = seq.substring(0, tailRegion.end);
+                                    }
+                                }
+                                else if (!hasPas && hasPasRC) {
+                                    if (headRegion.start > 0) {
+                                        seq = seq.substring(headRegion.start);
+                                    }
+                                    seq = reverseComplement(seq);
+                                }
+                                else {
+                                    int tailLength = tailRegion.end - tailRegion.start;
+                                    int headLength = headRegion.end - headRegion.start;
+                                    if (tailLength >= headLength) {
+                                        if (tailRegion.end < seq.length()) { 
+                                            seq = seq.substring(0, tailRegion.end);
+                                        }
+                                    }
+                                    else {
+                                        if (headRegion.start > 0) {
+                                            seq = seq.substring(headRegion.start);
+                                        }
+                                        seq = reverseComplement(seq);
+                                    }
+                                }
                             }
                         }
                         

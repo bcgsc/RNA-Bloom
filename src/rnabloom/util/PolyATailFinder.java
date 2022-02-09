@@ -44,13 +44,19 @@ public class PolyATailFinder {
     private final Pattern pasPattern = getPolyASignalPattern();
     private final Pattern pasPatternRC = getPolyASignalPatternRC();
     
-    private final int seedLength;
-    private final float minIdentity;
-    private final int maxGap;
-    private final int window;
-    private final int pasSearchStart;
-    private final int pasSearchEnd;
+    private int seedLength = 10;
+    private float minIdentity = 0.7f;
+    private int maxGap = 4;
+    private int window = 100; // search window for polyA seed
+    private int pasSearchStart = -60; // distance from cleavage site position
+    private int pasSearchEnd = -5;
     
+    public static enum Profile {ILLUMINA, ONT};
+    
+    public PolyATailFinder() {
+        
+    }
+            
     public PolyATailFinder(int seedLength, float minIdentity, int maxGap, int window,
             int pasSearchStart, int pasSearchEnd) {
         this.seedLength = seedLength;
@@ -61,6 +67,44 @@ public class PolyATailFinder {
         this.pasSearchEnd = pasSearchEnd;
     }
     
+    public void setProfile(Profile p) {
+        switch(p) {
+            case ILLUMINA:
+                seedLength = 4;
+                minIdentity = 0.9f;
+                maxGap = 1;
+                window = seedLength+maxGap;
+                pasSearchStart = -60;
+                pasSearchEnd = -5;
+                break;
+            case ONT:
+                seedLength = 10;
+                minIdentity = 0.7f;
+                maxGap = 4;
+                window = 50;
+                pasSearchStart = -60;
+                pasSearchEnd = -5;
+                break;
+        }
+    }
+    
+    public void setSeedLength(int seedLength) {
+        this.seedLength = seedLength;
+    }
+    
+    public void setMinIdentity(float minIdentity) {
+        this.minIdentity = minIdentity;
+    }
+    
+    public void setMaxGap(int maxGap) {
+        this.maxGap = maxGap;
+    }
+    
+    public void setPasSearchRange(int start, int end) {
+        this.pasSearchStart = start;
+        this.pasSearchEnd = end;
+    }
+    
     public static Pattern getPolyASignalPattern() {
         return Pattern.compile(String.join("|", POLY_A_SIGNALS), Pattern.CASE_INSENSITIVE);
     }
@@ -69,18 +113,42 @@ public class PolyATailFinder {
         return Pattern.compile(String.join("|", POLY_A_SIGNALS_REV_COMP), Pattern.CASE_INSENSITIVE);
     }
     
+    public boolean hasPolyASignal(String seq, int cleavagePos) {
+        Matcher pasMatcher = pasPattern.matcher(seq);
+        int start = cleavagePos + pasSearchStart;
+        int end = cleavagePos + pasSearchEnd;
+        if (start >= 0 && start < end && end <= seq.length()) {
+            pasMatcher.region(start, end);
+            return pasMatcher.find();
+        }
+        return false;
+    }
+    
+    public boolean hasPolyASignalRC(String seq, int cleavagePos) {
+        Matcher pasMatcher = pasPatternRC.matcher(seq);
+        int start = cleavagePos - pasSearchEnd;
+        int end = cleavagePos - pasSearchStart;
+        if (start >= 0 && start < end && end <= seq.length()) {
+            pasMatcher.region(start, end);
+            return pasMatcher.find();
+        }
+        return false;
+    }
+    
     public ArrayDeque<Integer> getPolyASignalPositions(String seq, int cleavagePos) {
         ArrayDeque<Integer> positions = new ArrayDeque<>();
 
         Matcher pasMatcher = pasPattern.matcher(seq);
         int start = cleavagePos + pasSearchStart;
         int end = cleavagePos + pasSearchEnd;
-        pasMatcher.region(start, end);
+        if (start >= 0 && start < end && end <= seq.length()) {
+            pasMatcher.region(start, end);
 
-        while (start < end && pasMatcher.find()) {
-            start = pasMatcher.start();
-            positions.add(start);
-            pasMatcher.region(++start, end);
+            while (start < end && pasMatcher.find()) {
+                start = pasMatcher.start();
+                positions.add(start);
+                pasMatcher.region(++start, end);
+            }
         }
         
         return positions;
@@ -92,12 +160,14 @@ public class PolyATailFinder {
         Matcher pasMatcher = pasPatternRC.matcher(seq);
         int start = cleavagePos - pasSearchEnd;
         int end = cleavagePos - pasSearchStart;
-        pasMatcher.region(start, end);
+        if (start >= 0 && start < end && end <= seq.length()) {
+            pasMatcher.region(start, end);
 
-        while (start < end && pasMatcher.find()) {
-            start = pasMatcher.start();
-            positions.add(start);
-            pasMatcher.region(++start, end);
+            while (start < end && pasMatcher.find()) {
+                start = pasMatcher.start();
+                positions.add(start);
+                pasMatcher.region(++start, end);
+            }
         }
         
         return positions;
