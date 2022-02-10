@@ -16,11 +16,13 @@
  */
 package rnabloom.io;
 
+import rnabloom.olc.OverlapCoords;
+
 /**
  *
  * @author Ka Ming Nip
  */
-public class PafRecord {
+public class PafRecord extends OverlapCoords {
     public String qName = null, tName = null;
     public boolean reverseComplemented = false;
     public int qLen, tLen, qStart, qEnd, tStart, tEnd, numMatch, blockLen, qual = -1;

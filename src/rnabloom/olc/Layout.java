@@ -57,6 +57,7 @@ import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.IntervalUtils.isContained;
 import static rnabloom.util.IntervalUtils.merge;
 import static rnabloom.util.PafUtils.*;
+import rnabloom.util.PolyATailFinder;
 import static rnabloom.util.SeqUtils.isLowComplexityLongWindowed;
 import rnabloom.util.Timer;
 
@@ -78,6 +79,8 @@ public class Layout {
     private boolean cutRevCompArtifact = false;
     private int minNumAltReads = 0;
     private boolean verbose = false;
+    private PolyATailFinder polyATailFinder = new PolyATailFinder();
+    private int minPolyALength = 10;
     
     public Layout(String seqFile, InputStream overlapPafInputStream, boolean stranded,
             int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
@@ -93,6 +96,10 @@ public class Layout {
         this.cutRevCompArtifact = cutRevCompArtifact;
         this.minNumAltReads = minSeqDepth - 1;
         this.verbose = verbose;
+        
+        polyATailFinder.setProfile(PolyATailFinder.Profile.ONT);
+        polyATailFinder.setSeedLength(minPolyALength);
+        polyATailFinder.setWindow(minPolyALength);
     }
     
     private void printMessage(String msg) {
@@ -1517,8 +1524,77 @@ public class Layout {
         });
     }
     
+    private void findContainedTargetOverlaps(String qName, Histogram qHist,
+            ArrayDeque<TargetOverlap> records, Set<String> contained, 
+            HashMap<String, Histogram> histogramMap,
+            HashMap<String, PolyAInfo> polyAInfoMap) {
+        
+        PolyAInfo qInfo = polyAInfoMap.get(qName);
+        
+        records.parallelStream().forEach(r -> {
+            Histogram tHist = histogramMap.get(r.tName);
+            CONTAIN_STATUS c = getContained(r, qHist.minStart, qHist.maxEnd, tHist.minStart, tHist.maxEnd);
+            switch (c) {
+                case TARGET:
+                    // designate as "contained" only if the other is unique, i.e. not "contained"
+                    if (!contained.contains(qName)) {
+                        PolyAInfo tInfo = polyAInfoMap.get(r.tName);
+                        if (tInfo == null || isTargetPolyATContained(r, tInfo)) {
+                            contained.add(r.tName);
+                            // histogram of "contained" becomes irrelevant as it will not be evaluated
+                            tHist.bars = null;
+                        }
+                    }
+                    break;
+                case QUERY:
+                    if (!contained.contains(r.tName)) {
+                        if (qInfo == null || isQueryPolyATContained(r, qInfo)) {
+                            contained.add(qName);
+                            qHist.bars = null;
+                        }
+                    }
+                    break;
+            }
+        });
+    }
+    
+    private void findContainedQueryOverlaps(String tName, Histogram tHist,
+            Set<String> contained, HashMap<String, Histogram> histogramMap,
+            HashMap<String, PolyAInfo> polyAInfoMap) {
+        
+        PolyAInfo tInfo = polyAInfoMap.get(tName);
+        
+        tHist.pendingQueries.parallelStream().forEach(r -> {
+            Histogram qHist = histogramMap.get(r.qName);
+            CONTAIN_STATUS c = getContained(r, qHist.minStart, qHist.maxEnd, tHist.minStart, tHist.maxEnd);
+            switch (c) {
+                case QUERY:
+                    // designate as "contained" only if the other is unique, i.e. not "contained"
+                    if (!contained.contains(tName)) {
+                        PolyAInfo qInfo = polyAInfoMap.get(r.qName);
+                        if (qInfo == null || isQueryPolyATContained(r, qInfo)) {
+                            contained.add(r.qName);
+                            // histogram of "contained" becomes irrelevant as it will not be evaluated
+                            qHist.bars = null;
+                        }
+                    }
+                    break;
+                case TARGET:
+                    if (!contained.contains(r.qName)) {
+                        if (tInfo == null || isTargetPolyATContained(r, tInfo)) {
+                            contained.add(tName);
+                            tHist.bars = null;
+                        }
+                    }
+                    break;
+            }
+        });
+    }
+    
     public long extractUniqueFromOverlaps(String outFastaPath) throws IOException {
         Timer timer = new Timer();
+        
+        HashMap<String, PolyAInfo> polyAInfoMap = getPolyAInfo(polyATailFinder);
         
         Set<String> containedSet = Collections.synchronizedSet(new HashSet<>());
         HashMap<String, Histogram> histogramMap = new HashMap<>(100000);
@@ -1544,12 +1620,14 @@ public class Layout {
                 if (!r.qName.equals(currName)) {
                     if (currName != null && currHist != null) {
                         if (!currRecords.isEmpty()) {
-                            findContainedTargetOverlaps(currName, currHist, currRecords, containedSet, histogramMap);
+                            findContainedTargetOverlaps(currName, currHist, currRecords,
+                                    containedSet, histogramMap, polyAInfoMap);
                             currRecords.clear();
                         }
 
                         if (currHist.pendingQueries != null) {
-                            findContainedQueryOverlaps(currName, currHist, containedSet, histogramMap);
+                            findContainedQueryOverlaps(currName, currHist, containedSet,
+                                    histogramMap, polyAInfoMap);
                             currHist.pendingQueries = null;
                         }
                     }
@@ -1598,14 +1676,16 @@ public class Layout {
         reader.close();
         
         if (!currRecords.isEmpty() && currHist != null) {
-            findContainedTargetOverlaps(currName, currHist, currRecords, containedSet, histogramMap);
+            findContainedTargetOverlaps(currName, currHist, currRecords,
+                    containedSet, histogramMap, polyAInfoMap);
             currRecords.clear();
         }
         
         for (HashMap.Entry<String, Histogram> e : histogramMap.entrySet()) {
             Histogram h = e.getValue();
             if (h.pendingQueries != null) {
-                findContainedQueryOverlaps(e.getKey(), h, containedSet, histogramMap);
+                findContainedQueryOverlaps(e.getKey(), h, containedSet,
+                        histogramMap, polyAInfoMap);
                 h.pendingQueries = null;
             }
         }
@@ -2472,6 +2552,70 @@ public class Layout {
         }
     }
     
+    private void addEdges(StrandedOverlap r, PolyAInfo qInfo, PolyAInfo tInfo) {        
+        int qHead = r.qStart;
+        int qTail = r.qLen - r.qEnd;
+        int tHead = r.tStart;
+        int tTail = r.tLen - r.tEnd;
+        
+        if (r.reverseComplemented) {
+            if (qHead > tTail && tHead > qTail && tTail <= maxEdgeClip && qTail <= maxEdgeClip) {
+                // q+ -> t-
+                boolean qPolyA = qInfo != null && qInfo.polyATail != null;
+                boolean tPolyA = tInfo != null && tInfo.polyATail != null;
+                if ((!qPolyA && !tPolyA) ||
+                        (qPolyA && r.qEnd >= qInfo.polyATail.start + minPolyALength) ||
+                        (tPolyA && r.tEnd >= tInfo.polyATail.start + minPolyALength)) {
+                    addVertex(r.qName);
+                    addVertex(r.tName);
+                    graph.addEdge(r.tName+"+", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+                    graph.addEdge(r.qName+"+", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+                }
+            }
+            else if (qTail > tHead && tTail > qHead && qHead <= maxEdgeClip && tHead <= maxEdgeClip) {
+                // q- -> t+
+                boolean qPolyT = qInfo != null && qInfo.polyTHead != null;
+                boolean tPolyT = tInfo != null && tInfo.polyTHead != null;
+                if ((!qPolyT && !tPolyT) ||
+                        (qPolyT && r.qStart <= qInfo.polyTHead.end - minPolyALength) || 
+                        (tPolyT && r.tStart <= tInfo.polyTHead.end - minPolyALength)) {
+                    addVertex(r.qName);
+                    addVertex(r.tName);
+                    graph.addEdge(r.qName+"-", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+                    graph.addEdge(r.tName+"-", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+                }
+            }
+        }
+        else {
+            if (qHead > tHead && qTail < tTail && tHead <= maxEdgeClip && qTail <= maxEdgeClip) {
+                // q+ -> t+
+                boolean qPolyA = qInfo != null && qInfo.polyATail != null;
+                boolean tPolyT = tInfo != null && tInfo.polyTHead != null;
+                if ((!qPolyA && !tPolyT) ||
+                        (qPolyA && r.qEnd >= qInfo.polyATail.start + minPolyALength) ||
+                        (tPolyT && r.tStart <= tInfo.polyTHead.end - minPolyALength)) {
+                    addVertex(r.qName);
+                    addVertex(r.tName);
+                    graph.addEdge(r.qName+"+", r.tName+"+", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+                    graph.addEdge(r.tName+"-", r.qName+"-", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+                }
+            }
+            else if (tHead > qHead && tTail < qTail && qHead <= maxEdgeClip && tTail <= maxEdgeClip) {
+                // t+ -> q+
+                boolean tPolyA = tInfo != null && tInfo.polyATail != null;
+                boolean qPolyT = qInfo != null && qInfo.polyTHead != null;
+                if ((tPolyA && qPolyT) ||
+                        (tPolyA && r.tEnd >= tInfo.polyATail.start + minPolyALength) ||
+                        (qPolyT && r.qStart <= qInfo.polyTHead.end - minPolyALength)) {
+                    addVertex(r.qName);
+                    addVertex(r.tName);
+                    graph.addEdge(r.tName+"+", r.qName+"+", new OverlapEdge(r.tStart, r.tEnd, r.qStart, r.qEnd));
+                    graph.addEdge(r.qName+"-", r.tName+"-", new OverlapEdge(r.qStart, r.qEnd, r.tStart, r.tEnd));
+                }
+            }
+        }
+    }
+    
     private void addForwardEdge(Overlap r) {
 //        if (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip) {
 //            addVertexStranded(r.qName+"+");
@@ -2593,6 +2737,7 @@ public class Layout {
         HashSet<String> containedSet = new HashSet<>();
         PafReader reader = new PafReader(overlapPafInputStream);
         TargetOverlapComparator overlapComparator = new TargetOverlapComparator();
+        HashMap<String, PolyAInfo> polyAInfoMap = getPolyAInfo(polyATailFinder);
         
         // look for containment and overlaps
         if (stranded) {
@@ -2779,8 +2924,11 @@ public class Layout {
                                         containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
                                     }
                                     else {
-                                        containedSet.add(r.qName);
-                                        prevContained = true;
+                                        PolyAInfo qInfo = polyAInfoMap.get(r.qName);
+                                        if (qInfo == null || isQueryPolyATContained(r, qInfo)) {
+                                            containedSet.add(r.qName);
+                                            prevContained = true;
+                                        }
                                     }
                                     break;
                                 case TARGET:
@@ -2788,7 +2936,10 @@ public class Layout {
                                         containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
                                     }
                                     else {
-                                        containedSet.add(r.tName);
+                                        PolyAInfo tInfo = polyAInfoMap.get(r.tName);
+                                        if (tInfo == null || isTargetPolyATContained(r, tInfo)) {
+                                            containedSet.add(r.tName);
+                                        }
                                     }
                                     break;
                                 case BOTH:
@@ -2797,19 +2948,31 @@ public class Layout {
                                     }
                                     else {
                                         if (r.qLen > r.tLen) {
-                                            containedSet.add(r.tName);
+                                            PolyAInfo tInfo = polyAInfoMap.get(r.tName);
+                                            if (tInfo == null || isTargetPolyATContained(r, tInfo)) {
+                                                containedSet.add(r.tName);
+                                            }
                                         }
                                         else if (r.tLen > r.qLen) {
-                                            containedSet.add(r.qName);
-                                            prevContained = true;
+                                            PolyAInfo qInfo = polyAInfoMap.get(r.qName);
+                                            if (qInfo == null || isQueryPolyATContained(r, qInfo)) {
+                                                containedSet.add(r.qName);
+                                                prevContained = true;
+                                            }
                                         }
                                         else {
                                             if (r.qName.compareTo(r.tName) > 0) {
-                                                containedSet.add(r.tName);
+                                                PolyAInfo tInfo = polyAInfoMap.get(r.tName);
+                                                if (tInfo == null || isTargetPolyATContained(r, tInfo)) {
+                                                    containedSet.add(r.tName);
+                                                }
                                             }
                                             else {
-                                                containedSet.add(r.qName);
-                                                prevContained = true;
+                                                PolyAInfo qInfo = polyAInfoMap.get(r.qName);
+                                                if (qInfo == null || isQueryPolyATContained(r, qInfo)) {
+                                                    containedSet.add(r.qName);
+                                                    prevContained = true;
+                                                }
                                             }
                                         }
                                     }
@@ -2848,7 +3011,14 @@ public class Layout {
             for (StrandedOverlap r : overlaps) {
                 if (!containedSet.contains(r.qName) &&
                     !containedSet.contains(r.tName)) {
-                    addEdges(r);
+                    PolyAInfo qInfo = polyAInfoMap.get(r.qName);
+                    PolyAInfo tInfo = polyAInfoMap.get(r.tName);
+                    if (qInfo != null || tInfo != null) {
+                        addEdges(r, qInfo, tInfo);
+                    }
+                    else {
+                        addEdges(r);
+                    }
                 }
             }
             
@@ -2861,7 +3031,14 @@ public class Layout {
                     tName = tName + '+';
                     if ((!graph.containsVertex(qName) || (graph.inDegreeOf(qName) == 0 || graph.outDegreeOf(qName) == 0)) &&
                         (!graph.containsVertex(tName) || (graph.inDegreeOf(tName) == 0 || graph.outDegreeOf(tName) == 0))) {
-                        addEdges(r);
+                        PolyAInfo qInfo = polyAInfoMap.get(r.qName);
+                        PolyAInfo tInfo = polyAInfoMap.get(r.tName);
+                        if (qInfo != null || tInfo != null) {
+                            addEdges(r, qInfo, tInfo);
+                        }
+                        else {
+                            addEdges(r);
+                        }
                     }
                 }
             }
@@ -2870,6 +3047,16 @@ public class Layout {
         printMessage("Parsed " + NumberFormat.getInstance().format(reader.getNumRecords()) + " overlap records in " + timer.elapsedDHMS());
         
         return containedSet;
+    }
+
+    private boolean isQueryPolyATContained(OverlapCoords r, PolyAInfo qInfo) {
+        return (qInfo.polyATail == null || r.qEnd >= qInfo.polyATail.start + minPolyALength) &&
+                (qInfo.polyTHead == null || r.qStart <= qInfo.polyTHead.end - minPolyALength);
+    }
+    
+    private boolean isTargetPolyATContained(OverlapCoords r, PolyAInfo tInfo) {
+        return (tInfo.polyATail == null || r.tEnd >= tInfo.polyATail.start + minPolyALength) &&
+                (tInfo.polyTHead == null || r.tStart <= tInfo.polyTHead.end - minPolyALength);
     }
     
     public void extractSimplePaths(String outFastaPath) throws IOException {
@@ -3335,9 +3522,9 @@ public class Layout {
         return originalNumSeq > seqID;
     }
 
-    private class OverlapCoords {
-        int qStart, qEnd, tStart, tEnd;
-    }
+//    private class OverlapCoords {
+//        int qStart, qEnd, tStart, tEnd;
+//    }
     
     private class TargetOverlap extends OverlapCoords {
         String tName;
@@ -3484,6 +3671,39 @@ public class Layout {
         printMessage("before: " + NumberFormat.getInstance().format(originalNumSeq) + "\tafter: " + NumberFormat.getInstance().format(seqID));
         
         return originalNumSeq > seqID;
+    }
+    
+    private class PolyAInfo {
+        Interval polyATail;
+        Interval polyTHead;
+        boolean hasPas;
+        boolean hasPasRC;
+        
+        public PolyAInfo(Interval polyATail, Interval polyTHead,
+            boolean hasPas, boolean hasPasRC) {
+            this.polyATail = polyATail;
+            this.polyTHead = polyTHead;
+            this.hasPas = hasPas;
+            this.hasPasRC = hasPasRC;
+        }
+    }
+    
+    private HashMap<String, PolyAInfo> getPolyAInfo(PolyATailFinder finder) throws IOException {
+        HashMap<String, PolyAInfo> info = new HashMap<>();
+        FastaReader fr = new FastaReader(seqFastaPath);
+        while (fr.hasNext()) {
+            String[] nameSeq = fr.nextWithName();
+            String seq = nameSeq[1];
+            Interval polyA = finder.findPolyATail(seq);
+            Interval polyT = finder.findPolyTHead(seq);
+            if (polyA != null || polyT != null) {
+                boolean hasPas = polyA == null ? false : finder.hasPolyASignal(seq, polyA.start);
+                boolean hasPasRC = polyT == null ? false : finder.hasPolyASignalRC(seq, polyT.end);
+                info.put(nameSeq[0], new PolyAInfo(polyA, polyT, hasPas, hasPasRC));
+            }
+        }
+        fr.close();
+        return info;
     }
     
     public static void main(String[] args) {
