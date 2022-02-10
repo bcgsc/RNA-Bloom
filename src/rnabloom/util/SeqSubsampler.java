@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
@@ -45,6 +46,7 @@ import rnabloom.olc.ComparableInterval;
 import rnabloom.olc.HashedInterval;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.SeqUtils.compressHomoPolymers;
+import static rnabloom.util.SeqUtils.getPolyATailMatchingPattern;
 
 /**
  *
@@ -346,7 +348,10 @@ public class SeqSubsampler {
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose,
             int numThreads, int maxIndelSize) throws IOException, InterruptedException, ExecutionException {
-                
+        
+        int minPolyALen = 10;
+        Pattern polyAPattern = getPolyATailMatchingPattern(minPolyALen);
+        
         int numSeq = seqs.size();
         
         int numSubsample = 0;
@@ -384,7 +389,7 @@ public class SeqSubsampler {
                 
                 HashedPositions[] strobes = new HashedPositions[numStrobes];
                 boolean[] seen = new boolean[numStrobes];
-                
+                                
                 // extract all strobemers in parallel and look up their multiplicities
                 customThreadPool.submit(() ->
 //                    IntStream.range(minPos, maxPos+1).parallel().forEach(i -> {
@@ -436,11 +441,11 @@ public class SeqSubsampler {
 
                 if (!write &&
                         (namInterval == null ||
-                        namInterval.start > maxEdgeClip ||
-                        namInterval.end < seq.length() - maxEdgeClip)) {
+                            namInterval.start > maxEdgeClip ||
+                            namInterval.end < seq.length() - (polyAPattern.matcher(seq).find() ? 0 : maxEdgeClip) - 1)) {
                     write = true;
                 }
-
+                
                 if (write) {
                     subQueue.add(seq);
                     ++numSubsample;
