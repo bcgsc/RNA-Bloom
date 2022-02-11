@@ -54,6 +54,7 @@ import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
 import rnabloom.util.BitSequence;
 import static rnabloom.util.Common.convertToRoundedPercent;
+import static rnabloom.util.IntervalUtils.getOverlap;
 import static rnabloom.util.IntervalUtils.isContained;
 import static rnabloom.util.IntervalUtils.merge;
 import static rnabloom.util.PafUtils.*;
@@ -79,12 +80,12 @@ public class Layout {
     private boolean cutRevCompArtifact = false;
     private int minNumAltReads = 0;
     private boolean verbose = false;
-    private PolyATailFinder polyATailFinder = new PolyATailFinder();
+    HashMap<String, PolyAInfo> polyAInfoMap;
     private int minPolyALength = 10;
     
     public Layout(String seqFile, InputStream overlapPafInputStream, boolean stranded,
             int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
-            boolean cutRevCompArtifact, int minSeqDepth, boolean verbose) {
+            boolean cutRevCompArtifact, int minSeqDepth, boolean verbose) throws IOException {
         this.graph = new DefaultDirectedGraph<>(OverlapEdge.class);
         this.overlapPafInputStream = overlapPafInputStream;
         this.seqFastaPath = seqFile;
@@ -97,9 +98,11 @@ public class Layout {
         this.minNumAltReads = minSeqDepth - 1;
         this.verbose = verbose;
         
+        PolyATailFinder polyATailFinder = new PolyATailFinder();
         polyATailFinder.setProfile(PolyATailFinder.Profile.ONT);
         polyATailFinder.setSeedLength(minPolyALength);
         polyATailFinder.setWindow(minPolyALength);
+        polyAInfoMap = getPolyAInfo(polyATailFinder);
     }
     
     private void printMessage(String msg) {
@@ -1594,8 +1597,6 @@ public class Layout {
     public long extractUniqueFromOverlaps(String outFastaPath) throws IOException {
         Timer timer = new Timer();
         
-        HashMap<String, PolyAInfo> polyAInfoMap = getPolyAInfo(polyATailFinder);
-        
         Set<String> containedSet = Collections.synchronizedSet(new HashSet<>());
         HashMap<String, Histogram> histogramMap = new HashMap<>(100000);
         final int minSegmentLength = minOverlapMatches;
@@ -2737,7 +2738,6 @@ public class Layout {
         HashSet<String> containedSet = new HashSet<>();
         PafReader reader = new PafReader(overlapPafInputStream);
         TargetOverlapComparator overlapComparator = new TargetOverlapComparator();
-        HashMap<String, PolyAInfo> polyAInfoMap = getPolyAInfo(polyATailFinder);
         
         // look for containment and overlaps
         if (stranded) {
@@ -3039,6 +3039,46 @@ public class Layout {
                         else {
                             addEdges(r);
                         }
+                    }
+                }
+            }
+            
+            // remove reverse-complement vertices of polyA tails and vertices containing polyT heads
+            for (Map.Entry<String, PolyAInfo> e : polyAInfoMap.entrySet()) {
+                String name = e.getKey();
+                PolyAInfo info = e.getValue();
+                Interval polyAInterval = info.polyATail;
+                if (polyAInterval != null) {
+                    String vid = name + '+';
+                    if (graph.containsVertex(vid) && graph.outDegreeOf(vid) == 0) {
+                        graph.removeVertex(name + '-');
+                        
+                        // look for reads overlapping this polyA tail
+                        int polyAStart = polyAInterval.start;
+                        int polyAEnd = polyAInterval.end;
+                        for (OverlapEdge edge : graph.incomingEdgesOf(vid)) {
+                            if (getOverlap(polyAStart, polyAEnd, edge.sinkStart, edge.sinkEnd) > 0) {
+                                String p = getReverseComplementID(graph.getEdgeSource(edge));
+                                graph.removeVertex(p);
+                            }
+                        }
+                    }
+                }
+                
+                Interval polyTInterval = info.polyTHead;
+                if (polyTInterval != null) {
+                    String vid = name + '+';
+                    if (graph.containsVertex(vid) && graph.inDegreeOf(vid) == 0) {
+                        // look for reads overlapping this polyT head
+                        int polyTStart = polyTInterval.start;
+                        int polyTEnd = polyTInterval.end;
+                        for (OverlapEdge edge : graph.outgoingEdgesOf(vid)) {
+                            if (getOverlap(polyTStart, polyTEnd, edge.sourceStart, edge.sourceEnd) > 0) {
+                                graph.removeVertex(graph.getEdgeTarget(edge));
+                            }
+                        }
+                        
+                        graph.removeVertex(vid);
                     }
                 }
             }
