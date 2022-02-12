@@ -39,8 +39,8 @@ public class PafUtils {
     private final static Pattern CIGAR_OP_PATTERN = Pattern.compile("(\\d+)([MIDNSHPX=])");
     
     public static boolean hasLargeOverlap(PafRecord r, int minOverlapMatches) {
-        return (r.qEnd - r.qStart) >= minOverlapMatches &&
-               (r.tEnd - r.tStart) >= minOverlapMatches;
+        return r.qEnd - r.qStart >= minOverlapMatches &&
+               r.tEnd - r.tStart >= minOverlapMatches;
     }
     
     public static boolean hasSimilarSizedOverlap(PafRecord r, int tolerance) {
@@ -178,8 +178,8 @@ public class PafUtils {
             int tHead = r.tStart;
             int tTail = r.tLen - r.tEnd;
             
-            return ((qHead > tHead && qTail < tTail && tHead <= maxEdgeClip && qTail <= maxEdgeClip) ||
-                    (tHead > qHead && tTail < qTail && qHead <= maxEdgeClip && tTail <= maxEdgeClip));
+            return (qHead > tHead && qTail < tTail && tHead <= maxEdgeClip && qTail <= maxEdgeClip) ||
+                    (tHead > qHead && tTail < qTail && qHead <= maxEdgeClip && tTail <= maxEdgeClip);
         }
         
         return false;
