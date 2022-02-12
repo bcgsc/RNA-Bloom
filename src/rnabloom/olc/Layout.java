@@ -3162,7 +3162,7 @@ public class Layout {
             ++originalNumSeq;
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
-            if (vertexSet.contains(name + '+')) {
+            if (vertexSet.contains(name + '+') || vertexSet.contains(name + '-')) {
                 dovetailReadSeqs.put(name, new BitSequence(nameSeq[1]));
             }
             else if (!containedSet.contains(name)) {
@@ -3287,7 +3287,7 @@ public class Layout {
             ++originalNumSeq;
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
-            if (vertexSet.contains(name + '+')) {
+            if (vertexSet.contains(name + '+') || vertexSet.contains(name + '-')) {
                 dovetailReadSeqs.put(name, new BitSequence(nameSeq[1]));
             }
             else if (!containedSet.contains(name)) {
