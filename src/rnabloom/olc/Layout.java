@@ -16,6 +16,7 @@
  */
 package rnabloom.olc;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -2655,6 +2656,15 @@ public class Layout {
         }
     }
     
+    private void writeGraph(String path) throws IOException {
+        FileWriter writer = new FileWriter(path);
+        for (OverlapEdge e : graph.edgeSet()) {
+            writer.write(graph.getEdgeSource(e) + " -> " + graph.getEdgeTarget(e) +
+                    " [o=" + (e.sinkEnd-e.sinkStart + e.sourceEnd-e.sourceStart)/2 + "]\n");
+        }
+        writer.close();
+    }
+    
     private class TargetOverlapComparator implements Comparator<Overlap> {
         @Override
         public int compare(Overlap o1, Overlap o2) {
@@ -2750,7 +2760,7 @@ public class Layout {
             ArrayList<StrandedOverlap> nonStandardOverlaps = new ArrayList<>();
             
             for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
-                reader.next(r);
+                reader.next(r);                
                 if (r.reverseComplemented) {
                     if (this.cutRevCompArtifact && hasLargeOverlap(r) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {
                         nonStandardOverlaps.add(pafToStrandedOverlap(r));
@@ -3135,6 +3145,7 @@ public class Layout {
             
             //printGraph();
             printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+            writeGraph(outFastaPath + ".dot");
         }
         
         HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size());
@@ -3216,6 +3227,7 @@ public class Layout {
             
             //printGraph();
             printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+            writeGraph(outFastaPath + ".dot");
         }
                 
         // extract read count from mapping
@@ -3750,14 +3762,14 @@ public class Layout {
         try {
             //debug
             String dir = "wd";
-            String paf = dir + "/in.paf.gz";
+            String paf = dir + "/in.paf";
             String in = dir + "/in.fa";
             String out = dir + "/out.fa";
             
-            Layout layout = new Layout(in, new GZIPInputStream(new FileInputStream(paf)), true,
-                    75, 0.9f, 50, 3,
+            Layout layout = new Layout(in, new BufferedInputStream(new FileInputStream(paf)), false,
+                    75, 0.9f, 50, 50,
                     true, 1, true);
-            layout.layoutBackbones(out);
+            layout.extractSimplePaths(out);
         } catch (IOException ex) {
             Logger.getLogger(Layout.class.getName()).log(Level.SEVERE, null, ex);
         }
