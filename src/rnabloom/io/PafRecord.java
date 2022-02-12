@@ -25,10 +25,7 @@ import rnabloom.olc.OverlapCoords;
 public class PafRecord extends OverlapCoords {
     public String qName = null, tName = null;
     public boolean reverseComplemented = false;
-    public int qLen, tLen, qStart, qEnd, tStart, tEnd, numMatch, blockLen, qual = -1;
-
-    public PafRecord() {
-    }
+    public int qLen, tLen, numMatch, blockLen, qual = -1;
     
     public void update(String[] cols) {
         qName = cols[0];
