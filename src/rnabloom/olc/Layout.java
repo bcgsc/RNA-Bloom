@@ -3061,17 +3061,19 @@ public class Layout {
                 if (polyAInterval != null) {
                     String vid = name + '+';
                     if (graph.containsVertex(vid) && graph.outDegreeOf(vid) == 0) {
-                        graph.removeVertex(name + '-');
+                        ArrayDeque<String> toBeRemoved = new ArrayDeque<>();
+                        toBeRemoved.add(name + '-');
                         
                         // look for reads overlapping this polyA tail
                         int polyAStart = polyAInterval.start;
                         int polyAEnd = polyAInterval.end;
                         for (OverlapEdge edge : graph.incomingEdgesOf(vid)) {
                             if (getOverlap(polyAStart, polyAEnd, edge.sinkStart, edge.sinkEnd) > 0) {
-                                String p = getReverseComplementID(graph.getEdgeSource(edge));
-                                graph.removeVertex(p);
+                                toBeRemoved.add(getReverseComplementID(graph.getEdgeSource(edge)));
                             }
                         }
+                        
+                        graph.removeAllVertices(toBeRemoved);
                     }
                 }
                 
@@ -3079,16 +3081,19 @@ public class Layout {
                 if (polyTInterval != null) {
                     String vid = name + '+';
                     if (graph.containsVertex(vid) && graph.inDegreeOf(vid) == 0) {
+                        ArrayDeque<String> toBeRemoved = new ArrayDeque<>();
+                        toBeRemoved.add(vid);
+                        
                         // look for reads overlapping this polyT head
                         int polyTStart = polyTInterval.start;
                         int polyTEnd = polyTInterval.end;
                         for (OverlapEdge edge : graph.outgoingEdgesOf(vid)) {
                             if (getOverlap(polyTStart, polyTEnd, edge.sourceStart, edge.sourceEnd) > 0) {
-                                graph.removeVertex(graph.getEdgeTarget(edge));
+                                toBeRemoved.add(graph.getEdgeTarget(edge));
                             }
                         }
                         
-                        graph.removeVertex(vid);
+                        graph.removeAllVertices(toBeRemoved);
                     }
                 }
             }
