@@ -3162,7 +3162,7 @@ public class Layout {
             ++originalNumSeq;
             String[] nameSeq = fr.nextWithName();
             String name = nameSeq[0];
-            if (vertexSet.contains(name + '+') || vertexSet.contains(name + '-')) {
+            if (vertexSet.contains(name + '+') || (!stranded && vertexSet.contains(name + '-'))) {
                 dovetailReadSeqs.put(name, new BitSequence(nameSeq[1]));
             }
             else if (!containedSet.contains(name)) {
@@ -3310,10 +3310,22 @@ public class Layout {
             Entry<String, Float> e = itr.next();
             String seed = e.getKey();// + "r";
             if (!visited.contains(seed)) {
+                String seedVid = seed + '+';
+                if (!graph.containsVertex(seedVid)) {
+                    if (stranded) {
+                        continue;
+                    }
+                    else {
+                        seedVid = seed + '-';
+                        if (!graph.containsVertex(seedVid)) {
+                            continue;
+                        }
+                    }
+                }
+                
+                ArrayDeque<String> path = getMaxWeightExtension(seedVid, readCounts);
+                
                 String header = Long.toString(++seqID);
-                
-                ArrayDeque<String> path = getMaxWeightExtension(seed + '+', readCounts);
-                
                 String seq = assemblePath(path, dovetailReadSeqs);
                 
                 header += " l=" + seq.length() + " c=" + getMinAndDecrementWeights(path, readCounts);
