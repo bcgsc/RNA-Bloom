@@ -261,18 +261,68 @@ public class PafUtils {
         return null;
     }
     
-    public static HashMap<String, Float> getLengthNormalizedReadCounts(String pafPath, Set<String> skipSet) throws IOException {
-        HashMap<String, Float> counts = new HashMap<>();
-                
-        PafReader reader = new PafReader(pafPath);
-        String prevName = null;
-        ArrayList<Overlap> targets = new ArrayList<>();
-        for (PafRecord r = new PafRecord(); reader.hasNext();) {
-            reader.next(r);
-            if (!r.qName.equals(prevName)) {
-                if (!targets.isEmpty()) {
-                    if (targets.size() == 1) {
-                        Overlap t = targets.get(0);
+    private static void updateNormalizedCounts(ArrayList<Overlap> targets, HashMap<String, Float> counts) {
+        if (!targets.isEmpty()) {
+            if (targets.size() == 1) {
+                Overlap t = targets.get(0);
+                Float c = counts.get(t.tName);
+                if (c == null) {
+                    c = (t.tEnd - t.tStart)/(float) t.tLen;
+                }
+                else {
+                    c += (t.tEnd - t.tStart)/(float) t.tLen;
+                }
+                counts.put(t.tName, c);
+            }
+            else {
+                Collections.sort(targets);
+
+                ArrayList<Overlap> targetsKept = new ArrayList<>();
+                HashMap<Overlap, ArrayList<Overlap>> multiTargets = new HashMap<>();
+                for (Overlap m : targets) {
+                    Overlap c = getOverlapContainer(m, targetsKept, 0.95f);
+                    if (c == null) {
+                        // region not contained
+                        targetsKept.add(m);
+                    }
+                    else if (m.qEnd - m.qStart >= (c.qEnd - c.qStart) * 0.95f) {
+                        // region multimaps
+                        ArrayList<Overlap> multimaps = multiTargets.get(c);
+                        if (multimaps == null) {
+                            multimaps = new ArrayList<>();
+                            multiTargets.put(c, multimaps);
+                        }
+                        multimaps.add(m);
+                    }
+                }
+
+                for (Overlap t : targetsKept) {
+                    ArrayList<Overlap> multimaps = multiTargets.get(t);
+                    if (multimaps != null) {
+                        // fractional assignment of multimapped region
+                        float fraction = 1f/(multimaps.size() + 1);
+
+                        Float c = counts.get(t.tName);
+                        if (c == null) {
+                            c = (t.tEnd - t.tStart)/(float) t.tLen * fraction;
+                        }
+                        else {
+                            c += (t.tEnd - t.tStart)/(float) t.tLen * fraction;
+                        }
+                        counts.put(t.tName, c);
+
+                        for (Overlap mm : multimaps) {
+                            c = counts.get(mm.tName);
+                            if (c == null) {
+                                c = (mm.tEnd - mm.tStart)/(float) mm.tLen * fraction;
+                            }
+                            else {
+                                c += (mm.tEnd - mm.tStart)/(float) mm.tLen * fraction;
+                            }
+                            counts.put(mm.tName, c);
+                        }
+                    }
+                    else {
                         Float c = counts.get(t.tName);
                         if (c == null) {
                             c = (t.tEnd - t.tStart)/(float) t.tLen;
@@ -282,69 +332,23 @@ public class PafUtils {
                         }
                         counts.put(t.tName, c);
                     }
-                    else {
-                        Collections.sort(targets);
-
-                        ArrayList<Overlap> targetsKept = new ArrayList<>();
-                        HashMap<Overlap, ArrayList<Overlap>> multiTargets = new HashMap<>();
-                        for (Overlap m : targets) {
-                            Overlap c = getOverlapContainer(m, targetsKept, 0.95f);
-                            if (c == null) {
-                                // region not contained
-                                targetsKept.add(m);
-                            }
-                            else if (m.qEnd - m.qStart >= (c.qEnd - c.qStart) * 0.95f) {
-                                // region multimaps
-                                ArrayList<Overlap> multimaps = multiTargets.get(c);
-                                if (multimaps == null) {
-                                    multimaps = new ArrayList<>();
-                                    multiTargets.put(c, multimaps);
-                                }
-                                multimaps.add(m);
-                            }
-                        }
-
-                        for (Overlap t : targetsKept) {
-                            ArrayList<Overlap> multimaps = multiTargets.get(t);
-                            if (multimaps != null) {
-                                // fractional assignment of multimapped region
-                                float fraction = 1f/(multimaps.size() + 1);
-
-                                Float c = counts.get(t.tName);
-                                if (c == null) {
-                                    c = (t.tEnd - t.tStart)/(float) t.tLen * fraction;
-                                }
-                                else {
-                                    c += (t.tEnd - t.tStart)/(float) t.tLen * fraction;
-                                }
-                                counts.put(t.tName, c);
-
-                                for (Overlap mm : multimaps) {
-                                    c = counts.get(mm.tName);
-                                    if (c == null) {
-                                        c = (mm.tEnd - mm.tStart)/(float) mm.tLen * fraction;
-                                    }
-                                    else {
-                                        c += (mm.tEnd - mm.tStart)/(float) mm.tLen * fraction;
-                                    }
-                                    counts.put(mm.tName, c);
-                                }
-                            }
-                            else {
-                                Float c = counts.get(t.tName);
-                                if (c == null) {
-                                    c = (t.tEnd - t.tStart)/(float) t.tLen;
-                                }
-                                else {
-                                    c += (t.tEnd - t.tStart)/(float) t.tLen;
-                                }
-                                counts.put(t.tName, c);
-                            }
-                        }
-                    }
-
-                    targets = new ArrayList<>();
                 }
+            }
+        }
+    }
+    
+    public static HashMap<String, Float> getLengthNormalizedReadCounts(String pafPath, Set<String> skipSet) throws IOException {
+        HashMap<String, Float> counts = new HashMap<>();
+                
+        PafReader reader = new PafReader(pafPath);
+        String prevName = null;
+        ArrayList<Overlap> targets = new ArrayList<>();
+        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+            reader.next(r);
+            
+            if (!r.qName.equals(prevName)) {
+                updateNormalizedCounts(targets, counts);
+                targets = new ArrayList<>();
                 prevName = r.qName;
             }
             
@@ -354,9 +358,12 @@ public class PafUtils {
         }
         reader.close();
         
+        // process the last batch of records
+        updateNormalizedCounts(targets, counts);
+        
         return counts;
     }
-    
+        
     /**
      * 
      * @param pafPath input PAF file
