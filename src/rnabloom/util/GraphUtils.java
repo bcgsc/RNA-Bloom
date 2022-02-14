@@ -3511,13 +3511,13 @@ public final class GraphUtils {
                             float oriPathCov = getMedianKmerCoverage(kmers, i-numBadKmersSince, i);
                             
                             int altPathLen = altPath.size();
-
+                            
                             if (2*oriPathCov <= altPathCov &&
                                     numBadKmersSince-maxLengthDifference <= altPathLen && 
                                     altPathLen <= numBadKmersSince+maxLengthDifference && 
 //                                        (altPathLen <= k+maxIndelSize ||
-//                                            (oriPathCov < minKmerCov && altPathCov >= covThreshold) ||
-                                            getPercentIdentity(graph.assemble(altPath), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity) {
+                                    ((oriPathCov < minKmerCov && altPathCov >= 10*oriPathCov) ||
+                                    (getPercentIdentity(graph.assemble(altPath), graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity))) {
                                 
                                 // backtrack to best left kmer
                                 for (int j=kmers2.size()-1; j>bestLeftKmerIndex; --j) {
@@ -3533,7 +3533,7 @@ public final class GraphUtils {
                                 
                                 corrected = true;
                             }
-                            else {
+                            else {                                
                                 // fill with original sequence
                                 for (int j=i-numBadKmersSince; j<i; ++j) {
                                     kmers2.add(kmers.get(j));
@@ -7534,7 +7534,7 @@ public final class GraphUtils {
         return result;
     }
     
-    public static boolean isBranchFree(ArrayList<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, int maxTipLength) {
+    public static boolean isBranchFree(Collection<Kmer> seqKmers, BloomFilterDeBruijnGraph graph, int maxTipLength) {
         int k = graph.getK();
         int numHash = graph.getMaxNumHash();
         
