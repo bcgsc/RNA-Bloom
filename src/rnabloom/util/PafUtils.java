@@ -29,6 +29,7 @@ import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
 import rnabloom.olc.Interval;
+import static rnabloom.util.IntervalUtils.getOverlap;
 import static rnabloom.util.IntervalUtils.merge;
 
 /**
@@ -206,7 +207,7 @@ public class PafUtils {
     private static class Overlap implements Comparable<Overlap> {
         String tName;
         int numMatch, tLen;
-        int qStart, qEnd;
+        int qStart, qEnd, tStart, tEnd;
         
         public Overlap(PafRecord r) {
             this.tName = r.tName;
@@ -214,6 +215,8 @@ public class PafUtils {
             this.tLen = r.tLen;
             this.qStart = r.qStart;
             this.qEnd = r.qEnd;
+            this.tStart = r.tStart;
+            this.tEnd = r.tEnd;
         }
         
         @Override
@@ -240,9 +243,27 @@ public class PafUtils {
         return null;
     }
     
+    private static Overlap getOverlapContainer(Overlap q, Collection<Overlap> list, float maxProportion) {
+        int maxOverlapLen = 0;
+        Overlap container = null;
+        for (Overlap other : list) {
+            int overlapLen = getOverlap(q.qStart, q.qEnd, other.qStart, other.qEnd);
+            if (overlapLen > maxOverlapLen) {
+                maxOverlapLen = overlapLen;
+                container = other;
+            }
+        }
+        
+        if (maxOverlapLen >= maxProportion * (q.qEnd - q.qStart)) {
+            return container;
+        }
+        
+        return null;
+    }
+    
     public static HashMap<String, Float> getLengthNormalizedReadCounts(String pafPath, Set<String> skipSet) throws IOException {
         HashMap<String, Float> counts = new HashMap<>();
-        
+                
         PafReader reader = new PafReader(pafPath);
         String prevName = null;
         ArrayList<Overlap> targets = new ArrayList<>();
@@ -254,10 +275,10 @@ public class PafUtils {
                         Overlap t = targets.get(0);
                         Float c = counts.get(t.tName);
                         if (c == null) {
-                            c = t.numMatch/(float) t.tLen;
+                            c = (t.tEnd - t.tStart)/(float) t.tLen;
                         }
                         else {
-                            c += t.numMatch/(float) t.tLen;
+                            c += (t.tEnd - t.tStart)/(float) t.tLen;
                         }
                         counts.put(t.tName, c);
                     }
@@ -267,7 +288,7 @@ public class PafUtils {
                         ArrayList<Overlap> targetsKept = new ArrayList<>();
                         HashMap<Overlap, ArrayList<Overlap>> multiTargets = new HashMap<>();
                         for (Overlap m : targets) {
-                            Overlap c = getOverlapContainer(m, targetsKept);
+                            Overlap c = getOverlapContainer(m, targetsKept, 0.95f);
                             if (c == null) {
                                 // region not contained
                                 targetsKept.add(m);
@@ -291,20 +312,20 @@ public class PafUtils {
 
                                 Float c = counts.get(t.tName);
                                 if (c == null) {
-                                    c = t.numMatch/(float) t.tLen * fraction;
+                                    c = (t.tEnd - t.tStart)/(float) t.tLen * fraction;
                                 }
                                 else {
-                                    c += t.numMatch/(float) t.tLen * fraction;
+                                    c += (t.tEnd - t.tStart)/(float) t.tLen * fraction;
                                 }
                                 counts.put(t.tName, c);
 
                                 for (Overlap mm : multimaps) {
                                     c = counts.get(mm.tName);
                                     if (c == null) {
-                                        c = mm.numMatch/(float) mm.tLen * fraction;
+                                        c = (mm.tEnd - mm.tStart)/(float) mm.tLen * fraction;
                                     }
                                     else {
-                                        c += mm.numMatch/(float) mm.tLen * fraction;
+                                        c += (mm.tEnd - mm.tStart)/(float) mm.tLen * fraction;
                                     }
                                     counts.put(mm.tName, c);
                                 }
@@ -312,10 +333,10 @@ public class PafUtils {
                             else {
                                 Float c = counts.get(t.tName);
                                 if (c == null) {
-                                    c = t.numMatch/(float) t.tLen;
+                                    c = (t.tEnd - t.tStart)/(float) t.tLen;
                                 }
                                 else {
-                                    c += t.numMatch/(float) t.tLen;
+                                    c += (t.tEnd - t.tStart)/(float) t.tLen;
                                 }
                                 counts.put(t.tName, c);
                             }
