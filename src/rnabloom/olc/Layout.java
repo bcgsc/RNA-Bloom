@@ -3105,13 +3105,17 @@ public class Layout {
     }
 
     private boolean isQueryPolyATContained(OverlapCoords r, PolyAInfo qInfo) {
-        return (qInfo.polyATail == null || r.qEnd >= qInfo.polyATail.start + minPolyALength) &&
-                (qInfo.polyTHead == null || r.qStart <= qInfo.polyTHead.end - minPolyALength);
+        return (qInfo.polyATail == null || 
+                r.qEnd >= Math.max(qInfo.polyATail.start + minPolyALength, qInfo.polyATail.end - minPolyALength)) &&
+                (qInfo.polyTHead == null ||
+                r.qStart <= Math.min(qInfo.polyTHead.start + minPolyALength, qInfo.polyTHead.end - minPolyALength));
     }
     
     private boolean isTargetPolyATContained(OverlapCoords r, PolyAInfo tInfo) {
-        return (tInfo.polyATail == null || r.tEnd >= tInfo.polyATail.start + minPolyALength) &&
-                (tInfo.polyTHead == null || r.tStart <= tInfo.polyTHead.end - minPolyALength);
+        return (tInfo.polyATail == null || 
+                r.tEnd >= Math.max(tInfo.polyATail.end - minPolyALength, tInfo.polyATail.end - minPolyALength)) &&
+                (tInfo.polyTHead == null || 
+                r.tStart <= Math.min(tInfo.polyTHead.start + minPolyALength, tInfo.polyTHead.end - minPolyALength));
     }
     
     public void extractSimplePaths(String outFastaPath) throws IOException {
@@ -3327,16 +3331,16 @@ public class Layout {
                 
                 String header = Long.toString(++seqID);
                 String seq = assemblePath(path, dovetailReadSeqs);
-                
+
                 header += " l=" + seq.length() + " c=" + getMinAndDecrementWeights(path, readCounts);
-                
+
                 if (path.size() > 1) {
                     header += " path=[" + String.join(",", path) + "]";
                 }
                 else {
                     header += " s=" + seed;
                 }
-                
+
                 fw.write(header, seq);
 
                 for (String vid : path) {
@@ -3453,27 +3457,42 @@ public class Layout {
         visited.add(seedVid);
         
         ArrayDeque<String> path = new ArrayDeque<>();
-                
-        // extend left
-        String cursor = seedVid;
-        while ((cursor = getMaxWeightPredecessor(cursor, weights)) != null) {
-            if (visited.contains(cursor)) {
-                break;
-            }
-            path.addFirst(cursor);
-            visited.add(cursor);
-        }
         
-        path.add(seedVid);
-        
-        // extend right
-        cursor = seedVid;
-        while ((cursor = getMaxWeightSuccessor(cursor, weights)) != null) {
-            if (visited.contains(cursor)) {
-                break;
+        Float seedWeight = weights.get(getVertexName(seedVid));
+        if (seedWeight != null) {
+            // extend left
+            String cursor = seedVid;
+            while ((cursor = getMaxWeightPredecessor(cursor, weights)) != null) {
+                if (visited.contains(cursor)) {
+                    break;
+                }
+                Float weight = weights.get(getVertexName(cursor));
+                if (weight != null) {
+                    path.addFirst(cursor);
+                    visited.add(cursor);
+                }
+                else {
+                    break;
+                }
             }
-            path.add(cursor);
-            visited.add(cursor);
+
+            path.add(seedVid);
+
+            // extend right
+            cursor = seedVid;
+            while ((cursor = getMaxWeightSuccessor(cursor, weights)) != null) {
+                if (visited.contains(cursor)) {
+                    break;
+                }
+                Float weight = weights.get(getVertexName(cursor));
+                if (weight != null) {
+                    path.add(cursor);
+                    visited.add(cursor);
+                }
+                else {
+                    break;
+                }
+            }
         }
         
         return path;
