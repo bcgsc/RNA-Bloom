@@ -252,6 +252,18 @@ public class PolyATailFinder {
                         --bestRegion.end;
                     }
                 }
+                
+                if (bestRegion.start == searchStart) {
+                    while (bestRegion.start > 0) {
+                        char c = seq.charAt(bestRegion.start);
+                        if (c == 'A' || c == 'a') {
+                            --bestRegion.start;
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                }
             }
             
             return bestRegion;
@@ -394,6 +406,19 @@ public class PolyATailFinder {
                         ++bestRegion.start;
                     }
                 }
+                
+                if (bestRegion.end == searchEnd) {
+                    int seqLen = seq.length();
+                    while (bestRegion.end < seqLen) {
+                        char c = seq.charAt(bestRegion.end);
+                        if (c == 'T' || c == 't') {
+                            ++bestRegion.end;
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                }
             }
             
             return bestRegion;
@@ -450,7 +475,7 @@ public class PolyATailFinder {
         int searchEnd = Math.min(seqLen, window);
         Interval best = findPolyTSeed(seq, searchStart, searchEnd);
         
-        while (best != null && searchStart > 0) {
+        while (best != null && searchEnd < seqLen) {
             searchStart = best.end;
             searchEnd = Math.min(seqLen, best.end + window);
             Interval next = findPolyTSeed(seq, searchStart, searchEnd);
@@ -467,7 +492,7 @@ public class PolyATailFinder {
     
     public static void main(String[] args) {
         //debug
-        String seq = "TCTGCTTGTCATCCACACAACACCGGGACTTAAGACAAATGGGACTGATGTCATCTTGAGCTCTTCATTTATTTTGACTGTGATTTATTTGGAGTGGAGGCATTGTTTCTAAGAAAAACATGTCATGTAGGTTGTCTAAAATAAAATGCGTTTTAAACTCAAAAAAAAAAAAAAAAAG";
+        String seq = "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTCCTGGAATTGAATGTCTTTATTAAATAAACGAGTAAATGGTAGCACAAATCACCATCAATATTTTTGGAAGGATTGGGGACAAGATGTCGAGTCAGAATATAATTGTTCATTTCAGGGTCTCAATGTAGCTGAAGAACTGTGCCCACTGATCGAGTATTAGGTATTGCAAATGCAGGAGGTAAGGCTAAGAAATAGGACTTACGCCGTTCAGAAGAGATTGAATTGAAACCTTAAAAACTATCATAATAGTAGGAATGCATGTTAAGATTTGATAACTTTCTTTAACTAGAGTTTTCAACCCACAGTTAGGAGCAAAGTTGTAAAGTGAGTAGGTGTGAAGAAGGACACTCTTTTGAAAGAAATTAACTACTTCTAAAATGATTTCAATTATTTTCCCTATTTTCATTTTCCATAATATTTCCTCCTGTTTTATACCTCTAACTACCCTCTGATTTCTCTGAGGAAAAAAAAAAGAATATAAGAGCAGGATCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         System.out.println(seq);
         PolyATailFinder finder = new PolyATailFinder();
         finder.setProfile(Profile.ONT);
@@ -484,17 +509,17 @@ public class PolyATailFinder {
             }
         }
         
-        String seqRC = reverseComplement(seq);
-        itv = finder.findPolyTHead(seqRC);
+        //String seqRC = reverseComplement(seq);
+        itv = finder.findPolyTHead(seq);
         if (itv != null) {
-            System.out.print(seqRC.substring(0, itv.start));
-            System.out.print(seqRC.substring(itv.start, itv.end).toLowerCase());
-            System.out.print(seqRC.substring(itv.end));
+            System.out.print(seq.substring(0, itv.start));
+            System.out.print(seq.substring(itv.start, itv.end).toLowerCase());
+            System.out.print(seq.substring(itv.end));
             System.out.println();
             System.out.flush();
             
-            for (int pasPos : finder.getPolyASignalPositionsRC(seqRC, itv.end)) {
-                System.out.println(Integer.toString(pasPos) + ' ' + seqRC.substring(pasPos, pasPos+6));
+            for (int pasPos : finder.getPolyASignalPositionsRC(seq, itv.end)) {
+                System.out.println(Integer.toString(pasPos) + ' ' + seq.substring(pasPos, pasPos+6));
             }
         }
         
