@@ -1733,6 +1733,28 @@ public final class SeqUtils {
         return seq.substring(longestStartPos, longestEndPos).toUpperCase();
     }
     
+    public static String mask(String seq, String qual, Pattern qualPattern) {
+        StringBuilder builder = new StringBuilder(seq);
+        Matcher m = qualPattern.matcher(qual);
+        
+        int cursor = 0;
+        while (m.find()) {
+            int startPos = m.start();
+            
+            for (int i=cursor; i<startPos; ++i) {
+                builder.setCharAt(i, 'N');
+            }
+            
+            cursor = m.end();
+        }
+
+        for (int i=cursor; i<seq.length(); ++i) {
+            builder.setCharAt(i, 'N');
+        }
+        
+        return builder.toString();
+    }
+    
     public static String longestSeq(String seq, String qual, Pattern seqPattern, Pattern qualPattern) {
         // filter sequence by keeping only ACGT characters
         Matcher m = qualPattern.matcher(qual);
@@ -1864,7 +1886,5 @@ public final class SeqUtils {
         
     public static void main(String[] args) {
         //debug
-        String qual = "";
-        System.out.println(getAveragePhred33Score(qual));
     }
 }
