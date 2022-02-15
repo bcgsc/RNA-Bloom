@@ -93,6 +93,7 @@ import rnabloom.olc.Interval;
 import static rnabloom.olc.OverlapLayoutConsensus.mapClusteredOLC;
 import static rnabloom.olc.OverlapLayoutConsensus.trimSplitByReadDepth;
 import static rnabloom.olc.OverlapLayoutConsensus.uniqueOLC;
+import static rnabloom.util.CommandLine.runCommand;
 import rnabloom.util.Common.Quartiles;
 import static rnabloom.util.FileUtils.deleteIfExists;
 import static rnabloom.util.FileUtils.hasOnlyOneSequence;
@@ -5726,20 +5727,22 @@ public class RNABloom {
     private static NTCardHistogram getNTCardHistogram(int threads, int k, String histogramPathPrefix, String readPathsFile, boolean forceOverwrite) throws IOException, InterruptedException {
         NTCardHistogram hist = null;
         String histogramPath = histogramPathPrefix + "_k" + k + ".hist";
-        int exitVal = 0;
+        String logPath = histogramPath + ".log";
+        boolean ok = true;
         
         if (forceOverwrite || !new File(histogramPath).isFile()) {
             String cmd = "ntcard -t " + threads + " -k " + k + " -c 65535 -p " + histogramPathPrefix + " @" + readPathsFile;
-            Runtime rt = Runtime.getRuntime();
+            ArrayList<String> command = new ArrayList<>();
+            command.add("/bin/sh");
+            command.add("-c");
+            command.add(cmd);
             System.out.println("Running command: `" + cmd + "`...");
-            Process pr = rt.exec(cmd);
-            exitVal = pr.waitFor();
+            ok = runCommand(command, logPath);
         }
         
-        if (exitVal == 0) {
+        if (ok) {
             System.out.println("Parsing histogram file `" + histogramPath + "`...");
             hist = new NTCardHistogram(histogramPath);
-            
         }
         
         return hist;

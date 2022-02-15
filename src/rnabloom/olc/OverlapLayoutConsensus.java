@@ -17,7 +17,6 @@
 package rnabloom.olc;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -28,10 +27,10 @@ import java.io.Writer;
 import java.lang.ProcessBuilder.Redirect;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.List;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.FastGZIPOutputStream;
+import static rnabloom.util.CommandLine.runCommand;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.FileUtils.deleteIfExists;
 import static rnabloom.util.FileUtils.hasOnlyOneSequence;
@@ -60,25 +59,7 @@ public class OverlapLayoutConsensus {
     private final static String PRESET_ONT = "ont";
     
     public static enum STATUS {SUCCESS, EMPTY, FAIL};
-    
-    private static boolean runCommand(List<String> command, String logPath) {
-        try {            
-            ProcessBuilder pb = new ProcessBuilder(command);
-            if (logPath != null) {
-                // write stdout and stderr to file to avoid hanging due to buffer overflow
-                pb.redirectErrorStream(true);
-                File logFile = new File(logPath);
-                pb.redirectOutput(Redirect.to(logFile));
-            }
-            Process process = pb.start();
-            int exitStatus = process.waitFor();
-            return exitStatus == 0;
-        }
-        catch (IOException | InterruptedException e) {
-            return false;
-        }
-    }
-            
+                
     public static boolean hasMinimap2() {
         ArrayList<String> command = new ArrayList<>();
         command.add(MINIMAP2);
