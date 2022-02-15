@@ -78,8 +78,8 @@ public class PolyATailFinder {
                 pasSearchEnd = 5;
                 break;
             case ONT:
-                seedLength = 10;
-                minIdentity = 0.7f;
+                seedLength = 12;
+                minIdentity = 0.9f;
                 maxGap = 4;
                 window = 50;
                 pasSearchStart = 60;
@@ -193,8 +193,74 @@ public class PolyATailFinder {
     private static float percentA(String seq, int start, int end) {
         return (float)(countA(seq, start, end))/(end - start);
     }
-        
+    
     public Interval findPolyASeed(String seq, int searchStart, int searchEnd) {
+        if (searchStart < searchEnd && searchStart >=0 && searchEnd >= 0 && searchEnd-searchStart >= seedLength) {
+            int numA = 0;
+            for (int i=searchEnd-1; i>=searchEnd-seedLength; --i) {
+                char c = seq.charAt(i);
+                if (c == 'A' || c == 'a') {
+                    ++numA;
+                }
+            }
+            
+            float id = numA/(float)seedLength;
+            Interval bestRegion = null;
+            
+            if (id >= minIdentity) {
+                bestRegion = new Interval(searchEnd-seedLength, searchEnd);
+            }
+            
+            for (int i=searchEnd-seedLength-1; i>=searchStart; --i) {
+                if (numA > 0) {
+                    char out = seq.charAt(i+seedLength);
+                    if (out == 'A' || out == 'a') {
+                        --numA;
+                    }
+                }
+                
+                char c = seq.charAt(i);
+                if (c == 'A' || c == 'a') {
+                    id = ++numA/(float)seedLength;
+                    if (bestRegion == null) {
+                        if (id >= minIdentity) {
+                            bestRegion = new Interval(i, i+seedLength);
+                        }
+                    }
+                    else {
+                        if (id >= minIdentity) {
+                            bestRegion.start = i;
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                }
+                else if (bestRegion != null && numA/(float)seedLength < minIdentity){
+                    break;
+                }
+            }
+            
+            if (bestRegion != null) {
+                // refine region
+                while (bestRegion.end - bestRegion.start > seedLength) {
+                    char c = seq.charAt(bestRegion.end-1);
+                    if (c == 'A' || c == 'a') {
+                        break;
+                    }
+                    else {
+                        --bestRegion.end;
+                    }
+                }
+            }
+            
+            return bestRegion;
+        }
+        
+        return null;
+    }
+    
+    public Interval findPolyAPerfectSeed(String seq, int searchStart, int searchEnd) {
         if (searchStart < searchEnd && searchStart >=0 && searchEnd >= 0) {
             int memStart = -1;
             int numA = 0;
@@ -271,6 +337,72 @@ public class PolyATailFinder {
     }
     
     public Interval findPolyTSeed(String seq, int searchStart, int searchEnd) {
+        if (searchStart < searchEnd && searchStart >=0 && searchEnd >= 0 && searchEnd-searchStart >= seedLength) {
+            int numT = 0;
+            for (int i=searchStart; i<searchStart+seedLength; ++i) {
+                char c = seq.charAt(i);
+                if (c == 'T' || c == 't') {
+                    ++numT;
+                }
+            }
+            
+            float id = numT/(float)seedLength;
+            Interval bestRegion = null;
+            
+            if (id >= minIdentity) {
+                bestRegion = new Interval(searchStart, searchStart+seedLength);
+            }
+            
+            for (int i=searchStart+seedLength; i<searchEnd; ++i) {
+                if (numT > 0) {
+                    char out = seq.charAt(i-seedLength);
+                    if (out == 'T' || out == 't') {
+                        --numT;
+                    }
+                }
+                
+                char c = seq.charAt(i);
+                if (c == 'T' || c == 't') {
+                    id = ++numT/(float)seedLength;
+                    if (bestRegion == null) {
+                        if (id >= minIdentity) {
+                            bestRegion = new Interval(i-seedLength, i+1);
+                        }
+                    }
+                    else {
+                        if (id >= minIdentity) {
+                            bestRegion.end = i+1;
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                }
+                else if (bestRegion != null && numT/(float)seedLength < minIdentity){
+                    break;
+                }
+            }
+            
+            if (bestRegion != null) {
+                // refine region
+                while (bestRegion.end - bestRegion.start > seedLength) {
+                    char c = seq.charAt(bestRegion.start);
+                    if (c == 'T' || c == 't') {
+                        break;
+                    }
+                    else {
+                        ++bestRegion.start;
+                    }
+                }
+            }
+            
+            return bestRegion;
+        }
+        
+        return null;
+    }
+    
+    public Interval findPolyTPerfectSeed(String seq, int searchStart, int searchEnd) {
         if (searchStart < searchEnd && searchStart >=0 && searchEnd >= 0) {
             int seqLen = seq.length();
             
@@ -335,8 +467,8 @@ public class PolyATailFinder {
     
     public static void main(String[] args) {
         //debug
-        String seq = "TCTGCTTGTCATCCACACAACACCGGGACTTAAGACAAATGGGACTGATGTCATCTTGAGCTCTTCATTTATTTTGACTGTGATTTATTTGGAGTGGAGGCATTGTTTCTAAGAAAAACATGTCATGTAGGTTGTCTAAAATAAAATGCGTTTTAAACTCAAAAAAAAAAAAAAAAA";
-        
+        String seq = "TCTGCTTGTCATCCACACAACACCGGGACTTAAGACAAATGGGACTGATGTCATCTTGAGCTCTTCATTTATTTTGACTGTGATTTATTTGGAGTGGAGGCATTGTTTCTAAGAAAAACATGTCATGTAGGTTGTCTAAAATAAAATGCGTTTTAAACTCAAAAAAAAAAAAAAAAAG";
+        System.out.println(seq);
         PolyATailFinder finder = new PolyATailFinder();
         finder.setProfile(Profile.ONT);
         Interval itv = finder.findPolyATail(seq);
