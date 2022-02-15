@@ -1105,8 +1105,9 @@ public class OverlapLayoutConsensus {
         System.gc();
         
         // 4. polish unitigs
+        boolean keepUnpolished = true;
         boolean success = consensusWithRacon(readsPath, simpleFastaPath, 
-            readsToSimplePafPath, polishedSimpleFastaPath, numThreads, true, verbose);
+            readsToSimplePafPath, polishedSimpleFastaPath, numThreads, keepUnpolished, verbose);
         if (!success) {
             return false;
         }
