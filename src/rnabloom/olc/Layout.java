@@ -322,40 +322,77 @@ public class Layout {
         }
                 
         // each predecessor must have one outgoing edges leading to another predecessor/successor
+        HashSet<String> pendingPredecessors = new HashSet<>();
+        HashSet<String> bridgedPredecessors = new HashSet<>();
+        HashSet<String> bridgedSuccessors = new HashSet<>();
         for (String p : predecessorSet) {
-            boolean found = false;
             Set<OverlapEdge> edges = graph.outgoingEdgesOf(p);
+            OverlapEdge inEdge = graph.getEdge(p, name);
+            boolean foundBridge = false;
             for (OverlapEdge e : edges) {
-                if (!inEdgeSet.contains(e)) {
+                if (e != inEdge) {
                     String s = graph.getEdgeTarget(e);
-                    if (predecessorSet.contains(s) || successorSet.contains(s)) {
-                        found = true;
-                        break;
+                    if (successorSet.contains(s)) {
+                        // make sure distance is similar
+                        int d = ((e.sinkEnd - e.sinkStart) + (e.sourceEnd - e.sourceStart))/2;
+                        
+                        OverlapEdge outEdge = graph.getEdge(name, s);
+                        int length = isVertexSignReverseComplement(name) ?
+                                inEdge.sinkEnd - outEdge.sourceStart : 
+                                outEdge.sourceEnd - inEdge.sinkStart;                        
+                        int inEdgeNotCovered = length - (inEdge.sinkEnd - inEdge.sinkStart);
+                        int outEdgeNotCovered = length - (outEdge.sourceEnd - outEdge.sourceStart);
+                        int d2 = length - inEdgeNotCovered - outEdgeNotCovered;
+                        
+                        if (Math.max(d, d2) * 0.9f > Math.min(d, d2)) {
+                            return false;
+                        }
+                        else {
+                            foundBridge = true;
+                            bridgedSuccessors.add(s);
+                        }
                     }
                 }
             }
             
-            if (!found) {
-                return false;
+            if (foundBridge) {
+                bridgedPredecessors.add(p);
+            }
+            else {
+                pendingPredecessors.add(p);
             }
         }
         
-        // each successor must have one incoming edge coming from another successor/predecessor
-        for (String s : successorSet) {
-            boolean found = false;
-            Set<OverlapEdge> edges = graph.incomingEdgesOf(s);
-            for (OverlapEdge e : edges) {
-                if (!outEdges.contains(e)) {
-                    String p = graph.getEdgeSource(e);
-                    if (predecessorSet.contains(p) || successorSet.contains(p)) {
+        // check pending predecessors
+        if (!pendingPredecessors.isEmpty()) {
+            for (String p : pendingPredecessors) {
+                boolean found = false;
+                for (String s : Graphs.successorListOf(graph, p)) {
+                    if (bridgedPredecessors.contains(s)) {
                         found = true;
                         break;
                     }
                 }
+                if (!found) {
+                    return false;
+                }
             }
-            
-            if (!found) {
-                return false;
+        }
+        
+        // check pending successors
+        successorSet.removeAll(bridgedSuccessors);
+        if (!successorSet.isEmpty()) {
+            for (String s : successorSet) {
+                boolean found = false;
+                for (String p : Graphs.predecessorListOf(graph, s)) {
+                    if (bridgedSuccessors.contains(p)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    return false;
+                }
             }
         }
         
@@ -2649,6 +2686,12 @@ public class Layout {
         }
     }
     
+    private void printCounts(HashMap<String, Float> counts) {
+        for (Entry<String, Float> entry : counts.entrySet()) {
+            System.out.println(entry.getKey() + '\t' + entry.getValue());
+        }
+    }
+    
     private void printGraph() {
         for (OverlapEdge e : graph.edgeSet()) {
             System.out.println(graph.getEdgeSource(e) + " -> " + graph.getEdgeTarget(e) +
@@ -2664,7 +2707,7 @@ public class Layout {
         }
         writer.close();
     }
-    
+        
     private class TargetOverlapComparator implements Comparator<Overlap> {
         @Override
         public int compare(Overlap o1, Overlap o2) {
@@ -3142,19 +3185,25 @@ public class Layout {
             //printGraph();
             printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
             
+            ArrayDeque<String> removedVertexes = removeRedundantNodes();
+            if (stranded) {
+                for (String vid : removedVertexes) {
+                    containedSet.add(getVertexName(vid));
+                }
+            }
+            else {
+                for (String vid : removedVertexes) {
+                    if (!graph.containsVertex(getReverseComplementID(vid))) {
+                        containedSet.add(getVertexName(vid));
+                    }
+                }
+            }
+            
             removeTransitiveEdges();
-//            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
-//            while (!redundantNodeNames.isEmpty()) {
-//                for (String n : redundantNodeNames) {
-//                    containedSet.add(getVertexName(n));
-//                }
-//
-//                redundantNodeNames = removeRedundantNodes();
-//            }
             
             //printGraph();
             printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
-            writeGraph(outFastaPath + ".dot");
+            writeGraph(this.seqFastaPath + ".dot");
         }
         
         HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size());
@@ -3203,6 +3252,66 @@ public class Layout {
         printMessage("Laid out paths in " + timer.elapsedDHMS());
     }
     
+    public int removeDifferentMagnitudeEdges(HashMap<String, Float> readCounts, float maxLogDiff) {
+        int numEdgesRemoved = 0;
+        for (Entry<String, Float> entry : readCounts.entrySet()) {
+            String name = entry.getKey();
+            float count = entry.getValue();
+            String vid = name + '+';
+            String vidRC = name + '-';
+            ArrayDeque<OverlapEdge> toBeRemoved = new ArrayDeque();
+            
+            if (graph.containsVertex(vid)) {
+                for (OverlapEdge e : graph.incomingEdgesOf(vid)) {
+                    String pName = getVertexName(graph.getEdgeSource(e));
+                    Float pCount = readCounts.get(pName);
+                    if (pCount == null ||
+                            (count > pCount && Math.log10(pCount) + maxLogDiff < Math.log10(count)) ||
+                            (count <= pCount && Math.log10(count) + maxLogDiff < Math.log10(pCount))) {
+                        toBeRemoved.add(e);
+                    }
+                }
+                
+                for (OverlapEdge e : graph.outgoingEdgesOf(vid)) {
+                    String pName = getVertexName(graph.getEdgeTarget(e));
+                    Float pCount = readCounts.get(pName);
+                    if (pCount == null ||
+                            (count > pCount && Math.log10(pCount) + maxLogDiff < Math.log10(count)) ||
+                            (count <= pCount && Math.log10(count) + maxLogDiff < Math.log10(pCount))) {
+                        toBeRemoved.add(e);
+                    }
+                }
+            }
+            
+            if (graph.containsVertex(vidRC)) {
+                for (OverlapEdge e : graph.incomingEdgesOf(vidRC)) {
+                    String pName = getVertexName(graph.getEdgeSource(e));
+                    Float pCount = readCounts.get(pName);
+                    if (pCount == null ||
+                            (count > pCount && Math.log10(pCount) + maxLogDiff < Math.log10(count)) ||
+                            (count <= pCount && Math.log10(count) + maxLogDiff < Math.log10(pCount))) {
+                        toBeRemoved.add(e);
+                    }
+                }
+                
+                for (OverlapEdge e : graph.outgoingEdgesOf(vidRC)) {
+                    String pName = getVertexName(graph.getEdgeTarget(e));
+                    Float pCount = readCounts.get(pName);
+                    if (pCount == null ||
+                            (count > pCount && Math.log10(pCount) + maxLogDiff < Math.log10(count)) ||
+                            (count <= pCount && Math.log10(count) + maxLogDiff < Math.log10(pCount))) {
+                        toBeRemoved.add(e);
+                    }
+                }
+            }
+            
+            numEdgesRemoved += toBeRemoved.size();
+            graph.removeAllEdges(toBeRemoved);
+        }
+        
+        return numEdgesRemoved;
+    }
+    
     public void extractGreedyPaths(String outFastaPath, String mappingPafPath) throws IOException {
         HashSet<String> containedSet = populateGraphFromOverlaps();
         
@@ -3221,22 +3330,28 @@ public class Layout {
         
         Set<OverlapEdge> edgeSet = graph.edgeSet();
         
-        if (edgeSet.size() > 1) {
+        if (edgeSet.size() > 1) {            
             printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
             
+            ArrayDeque<String> removedVertexes = removeRedundantNodes();
+            if (stranded) {
+                for (String vid : removedVertexes) {
+                    containedSet.add(getVertexName(vid));
+                }
+            }
+            else {
+                for (String vid : removedVertexes) {
+                    if (!graph.containsVertex(getReverseComplementID(vid))) {
+                        containedSet.add(getVertexName(vid));
+                    }
+                }
+            }
+            
             removeTransitiveEdges();
-//            ArrayDeque<String> redundantNodeNames = removeRedundantNodes();
-//            while (!redundantNodeNames.isEmpty()) {
-//                for (String n : redundantNodeNames) {
-//                    containedSet.add(getVertexName(n));
-//                }
-//                
-//                redundantNodeNames = removeRedundantNodes();
-//            }
             
             //printGraph();
             printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
-            writeGraph(outFastaPath + ".dot");
+            writeGraph(seqFastaPath + ".dot");
         }
                 
         // extract read count from mapping
@@ -3253,6 +3368,13 @@ public class Layout {
         //HashMap<String, Float> readCounts = getReadCounts(mappingPafPath, vertexNames, maxEdgeClip);
         HashMap<String, Float> readCounts = getLengthNormalizedReadCounts(mappingPafPath, containedSet);
         printMessage("Counts tallied for " + readCounts.size() + " sequences in " + timer.elapsedDHMS());
+        
+        //printCounts(readCounts);
+        
+        printMessage("Removing edges based on read counts...");
+        timer.start();
+        int numEdgesRemoved = removeDifferentMagnitudeEdges(readCounts, 0.5f);
+        printMessage("Removed " + numEdgesRemoved + " edges in " + timer.elapsedDHMS());
         
 //        // assign read count to edge
 //        printMessage("Adding read counts to graph...");
@@ -3803,7 +3925,7 @@ public class Layout {
             String out = dir + "/out.fa";
             
             Layout layout = new Layout(in, new BufferedInputStream(new FileInputStream(paf)), false,
-                    75, 0.9f, 50, 50,
+                    50, 0.7f, 150, 50,
                     true, 1, true);
             layout.extractSimplePaths(out);
         } catch (IOException ex) {
