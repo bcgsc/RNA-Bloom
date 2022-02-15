@@ -3716,7 +3716,7 @@ public class RNABloom {
                                       
                     if (seq.length() >= k) {
                         String name = nameSeqPair[0];
-                        
+                                                
                         Interval tailRegion = tailFinder.findPolyATail(seq);
                         
                         if (strandSpecific) {
@@ -3743,30 +3743,16 @@ public class RNABloom {
                                 boolean hasPasRC = tailFinder.hasPolyASignalRC(seq, headRegion.end);
                                 
                                 if (hasPas && !hasPasRC) {
-                                    if (tailRegion.end < seq.length()) { 
-                                        seq = seq.substring(0, tailRegion.end);
-                                    }
+                                    // remove polyT head
+                                    seq = seq.substring(headRegion.end, tailRegion.end);
                                 }
                                 else if (!hasPas && hasPasRC) {
-                                    if (headRegion.start > 0) {
-                                        seq = seq.substring(headRegion.start);
-                                    }
-                                    seq = reverseComplement(seq);
+                                    // remove polyA tail
+                                    seq = reverseComplement(seq.substring(headRegion.start, tailRegion.start));
                                 }
                                 else {
-                                    int tailLength = tailRegion.end - tailRegion.start;
-                                    int headLength = headRegion.end - headRegion.start;
-                                    if (tailLength >= headLength) {
-                                        if (tailRegion.end < seq.length()) { 
-                                            seq = seq.substring(0, tailRegion.end);
-                                        }
-                                    }
-                                    else {
-                                        if (headRegion.start > 0) {
-                                            seq = seq.substring(headRegion.start);
-                                        }
-                                        seq = reverseComplement(seq);
-                                    }
+                                    // remove both head and tail
+                                    seq = seq.substring(headRegion.end, tailRegion.start);
                                 }
                             }
                         }
