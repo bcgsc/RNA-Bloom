@@ -131,6 +131,7 @@ public class RNABloom {
     private Pattern polyASignalPattern;
     private BloomFilterDeBruijnGraph graph = null;
     private BloomFilter screeningBf = null;
+    private PolyATailFinder polyaFinder = null;
 
     private int maxTipLength = -1;
     private int lookahead;
@@ -244,9 +245,13 @@ public class RNABloom {
             else {
                 polyATailPattern = getPolyTHeadOrPolyATailPattern(minPolyATail);
             }
+            
+            polyaFinder = new PolyATailFinder();
+            polyaFinder.setProfile(PolyATailFinder.Profile.ONT);
+            polyaFinder.setSeedLength(minPolyATail);
         }
     }
-    
+        
     private static void exitOnError(String msg) {
         System.out.println("ERROR: " + msg);
         System.exit(1);
@@ -3238,7 +3243,7 @@ public class RNABloom {
         int numClusters = mapClusteredOLC(readsPath, seedsPath3, clusterdir,
                             numThreads, stranded, minimapOptions, maxEdgeClip,
                             minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
-                            minSeqDepth, usePacBioPreset, forceOverwrite);
+                            minSeqDepth, usePacBioPreset, forceOverwrite, null, null);
         
         if (numClusters <= 0) {
             return false;
@@ -3286,7 +3291,8 @@ public class RNABloom {
     public boolean assembleUnclusteredLongReads(String readsPath,
                                     String inFasta,
                                     String outFasta,
-                                    String tmpPrefix, 
+                                    String tmpPrefix,
+                                    String polyAReadNamesPath,
                                     int numThreads,
                                     String minimapOptions,
                                     int minKmerCov,
@@ -3309,11 +3315,12 @@ public class RNABloom {
 //                numThreads, stranded, minimapOptions, maxEdgeClip,
 //                minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
 //                minSeqDepth, usePacBioPreset, false, true);
-            
+            polyaFinder.setWindow(0);
             ok = uniqueOLC(readsPath, inFasta, outFasta, tmpPrefix,
                 numThreads, stranded, minimapOptions, maxEdgeClip,
                 minAlnId, minOverlapMatches, maxIndelSize,
-                minSeqDepth, usePacBioPreset, true);
+                minSeqDepth, usePacBioPreset, true,
+                polyAReadNamesPath, polyaFinder);
         }
         
         return ok;
@@ -3493,6 +3500,7 @@ public class RNABloom {
         private final FastaWriter longWriter;
         private final FastaWriter shortWriter;
         private final FastaWriter repeatsWriter;
+        private final BufferedWriter polyAReadNamesWriter;
         private Quartiles sampleLengthStats = null;
         private boolean terminateWhenInputExhausts = false;
         private long numCorrected = 0;
@@ -3503,16 +3511,17 @@ public class RNABloom {
         private ArrayList<WeightedBitSequence> bits = new ArrayList<>();
         
         public CorrectedLongReadsWriterWorker2(ArrayBlockingQueue<Sequence2> inputQueue, 
-                FastaWriter longSeqWriter, FastaWriter shortSeqWriter, FastaWriter repeatsSeqWriter,
+                FastaWriter longSeqWriter, FastaWriter shortSeqWriter,
+                FastaWriter repeatsSeqWriter, BufferedWriter polyAReadNamesWriter,
                 int maxSampleSize, int minSeqLen, boolean storeLongReads) {
             this.inputQueue = inputQueue;
             this.longWriter = longSeqWriter;
             this.shortWriter = shortSeqWriter;
             this.repeatsWriter = repeatsSeqWriter;
+            this.polyAReadNamesWriter = polyAReadNamesWriter;
             this.maxSampleSize = maxSampleSize;
             this.minSeqLen = minSeqLen;
             this.storeLongReads = storeLongReads;
-//            this.writeUracil = writeUracil;
         }
                 
         @Override
@@ -3555,9 +3564,11 @@ public class RNABloom {
                     ++numCorrected;
                     String header = seq.name + " l=" + Integer.toString(seq.length);
 
-//                    if (writeUracil) {
-//                        seq.seq = seq.seq.replace('T', 'U');
-//                    }
+                    if (seq.hasPolyA) {
+                        polyAReadNamesWriter.write(seq.name);
+                        polyAReadNamesWriter.newLine();
+                    }
+                    
                     if (seq.isRepeat) {
                         repeatsWriter.write(header, seq.seq);
                     }
@@ -3583,13 +3594,13 @@ public class RNABloom {
                         continue;
                     }
                     
-                    //String header = Long.toString(++numCorrected) + " l=" + Integer.toString(seq.length) + " c=" + Float.toString(seq.coverage);
                     ++numCorrected;
                     String header = seq.name + " l=" + Integer.toString(seq.length);
 
-//                    if (writeUracil) {
-//                        seq.seq = seq.seq.replace('T', 'U');
-//                    }
+                    if (seq.hasPolyA) {
+                        polyAReadNamesWriter.write(seq.name);
+                        polyAReadNamesWriter.newLine();
+                    }
                     
                     if (seq.isRepeat) {
                         repeatsWriter.write(header, seq.seq);
@@ -3661,13 +3672,15 @@ public class RNABloom {
         int length;
         float score;
         boolean isRepeat;
+        boolean hasPolyA;
         
-        public Sequence2(String name, String seq, int length, float score, boolean isRepeat) {
+        public Sequence2(String name, String seq, int length, float score, boolean isRepeat, boolean hasPolyA) {
             this.name = name;
             this.seq = seq;
             this.length = length;
             this.score = score;
             this.isRepeat = isRepeat;
+            this.hasPolyA = hasPolyA;
         }
     }
     
@@ -3704,10 +3717,7 @@ public class RNABloom {
         public void run() {
             //boolean stranded = graph.isStranded();
             
-            try {
-                PolyATailFinder tailFinder = new PolyATailFinder();
-                tailFinder.setProfile(PolyATailFinder.Profile.ONT);
-                
+            try {                
                 String[] nameSeqPair;
                 while((nameSeqPair = itr.next()) != null) {
                     ++numReads;
@@ -3717,42 +3727,49 @@ public class RNABloom {
                     if (seq.length() >= k) {
                         String name = nameSeqPair[0];
                                                 
-                        Interval tailRegion = tailFinder.findPolyATail(seq);
+                        Interval tailRegion = polyaFinder.findPolyATail(seq);
+                        boolean hasPolyA = false;
                         
                         if (strandSpecific) {
                             if (tailRegion != null && tailRegion.end < seq.length()) {
                                 seq = seq.substring(0, tailRegion.end);
+                                hasPolyA = true;
                             }
                         }
                         else {
-                            Interval headRegion = tailFinder.findPolyTHead(seq);
+                            Interval headRegion = polyaFinder.findPolyTHead(seq);
                             
                             if (tailRegion != null && headRegion == null) {
                                 if (tailRegion.end < seq.length()) {
                                     seq = seq.substring(0, tailRegion.end);
                                 }
+                                hasPolyA = true;
                             }
                             else if (tailRegion == null && headRegion != null) {
                                 if (headRegion.start > 0) {
                                     seq = seq.substring(headRegion.start);
                                 }
                                 seq = reverseComplement(seq);
+                                hasPolyA = true;
                             }
                             else if (tailRegion != null && headRegion != null) {                                
-                                boolean hasPas = tailFinder.hasPolyASignal(seq, tailRegion.start);
-                                boolean hasPasRC = tailFinder.hasPolyASignalRC(seq, headRegion.end);
+                                boolean hasPas = polyaFinder.hasPolyASignal(seq, tailRegion.start);
+                                boolean hasPasRC = polyaFinder.hasPolyASignalRC(seq, headRegion.end);
                                 
                                 if (hasPas && !hasPasRC) {
                                     // remove polyT head
                                     seq = seq.substring(headRegion.end, tailRegion.end);
+                                    hasPolyA = true;
                                 }
                                 else if (!hasPas && hasPasRC) {
                                     // remove polyA tail
                                     seq = reverseComplement(seq.substring(headRegion.start, tailRegion.start));
+                                    hasPolyA = true;
                                 }
                                 else {
                                     // remove both head and tail
                                     seq = seq.substring(headRegion.end, tailRegion.start);
+                                    hasPolyA = false;
                                 }
                             }
                         }
@@ -3760,13 +3777,16 @@ public class RNABloom {
                         ArrayList<String> segments = trimLowComplexityRegions(seq, 100, 500);
                         if (segments.isEmpty()) {
                             // entire sequence is low complexity
-                            outputQueue.put(new Sequence2(name, seq, seq.length(), 0, true));
+                            outputQueue.put(new Sequence2(name, seq, seq.length(), 0, true, false));
                         }
                         else {
                             // complex segments
                             int numSegments = segments.size();
                             boolean isMultiSegments = numSegments > 1;
-
+                            if (isMultiSegments) {
+                                hasPolyA = false;
+                            }
+                            
                             int sid = 0;
                             for (String segment : segments) {
                                 String segName = name;
@@ -3799,33 +3819,12 @@ public class RNABloom {
                                             }
                                         }
 
-                                        if (!correctedKmers.isEmpty()) {                                      
-//                                            ArrayList<Interval> splitted = splitAtLowCoverage(correctedKmers, graph, minKmerCov, maxLowCovGapSize, lookahead);
-//
-//                                            if (splitted.isEmpty()) {
-                                                segment = graph.assemble(correctedKmers);
+                                        if (!correctedKmers.isEmpty()) {
+                                            segment = graph.assemble(correctedKmers);
 
-                                                int segLength = segment.length();
-                                                //boolean isRepeat = isLowComplexityLongWindowed(segment);
-                                                float score = (float) getTotalLogKmerCoverage(correctedKmers, minKmerCov);
-//                                                float score = countSolidKmers(correctedKmers, minKmerCov);
-
-                                                outputQueue.put(new Sequence2(segName, segment, segLength, score, false));
-//                                            }
-//                                            else {
-//                                                int pid = 0;
-//                                                for (Interval i : splitted) {
-//                                                    List<Kmer> component = correctedKmers.subList(i.start, i.end);
-//                                                    String componentSeq = graph.assemble(component);
-//
-//                                                    int segLength = componentSeq.length();
-//                                                    //boolean isRepeat = isLowComplexityLongWindowed(componentSeq);
-//                                                    float score = (float) getTotalLogKmerCoverage(component, minKmerCov);
-////                                                    float score = countSolidKmers(component, minKmerCov);
-//
-//                                                    outputQueue.put(new Sequence2(segName + "_p" + ++pid, componentSeq, segLength, score, false));
-//                                                }
-//                                            }
+                                            int segLength = segment.length();
+                                            float score = segLength;//(float) getTotalLogKmerCoverage(correctedKmers, minKmerCov);
+                                            outputQueue.put(new Sequence2(segName, segment, segLength, score, false, hasPolyA));
 
                                             kept = true;
                                         }
@@ -3940,6 +3939,7 @@ public class RNABloom {
                                                 FastaWriter longSeqWriter,
                                                 FastaWriter shortSeqWriter,
                                                 FastaWriter repeatsSeqWriter,
+                                                BufferedWriter polyAReadNamesWriter,
                                                 int minKmerCov,
                                                 int maxErrCorrItr,
                                                 int numThreads,
@@ -3968,7 +3968,7 @@ public class RNABloom {
         //System.out.println("Initialized " + numThreads + " worker(s).");
         
         CorrectedLongReadsWriterWorker2 writerWorker = new CorrectedLongReadsWriterWorker2(outputQueue, 
-                longSeqWriter, shortSeqWriter, repeatsSeqWriter,
+                longSeqWriter, shortSeqWriter, repeatsSeqWriter, polyAReadNamesWriter,
                 maxSampleSize, minSeqLen, storeReads);
         Thread writerThread = new Thread(writerWorker);
         writerThread.start();
@@ -5241,15 +5241,17 @@ public class RNABloom {
     
     private static ArrayList<WeightedBitSequence> correctLongReads(RNABloom assembler, 
             String[] inFastxList, String outLongFasta, String outShortFasta, String outRepeatsFasta,
+            String polyAReadNamesPath,
             int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, 
             boolean reverseComplement, boolean trimArtifact, boolean storeReads) throws InterruptedException, IOException, Exception {
         
         FastaWriter longWriter = new FastaWriter(outLongFasta, false);
         FastaWriter shortWriter = new FastaWriter(outShortFasta, false);
         FastaWriter repeatsWriter = new FastaWriter(outRepeatsFasta, false);
+        BufferedWriter polyAReadNamesWriter = new BufferedWriter(new FileWriter(polyAReadNamesPath, false));
 
         ArrayList<WeightedBitSequence> longReads = assembler.correctLongReadsMultithreaded(inFastxList,
-                                                longWriter, shortWriter, repeatsWriter,
+                                                longWriter, shortWriter, repeatsWriter, polyAReadNamesWriter,
                                                 minKmerCov,
                                                 maxErrCorrItr,
                                                 numThreads,
@@ -5262,6 +5264,7 @@ public class RNABloom {
         longWriter.close();
         shortWriter.close();
         repeatsWriter.close();
+        polyAReadNamesWriter.close();
         
         return longReads;
     }
@@ -5836,10 +5839,12 @@ public class RNABloom {
         String defaultMaxTipLengthLR = "50";
         String defaultMaxErrorCorrItrLR = "2";
         String defaultPercentIdentityLR = "0.6";
+        String defaultMinPolyALengthLR = "12";
         String defaultLongReadPreset = "-k " + defaultKmerSizeLR + " -c " + defaultMinCoverageLR + 
                 " -indel " + defaultMaxIndelSizeLR + " -e " + defaultMaxErrorCorrItrLR +
                 " -p " + defaultPercentIdentityLR + " -length " + defaultMinTranscriptLengthLR +
-                " -overlap " + defaultMinOverlapLR + " -tip " + defaultMaxTipLengthLR;
+                " -overlap " + defaultMinOverlapLR + " -tip " + defaultMaxTipLengthLR +
+                " -polya " + defaultMinPolyALengthLR;
         Option optLongReads = Option.builder("long")
                                     .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `" + 
                                             defaultLongReadPreset + "` unless each option is defined otherwise.)")
@@ -6966,7 +6971,8 @@ public class RNABloom {
             String defaultMinTranscriptLength = hasLongReadFiles ? defaultMinTranscriptLengthLR : optMinLengthDefault;
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), defaultMinTranscriptLength));
             
-            final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), optPolyATailDefault));
+            String defaultMinPolyALength = hasLongReadFiles ? defaultMinPolyALengthLR : optPolyATailDefault;
+            final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), defaultMinPolyALength));
 //            if (minPolyATail > 0) {
 //                maxErrCorrItr = 0;
 //                branchFreeExtensionThreshold = STRATUM_01;
@@ -7265,7 +7271,8 @@ public class RNABloom {
                 final String correctedLongReadFilePrefix = outdir + File.separator + name + ".longreads.corrected";                
                 String longCorrectedReadsPath = correctedLongReadFilePrefix + ".long" + FASTA_EXT + GZIP_EXT;
                 String shortCorrectedReadsPath = correctedLongReadFilePrefix + ".short" + FASTA_EXT + GZIP_EXT;
-                String repeatReadsFileName = correctedLongReadFilePrefix + ".repeats" + FASTA_EXT + GZIP_EXT;
+                String repeatReadsPath = correctedLongReadFilePrefix + ".repeats" + FASTA_EXT + GZIP_EXT;
+                String polyAReadNamesPath = correctedLongReadFilePrefix + ".polya.txt";
 //                String subSampledReadsPath = correctedLongReadFilePrefix + ".long.subsampled" + FASTA_EXT + GZIP_EXTENSION;
                 String seedReadsPath = correctedLongReadFilePrefix + ".long.seed" + FASTA_EXT + GZIP_EXT;
 //                String numCorrectedReadsPath = correctedLongReadFilePrefix + ".count";
@@ -7283,7 +7290,7 @@ public class RNABloom {
                     Timer myTimer = new Timer();
                     ArrayList<WeightedBitSequence> correctedReads = correctLongReads(assembler, 
                             longReadPaths, longCorrectedReadsPath, shortCorrectedReadsPath,
-                            repeatReadsFileName,
+                            repeatReadsPath, polyAReadNamesPath,
                             maxErrCorrItr, minKmerCov, numThreads, sampleSize, Math.min(minOverlap, minTranscriptLength),
                             revCompLong, !keepArtifact, subsampleLongReads);
                     System.out.println("Corrected reads in " + myTimer.elapsedDHMS());
@@ -7304,11 +7311,13 @@ public class RNABloom {
                             
                             switch (subsampleProtocol) {
                                 case SUBSAMPLE_STROBEMER:
-                                    SeqSubsampler.strobemerBased(correctedReads, seedReadsPath,
-                                            bfSize, strobemerSize,
+                                    assembler.polyaFinder.setWindow(0);
+                                    SeqSubsampler.strobemerBased(correctedReads,
+                                            seedReadsPath, bfSize, strobemerSize,
                                             dbgbfNumHash, strandSpecific, 
-                                            Math.max(subsampleDepth, longReadMinReadDepth), maxTipLen, true,
-                                            numThreads, maxIndelSize);
+                                            Math.max(subsampleDepth, longReadMinReadDepth),
+                                            maxTipLen, true, numThreads,
+                                            maxIndelSize, assembler.polyaFinder);
                                     break;
                                 case SUBSAMPLE_KMER:
                                     SeqSubsampler.kmerBased(correctedReads, seedReadsPath,
@@ -7360,10 +7369,12 @@ public class RNABloom {
                         inputReadsPath = longCorrectedReadsPath;
                     }
                     
+                    assembler.polyaFinder.setWindow(0);
                     boolean ok = assembler.assembleUnclusteredLongReads(longCorrectedReadsPath,
                                     inputReadsPath,
                                     assembledTranscriptsPath,
                                     tmpFilePathPrefix,
+                                    polyAReadNamesPath,
                                     numThreads,
                                     minimapOptions,
                                     minKmerCov,

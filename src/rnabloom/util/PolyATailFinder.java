@@ -20,7 +20,6 @@ import java.util.ArrayDeque;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import rnabloom.olc.Interval;
-import static rnabloom.util.SeqUtils.reverseComplement;
 
 /**
  *
@@ -81,19 +80,24 @@ public class PolyATailFinder {
                 seedLength = 12;
                 minIdentity = 0.9f;
                 maxGap = 4;
-                window = 50;
+                window = 30;
                 pasSearchStart = 60;
                 pasSearchEnd = 5;
                 break;
         }
+        window = Math.max(seedLength, window);
     }
     
     public void setSeedLength(int seedLength) {
         this.seedLength = seedLength;
     }
     
+    public int getSeedLength() {
+        return seedLength;
+    }
+    
     public void setWindow(int window) {
-        this.window = window;
+        this.window = Math.max(seedLength, window);
     }
     
     public void setMinIdentity(float minIdentity) {

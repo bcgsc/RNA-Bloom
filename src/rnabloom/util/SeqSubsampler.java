@@ -347,11 +347,8 @@ public class SeqSubsampler {
             String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose,
-            int numThreads, int maxIndelSize) throws IOException, InterruptedException, ExecutionException {
-        
-        int minPolyALen = 10;
-        Pattern polyAPattern = getPolyATailMatchingPattern(minPolyALen);
-        
+            int numThreads, int maxIndelSize, PolyATailFinder polyaFinder) throws IOException, InterruptedException, ExecutionException {
+                
         int numSeq = seqs.size();
         
         int numSubsample = 0;
@@ -438,11 +435,11 @@ public class SeqSubsampler {
                         }
                     }
                 }
-
+                                
                 if (!write &&
                         (namInterval == null ||
                             namInterval.start > maxEdgeClip ||
-                            namInterval.end < seq.length() - (polyAPattern.matcher(seq).find() ? 0 : maxEdgeClip) - 1)) {
+                            namInterval.end < seq.length() - (polyaFinder.findPolyATail(seq) != null ? 0 : maxEdgeClip) - 1)) {
                     write = true;
                 }
                 

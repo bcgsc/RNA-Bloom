@@ -16,11 +16,15 @@
  */
 package rnabloom.util;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -147,16 +151,28 @@ public class PafUtils {
     public static boolean isForwardContainmentPafRecord(PafRecord r, int maxEdgeClip) {
         return !r.reverseComplemented && isContainmentPafRecord(r, maxEdgeClip);
     }
+    
+    public static boolean isQueryEdgeSink(PafRecord r, int maxEdgeClip) {
+        int qHead = r.qStart;
+        int qTail = r.qLen - r.qEnd;
+        int tHead = r.tStart;
+        int tTail = r.tLen - r.tEnd;
         
+        if (r.reverseComplemented) {
+            if (qTail > tHead && tTail > qHead && qHead <= maxEdgeClip && tHead <= maxEdgeClip) {
+                return true;
+            }
+        }
+        else {
+            if (tHead > qHead && tTail < qTail && qHead <= maxEdgeClip && tTail <= maxEdgeClip) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
     public static boolean isDovetailPafRecord(PafRecord r, int maxEdgeClip) {
-//        if (r.reverseComplemented) {
-//            return (r.qEnd >= r.qLen - maxEdgeClip && r.tEnd >= r.tLen - maxEdgeClip && r.qStart > r.tLen - r.tEnd) ||
-//                    (r.tStart <= maxEdgeClip && r.qStart <= maxEdgeClip && r.qLen - r.qStart > r.tStart);
-//        }
-//        else {
-//            return (r.qEnd >= r.qLen - maxEdgeClip && r.tStart <= maxEdgeClip && r.qStart > r.tStart) ||
-//                    (r.tEnd >= r.tLen - maxEdgeClip && r.qStart <= maxEdgeClip && r.tStart > r.qStart);
-//        }
         int qHead = r.qStart;
         int qTail = r.qLen - r.qEnd;
         int tHead = r.tStart;
@@ -202,6 +218,49 @@ public class PafUtils {
         }
         
         return bestPartner;
+    }
+    
+    public static class PolyAScore {
+        public float forwardScore = 0;
+        public float reverseScore = 0;
+    } 
+    
+    public static HashMap<String, PolyAScore> getPolyAScores(String pafPath, String polyAReadNamesPath,
+            Set<String> skipSet, int maxEdgeClip) throws FileNotFoundException, IOException {
+        
+        HashSet<String> polyAReadNames = new HashSet<>();
+        BufferedReader br = new BufferedReader(new FileReader(polyAReadNamesPath));
+        for (String line; (line = br.readLine()) != null; ) {
+            polyAReadNames.add(line.trim());
+        }
+        br.close();
+        
+        HashMap<String, PolyAScore> scores = new HashMap<>();
+        
+        PafReader reader = new PafReader(pafPath);
+        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+            reader.next(r);
+            if (polyAReadNames.contains(r.qName) && !skipSet.contains(r.tName)) {
+                if (isQueryEdgeSink(r, maxEdgeClip)) {
+                    PolyAScore score = scores.get(r.tName);
+                    if (score == null) {
+                        score = new PolyAScore();
+                        scores.put(r.tName, score);
+                    }
+                    
+                    float alignedProportion = (r.tEnd - r.tStart)/(float)r.tLen;
+                    if (r.reverseComplemented) {
+                        score.reverseScore = Math.max(alignedProportion, score.reverseScore);
+                    }
+                    else {
+                        score.forwardScore = Math.max(alignedProportion, score.forwardScore);
+                    }
+                }
+            }
+        }
+        reader.close();
+        
+        return scores;
     }
     
     private static class Overlap implements Comparable<Overlap> {

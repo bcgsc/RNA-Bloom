@@ -39,7 +39,6 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.zip.GZIPInputStream;
 import org.jgrapht.Graphs;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
@@ -81,12 +80,13 @@ public class Layout {
     private boolean cutRevCompArtifact = false;
     private int minNumAltReads = 0;
     private boolean verbose = false;
-    HashMap<String, PolyAInfo> polyAInfoMap;
-    private int minPolyALength = 10;
+    HashMap<String, PolyAInfo> polyAInfoMap = null;
+    private int minPolyALength = 0;
     
     public Layout(String seqFile, InputStream overlapPafInputStream, boolean stranded,
             int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
-            boolean cutRevCompArtifact, int minSeqDepth, boolean verbose) throws IOException {
+            boolean cutRevCompArtifact, int minSeqDepth, boolean verbose,
+            PolyATailFinder polyaFinder) throws IOException {
         this.graph = new DefaultDirectedGraph<>(OverlapEdge.class);
         this.overlapPafInputStream = overlapPafInputStream;
         this.seqFastaPath = seqFile;
@@ -98,12 +98,10 @@ public class Layout {
         this.cutRevCompArtifact = cutRevCompArtifact;
         this.minNumAltReads = minSeqDepth - 1;
         this.verbose = verbose;
-        
-        PolyATailFinder polyATailFinder = new PolyATailFinder();
-        polyATailFinder.setProfile(PolyATailFinder.Profile.ONT);
-        polyATailFinder.setSeedLength(minPolyALength);
-        polyATailFinder.setWindow(minPolyALength);
-        polyAInfoMap = getPolyAInfo(polyATailFinder);
+        if (polyaFinder != null) {
+            this.minPolyALength = polyaFinder.getSeedLength();
+            this.polyAInfoMap = getPolyAInfo(polyaFinder);
+        }
     }
     
     private void printMessage(String msg) {
@@ -1659,14 +1657,26 @@ public class Layout {
                 if (!r.qName.equals(currName)) {
                     if (currName != null && currHist != null) {
                         if (!currRecords.isEmpty()) {
-                            findContainedTargetOverlaps(currName, currHist, currRecords,
-                                    containedSet, histogramMap, polyAInfoMap);
+                            if (polyAInfoMap != null) {
+                                findContainedTargetOverlaps(currName, currHist, currRecords,
+                                        containedSet, histogramMap, polyAInfoMap);
+                            }
+                            else {
+                                findContainedTargetOverlaps(currName, currHist, currRecords,
+                                        containedSet, histogramMap);
+                            }
                             currRecords.clear();
                         }
 
                         if (currHist.pendingQueries != null) {
-                            findContainedQueryOverlaps(currName, currHist, containedSet,
+                            if (polyAInfoMap != null) {
+                                findContainedQueryOverlaps(currName, currHist, containedSet,
                                     histogramMap, polyAInfoMap);
+                            }
+                            else {
+                                findContainedQueryOverlaps(currName, currHist, containedSet,
+                                    histogramMap);
+                            }
                             currHist.pendingQueries = null;
                         }
                     }
@@ -1715,16 +1725,28 @@ public class Layout {
         reader.close();
         
         if (!currRecords.isEmpty() && currHist != null) {
-            findContainedTargetOverlaps(currName, currHist, currRecords,
-                    containedSet, histogramMap, polyAInfoMap);
+            if (polyAInfoMap != null) {
+                findContainedTargetOverlaps(currName, currHist, currRecords,
+                        containedSet, histogramMap, polyAInfoMap);
+            }
+            else {
+                findContainedTargetOverlaps(currName, currHist, currRecords,
+                        containedSet, histogramMap);
+            }
             currRecords.clear();
         }
         
         for (HashMap.Entry<String, Histogram> e : histogramMap.entrySet()) {
             Histogram h = e.getValue();
             if (h.pendingQueries != null) {
-                findContainedQueryOverlaps(e.getKey(), h, containedSet,
-                        histogramMap, polyAInfoMap);
+                if (polyAInfoMap != null) {
+                    findContainedQueryOverlaps(e.getKey(), h, containedSet,
+                            histogramMap, polyAInfoMap);
+                }
+                else {
+                    findContainedQueryOverlaps(e.getKey(), h, containedSet,
+                            histogramMap);
+                }
                 h.pendingQueries = null;
             }
         }
@@ -2602,7 +2624,8 @@ public class Layout {
                 // q+ -> t-
                 boolean qPolyA = qInfo != null && qInfo.polyATail != null;
                 boolean tPolyA = tInfo != null && tInfo.polyATail != null;
-                if ((!qPolyA && !tPolyA) ||
+                if ((qInfo == null && tInfo == null) ||
+                        (!qPolyA && !tPolyA) ||
                         (qPolyA && r.qEnd >= qInfo.polyATail.start + minPolyALength) ||
                         (tPolyA && r.tEnd >= tInfo.polyATail.start + minPolyALength)) {
                     addVertex(r.qName);
@@ -2615,7 +2638,8 @@ public class Layout {
                 // q- -> t+
                 boolean qPolyT = qInfo != null && qInfo.polyTHead != null;
                 boolean tPolyT = tInfo != null && tInfo.polyTHead != null;
-                if ((!qPolyT && !tPolyT) ||
+                if ((qInfo == null && tInfo == null) ||
+                        (!qPolyT && !tPolyT) ||
                         (qPolyT && r.qStart <= qInfo.polyTHead.end - minPolyALength) || 
                         (tPolyT && r.tStart <= tInfo.polyTHead.end - minPolyALength)) {
                     addVertex(r.qName);
@@ -2630,7 +2654,8 @@ public class Layout {
                 // q+ -> t+
                 boolean qPolyA = qInfo != null && qInfo.polyATail != null;
                 boolean tPolyT = tInfo != null && tInfo.polyTHead != null;
-                if ((!qPolyA && !tPolyT) ||
+                if ((qInfo == null && tInfo == null) ||
+                        (!qPolyA && !tPolyT) ||
                         (qPolyA && r.qEnd >= qInfo.polyATail.start + minPolyALength) ||
                         (tPolyT && r.tStart <= tInfo.polyTHead.end - minPolyALength)) {
                     addVertex(r.qName);
@@ -2643,7 +2668,9 @@ public class Layout {
                 // t+ -> q+
                 boolean tPolyA = tInfo != null && tInfo.polyATail != null;
                 boolean qPolyT = qInfo != null && qInfo.polyTHead != null;
-                if ((tPolyA && qPolyT) ||
+                                
+                if ((qInfo == null && tInfo == null) ||
+                        (!tPolyA && !qPolyT) ||
                         (tPolyA && r.tEnd >= tInfo.polyATail.start + minPolyALength) ||
                         (qPolyT && r.qStart <= qInfo.polyTHead.end - minPolyALength)) {
                     addVertex(r.qName);
@@ -2834,7 +2861,7 @@ public class Layout {
                             prevName = r.qName;
                             prevContained = containedSet.contains(prevName);
                         }
-                        
+                                                
                         if (!prevContained && !containedSet.contains(r.tName)) {
                             CONTAIN_STATUS c = getContained(r);
                             boolean isDoveTail = isForwardDovetailPafRecord(r);
@@ -2940,109 +2967,199 @@ public class Layout {
             boolean prevContained = false;
             ArrayDeque<StrandedOverlap> pendingOverlaps = new ArrayDeque<>();
             
-            for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
-                reader.next(r);            
-                if (!r.qName.equals(r.tName)) {
-                    if ((hasLargeOverlap(r) || isContainmentPafRecord(r)) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                        
-                        if (prevName == null) {
-                            prevName = r.qName;
-                        }
-                        else if (!prevName.equals(r.qName)) {
-                            if (!pendingOverlaps.isEmpty()) { 
-                                if (!prevContained) {
-                                    overlaps.addAll(pendingOverlaps);
-                                }
-                                pendingOverlaps.clear();
+            if (polyAInfoMap != null) {
+                for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
+                    reader.next(r);
+                    if (!r.qName.equals(r.tName)) {
+                        if ((hasLargeOverlap(r) || isContainmentPafRecord(r)) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                        
+                            if (prevName == null) {
+                                prevName = r.qName;
                             }
-                            
-                            if (this.cutRevCompArtifact && !nonStandardOverlaps.isEmpty()) {
-                                if (!prevContained) {
-                                    // remove artifacts based on non standard overlaps
-                                    nonStandardOverlaps.sort(overlapComparator);
-                                    removeReverseComplementArtifacts(nonStandardOverlaps, containedSet);
+                            else if (!prevName.equals(r.qName)) {
+                                if (!pendingOverlaps.isEmpty()) { 
+                                    if (!prevContained) {
+                                        overlaps.addAll(pendingOverlaps);
+                                    }
+                                    pendingOverlaps.clear();
                                 }
-                                nonStandardOverlaps.clear();
+
+                                if (this.cutRevCompArtifact && !nonStandardOverlaps.isEmpty()) {
+                                    if (!prevContained) {
+                                        // remove artifacts based on non standard overlaps
+                                        nonStandardOverlaps.sort(overlapComparator);
+                                        removeReverseComplementArtifacts(nonStandardOverlaps, containedSet);
+                                    }
+                                    nonStandardOverlaps.clear();
+                                }
+
+                                prevName = r.qName;
+                                prevContained = containedSet.contains(prevName);
                             }
-                            
-                            prevName = r.qName;
-                            prevContained = containedSet.contains(prevName);
-                        }
-                        
-                        if (!prevContained && !containedSet.contains(r.tName)) {
-                            CONTAIN_STATUS c = getContained(r);
-                            boolean isDoveTail = isDovetailPafRecord(r);
-                            switch (c) {
-                                case QUERY:
-                                    if (isDoveTail) {
-                                        containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
-                                    }
-                                    else {
-                                        PolyAInfo qInfo = polyAInfoMap.get(r.qName);
-                                        if (qInfo == null || isQueryPolyATContained(r, qInfo)) {
-                                            containedSet.add(r.qName);
-                                            prevContained = true;
+
+                            if (!prevContained && !containedSet.contains(r.tName)) {
+                                CONTAIN_STATUS c = getContained(r);
+                                boolean isDoveTail = isDovetailPafRecord(r);
+                                switch (c) {
+                                    case QUERY:
+                                        if (isDoveTail) {
+                                            containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
                                         }
-                                    }
-                                    break;
-                                case TARGET:
-                                    if (isDoveTail) {
-                                        containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
-                                    }
-                                    else {
-                                        PolyAInfo tInfo = polyAInfoMap.get(r.tName);
-                                        if (tInfo == null || isTargetPolyATContained(r, tInfo)) {
-                                            containedSet.add(r.tName);
-                                        }
-                                    }
-                                    break;
-                                case BOTH:
-                                    if (isDoveTail) {
-                                        containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
-                                    }
-                                    else {
-                                        if (r.qLen > r.tLen) {
-                                            PolyAInfo tInfo = polyAInfoMap.get(r.tName);
-                                            if (tInfo == null || isTargetPolyATContained(r, tInfo)) {
-                                                containedSet.add(r.tName);
-                                            }
-                                        }
-                                        else if (r.tLen > r.qLen) {
+                                        else {
                                             PolyAInfo qInfo = polyAInfoMap.get(r.qName);
                                             if (qInfo == null || isQueryPolyATContained(r, qInfo)) {
                                                 containedSet.add(r.qName);
                                                 prevContained = true;
                                             }
                                         }
+                                        break;
+                                    case TARGET:
+                                        if (isDoveTail) {
+                                            containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
+                                        }
                                         else {
-                                            if (r.qName.compareTo(r.tName) > 0) {
+                                            PolyAInfo tInfo = polyAInfoMap.get(r.tName);
+                                            if (tInfo == null || isTargetPolyATContained(r, tInfo)) {
+                                                containedSet.add(r.tName);
+                                            }
+                                        }
+                                        break;
+                                    case BOTH:
+                                        if (isDoveTail) {
+                                            containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
+                                        }
+                                        else {
+                                            if (r.qLen > r.tLen) {
                                                 PolyAInfo tInfo = polyAInfoMap.get(r.tName);
                                                 if (tInfo == null || isTargetPolyATContained(r, tInfo)) {
                                                     containedSet.add(r.tName);
                                                 }
                                             }
-                                            else {
+                                            else if (r.tLen > r.qLen) {
                                                 PolyAInfo qInfo = polyAInfoMap.get(r.qName);
                                                 if (qInfo == null || isQueryPolyATContained(r, qInfo)) {
                                                     containedSet.add(r.qName);
                                                     prevContained = true;
                                                 }
                                             }
+                                            else {
+                                                if (r.qName.compareTo(r.tName) > 0) {
+                                                    PolyAInfo tInfo = polyAInfoMap.get(r.tName);
+                                                    if (tInfo == null || isTargetPolyATContained(r, tInfo)) {
+                                                        containedSet.add(r.tName);
+                                                    }
+                                                }
+                                                else {
+                                                    PolyAInfo qInfo = polyAInfoMap.get(r.qName);
+                                                    if (qInfo == null || isQueryPolyATContained(r, qInfo)) {
+                                                        containedSet.add(r.qName);
+                                                        prevContained = true;
+                                                    }
+                                                }
+                                            }
                                         }
-                                    }
-                                    break;
-                                case NEITHER:
-                                    if (isDoveTail) {
-                                        pendingOverlaps.add(pafToStrandedOverlap(r));
-                                    }
-                                    else {
-                                        nonStandardOverlaps.add(pafToStrandedOverlap(r));
-                                    }
-                                    break;
+                                        break;
+                                    case NEITHER:
+                                        if (isDoveTail) {
+                                            pendingOverlaps.add(pafToStrandedOverlap(r));
+                                        }
+                                        else {
+                                            nonStandardOverlaps.add(pafToStrandedOverlap(r));
+                                        }
+                                        break;
+                                }
                             }
                         }
                     }
                 }
             }
+            else {
+                for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
+                    reader.next(r);
+                    if (!r.qName.equals(r.tName)) {
+                        if ((hasLargeOverlap(r) || isContainmentPafRecord(r)) && hasGoodOverlap(r) && (!hasAlignment(r) || hasGoodAlignment(r))) {                        
+                            if (prevName == null) {
+                                prevName = r.qName;
+                            }
+                            else if (!prevName.equals(r.qName)) {
+                                if (!pendingOverlaps.isEmpty()) { 
+                                    if (!prevContained) {
+                                        overlaps.addAll(pendingOverlaps);
+                                    }
+                                    pendingOverlaps.clear();
+                                }
+
+                                if (this.cutRevCompArtifact && !nonStandardOverlaps.isEmpty()) {
+                                    if (!prevContained) {
+                                        // remove artifacts based on non standard overlaps
+                                        nonStandardOverlaps.sort(overlapComparator);
+                                        removeReverseComplementArtifacts(nonStandardOverlaps, containedSet);
+                                    }
+                                    nonStandardOverlaps.clear();
+                                }
+
+                                prevName = r.qName;
+                                prevContained = containedSet.contains(prevName);
+                            }
+
+                            if (!prevContained && !containedSet.contains(r.tName)) {
+                                CONTAIN_STATUS c = getContained(r);
+                                boolean isDoveTail = isDovetailPafRecord(r);
+                                switch (c) {
+                                    case QUERY:
+                                        if (isDoveTail) {
+                                            containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
+                                        }
+                                        else {
+                                            containedSet.add(r.qName);
+                                            prevContained = true;
+                                        }
+                                        break;
+                                    case TARGET:
+                                        if (isDoveTail) {
+                                            containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
+                                        }
+                                        else {
+                                            containedSet.add(r.tName);
+                                        }
+                                        break;
+                                    case BOTH:
+                                        if (isDoveTail) {
+                                            containedDoveTailOverlaps.add(pafToStrandedOverlap(r));
+                                        }
+                                        else {
+                                            if (r.qLen > r.tLen) {
+                                                containedSet.add(r.tName);
+                                            }
+                                            else if (r.tLen > r.qLen) {
+                                                containedSet.add(r.qName);
+                                                prevContained = true;
+                                            }
+                                            else {
+                                                if (r.qName.compareTo(r.tName) > 0) {
+                                                    containedSet.add(r.tName);
+                                                }
+                                                else {
+                                                    containedSet.add(r.qName);
+                                                    prevContained = true;
+                                                }
+                                            }
+                                        }
+                                        break;
+                                    case NEITHER:
+                                        if (isDoveTail) {
+                                            pendingOverlaps.add(pafToStrandedOverlap(r));
+                                        }
+                                        else {
+                                            nonStandardOverlaps.add(pafToStrandedOverlap(r));
+                                        }
+                                        break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             reader.close();
 
             if (prevName != null && !pendingOverlaps.isEmpty()) {
@@ -3060,30 +3177,11 @@ public class Layout {
                 }
                 nonStandardOverlaps.clear();
             }
-            
-            for (StrandedOverlap r : overlaps) {
-                if (!containedSet.contains(r.qName) &&
-                    !containedSet.contains(r.tName)) {
-                    PolyAInfo qInfo = polyAInfoMap.get(r.qName);
-                    PolyAInfo tInfo = polyAInfoMap.get(r.tName);
-                    if (qInfo != null || tInfo != null) {
-                        addEdges(r, qInfo, tInfo);
-                    }
-                    else {
-                        addEdges(r);
-                    }
-                }
-            }
-            
-            for (StrandedOverlap r : containedDoveTailOverlaps) {
-                String tName = r.tName;
-                String qName = r.qName;
-                if (!containedSet.contains(qName) &&
-                    !containedSet.contains(tName)) {
-                    qName = qName + '+';
-                    tName = tName + '+';
-                    if ((!graph.containsVertex(qName) || (graph.inDegreeOf(qName) == 0 || graph.outDegreeOf(qName) == 0)) &&
-                        (!graph.containsVertex(tName) || (graph.inDegreeOf(tName) == 0 || graph.outDegreeOf(tName) == 0))) {
+                        
+            if (polyAInfoMap != null) {
+                for (StrandedOverlap r : overlaps) {
+                    if (!containedSet.contains(r.qName) &&
+                        !containedSet.contains(r.tName)) {
                         PolyAInfo qInfo = polyAInfoMap.get(r.qName);
                         PolyAInfo tInfo = polyAInfoMap.get(r.tName);
                         if (qInfo != null || tInfo != null) {
@@ -3094,49 +3192,82 @@ public class Layout {
                         }
                     }
                 }
-            }
-            
-            // remove reverse-complement vertices of polyA tails and vertices containing polyT heads
-            for (Map.Entry<String, PolyAInfo> e : polyAInfoMap.entrySet()) {
-                String name = e.getKey();
-                PolyAInfo info = e.getValue();
-                Interval polyAInterval = info.polyATail;
-                if (polyAInterval != null) {
-                    String vid = name + '+';
-                    if (graph.containsVertex(vid) && graph.outDegreeOf(vid) == 0) {
-                        ArrayDeque<String> toBeRemoved = new ArrayDeque<>();
-                        toBeRemoved.add(name + '-');
-                        
-                        // look for reads overlapping this polyA tail
-                        int polyAStart = polyAInterval.start;
-                        int polyAEnd = polyAInterval.end;
-                        for (OverlapEdge edge : graph.incomingEdgesOf(vid)) {
-                            if (getOverlap(polyAStart, polyAEnd, edge.sinkStart, edge.sinkEnd) > 0) {
-                                toBeRemoved.add(getReverseComplementID(graph.getEdgeSource(edge)));
-                            }
+                
+                for (StrandedOverlap r : containedDoveTailOverlaps) {
+                    String tName = r.tName;
+                    String qName = r.qName;
+                    if (!containedSet.contains(qName) &&
+                        !containedSet.contains(tName)) {
+                        PolyAInfo qInfo = polyAInfoMap.get(r.qName);
+                        PolyAInfo tInfo = polyAInfoMap.get(r.tName);
+                        if (qInfo != null || tInfo != null) {
+                            addEdges(r, qInfo, tInfo);
                         }
-                        
-                        graph.removeAllVertices(toBeRemoved);
+                        else {
+                            addEdges(r);
+                        }
+                    }
+                }
+
+                // remove reverse-complement vertices of polyA tails and vertices containing polyT heads
+                for (Map.Entry<String, PolyAInfo> e : polyAInfoMap.entrySet()) {
+                    String name = e.getKey();
+                    PolyAInfo info = e.getValue();
+                    Interval polyAInterval = info.polyATail;
+                    Interval polyTInterval = info.polyTHead;
+
+                    if (polyAInterval != null && polyTInterval == null) {
+                        String vid = name + '+';
+                        if (graph.containsVertex(vid) && graph.outDegreeOf(vid) == 0) {
+                            ArrayDeque<String> toBeRemoved = new ArrayDeque<>();
+                            toBeRemoved.add(name + '-');
+
+                            // look for reads overlapping this polyA tail
+                            int polyAStart = polyAInterval.start;
+                            int polyAEnd = polyAInterval.end;
+                            for (OverlapEdge edge : graph.incomingEdgesOf(vid)) {
+                                if (getOverlap(polyAStart, polyAEnd, edge.sinkStart, edge.sinkEnd) > 0) {
+                                    toBeRemoved.add(getReverseComplementID(graph.getEdgeSource(edge)));
+                                }
+                            }
+
+                            graph.removeAllVertices(toBeRemoved);
+                        }
+                    }
+                    else if (polyAInterval == null && polyTInterval != null) {
+                        String vid = name + '+';
+                        if (graph.containsVertex(vid) && graph.inDegreeOf(vid) == 0) {
+                            ArrayDeque<String> toBeRemoved = new ArrayDeque<>();
+                            toBeRemoved.add(vid);
+
+                            // look for reads overlapping this polyT head
+                            int polyTStart = polyTInterval.start;
+                            int polyTEnd = polyTInterval.end;
+                            for (OverlapEdge edge : graph.outgoingEdgesOf(vid)) {
+                                if (getOverlap(polyTStart, polyTEnd, edge.sourceStart, edge.sourceEnd) > 0) {
+                                    toBeRemoved.add(graph.getEdgeTarget(edge));
+                                }
+                            }
+
+                            graph.removeAllVertices(toBeRemoved);
+                        }
+                    }
+                }
+            }
+            else {
+                for (StrandedOverlap r : overlaps) {
+                    if (!containedSet.contains(r.qName) &&
+                        !containedSet.contains(r.tName)) {
+                        addEdges(r);
                     }
                 }
                 
-                Interval polyTInterval = info.polyTHead;
-                if (polyTInterval != null) {
-                    String vid = name + '+';
-                    if (graph.containsVertex(vid) && graph.inDegreeOf(vid) == 0) {
-                        ArrayDeque<String> toBeRemoved = new ArrayDeque<>();
-                        toBeRemoved.add(vid);
-                        
-                        // look for reads overlapping this polyT head
-                        int polyTStart = polyTInterval.start;
-                        int polyTEnd = polyTInterval.end;
-                        for (OverlapEdge edge : graph.outgoingEdgesOf(vid)) {
-                            if (getOverlap(polyTStart, polyTEnd, edge.sourceStart, edge.sourceEnd) > 0) {
-                                toBeRemoved.add(graph.getEdgeTarget(edge));
-                            }
-                        }
-                        
-                        graph.removeAllVertices(toBeRemoved);
+                for (StrandedOverlap r : containedDoveTailOverlaps) {
+                    String tName = r.tName;
+                    String qName = r.qName;
+                    if (!containedSet.contains(qName) &&
+                        !containedSet.contains(tName)) {
+                        addEdges(r);
                     }
                 }
             }
@@ -3312,7 +3443,40 @@ public class Layout {
         return numEdgesRemoved;
     }
     
-    public void extractGreedyPaths(String outFastaPath, String mappingPafPath) throws IOException {
+    private void pruneGraphWithPolyAInfo(String mappingPafPath, String polyAReadNamesPath, Set<String> skipSet) throws IOException {
+        HashMap<String, PolyAScore> polyAScores = getPolyAScores(mappingPafPath, polyAReadNamesPath, skipSet, maxEdgeClip);
+        for (Entry<String, PolyAScore> e : polyAScores.entrySet()) {
+            String name = e.getKey();
+            PolyAScore score = e.getValue();
+            if (score.forwardScore > 0 && score.reverseScore == 0) {
+                // remove minus vertex
+                if (graph.containsVertex(name + '+')) {
+                    graph.removeVertex(name + '-');
+                }
+            }
+            else if (score.forwardScore == 0 && score.reverseScore > 0) {
+                // remove plus vertex
+                if (graph.containsVertex(name + '-')) {
+                    graph.removeVertex(name + '+');
+                }
+            }
+        }
+
+        ArrayDeque<OverlapEdge> toBeRemoved = new ArrayDeque<>();
+        for (String vid : graph.vertexSet()) {
+            if (!graph.containsVertex(getReverseComplementID(vid))) {
+                for (OverlapEdge edge : graph.outgoingEdgesOf(vid)) {
+                    String sid = graph.getEdgeTarget(edge);
+                    if (graph.containsVertex(getReverseComplementID(sid))) {
+                        toBeRemoved.add(edge);
+                    }
+                }
+            }
+        }
+        graph.removeAllEdges(toBeRemoved);
+    }
+    
+    public void extractGreedyPaths(String outFastaPath, String mappingPafPath, String polyAReadNamesPath) throws IOException {
         HashSet<String> containedSet = populateGraphFromOverlaps();
         
         if (!containedSet.isEmpty()) {
@@ -3332,7 +3496,7 @@ public class Layout {
         
         if (edgeSet.size() > 1) {            
             printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
-            
+            printMessage("Removing redundant vertexes...");
             ArrayDeque<String> removedVertexes = removeRedundantNodes();
             if (stranded) {
                 for (String vid : removedVertexes) {
@@ -3347,21 +3511,21 @@ public class Layout {
                 }
             }
             
+            printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+            printMessage("Removing transitive edges...");
             removeTransitiveEdges();
+            
+            if (!stranded && polyAReadNamesPath != null) {
+                printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
+                printMessage("Pruning graph with polyA information...");
+                pruneGraphWithPolyAInfo(mappingPafPath, polyAReadNamesPath, containedSet);
+            }       
             
             //printGraph();
             printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
             writeGraph(seqFastaPath + ".dot");
         }
                 
-        // extract read count from mapping
-//        HashSet<String> vertexNames = new HashSet<>(vertexSet.size());
-//        for (String vid : vertexSet) {
-//            String name = getVertexName(vid);
-//            vertexNames.add(name);
-//            //vertexNames.add(name.substring(0, name.length()-1)); // remove "r" suffix
-//        }
-        
         printMessage("Tallying read counts...");
 
         Timer timer = new Timer();
@@ -3371,10 +3535,6 @@ public class Layout {
         
         //printCounts(readCounts);
         
-        printMessage("Removing edges based on read counts...");
-        timer.start();
-        int numEdgesRemoved = removeDifferentMagnitudeEdges(readCounts, 0.5f);
-        printMessage("Removed " + numEdgesRemoved + " edges in " + timer.elapsedDHMS());
         
 //        // assign read count to edge
 //        printMessage("Adding read counts to graph...");
@@ -3919,14 +4079,17 @@ public class Layout {
     public static void main(String[] args) {
         try {
             //debug
-            String dir = "wd";
-            String paf = dir + "/in.paf";
-            String in = dir + "/in.fa";
+            String dir = "/home/gengar/test_assemblies/ont_work/complex3";
+            String paf = dir + "/pol.paf";
+            String in = dir + "/rnabloom.longreads.assembly4.pol.fa";
             String out = dir + "/out.fa";
+            PolyATailFinder polyaFinder = new PolyATailFinder();
+            polyaFinder.setProfile(PolyATailFinder.Profile.ONT);
+            polyaFinder.setWindow(0);
             
             Layout layout = new Layout(in, new BufferedInputStream(new FileInputStream(paf)), false,
                     50, 0.7f, 150, 50,
-                    true, 1, true);
+                    true, 1, true, polyaFinder);
             layout.extractSimplePaths(out);
         } catch (IOException ex) {
             Logger.getLogger(Layout.class.getName()).log(Level.SEVERE, null, ex);
