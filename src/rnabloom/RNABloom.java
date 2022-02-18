@@ -3757,19 +3757,25 @@ public class RNABloom {
                                 boolean hasPasRC = polyaFinder.hasPolyASignalRC(seq, headRegion.end);
                                 
                                 if (hasPas && !hasPasRC) {
-                                    // remove polyT head
-                                    seq = seq.substring(headRegion.end, tailRegion.end);
-                                    hasPolyA = true;
+                                    if (headRegion.end < tailRegion.end) {
+                                        // remove polyT head
+                                        seq = seq.substring(headRegion.end, tailRegion.end);
+                                        hasPolyA = true;
+                                    }
                                 }
                                 else if (!hasPas && hasPasRC) {
-                                    // remove polyA tail
-                                    seq = reverseComplement(seq.substring(headRegion.start, tailRegion.start));
-                                    hasPolyA = true;
+                                    if (headRegion.start < tailRegion.start) {
+                                        // remove polyA tail
+                                        seq = reverseComplement(seq.substring(headRegion.start, tailRegion.start));
+                                        hasPolyA = true;
+                                    }
                                 }
                                 else {
-                                    // remove both head and tail
-                                    seq = seq.substring(headRegion.end, tailRegion.start);
-                                    hasPolyA = false;
+                                    if (headRegion.end < tailRegion.start) {
+                                        // remove both head and tail
+                                        seq = seq.substring(headRegion.end, tailRegion.start);
+                                    }
+                                    hasPolyA = false; // ambiguous
                                 }
                             }
                         }
