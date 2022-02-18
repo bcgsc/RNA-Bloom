@@ -102,9 +102,9 @@ import static rnabloom.util.FileUtils.touch;
 import rnabloom.util.Timer;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.Common.getQuartiles;
+import rnabloom.util.FlaggedBitSequence;
 import rnabloom.util.PolyATailFinder;
 import rnabloom.util.SeqSubsampler;
-import rnabloom.util.WeightedBitSequence;
 
 /**
  *
@@ -3508,7 +3508,7 @@ public class RNABloom {
         private Exception exception = null;
 //        private final boolean writeUracil;
         private final boolean storeLongReads;
-        private ArrayList<WeightedBitSequence> bits = new ArrayList<>();
+        private ArrayList<FlaggedBitSequence> bits = new ArrayList<>();
         
         public CorrectedLongReadsWriterWorker2(ArrayBlockingQueue<Sequence2> inputQueue, 
                 FastaWriter longSeqWriter, FastaWriter shortSeqWriter,
@@ -3574,7 +3574,7 @@ public class RNABloom {
                     }
                     else if (seq.length >= minSeqLen) {
                         if (storeLongReads) {
-                            bits.add(new WeightedBitSequence(seq.seq, seq.score));
+                            bits.add(new FlaggedBitSequence(seq.seq, seq.hasPolyA));
                         }
                         longWriter.write(header, seq.seq);
                     }
@@ -3607,7 +3607,7 @@ public class RNABloom {
                     }
                     else if (seq.length >= minSeqLen) {
                         if (storeLongReads) {
-                            bits.add(new WeightedBitSequence(seq.seq, seq.score));
+                            bits.add(new FlaggedBitSequence(seq.seq, seq.hasPolyA));
                         }
                         longWriter.write(header, seq.seq);
                     }
@@ -3645,7 +3645,7 @@ public class RNABloom {
             return sampleLengthStats;
         }
         
-        public ArrayList<WeightedBitSequence> getLongReads() {
+        public ArrayList<FlaggedBitSequence> getLongReads() {
             return bits;
         }
     }
@@ -3941,7 +3941,7 @@ public class RNABloom {
     }
     */
     
-    public ArrayList<WeightedBitSequence> correctLongReadsMultithreaded(String[] inputFastxPaths,
+    public ArrayList<FlaggedBitSequence> correctLongReadsMultithreaded(String[] inputFastxPaths,
                                                 FastaWriter longSeqWriter,
                                                 FastaWriter shortSeqWriter,
                                                 FastaWriter repeatsSeqWriter,
@@ -5245,7 +5245,7 @@ public class RNABloom {
     }
     */
     
-    private static ArrayList<WeightedBitSequence> correctLongReads(RNABloom assembler, 
+    private static ArrayList<FlaggedBitSequence> correctLongReads(RNABloom assembler, 
             String[] inFastxList, String outLongFasta, String outShortFasta, String outRepeatsFasta,
             String polyAReadNamesPath,
             int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, 
@@ -5256,7 +5256,7 @@ public class RNABloom {
         FastaWriter repeatsWriter = new FastaWriter(outRepeatsFasta, false);
         BufferedWriter polyAReadNamesWriter = new BufferedWriter(new FileWriter(polyAReadNamesPath, false));
 
-        ArrayList<WeightedBitSequence> longReads = assembler.correctLongReadsMultithreaded(inFastxList,
+        ArrayList<FlaggedBitSequence> longReads = assembler.correctLongReadsMultithreaded(inFastxList,
                                                 longWriter, shortWriter, repeatsWriter, polyAReadNamesWriter,
                                                 minKmerCov,
                                                 maxErrCorrItr,
@@ -7294,7 +7294,7 @@ public class RNABloom {
                 }
                 else {
                     Timer myTimer = new Timer();
-                    ArrayList<WeightedBitSequence> correctedReads = correctLongReads(assembler, 
+                    ArrayList<FlaggedBitSequence> correctedReads = correctLongReads(assembler, 
                             longReadPaths, longCorrectedReadsPath, shortCorrectedReadsPath,
                             repeatReadsPath, polyAReadNamesPath,
                             maxErrCorrItr, minKmerCov, numThreads, sampleSize, Math.min(minOverlap, minTranscriptLength),

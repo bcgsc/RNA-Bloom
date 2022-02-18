@@ -343,7 +343,7 @@ public class SeqSubsampler {
              
     }
     
-    public static void strobemerBased(ArrayList<? extends BitSequence> seqs,
+    public static void strobemerBased(ArrayList<FlaggedBitSequence> seqs,
             String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose,
@@ -376,7 +376,8 @@ public class SeqSubsampler {
         ForkJoinPool customThreadPool = new ForkJoinPool(numThreads);
 
         for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
-            String seq = seqs.get(seqIndex).toString();
+            FlaggedBitSequence bits = seqs.get(seqIndex);
+            String seq = bits.toString();
 
             if (strobeItr.start(seq)) {
                 boolean write = false;
@@ -439,7 +440,8 @@ public class SeqSubsampler {
                 if (!write &&
                         (namInterval == null ||
                             namInterval.start > maxEdgeClip ||
-                            namInterval.end < seq.length() - (polyaFinder.findPolyATail(seq) != null ? 0 : maxEdgeClip) - 1)) {
+                            namInterval.end < seq.length() - (bits.flag ? 0 : maxEdgeClip) - 1)) {
+                    // `bits.flag` indicates whether the sequences contains a polyA tail
                     write = true;
                 }
                 
