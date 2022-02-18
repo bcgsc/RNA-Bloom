@@ -144,6 +144,8 @@ The `-ref` option specifies the reference transcriptome FASTA file for guiding s
 
 ## Quick Start for Long Reads :running:
 
+:warning: It is strongly recommended to trim adapters in your reads before assembly. For example, see [Porechop](https://github.com/rrwick/Porechop) for more information.
+
 ### (A) assemble long-read cDNA sequencing data:
 Default presets for `-long` are intended for ONT data. Please add the `-lrpb` flag for PacBio data.
 ```
