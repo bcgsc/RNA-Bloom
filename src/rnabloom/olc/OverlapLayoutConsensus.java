@@ -43,6 +43,7 @@ import static rnabloom.util.PafUtils.hasLargeOverlap;
 import static rnabloom.util.PafUtils.isContainmentPafRecord;
 import rnabloom.util.PolyATailFinder;
 import rnabloom.util.Timer;
+import static rnabloom.util.FileUtils.getTextFileWriter;
 
 /**
  *
@@ -689,7 +690,7 @@ public class OverlapLayoutConsensus {
         command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " " + targetFastaPath + " " + queryFastaPath);
 
         try {
-            Writer bw = new OutputStreamWriter(new FastGZIPOutputStream(new FileOutputStream(outPafPath, false)), "UTF-8");
+            Writer bw = getTextFileWriter(outPafPath, false);
             ProcessBuilder pb = new ProcessBuilder(command);
 
             File logFile = new File(outPafPath + LOG_EXTENSION);

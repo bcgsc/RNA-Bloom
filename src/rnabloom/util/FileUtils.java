@@ -19,15 +19,26 @@ package rnabloom.util;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayDeque;
+import java.util.Collection;
+import java.util.zip.GZIPInputStream;
+import static rnabloom.io.Constants.BUFFER_SIZE;
+import static rnabloom.io.Constants.GZIP_EXT;
+import rnabloom.io.FastGZIPOutputStream;
 import rnabloom.io.FastaReader;
 
 /**
@@ -35,6 +46,28 @@ import rnabloom.io.FastaReader;
  * @author Ka Ming Nip
  */
 public class FileUtils {
+    
+    public static BufferedReader getTextFileReader(String path) throws FileNotFoundException, IOException {
+        if (path.toLowerCase().endsWith(GZIP_EXT)) {
+            return new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path), BUFFER_SIZE)), BUFFER_SIZE);
+        }
+        else {
+            return new BufferedReader(new InputStreamReader(new FileInputStream(path)), BUFFER_SIZE);
+        }
+    }
+    
+    public static Writer getTextFileWriter(String path, boolean append) throws FileNotFoundException, IOException {
+        if (path.toLowerCase().endsWith(GZIP_EXT)) {
+            return new OutputStreamWriter(
+                        new FastGZIPOutputStream(
+                            new FileOutputStream(path, append),
+                            BUFFER_SIZE),
+                        StandardCharsets.UTF_8);
+        }
+        else {
+            return new BufferedWriter(new FileWriter(path, append), BUFFER_SIZE);
+        }
+    }
     
     public static void touch(File f) throws IOException {
         f.getParentFile().mkdirs();
@@ -63,7 +96,7 @@ public class FileUtils {
     }
     
     public static String loadStringFromFile(String path) throws FileNotFoundException, IOException {
-        BufferedReader br = new BufferedReader(new FileReader(path));
+        BufferedReader br = getTextFileReader(path);
         String line = br.readLine().strip();
         return line;
     }
@@ -104,4 +137,13 @@ public class FileUtils {
         return numSeq == 1;
     }
 
+    public static void fileToStringCollection(String path, Collection<String> c) throws FileNotFoundException, IOException {
+        BufferedReader br = getTextFileReader(path);
+        
+        for (String line; (line = br.readLine()) != null; ) {
+            c.add(line.trim());
+        }
+        
+        br.close();
+    }
 }

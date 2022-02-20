@@ -16,46 +16,20 @@
  */
 package rnabloom.io;
 
-import java.io.BufferedWriter;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
-import static rnabloom.io.Constants.BUFFER_SIZE;
-import static rnabloom.io.Constants.GZIP_EXT;
+import java.io.Writer;
+import static rnabloom.util.FileUtils.getTextFileWriter;
 
 /**
  *
  * @author Ka Ming Nip
  */
 public class FastaWriter {
-    private final BufferedWriter out;
+    private final Writer out;
     //private FileLock lock = null;
     
     public FastaWriter(String path, boolean append) throws IOException {
-        if (path.toLowerCase().endsWith(GZIP_EXT)) {
-            out = new BufferedWriter(
-                    new OutputStreamWriter(
-                        new FastGZIPOutputStream(
-                            new FileOutputStream(path, append),
-                            BUFFER_SIZE),
-                        StandardCharsets.UTF_8),
-                    BUFFER_SIZE);
-        }
-        else {
-            out = new BufferedWriter(new FileWriter(path, append), BUFFER_SIZE);
-        }
-        /*
-        FileOutputStream stream = new FileOutputStream(path, append);
-        out = new BufferedWriter(new OutputStreamWriter(stream));
-        
-        FileChannel channel = stream.getChannel();
-        
-        for (lock = channel.tryLock(); lock == null;) {
-            lock = channel.tryLock();
-        }
-        */
+        out = getTextFileWriter(path, append);
     }
     
     public synchronized void write(String header, String seq) throws IOException {

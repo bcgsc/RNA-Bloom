@@ -23,6 +23,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import static java.lang.Math.pow;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -102,9 +103,11 @@ import static rnabloom.util.FileUtils.touch;
 import rnabloom.util.Timer;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.Common.getQuartiles;
+import static rnabloom.util.FileUtils.getTextFileReader;
 import rnabloom.util.FlaggedBitSequence;
 import rnabloom.util.PolyATailFinder;
 import rnabloom.util.SeqSubsampler;
+import static rnabloom.util.FileUtils.getTextFileWriter;
 
 /**
  *
@@ -2685,7 +2688,7 @@ public class RNABloom {
     public Quartiles restoreQuartilesFromFile(String path) throws IOException {
         Quartiles q = new Quartiles();
         
-        BufferedReader br = new BufferedReader(new FileReader(path));
+        BufferedReader br = getTextFileReader(path);
         String line;
         while ((line = br.readLine()) != null) {
             String[] entry = line.split(LABEL_SEPARATOR);
@@ -3500,7 +3503,7 @@ public class RNABloom {
         private final FastaWriter longWriter;
         private final FastaWriter shortWriter;
         private final FastaWriter repeatsWriter;
-        private final BufferedWriter polyAReadNamesWriter;
+        private final Writer polyAReadNamesWriter;
         private Quartiles sampleLengthStats = null;
         private boolean terminateWhenInputExhausts = false;
         private long numCorrected = 0;
@@ -3512,7 +3515,7 @@ public class RNABloom {
         
         public CorrectedLongReadsWriterWorker2(ArrayBlockingQueue<Sequence2> inputQueue, 
                 FastaWriter longSeqWriter, FastaWriter shortSeqWriter,
-                FastaWriter repeatsSeqWriter, BufferedWriter polyAReadNamesWriter,
+                FastaWriter repeatsSeqWriter, Writer polyAReadNamesWriter,
                 int maxSampleSize, int minSeqLen, boolean storeLongReads) {
             this.inputQueue = inputQueue;
             this.longWriter = longSeqWriter;
@@ -3566,7 +3569,7 @@ public class RNABloom {
 
                     if (seq.hasPolyA) {
                         polyAReadNamesWriter.write(seq.name);
-                        polyAReadNamesWriter.newLine();
+                        polyAReadNamesWriter.write('\n');
                     }
                     
                     if (seq.isRepeat) {
@@ -3599,7 +3602,7 @@ public class RNABloom {
 
                     if (seq.hasPolyA) {
                         polyAReadNamesWriter.write(seq.name);
-                        polyAReadNamesWriter.newLine();
+                        polyAReadNamesWriter.write('\n');
                     }
                     
                     if (seq.isRepeat) {
@@ -3945,7 +3948,7 @@ public class RNABloom {
                                                 FastaWriter longSeqWriter,
                                                 FastaWriter shortSeqWriter,
                                                 FastaWriter repeatsSeqWriter,
-                                                BufferedWriter polyAReadNamesWriter,
+                                                Writer polyAReadNamesWriter,
                                                 int minKmerCov,
                                                 int maxErrCorrItr,
                                                 int numThreads,
@@ -5062,7 +5065,7 @@ public class RNABloom {
             HashMap<String, ArrayList<String>> pooledUnpairedForwardReadPaths,
             HashMap<String, ArrayList<String>> pooledUnpairedReverseReadPaths) throws FileNotFoundException, IOException {
         
-        BufferedReader br = new BufferedReader(new FileReader(pooledReadPathsListFile));
+        BufferedReader br = getTextFileReader(pooledReadPathsListFile);
         
         int nameColumnIndex = 0;
         int leftColumnIndex = 1;
@@ -5172,7 +5175,7 @@ public class RNABloom {
             HashMap<String, ArrayList<String>> pooledLeftReadPaths,
             HashMap<String, ArrayList<String>> pooledRightReadPaths) throws FileNotFoundException, IOException {
         
-        BufferedReader br = new BufferedReader(new FileReader(pooledReadPathsListFile));
+        BufferedReader br = getTextFileReader(pooledReadPathsListFile);
         
         String line;
         int lineNumber = 0;
@@ -5254,7 +5257,7 @@ public class RNABloom {
         FastaWriter longWriter = new FastaWriter(outLongFasta, false);
         FastaWriter shortWriter = new FastaWriter(outShortFasta, false);
         FastaWriter repeatsWriter = new FastaWriter(outRepeatsFasta, false);
-        BufferedWriter polyAReadNamesWriter = new BufferedWriter(new FileWriter(polyAReadNamesPath, false));
+        Writer polyAReadNamesWriter = getTextFileWriter(polyAReadNamesPath, false);
 
         ArrayList<FlaggedBitSequence> longReads = assembler.correctLongReadsMultithreaded(inFastxList,
                                                 longWriter, shortWriter, repeatsWriter, polyAReadNamesWriter,
@@ -5771,7 +5774,7 @@ public class RNABloom {
     private static String[] getNonEmptyLines(String textFile) throws IOException {
         ArrayList<String> lines = new ArrayList<>();
         
-        BufferedReader br = new BufferedReader(new FileReader(textFile));
+        BufferedReader br = getTextFileReader(textFile);
         
         for (String line; (line = br.readLine()) != null; ) {
             line = line.trim();
@@ -6867,7 +6870,7 @@ public class RNABloom {
                 timer.start();
                  
                 String ntcard_reads_list_file = outdir + File.separator + name + ".ntcard.readslist.txt";
-                BufferedWriter writer = new BufferedWriter(new FileWriter(ntcard_reads_list_file, false));
+                Writer writer = getTextFileWriter(ntcard_reads_list_file, false);
                 
                 if (hasLeftReadFiles && leftReadPaths != null) {
                     for (String p : leftReadPaths) {
@@ -7278,7 +7281,7 @@ public class RNABloom {
                 String longCorrectedReadsPath = correctedLongReadFilePrefix + ".long" + FASTA_EXT + GZIP_EXT;
                 String shortCorrectedReadsPath = correctedLongReadFilePrefix + ".short" + FASTA_EXT + GZIP_EXT;
                 String repeatReadsPath = correctedLongReadFilePrefix + ".repeats" + FASTA_EXT + GZIP_EXT;
-                String polyAReadNamesPath = correctedLongReadFilePrefix + ".polya.txt";
+                String polyAReadNamesPath = correctedLongReadFilePrefix + ".polya.txt" + GZIP_EXT;
 //                String subSampledReadsPath = correctedLongReadFilePrefix + ".long.subsampled" + FASTA_EXT + GZIP_EXTENSION;
                 String seedReadsPath = correctedLongReadFilePrefix + ".long.seed" + FASTA_EXT + GZIP_EXT;
 //                String numCorrectedReadsPath = correctedLongReadFilePrefix + ".count";

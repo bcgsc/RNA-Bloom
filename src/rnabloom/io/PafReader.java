@@ -17,14 +17,12 @@
 package rnabloom.io;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
-import java.util.zip.GZIPInputStream;
 import static rnabloom.io.Constants.BUFFER_SIZE;
-import static rnabloom.io.Constants.GZIP_EXT;
+import static rnabloom.util.FileUtils.getTextFileReader;
 
 /**
  *
@@ -36,12 +34,7 @@ public class PafReader {
     private long records = 0;
     
     public PafReader(String path) throws IOException {
-        if (path.toLowerCase().endsWith(GZIP_EXT)) {
-            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path), BUFFER_SIZE)), BUFFER_SIZE);
-        }
-        else {
-            br = new BufferedReader(new InputStreamReader(new FileInputStream(path)), BUFFER_SIZE);
-        }
+        br = getTextFileReader(path);
         itr = br.lines().iterator();
     }
     

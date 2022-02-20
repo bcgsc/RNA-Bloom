@@ -28,7 +28,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
-import rnabloom.bloom.PairedKeysBloomFilter;
 import rnabloom.bloom.hash.*;
 import static rnabloom.util.SeqUtils.*;
 

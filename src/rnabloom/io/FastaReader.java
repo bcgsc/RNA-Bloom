@@ -17,17 +17,11 @@
 package rnabloom.io;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-//import java.util.NoSuchElementException;
-import java.util.zip.GZIPInputStream;
-import static rnabloom.io.Constants.BUFFER_SIZE;
-import static rnabloom.io.Constants.GZIP_EXT;
+import static rnabloom.util.FileUtils.getTextFileReader;
 
 /**
  *
@@ -40,25 +34,10 @@ public class FastaReader implements FastxReaderInterface {
     private final BufferedReader br;
     
     public FastaReader(String path) throws IOException {
-        if (path.toLowerCase().endsWith(GZIP_EXT)) {
-            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(path), BUFFER_SIZE)), BUFFER_SIZE);
-        }
-        else {
-            br = new BufferedReader(new InputStreamReader(new FileInputStream(path)), BUFFER_SIZE);
-        }
+        br = getTextFileReader(path);
         itr = br.lines().iterator();
     }
-    
-    public FastaReader(File f) throws IOException {
-        if (f.getName().toLowerCase().endsWith(GZIP_EXT)) {
-            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(f))));
-        }
-        else {
-            br = new BufferedReader(new InputStreamReader(new FileInputStream(f)));
-        }
-        itr = br.lines().iterator();
-    }
-    
+        
     public static boolean isCorrectFormat(String path) {
         try {
             // try to get the first FASTA record

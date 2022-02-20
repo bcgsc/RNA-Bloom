@@ -18,8 +18,8 @@ package rnabloom.util;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
+import static rnabloom.util.FileUtils.getTextFileReader;
 
 /**
  *
@@ -34,7 +34,7 @@ public class NTCardHistogram {
     
     public NTCardHistogram(String path) throws FileNotFoundException, IOException {
         boolean f0Found = false;
-        BufferedReader br = new BufferedReader(new FileReader(path));
+        BufferedReader br = getTextFileReader(path);
         String line;
         long sum = 0;
         while ((line = br.readLine()) != null) {

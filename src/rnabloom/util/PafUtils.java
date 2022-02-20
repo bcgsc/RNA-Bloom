@@ -33,6 +33,7 @@ import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
 import rnabloom.olc.Interval;
+import static rnabloom.util.FileUtils.fileToStringCollection;
 import static rnabloom.util.IntervalUtils.getOverlap;
 import static rnabloom.util.IntervalUtils.merge;
 
@@ -229,11 +230,7 @@ public class PafUtils {
             Set<String> skipSet, int maxEdgeClip) throws FileNotFoundException, IOException {
         
         HashSet<String> polyAReadNames = new HashSet<>();
-        BufferedReader br = new BufferedReader(new FileReader(polyAReadNamesPath));
-        for (String line; (line = br.readLine()) != null; ) {
-            polyAReadNames.add(line.trim());
-        }
-        br.close();
+        fileToStringCollection(polyAReadNamesPath, polyAReadNames);
         
         HashMap<String, PolyAScore> scores = new HashMap<>();
         

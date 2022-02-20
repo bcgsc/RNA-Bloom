@@ -22,6 +22,7 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Writer;
 import java.text.NumberFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -61,6 +62,7 @@ import static rnabloom.util.PafUtils.*;
 import rnabloom.util.PolyATailFinder;
 import static rnabloom.util.SeqUtils.isLowComplexityLongWindowed;
 import rnabloom.util.Timer;
+import static rnabloom.util.FileUtils.getTextFileWriter;
 
 
 /**
@@ -2727,7 +2729,7 @@ public class Layout {
     }
     
     private void writeGraph(String path) throws IOException {
-        FileWriter writer = new FileWriter(path);
+        Writer writer = getTextFileWriter(path, false);
         for (OverlapEdge e : graph.edgeSet()) {
             writer.write(graph.getEdgeSource(e) + " -> " + graph.getEdgeTarget(e) +
                     " [o=" + (e.sinkEnd-e.sinkStart + e.sourceEnd-e.sourceStart)/2 + "]\n");
@@ -3334,7 +3336,7 @@ public class Layout {
             
             //printGraph();
             printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
-            writeGraph(this.seqFastaPath + ".dot");
+            writeGraph(this.seqFastaPath + ".dot.gz");
         }
         
         HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size());
@@ -3523,7 +3525,7 @@ public class Layout {
             
             //printGraph();
             printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
-            writeGraph(seqFastaPath + ".dot");
+            writeGraph(seqFastaPath + ".dot.gz");
         }
                 
         printMessage("Tallying read counts...");
