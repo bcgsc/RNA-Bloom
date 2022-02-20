@@ -605,14 +605,9 @@ public final class SeqUtils {
         ++nf1[c2];
         ++nf1[c1];
         
-        if (c3 != c2) {
-            ++nf2[c3][c2];
-        }
-        if (c2 != c1) {
-            ++nf2[c2][c1];
-        }
-        
         if (c3 != c2 || c2 != c1 || c3 != c1) {
+            ++nf2[c3][c2];
+            ++nf2[c2][c1];
             ++nf3[c3][c2][c1];
         }
         
@@ -623,15 +618,38 @@ public final class SeqUtils {
             
             if (++nf1[c1] >= t1)
                 return true; // homopolymer runs
-            if (c2 != c1 && ++nf2[c2][c1] >= t2)
-                return true; // di-nucleotide repeat
-            if ((c3 != c2 || c2 != c1 || c3 != c1) && ++nf3[c3][c2][c1] >= t3)
-                return true; // tri-nucleotide repeat
+
+            if (c3 != c2 || c2 != c1 || c3 != c1){
+                if (++nf2[c2][c1] >= t2) {
+                    return true; // di-nucleotide repeat
+                }
+                if (++nf3[c3][c2][c1] >= t3){
+                    return true; // tri-nucleotide repeat
+                }
+            }
         }
         
         // check bias in di-nucleotide content
-        return (nf1[0]+nf1[1]>=t1 || nf1[0]+nf1[2]>=t1 || nf1[0]+nf1[3]>=t1 || 
-                nf1[1]+nf1[2]>=t1 || nf1[1]+nf1[3]>=t1 || nf1[2]+nf1[3]>=t1);
+        if (nf1[0]+nf1[1]>=t1 || nf1[0]+nf1[2]>=t1 || nf1[0]+nf1[3]>=t1 || 
+                nf1[1]+nf1[2]>=t1 || nf1[1]+nf1[3]>=t1 || nf1[2]+nf1[3]>=t1) {
+            return true;
+        }
+        
+        
+        for (int i=0; i<4; ++i) {
+            for (int j=0; j<4; ++j) {
+                int count = nf2[i][j];
+                for (int k=i; k<4; ++k) {
+                    for (int l=j; l<4; ++l) {
+                        if ((i != k || j != l) && count + nf2[k][l] >= t2) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return false;
     }
     
     public static final boolean isLowComplexityLongWindowed(String seq) {
