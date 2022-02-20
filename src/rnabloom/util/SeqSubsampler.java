@@ -440,8 +440,7 @@ public class SeqSubsampler {
                 if (!write &&
                         (namInterval == null ||
                             namInterval.start > maxEdgeClip ||
-                            namInterval.end < seq.length() - (bits.flag ? 0 : maxEdgeClip) - 1)) {
-                    // `bits.flag` indicates whether the sequences contains a polyA tail
+                            namInterval.end < seq.length() - maxEdgeClip - 1)) {
                     write = true;
                 }
                 
