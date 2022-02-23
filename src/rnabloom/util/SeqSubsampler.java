@@ -18,35 +18,27 @@ package rnabloom.util;
 
 import java.io.IOException;
 import java.text.NumberFormat;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
-import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import rnabloom.bloom.BloomFilter;
 import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
 import rnabloom.bloom.hash.CanonicalNTHashIterator;
-import rnabloom.bloom.hash.CanonicalStrobe3HashIterator;
-import rnabloom.bloom.hash.CanonicalStrobeHashIterator;
 import rnabloom.bloom.hash.HashFunction;
 import rnabloom.bloom.hash.HashedPositions;
 import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
-import rnabloom.bloom.hash.Strobe3HashIterator;
 import rnabloom.bloom.hash.StrobeHashIterator;
 import rnabloom.bloom.hash.StrobeHashIteratorInterface;
 import rnabloom.io.FastaWriter;
 import rnabloom.io.FastaWriterWorker;
 import rnabloom.olc.ComparableInterval;
-import rnabloom.olc.HashedInterval;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.SeqUtils.compressHomoPolymers;
-import static rnabloom.util.SeqUtils.getPolyATailMatchingPattern;
 
 /**
  *
@@ -347,7 +339,7 @@ public class SeqSubsampler {
             String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose,
-            int numThreads, int maxIndelSize, PolyATailFinder polyaFinder) throws IOException, InterruptedException, ExecutionException {
+            int numThreads, int maxIndelSize) throws IOException, InterruptedException, ExecutionException {
                 
         int numSeq = seqs.size();
         

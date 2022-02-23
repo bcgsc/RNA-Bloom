@@ -17,10 +17,8 @@
 package rnabloom;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
@@ -3318,7 +3316,9 @@ public class RNABloom {
 //                numThreads, stranded, minimapOptions, maxEdgeClip,
 //                minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
 //                minSeqDepth, usePacBioPreset, false, true);
-            polyaFinder.setWindow(0);
+            if (polyaFinder != null) {
+                polyaFinder.setWindow(0);
+            }
             ok = uniqueOLC(readsPath, inFasta, outFasta, tmpPrefix,
                 numThreads, stranded, minimapOptions, maxEdgeClip,
                 minAlnId, minOverlapMatches, maxIndelSize,
@@ -3730,55 +3730,57 @@ public class RNABloom {
                     if (seq.length() >= k) {
                         String name = nameSeqPair[0];
                                                 
-                        Interval tailRegion = polyaFinder.findPolyATail(seq);
                         boolean hasPolyA = false;
                         
-                        if (strandSpecific) {
-                            if (tailRegion != null && tailRegion.end < seq.length()) {
-                                seq = seq.substring(0, tailRegion.end);
-                                hasPolyA = true;
-                            }
-                        }
-                        else {
-                            Interval headRegion = polyaFinder.findPolyTHead(seq);
-                            
-                            if (tailRegion != null && headRegion == null) {
-                                if (tailRegion.end < seq.length()) {
+                        if (minPolyATailLengthRequired > 0) {
+                            Interval tailRegion = polyaFinder.findPolyATail(seq);
+                            if (strandSpecific) {
+                                if (tailRegion != null && tailRegion.end < seq.length()) {
                                     seq = seq.substring(0, tailRegion.end);
+                                    hasPolyA = true;
                                 }
-                                hasPolyA = true;
                             }
-                            else if (tailRegion == null && headRegion != null) {
-                                if (headRegion.start > 0) {
-                                    seq = seq.substring(headRegion.start);
-                                }
-                                seq = reverseComplement(seq);
-                                hasPolyA = true;
-                            }
-                            else if (tailRegion != null && headRegion != null) {                                
-                                boolean hasPas = polyaFinder.hasPolyASignal(seq, tailRegion.start);
-                                boolean hasPasRC = polyaFinder.hasPolyASignalRC(seq, headRegion.end);
-                                
-                                if (hasPas && !hasPasRC) {
-                                    if (headRegion.end < tailRegion.end) {
-                                        // remove polyT head
-                                        seq = seq.substring(headRegion.end, tailRegion.end);
-                                        hasPolyA = true;
+                            else {
+                                Interval headRegion = polyaFinder.findPolyTHead(seq);
+
+                                if (tailRegion != null && headRegion == null) {
+                                    if (tailRegion.end < seq.length()) {
+                                        seq = seq.substring(0, tailRegion.end);
                                     }
+                                    hasPolyA = true;
                                 }
-                                else if (!hasPas && hasPasRC) {
-                                    if (headRegion.start < tailRegion.start) {
-                                        // remove polyA tail
-                                        seq = reverseComplement(seq.substring(headRegion.start, tailRegion.start));
-                                        hasPolyA = true;
+                                else if (tailRegion == null && headRegion != null) {
+                                    if (headRegion.start > 0) {
+                                        seq = seq.substring(headRegion.start);
                                     }
+                                    seq = reverseComplement(seq);
+                                    hasPolyA = true;
                                 }
-                                else {
-                                    if (headRegion.end < tailRegion.start) {
-                                        // remove both head and tail
-                                        seq = seq.substring(headRegion.end, tailRegion.start);
+                                else if (tailRegion != null && headRegion != null) {                                
+                                    boolean hasPas = polyaFinder.hasPolyASignal(seq, tailRegion.start);
+                                    boolean hasPasRC = polyaFinder.hasPolyASignalRC(seq, headRegion.end);
+
+                                    if (hasPas && !hasPasRC) {
+                                        if (headRegion.end < tailRegion.end) {
+                                            // remove polyT head
+                                            seq = seq.substring(headRegion.end, tailRegion.end);
+                                            hasPolyA = true;
+                                        }
                                     }
-                                    hasPolyA = false; // ambiguous
+                                    else if (!hasPas && hasPasRC) {
+                                        if (headRegion.start < tailRegion.start) {
+                                            // remove polyA tail
+                                            seq = reverseComplement(seq.substring(headRegion.start, tailRegion.start));
+                                            hasPolyA = true;
+                                        }
+                                    }
+                                    else {
+                                        if (headRegion.end < tailRegion.start) {
+                                            // remove both head and tail
+                                            seq = seq.substring(headRegion.end, tailRegion.start);
+                                        }
+                                        hasPolyA = false; // ambiguous
+                                    }
                                 }
                             }
                         }
@@ -7320,13 +7322,12 @@ public class RNABloom {
                             
                             switch (subsampleProtocol) {
                                 case SUBSAMPLE_STROBEMER:
-                                    assembler.polyaFinder.setWindow(0);
                                     SeqSubsampler.strobemerBased(correctedReads,
                                             seedReadsPath, bfSize, strobemerSize,
                                             dbgbfNumHash, strandSpecific, 
                                             Math.max(subsampleDepth, longReadMinReadDepth),
                                             maxTipLen, true, numThreads,
-                                            maxIndelSize, assembler.polyaFinder);
+                                            maxIndelSize);
                                     break;
                                 case SUBSAMPLE_KMER:
                                     SeqSubsampler.kmerBased(correctedReads, seedReadsPath,
@@ -7378,7 +7379,6 @@ public class RNABloom {
                         inputReadsPath = longCorrectedReadsPath;
                     }
                     
-                    assembler.polyaFinder.setWindow(0);
                     boolean ok = assembler.assembleUnclusteredLongReads(longCorrectedReadsPath,
                                     inputReadsPath,
                                     assembledTranscriptsPath,
