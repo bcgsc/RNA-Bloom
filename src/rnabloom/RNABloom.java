@@ -3316,9 +3316,14 @@ public class RNABloom {
 //                numThreads, stranded, minimapOptions, maxEdgeClip,
 //                minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
 //                minSeqDepth, usePacBioPreset, false, true);
+            if (this.minPolyATailLengthRequired <= 0) { 
+                polyAReadNamesPath = null;
+            }
+            
             if (polyaFinder != null) {
                 polyaFinder.setWindow(0);
             }
+            
             ok = uniqueOLC(readsPath, inFasta, outFasta, tmpPrefix,
                 numThreads, stranded, minimapOptions, maxEdgeClip,
                 minAlnId, minOverlapMatches, maxIndelSize,
