@@ -19,6 +19,7 @@ package rnabloom.olc;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,6 +56,7 @@ import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
 import rnabloom.util.BitSequence;
 import static rnabloom.util.Common.convertToRoundedPercent;
+import static rnabloom.util.FileUtils.fileToStringCollection;
 import static rnabloom.util.IntervalUtils.getOverlap;
 import static rnabloom.util.IntervalUtils.isContained;
 import static rnabloom.util.IntervalUtils.merge;
@@ -3444,9 +3446,125 @@ public class Layout {
         
         return numEdgesRemoved;
     }
+
+    private static class PolyAScore {
+        public float forwardScore = 0;
+        public float reverseScore = 0;
+    } 
     
-    private void pruneGraphWithPolyAInfo(String mappingPafPath, String polyAReadNamesPath, Set<String> skipSet) throws IOException {
-        HashMap<String, PolyAScore> polyAScores = getPolyAScores(mappingPafPath, polyAReadNamesPath, skipSet, maxEdgeClip);
+    private HashMap<String, PolyAScore> getPolyAScores(String pafPath,
+            String polyAReadNamesPath,
+            Set<String> skipSet) throws FileNotFoundException, IOException {
+        
+        // store the names of vertexes containing polyA tails and are at/near a dead end of the graph
+        HashSet<String> polyAVertexNames = new HashSet<>();
+        Set<String> vertexSet = graph.vertexSet();
+        for (String vid : vertexSet) {
+            if (!graph.containsVertex(getReverseComplementID(vid))) {
+                polyAVertexNames.add(getVertexName(vid));
+            }
+        }
+        
+        // store the names of reads that have a *potential* polyA tail
+        HashSet<String> polyAReadNames = new HashSet<>();
+        fileToStringCollection(polyAReadNamesPath, polyAReadNames);
+        
+        HashMap<String, PolyAScore> scores = new HashMap<>();
+        
+        ArrayList<String> currentTNames = new ArrayList<>();
+        ArrayList<PolyAScore> currentScores = new ArrayList<>();
+        PafReader reader = new PafReader(pafPath);
+        String prevName = null;
+        boolean hasPolyA = false;
+        boolean isPolyAContained = false;
+        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+            reader.next(r);
+            
+            if (!r.qName.equals(prevName)) {
+                if (hasPolyA && !currentTNames.isEmpty()) {
+                    if (!isPolyAContained) {
+                        int numTargets = currentTNames.size();
+                        for (int i=0; i<numTargets; ++i) {
+                            String tName = currentTNames.get(i);
+                            PolyAScore score = currentScores.get(i);
+
+                            PolyAScore bestScore = scores.get(tName);
+                            if (bestScore == null) {
+                                scores.put(tName, score);
+                            }
+                            else {
+                                bestScore.reverseScore = Math.max(bestScore.reverseScore, score.reverseScore);
+                                bestScore.forwardScore = Math.max(bestScore.forwardScore, score.forwardScore);
+                            }
+                        }
+                    }
+                    
+                    currentTNames = new ArrayList<>();
+                    currentScores = new ArrayList<>();
+                }
+                
+                prevName = r.qName;
+                hasPolyA = polyAReadNames.contains(r.qName);
+                isPolyAContained = false;
+            }
+            
+            if (hasPolyA && !skipSet.contains(r.tName)) {
+                // the polyA tail cannot be contained in another sequence
+                // except if that is also a true polyA tail
+                if (isContainmentPafRecord(r) && r.qEnd >= r.qLen) {
+                    // the query's polyA tail is contained
+                    
+                    if (polyAVertexNames.contains(r.tName)) {
+                        // target has a true polyA tail
+                        
+                        PolyAInfo info = polyAInfoMap.get(r.tName);
+                        if (info != null && info.polyATail != null) {
+                            if (r.tEnd < info.polyATail.start) {
+                                // the query's polyA aligns upstream of the target's polyA tail
+                                // therefore, query is not a true polyA tail
+                                isPolyAContained = true;
+                            }
+                        }
+                    }
+                    else {
+                        if (vertexSet.contains(r.tName + '+')) {
+                            // target is in the graph, but it does not have a polyA tail
+                            isPolyAContained = true;
+                        }
+                        else {
+                            // target is an orphan
+                            PolyAInfo info = polyAInfoMap.get(r.tName);
+                            if (info == null || /* target has no polyA info */
+                                    info.polyATail == null || /* target has no polyA tail */
+                                    info.polyTHead != null /* target has both polyA tail and polyT head */) {
+                                isPolyAContained = true;
+                            }
+                        }
+                    }
+                }
+
+                if (isQueryEdgeSink(r, maxEdgeClip)) {
+                    PolyAScore score = new PolyAScore();
+                    
+                    float alignedProportion = (r.tEnd - r.tStart)/(float)r.tLen;
+                    
+                    if (r.reverseComplemented) {
+                        score.reverseScore = alignedProportion;
+                    }
+                    else {
+                        score.forwardScore = alignedProportion;
+                    }
+                }
+            }
+        }
+        reader.close();
+        
+        return scores;
+    }
+    
+    private void pruneGraphWithPolyAInfo(String mappingPafPath, String polyAReadNamesPath, Set<String> skipSet) throws IOException {        
+        HashMap<String, PolyAScore> polyAScores = getPolyAScores(mappingPafPath, polyAReadNamesPath, skipSet);
+        
         for (Entry<String, PolyAScore> e : polyAScores.entrySet()) {
             String name = e.getKey();
             PolyAScore score = e.getValue();

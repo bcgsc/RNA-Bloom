@@ -3761,31 +3761,31 @@ public class RNABloom {
                                     seq = reverseComplement(seq);
                                     hasPolyA = true;
                                 }
-                                else if (tailRegion != null && headRegion != null) {                                
-                                    boolean hasPas = polyaFinder.hasPolyASignal(seq, tailRegion.start);
-                                    boolean hasPasRC = polyaFinder.hasPolyASignalRC(seq, headRegion.end);
-
-                                    if (hasPas && !hasPasRC) {
-                                        if (headRegion.end < tailRegion.end) {
-                                            // remove polyT head
-                                            seq = seq.substring(headRegion.end, tailRegion.end);
-                                            hasPolyA = true;
-                                        }
-                                    }
-                                    else if (!hasPas && hasPasRC) {
-                                        if (headRegion.start < tailRegion.start) {
-                                            // remove polyA tail
-                                            seq = reverseComplement(seq.substring(headRegion.start, tailRegion.start));
-                                            hasPolyA = true;
-                                        }
-                                    }
-                                    else {
-                                        if (headRegion.end < tailRegion.start) {
-                                            // remove both head and tail
+                                else if (tailRegion != null && headRegion != null) {                                    
+//                                    boolean hasPas = polyaFinder.hasPolyASignal(seq, tailRegion.start);
+//                                    boolean hasPasRC = polyaFinder.hasPolyASignalRC(seq, headRegion.end);
+//                                    
+//                                    if (hasPas && !hasPasRC) {
+//                                        if (headRegion.end < tailRegion.end) {
+//                                            // remove polyT head
+//                                            seq = seq.substring(headRegion.end, tailRegion.end);
+//                                            hasPolyA = true;
+//                                        }
+//                                    }
+//                                    else if (!hasPas && hasPasRC) {
+//                                        if (headRegion.start < tailRegion.start) {
+//                                            // remove polyA tail
+//                                            seq = reverseComplement(seq.substring(headRegion.start, tailRegion.start));
+//                                            hasPolyA = true;
+//                                        }
+//                                    }
+//                                    else {
+//                                        if (headRegion.end < tailRegion.start) {
+//                                            // remove both head and tail
                                             seq = seq.substring(headRegion.end, tailRegion.start);
-                                        }
+//                                        }
                                         hasPolyA = false; // ambiguous
-                                    }
+//                                    }
                                 }
                             }
                         }
@@ -3813,6 +3813,7 @@ public class RNABloom {
                                 ArrayList<Kmer> kmers = graph.getKmers(segment);
 
                                 if (!kmers.isEmpty()) {
+                                    boolean trimEdges = minKmerCov > 1 && !hasPolyA;
                                     ArrayList<Kmer> correctedKmers = correctLongSequenceWindowed(kmers, 
                                                                                         graph, 
                                                                                         maxErrCorrItr, 
@@ -3822,7 +3823,7 @@ public class RNABloom {
                                                                                         percentIdentity, 
                                                                                         minKmerCov,
                                                                                         minNumSolidKmers,
-                                                                                        minKmerCov > 1, // trim edges
+                                                                                        trimEdges, // trim edges
                                                                                         500);
 
                                     if (correctedKmers != null && !correctedKmers.isEmpty()) {

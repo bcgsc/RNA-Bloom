@@ -219,45 +219,6 @@ public class PafUtils {
         return bestPartner;
     }
     
-    public static class PolyAScore {
-        public float forwardScore = 0;
-        public float reverseScore = 0;
-    } 
-    
-    public static HashMap<String, PolyAScore> getPolyAScores(String pafPath, String polyAReadNamesPath,
-            Set<String> skipSet, int maxEdgeClip) throws FileNotFoundException, IOException {
-        
-        HashSet<String> polyAReadNames = new HashSet<>();
-        fileToStringCollection(polyAReadNamesPath, polyAReadNames);
-        
-        HashMap<String, PolyAScore> scores = new HashMap<>();
-        
-        PafReader reader = new PafReader(pafPath);
-        for (PafRecord r = new PafRecord(); reader.hasNext();) {
-            reader.next(r);
-            if (polyAReadNames.contains(r.qName) && !skipSet.contains(r.tName)) {
-                if (isQueryEdgeSink(r, maxEdgeClip)) {
-                    PolyAScore score = scores.get(r.tName);
-                    if (score == null) {
-                        score = new PolyAScore();
-                        scores.put(r.tName, score);
-                    }
-                    
-                    float alignedProportion = (r.tEnd - r.tStart)/(float)r.tLen;
-                    if (r.reverseComplemented) {
-                        score.reverseScore = Math.max(alignedProportion, score.reverseScore);
-                    }
-                    else {
-                        score.forwardScore = Math.max(alignedProportion, score.forwardScore);
-                    }
-                }
-            }
-        }
-        reader.close();
-        
-        return scores;
-    }
-    
     private static class Overlap implements Comparable<Overlap> {
         String tName;
         int numMatch, tLen;
