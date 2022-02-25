@@ -3531,15 +3531,38 @@ public class RNABloom {
             this.minSeqLen = minSeqLen;
             this.storeLongReads = storeLongReads;
         }
-                
+        
+        private void writeToFile(Sequence2 seq) throws IOException {                    
+            ++numCorrected;                    
+            String header = seq.name + " l=" + Integer.toString(seq.length);
+
+            if (seq.hasPolyA) {
+                polyAReadNamesWriter.write(seq.name);
+                polyAReadNamesWriter.write('\n');
+            }
+
+            if (seq.isRepeat) {
+                repeatsWriter.write(header, seq.seq);
+            }
+            else if (seq.length >= minSeqLen) {
+                if (storeLongReads) {
+                    bits.add(new FlaggedBitSequence(seq.seq, seq.hasPolyA));
+                }
+                longWriter.write(header, seq.seq);
+            }
+            else {
+                shortWriter.write(header, seq.seq);
+            }
+        }
+        
         @Override
         public void run() {
             try {
-                ArrayDeque<Sequence2> sample = new ArrayDeque<>(maxSampleSize);
-
+                ArrayList<Integer> sample = new ArrayList<>(maxSampleSize);
+                
                 while(true) {
                     Sequence2 seq = inputQueue.poll(100, TimeUnit.MILLISECONDS);
-                    
+                  
                     if (seq == null) {
                         if (terminateWhenInputExhausts) {
                             break;
@@ -3547,18 +3570,18 @@ public class RNABloom {
                         continue;
                     }
                     
-                    sample.add(seq);
-
-                    if (sample.size() == maxSampleSize) {
+                    writeToFile(seq);
+                    
+                    sample.add(seq.length);
+                    if (sample.size() >= maxSampleSize) {
                         break;
                     }
                 }
-
+                
                 int sampleSize = sample.size();
                 int[] lengths = new int[sampleSize];
-                int i = 0;
-                for (Sequence2 seq : sample) {
-                    lengths[i++] = seq.length;
+                for (int i=0; i<sampleSize; ++i) {
+                    lengths[i] = sample.get(i);
                 }
                                 
                 sampleLengthStats = getQuartiles(lengths);
@@ -3566,30 +3589,6 @@ public class RNABloom {
                 System.out.println("Corrected Read Lengths Sampling Distribution (n=" + sampleSize + ")");
                 System.out.println("\tmin\tq1\tmed\tq3\tmax");
                 System.out.println("\t" + sampleLengthStats.toString("\t"));
-
-                // write the sample sequences to file
-                for (Sequence2 seq : sample) {
-                    ++numCorrected;
-                    String header = seq.name + " l=" + Integer.toString(seq.length);
-
-                    if (seq.hasPolyA) {
-                        polyAReadNamesWriter.write(seq.name);
-                        polyAReadNamesWriter.write('\n');
-                    }
-                    
-                    if (seq.isRepeat) {
-                        repeatsWriter.write(header, seq.seq);
-                    }
-                    else if (seq.length >= minSeqLen) {
-                        if (storeLongReads) {
-                            bits.add(new FlaggedBitSequence(seq.seq, seq.hasPolyA));
-                        }
-                        longWriter.write(header, seq.seq);
-                    }
-                    else {
-                        shortWriter.write(header, seq.seq);
-                    }
-                }
 
                 // write the remaining sequences to file
                 while(true) {
@@ -3602,26 +3601,7 @@ public class RNABloom {
                         continue;
                     }
                     
-                    ++numCorrected;
-                    String header = seq.name + " l=" + Integer.toString(seq.length);
-
-                    if (seq.hasPolyA) {
-                        polyAReadNamesWriter.write(seq.name);
-                        polyAReadNamesWriter.write('\n');
-                    }
-                    
-                    if (seq.isRepeat) {
-                        repeatsWriter.write(header, seq.seq);
-                    }
-                    else if (seq.length >= minSeqLen) {
-                        if (storeLongReads) {
-                            bits.add(new FlaggedBitSequence(seq.seq, seq.hasPolyA));
-                        }
-                        longWriter.write(header, seq.seq);
-                    }
-                    else {
-                        shortWriter.write(header, seq.seq);
-                    }
+                    writeToFile(seq);
                 }
                 
                 successful = true;
@@ -6144,7 +6124,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optLookahead);        
         
-        final String optSampleDefault = "1000";
+        final String optSampleDefault = "10000";
         Option optSample = Option.builder("sample")
                                     .desc("sample size for estimating read/fragment lengths [" + optSampleDefault + "]")
                                     .hasArg(true)
