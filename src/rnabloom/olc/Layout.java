@@ -43,6 +43,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import static org.jgrapht.Graph.DEFAULT_EDGE_WEIGHT;
 import org.jgrapht.Graphs;
+import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultDirectedWeightedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import rnabloom.util.MiniFloat;
@@ -66,9 +67,15 @@ import rnabloom.util.PolyATailFinder;
 import static rnabloom.util.SeqUtils.isLowComplexityLongWindowed;
 import rnabloom.util.Timer;
 import static rnabloom.util.FileUtils.getTextFileWriter;
+import static rnabloom.util.FileUtils.readDoubleArrayFromFile;
 import static rnabloom.util.FileUtils.readIntArrayFromFile;
-import static rnabloom.util.IntervalUtils.isForwardDoveTail;
+import static rnabloom.util.IntervalUtils.isDoveTail;
 import smile.stat.distribution.EmpiricalDistribution;
+import smile.stat.distribution.GammaDistribution;
+import smile.stat.distribution.GaussianDistribution;
+import smile.stat.distribution.GaussianMixture;
+import smile.stat.distribution.KernelDensity;
+import smile.stat.distribution.PoissonDistribution;
 import smile.util.IntSet;
 
 
@@ -2756,7 +2763,6 @@ public class Layout {
     private class OverlapSizeComparator implements Comparator<Overlap> {
         @Override
         public int compare(Overlap o1, Overlap o2) {
-            // sort by overlap size in descending order
             return (o2.qEnd - o2.qStart) - (o1.qEnd - o1.qStart);
         }
     }
@@ -2764,8 +2770,7 @@ public class Layout {
     private class OverlapQueryStartComparator implements Comparator<Overlap> {
         @Override
         public int compare(Overlap o1, Overlap o2) {
-            // sort by qStart in ascending order
-            return o1.qStart - o2.qStart;
+            return o2.qStart - o1.qStart;
         }
     }
     
@@ -3653,8 +3658,8 @@ public class Layout {
 
                 double p = readLenDist.cdf(overlapSize);
 
-                double c = Math.floor(Math.min(sCount, tCount));
-                if (supportingReads < c && Math.pow(p, c-supportingReads) < 0.001) {
+                float c = (sCount + tCount)/2f;
+                if (supportingReads == 0 && c >= 10 && p < 0.05) {
                     toBeRemoved.add(e);
                 }
             }
@@ -4323,7 +4328,7 @@ public class Layout {
                             break;
                         }
                         
-                        if (isForwardDoveTail(left.qStart, left.qEnd, right.qStart, right.qEnd)) {
+                        if (isDoveTail(left.qStart, left.qEnd, right.qStart, right.qEnd)) {
                             String rightVid = right.tName;
                             String rightVidRC = right.tName;
                             if (right.reverseComplemented) {
