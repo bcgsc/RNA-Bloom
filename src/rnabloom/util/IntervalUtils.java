@@ -37,6 +37,10 @@ public class IntervalUtils {
         return isContained(i1.start, i1.end, i2.start, i2.end);
     }
     
+    public static boolean isForwardDoveTail(int start1, int end1, int start2, int end2) {
+        return start1 < start2 && end1 < end2 && end1 > start2;
+    }
+    
     public static boolean isDoveTail(int start1, int end1, int start2, int end2) {
         return (start1 < start2 && end1 < end2 && end1 > start2) || 
                 (start2 < start1 && end2 < end1 && end2 > start1);
