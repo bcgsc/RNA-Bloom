@@ -100,6 +100,39 @@ public class FileUtils {
         String line = br.readLine().strip();
         return line;
     }
+
+    public static void writeIntArrayToFile(String path, int[] arr) throws IOException {
+        Writer fr = getTextFileWriter(path, false);
+        for (int i : arr) {
+            fr.write(Integer.toString(i));
+            fr.write('\n');
+        }
+        fr.close();
+    }
+    
+    public static int[] readIntArrayFromFile(String path) throws FileNotFoundException, IOException {
+        ArrayDeque<Integer> tmpQueue = new ArrayDeque<>();
+        BufferedReader br = getTextFileReader(path);
+        for (String line; (line = br.readLine()) != null; ) {
+            tmpQueue.add(Integer.parseInt(line.trim()));
+        }
+        
+        br.close();
+        
+        return tmpQueue.stream().mapToInt(i->i).toArray();
+    }
+
+    public static double[] readDoubleArrayFromFile(String path) throws FileNotFoundException, IOException {
+        ArrayDeque<Double> tmpQueue = new ArrayDeque<>();
+        BufferedReader br = getTextFileReader(path);
+        for (String line; (line = br.readLine()) != null; ) {
+            tmpQueue.add(Double.parseDouble(line.trim()));
+        }
+        
+        br.close();
+        
+        return tmpQueue.stream().mapToDouble(i->i).toArray();
+    }
     
     public static void writeIntArrayToFile(File f, int[] arr) throws IOException {
         BufferedWriter fr = new BufferedWriter(new FileWriter(f, false));

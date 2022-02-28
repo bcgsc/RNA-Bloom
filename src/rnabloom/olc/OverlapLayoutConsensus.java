@@ -559,7 +559,7 @@ public class OverlapLayoutConsensus {
             int numThreads, boolean align, String minimapOptions, boolean stranded, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
             int minSeqDepth, boolean usePacBioPreset, String mappingPafPath, String polyAReadNamesPath,
-            boolean verbose, PolyATailFinder polyaFinder) {
+            boolean verbose, PolyATailFinder polyaFinder, String sampleReadLengthsPath) {
         if (verbose) {
             System.out.println("Overlapping sequences...");
         }
@@ -603,7 +603,7 @@ public class OverlapLayoutConsensus {
 
             boolean reduced = layoutGreedy(seqFastaPath, process.getInputStream(), layoutFastaPath, stranded, maxEdgeClip, 
                     minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth, mappingPafPath,
-                    polyAReadNamesPath, verbose, polyaFinder);
+                    polyAReadNamesPath, verbose, polyaFinder, sampleReadLengthsPath);
             
             int exitStatus = process.waitFor();
             
@@ -765,11 +765,12 @@ public class OverlapLayoutConsensus {
     public static boolean layoutGreedy(String seqFastaPath, InputStream overlapPafInputStream, String backboneFastaPath,
             boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
             boolean cutRevCompArtifact, int minSeqDepth, String mappingPafPath, String polyAReadNamesPath,
-            boolean verbose, PolyATailFinder polyaFinder) {
+            boolean verbose, PolyATailFinder polyaFinder, String sampleReadLengthsPath) {
         try {
             Layout myLayout = new Layout(seqFastaPath, overlapPafInputStream, stranded, maxEdgeClip, minAlnId, 
                     minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth, verbose, polyaFinder);
-            myLayout.extractGreedyPaths(backboneFastaPath, mappingPafPath, polyAReadNamesPath);
+            myLayout.extractGreedyPaths(backboneFastaPath, mappingPafPath,
+                    polyAReadNamesPath, sampleReadLengthsPath);
             return true;
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -1049,7 +1050,7 @@ public class OverlapLayoutConsensus {
             numThreads, true, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset, readsToSimplePafPath, polyAReadNamesPath,
-            verbose, polyaFinder);
+            verbose, polyaFinder, null);
         if (status != STATUS.SUCCESS) {
             return false;
         }
@@ -1058,7 +1059,7 @@ public class OverlapLayoutConsensus {
     }
     
     public static boolean uniqueOLC(String readsPath, String inFastaPath,
-            String outFastaPath, String tmpPrefix,
+            String outFastaPath, String tmpPrefix, String sampleReadLengthsPath,
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize,
             int minSeqDepth, boolean usePacBioPreset, boolean verbose,
@@ -1134,7 +1135,7 @@ public class OverlapLayoutConsensus {
             numThreads, true, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset, readsToSimplePafPath, polyAReadNamesPath,
-            verbose, polyaFinder);
+            verbose, polyaFinder, sampleReadLengthsPath);
         if (status != STATUS.SUCCESS) {
             return false;
         }
@@ -1336,7 +1337,7 @@ public class OverlapLayoutConsensus {
 //                    }
 
                     boolean status = uniqueOLC(inFastaPath, inFastaPath,
-                                            finalFastaPath, tmpPrefix,
+                                            finalFastaPath, tmpPrefix, null,
                                             numThreads, stranded, minimapOptions, maxEdgeClip,
                                             minAlnId, minOverlapMatches, maxIndelSize,
                                             minSeqDepth, usePacBioPreset, false, polyAReadNamesPath,

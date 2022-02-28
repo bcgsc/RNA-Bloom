@@ -106,6 +106,7 @@ import rnabloom.util.FlaggedBitSequence;
 import rnabloom.util.PolyATailFinder;
 import rnabloom.util.SeqSubsampler;
 import static rnabloom.util.FileUtils.getTextFileWriter;
+import static rnabloom.util.FileUtils.writeIntArrayToFile;
 
 /**
  *
@@ -3294,6 +3295,7 @@ public class RNABloom {
                                     String outFasta,
                                     String tmpPrefix,
                                     String polyAReadNamesPath,
+                                    String sampleReadLengthsPath,
                                     int numThreads,
                                     String minimapOptions,
                                     int minKmerCov,
@@ -3324,11 +3326,12 @@ public class RNABloom {
                 polyaFinder.setWindow(0);
             }
             
-            ok = uniqueOLC(readsPath, inFasta, outFasta, tmpPrefix,
-                numThreads, stranded, minimapOptions, maxEdgeClip,
-                minAlnId, minOverlapMatches, maxIndelSize,
-                minSeqDepth, usePacBioPreset, true,
-                polyAReadNamesPath, polyaFinder);
+            ok = uniqueOLC(readsPath, inFasta, outFasta,
+                    tmpPrefix, sampleReadLengthsPath,
+                    numThreads, stranded, minimapOptions, maxEdgeClip,
+                    minAlnId, minOverlapMatches, maxIndelSize,
+                    minSeqDepth, usePacBioPreset, true,
+                    polyAReadNamesPath, polyaFinder);
         }
         
         return ok;
@@ -3517,10 +3520,12 @@ public class RNABloom {
 //        private final boolean writeUracil;
         private final boolean storeLongReads;
         private ArrayList<FlaggedBitSequence> bits = new ArrayList<>();
+        private String sampleReadLengthsPath = null;
         
         public CorrectedLongReadsWriterWorker2(ArrayBlockingQueue<Sequence2> inputQueue, 
                 FastaWriter longSeqWriter, FastaWriter shortSeqWriter,
                 FastaWriter repeatsSeqWriter, Writer polyAReadNamesWriter,
+                String sampleReadLengthsPath,
                 int maxSampleSize, int minSeqLen, boolean storeLongReads) {
             this.inputQueue = inputQueue;
             this.longWriter = longSeqWriter;
@@ -3530,6 +3535,7 @@ public class RNABloom {
             this.maxSampleSize = maxSampleSize;
             this.minSeqLen = minSeqLen;
             this.storeLongReads = storeLongReads;
+            this.sampleReadLengthsPath = sampleReadLengthsPath;
         }
         
         private void writeToFile(Sequence2 seq) throws IOException {                    
@@ -3603,6 +3609,8 @@ public class RNABloom {
                     
                     writeToFile(seq);
                 }
+                
+                writeIntArrayToFile(sampleReadLengthsPath, lengths);
                 
                 successful = true;
             
@@ -3937,6 +3945,7 @@ public class RNABloom {
                                                 FastaWriter shortSeqWriter,
                                                 FastaWriter repeatsSeqWriter,
                                                 Writer polyAReadNamesWriter,
+                                                String sampleReadLengthsPath,
                                                 int minKmerCov,
                                                 int maxErrCorrItr,
                                                 int numThreads,
@@ -3965,7 +3974,7 @@ public class RNABloom {
         //System.out.println("Initialized " + numThreads + " worker(s).");
         
         CorrectedLongReadsWriterWorker2 writerWorker = new CorrectedLongReadsWriterWorker2(outputQueue, 
-                longSeqWriter, shortSeqWriter, repeatsSeqWriter, polyAReadNamesWriter,
+                longSeqWriter, shortSeqWriter, repeatsSeqWriter, polyAReadNamesWriter, sampleReadLengthsPath,
                 maxSampleSize, minSeqLen, storeReads);
         Thread writerThread = new Thread(writerWorker);
         writerThread.start();
@@ -3982,7 +3991,7 @@ public class RNABloom {
         if (!writerWorker.isSucessful()) {
             throw writerWorker.getExceptionCaught();
         }
-        
+                
         long numArtifacts = 0;
         long numDiscarded = 0;
         for (LongReadCorrectionWorker worker : correctionWorkers) {
@@ -5238,7 +5247,7 @@ public class RNABloom {
     
     private static ArrayList<FlaggedBitSequence> correctLongReads(RNABloom assembler, 
             String[] inFastxList, String outLongFasta, String outShortFasta, String outRepeatsFasta,
-            String polyAReadNamesPath,
+            String polyAReadNamesPath, String sampleReadLengthsPath,
             int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, 
             boolean reverseComplement, boolean trimArtifact, boolean storeReads) throws InterruptedException, IOException, Exception {
         
@@ -5249,6 +5258,7 @@ public class RNABloom {
 
         ArrayList<FlaggedBitSequence> longReads = assembler.correctLongReadsMultithreaded(inFastxList,
                                                 longWriter, shortWriter, repeatsWriter, polyAReadNamesWriter,
+                                                sampleReadLengthsPath,
                                                 minKmerCov,
                                                 maxErrCorrItr,
                                                 numThreads,
@@ -7270,6 +7280,7 @@ public class RNABloom {
                 String shortCorrectedReadsPath = correctedLongReadFilePrefix + ".short" + FASTA_EXT + GZIP_EXT;
                 String repeatReadsPath = correctedLongReadFilePrefix + ".repeats" + FASTA_EXT + GZIP_EXT;
                 String polyAReadNamesPath = correctedLongReadFilePrefix + ".polya.txt" + GZIP_EXT;
+                String sampleReadLengthsPath = correctedLongReadFilePrefix + ".long.lengths.txt";
 //                String subSampledReadsPath = correctedLongReadFilePrefix + ".long.subsampled" + FASTA_EXT + GZIP_EXTENSION;
                 String seedReadsPath = correctedLongReadFilePrefix + ".long.seed" + FASTA_EXT + GZIP_EXT;
 //                String numCorrectedReadsPath = correctedLongReadFilePrefix + ".count";
@@ -7287,7 +7298,7 @@ public class RNABloom {
                     Timer myTimer = new Timer();
                     ArrayList<FlaggedBitSequence> correctedReads = correctLongReads(assembler, 
                             longReadPaths, longCorrectedReadsPath, shortCorrectedReadsPath,
-                            repeatReadsPath, polyAReadNamesPath,
+                            repeatReadsPath, polyAReadNamesPath, sampleReadLengthsPath,
                             maxErrCorrItr, minKmerCov, numThreads, sampleSize, Math.min(minOverlap, minTranscriptLength),
                             revCompLong, !keepArtifact, subsampleLongReads);
                     System.out.println("Corrected reads in " + myTimer.elapsedDHMS());
@@ -7370,6 +7381,7 @@ public class RNABloom {
                                     assembledTranscriptsPath,
                                     tmpFilePathPrefix,
                                     polyAReadNamesPath,
+                                    sampleReadLengthsPath,
                                     numThreads,
                                     minimapOptions,
                                     minKmerCov,

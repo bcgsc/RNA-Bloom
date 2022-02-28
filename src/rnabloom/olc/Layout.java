@@ -41,8 +41,10 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import static org.jgrapht.Graph.DEFAULT_EDGE_WEIGHT;
 import org.jgrapht.Graphs;
 import org.jgrapht.graph.DefaultDirectedGraph;
+import org.jgrapht.graph.DefaultDirectedWeightedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import rnabloom.util.MiniFloat;
 import rnabloom.io.CompressedFastaRecord;
@@ -65,6 +67,16 @@ import rnabloom.util.PolyATailFinder;
 import static rnabloom.util.SeqUtils.isLowComplexityLongWindowed;
 import rnabloom.util.Timer;
 import static rnabloom.util.FileUtils.getTextFileWriter;
+import static rnabloom.util.FileUtils.readDoubleArrayFromFile;
+import static rnabloom.util.FileUtils.readIntArrayFromFile;
+import static rnabloom.util.IntervalUtils.isDoveTail;
+import smile.stat.distribution.EmpiricalDistribution;
+import smile.stat.distribution.GammaDistribution;
+import smile.stat.distribution.GaussianDistribution;
+import smile.stat.distribution.GaussianMixture;
+import smile.stat.distribution.KernelDensity;
+import smile.stat.distribution.PoissonDistribution;
+import smile.util.IntSet;
 
 
 /**
@@ -73,7 +85,7 @@ import static rnabloom.util.FileUtils.getTextFileWriter;
  */
 public class Layout {
     
-    private DefaultDirectedGraph<String, OverlapEdge> graph;
+    private DefaultDirectedWeightedGraph<String, OverlapEdge> graph;
     private InputStream overlapPafInputStream;
     private String seqFastaPath;
     private boolean stranded;
@@ -86,12 +98,14 @@ public class Layout {
     private boolean verbose = false;
     HashMap<String, PolyAInfo> polyAInfoMap = null;
     private int minPolyALength = 0;
+    private final OverlapSizeComparator overlapSizeComparator = new OverlapSizeComparator();
+    private final OverlapQueryStartComparator qStartComparator = new OverlapQueryStartComparator();
     
     public Layout(String seqFile, InputStream overlapPafInputStream, boolean stranded,
             int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
             boolean cutRevCompArtifact, int minSeqDepth, boolean verbose,
             PolyATailFinder polyaFinder) throws IOException {
-        this.graph = new DefaultDirectedGraph<>(OverlapEdge.class);
+        this.graph = new DefaultDirectedWeightedGraph<>(OverlapEdge.class);
         this.overlapPafInputStream = overlapPafInputStream;
         this.seqFastaPath = seqFile;
         this.stranded = stranded;
@@ -2746,6 +2760,20 @@ public class Layout {
         }
     }
     
+    private class OverlapSizeComparator implements Comparator<Overlap> {
+        @Override
+        public int compare(Overlap o1, Overlap o2) {
+            return (o2.qEnd - o2.qStart) - (o1.qEnd - o1.qStart);
+        }
+    }
+    
+    private class OverlapQueryStartComparator implements Comparator<Overlap> {
+        @Override
+        public int compare(Overlap o1, Overlap o2) {
+            return o2.qStart - o1.qStart;
+        }
+    }
+    
     private void removeReverseComplementArtifacts(
             ArrayList<StrandedOverlap> overlaps,
             HashSet<String> containedSet) {
@@ -3596,7 +3624,54 @@ public class Layout {
         graph.removeAllEdges(toBeRemoved);
     }
     
-    public void extractGreedyPaths(String outFastaPath, String mappingPafPath, String polyAReadNamesPath) throws IOException {
+    private void filterEdges(HashMap<String, Float> readCounts, String sampleReadLengthsPath) throws IOException {
+        int[] sampleLengths = readIntArrayFromFile(sampleReadLengthsPath);
+        int maxLength = sampleLengths[sampleLengths.length-1];
+        EmpiricalDistribution readLenDist = EmpiricalDistribution.fit(sampleLengths, IntSet.of(maxLength+1));
+        
+        ArrayDeque<OverlapEdge> toBeRemoved = new ArrayDeque<>();
+        int numSupported = 0;
+        for (OverlapEdge e : graph.edgeSet()) {
+            float overlapSize = ((e.sinkEnd - e.sinkStart) + (e.sourceEnd - e.sourceStart))/2f;
+            double supportingReads = graph.getEdgeWeight(e) - DEFAULT_EDGE_WEIGHT;
+            if (supportingReads > 0) {
+                ++numSupported;
+            } 
+            
+            if (overlapSize < maxLength) {
+                String sID = graph.getEdgeSource(e);
+                String tID = graph.getEdgeTarget(e);
+
+                String sName = getVertexName(sID);
+                String tName = getVertexName(tID);
+
+                Float sCount = readCounts.get(sName);
+                Float tCount = readCounts.get(tName);
+
+                if (sCount == null ) {
+                    sCount = (float) 0;
+                }
+
+                if (tCount == null ) {
+                    tCount = (float) 0;
+                }
+
+                double p = readLenDist.cdf(overlapSize);
+
+                float c = (sCount + tCount)/2f;
+                if (supportingReads == 0 && c >= 10 && p < 0.05) {
+                    toBeRemoved.add(e);
+                }
+            }
+        }
+        
+        System.out.println("Supported edges: " + numSupported);
+        
+        graph.removeAllEdges(toBeRemoved);
+    }
+    
+    public void extractGreedyPaths(String outFastaPath, String mappingPafPath,
+            String polyAReadNamesPath, String sampleReadLengthsPath) throws IOException {
         HashSet<String> containedSet = populateGraphFromOverlaps();
         
         if (!containedSet.isEmpty()) {
@@ -3655,6 +3730,9 @@ public class Layout {
         
         //printCounts(readCounts);
         
+        printMessage("Pruning graph with read count information...");
+        filterEdges(readCounts, sampleReadLengthsPath);
+        printMessage("G: |V|=" + NumberFormat.getInstance().format(vertexSet.size()) + " |E|=" + NumberFormat.getInstance().format(edgeSet.size()));
         
 //        // assign read count to edge
 //        printMessage("Adding read counts to graph...");
@@ -4194,6 +4272,176 @@ public class Layout {
         }
         fr.close();
         return info;
+    }
+    
+    private static Overlap getOverlapContainer(Overlap q, Collection<Overlap> list, float maxProportion) {
+        int maxOverlapLen = 0;
+        Overlap container = null;
+        for (Overlap other : list) {
+            int overlapLen = getOverlap(q.qStart, q.qEnd, other.qStart, other.qEnd);
+            if (overlapLen > maxOverlapLen) {
+                maxOverlapLen = overlapLen;
+                container = other;
+            }
+        }
+        
+        if (maxOverlapLen >= maxProportion * (q.qEnd - q.qStart)) {
+            return container;
+        }
+        
+        return null;
+    }
+    
+    private void updateCounts(ArrayList<StrandedOverlap> targets, HashMap<String, Float> counts) {
+        if (!targets.isEmpty()) {
+            int numTargets = targets.size();
+            if (numTargets == 1) {
+                Overlap t = targets.get(0);
+                Float c = counts.get(t.tName);
+                if (c == null) {
+                    c = (t.tEnd - t.tStart)/(float) t.tLen;
+                }
+                else {
+                    c += (t.tEnd - t.tStart)/(float) t.tLen;
+                }
+                counts.put(t.tName, c);
+            }
+            else {
+                Collections.sort(targets, qStartComparator);
+                
+                for (int i=0; i<numTargets; ++i) {
+                    StrandedOverlap left = targets.get(i);
+                    String leftVid = left.tName;
+                    String leftVidRC = left.tName;
+                    if (left.reverseComplemented) {
+                        leftVid += '-';
+                        leftVidRC += '+';
+                    }
+                    else {
+                        leftVid += '+';
+                        leftVidRC += '-';
+                    }
+                    
+                    for (int j=i+1; j<numTargets; ++j) {
+                        StrandedOverlap right = targets.get(j);
+                        if (right.qStart > left.qEnd) {
+                            break;
+                        }
+                        
+                        if (isDoveTail(left.qStart, left.qEnd, right.qStart, right.qEnd)) {
+                            String rightVid = right.tName;
+                            String rightVidRC = right.tName;
+                            if (right.reverseComplemented) {
+                                rightVid += '-';
+                                rightVidRC += '+';
+                            }
+                            else {
+                                rightVid += '+';
+                                rightVidRC += '-';
+                            }
+                            
+                            OverlapEdge edge = graph.getEdge(leftVid, rightVid);
+                            if (edge != null) {
+                                double weight = graph.getEdgeWeight(edge);
+                                graph.setEdgeWeight(edge, weight + 1);
+                            }
+                            
+                            edge = graph.getEdge(rightVidRC, leftVidRC);
+                            if (edge != null) {
+                                double weight = graph.getEdgeWeight(edge);
+                                graph.setEdgeWeight(edge, weight + 1);
+                            }
+                        }
+                    }
+                }
+                
+                Collections.sort(targets, overlapSizeComparator);
+
+                ArrayList<Overlap> targetsKept = new ArrayList<>();
+                HashMap<Overlap, ArrayList<Overlap>> multiTargets = new HashMap<>();
+                for (Overlap m : targets) {
+                    Overlap c = getOverlapContainer(m, targetsKept, 0.95f);
+                    if (c == null) {
+                        // region not contained
+                        targetsKept.add(m);
+                    }
+                    else if (m.qEnd - m.qStart >= (c.qEnd - c.qStart) * 0.95f) {
+                        // region multimaps
+                        ArrayList<Overlap> multimaps = multiTargets.get(c);
+                        if (multimaps == null) {
+                            multimaps = new ArrayList<>();
+                            multiTargets.put(c, multimaps);
+                        }
+                        multimaps.add(m);
+                    }
+                }
+
+                for (Overlap t : targetsKept) {
+                    ArrayList<Overlap> multimaps = multiTargets.get(t);
+                    if (multimaps != null) {
+                        // fractional assignment of multimapped region
+                        float fraction = 1f/(multimaps.size() + 1);
+
+                        Float c = counts.get(t.tName);
+                        if (c == null) {
+                            c = (t.tEnd - t.tStart)/(float) t.tLen * fraction;
+                        }
+                        else {
+                            c += (t.tEnd - t.tStart)/(float) t.tLen * fraction;
+                        }
+                        counts.put(t.tName, c);
+
+                        for (Overlap mm : multimaps) {
+                            c = counts.get(mm.tName);
+                            if (c == null) {
+                                c = (mm.tEnd - mm.tStart)/(float) mm.tLen * fraction;
+                            }
+                            else {
+                                c += (mm.tEnd - mm.tStart)/(float) mm.tLen * fraction;
+                            }
+                            counts.put(mm.tName, c);
+                        }
+                    }
+                    else {
+                        Float c = counts.get(t.tName);
+                        if (c == null) {
+                            c = (t.tEnd - t.tStart)/(float) t.tLen;
+                        }
+                        else {
+                            c += (t.tEnd - t.tStart)/(float) t.tLen;
+                        }
+                        counts.put(t.tName, c);
+                    }
+                }
+            }
+        }
+    }
+    
+    public HashMap<String, Float> getLengthNormalizedReadCounts(String pafPath, Set<String> skipSet) throws IOException {
+        HashMap<String, Float> counts = new HashMap<>();
+                
+        PafReader reader = new PafReader(pafPath);
+        String prevName = null;
+        ArrayList<StrandedOverlap> targets = new ArrayList<>();
+        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+            reader.next(r);
+            
+            if (!r.qName.equals(prevName)) {
+                updateCounts(targets, counts);
+                targets = new ArrayList<>();
+                prevName = r.qName;
+            }
+            
+            if (!skipSet.contains(r.tName)) {
+                targets.add(pafToStrandedOverlap(r));
+            }
+        }
+        reader.close();
+        
+        // process the last batch of records
+        updateCounts(targets, counts);
+        
+        return counts;
     }
     
     public static void main(String[] args) {
