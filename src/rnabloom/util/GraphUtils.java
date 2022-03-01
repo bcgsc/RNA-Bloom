@@ -3514,9 +3514,9 @@ public final class GraphUtils {
                             
                             if (2*oriPathCov <= altPathCov &&
                                     numBadKmersSince-maxLengthDifference <= altPathLen &&
+                                    altPathLen <= numBadKmersSince+maxLengthDifference &&
                                     ((oriPathCov < minKmerCov && altPathCov >= 10*oriPathCov) ||
-                                    (altPathLen <= numBadKmersSince+maxLengthDifference && 
-                                        getPercentIdentity(graph.assemble(altPath), 
+                                        (getPercentIdentity(graph.assemble(altPath), 
                                                 graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity))) {
                                 
                                 // backtrack to best left kmer
