@@ -68,6 +68,7 @@ import rnabloom.util.Timer;
 import static rnabloom.util.FileUtils.getTextFileWriter;
 import static rnabloom.util.FileUtils.readIntArrayFromFile;
 import static rnabloom.util.IntervalUtils.isForwardDoveTail;
+import smile.stat.distribution.BinomialDistribution;
 import smile.stat.distribution.EmpiricalDistribution;
 import smile.util.IntSet;
 
@@ -3651,11 +3652,18 @@ public class Layout {
                     tCount = (float) 0;
                 }
 
+                // probability of finding one read smaller than the overlap
                 double p = readLenDist.cdf(overlapSize);
 
+                // expected number of reads spanning the overlap
                 double c = Math.floor(Math.min(sCount, tCount));
-                if (supportingReads < c && Math.pow(p, c-supportingReads) < 0.001) {
-                    toBeRemoved.add(e);
+                
+                if (supportingReads < c) {
+                    // binomial test
+                    BinomialDistribution bd = new BinomialDistribution((int)c, 1-p);
+                    if (bd.cdf(supportingReads) < 0.001) {
+                        toBeRemoved.add(e);
+                    }
                 }
             }
         }
