@@ -81,9 +81,9 @@ public class StrobeHashIterator implements StrobeHashIteratorInterface {
             long h = combineHashValues(strobemerHash, kmerHashVals[pos2]);
             
             int end = Math.min(pos + s*wMax + wMax, numKmers);
-            for (int i=pos + s*wMax + wMin +1; i<end; ++i) {
+            for (int i=pos2 +1; i<end; ++i) {
                 long h2 = combineHashValues(strobemerHash, kmerHashVals[i]);
-                if (Long.compareUnsigned(h, h2) > 0) {
+                if (Long.compareUnsigned(h, h2) >= 0) {
                     pos2 = i;
                     h = h2;
                 }
@@ -104,14 +104,22 @@ public class StrobeHashIterator implements StrobeHashIteratorInterface {
         
         for (int s=0; s<n-1; ++s) {
             int pos2 = p + s*wMax + wMin;
-            long h = combineHashValues(strobemerHash, kmerHashVals[pos2]);
+            long pos2Kmer = kmerHashVals[pos2];
+            long h = combineHashValues(strobemerHash, pos2Kmer);
             
             int end = Math.min(p + s*wMax + wMax, numKmers);
-            for (int i=p + s*wMax + wMin +1; i<end; ++i) {
-                long h2 = combineHashValues(strobemerHash, kmerHashVals[i]);
-                if (Long.compareUnsigned(h, h2) > 0) {
+            for (int i=pos2 +1; i<end; ++i) {
+                long altKmer = kmerHashVals[i];
+                if (altKmer == pos2Kmer) {
                     pos2 = i;
-                    h = h2;
+                }
+                else {
+                    long h2 = combineHashValues(strobemerHash, altKmer);
+                    if (Long.compareUnsigned(h, h2) >= 0) {
+                        pos2 = i;
+                        pos2Kmer = altKmer;
+                        h = h2;
+                    }
                 }
             }
             

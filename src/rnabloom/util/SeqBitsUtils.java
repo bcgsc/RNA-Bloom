@@ -20,8 +20,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.IntStream;
 import rnabloom.io.FastaReader;
 import rnabloom.io.FastaWriter;
@@ -296,16 +294,20 @@ public class SeqBitsUtils {
         int numFullBytes = seqLen / 4;
         int numExtraBases = seqLen % 4;
         
-        StringBuilder sb = new StringBuilder(seqLen);
+        char[] sb = new char[seqLen];
         for (int i=0; i<numFullBytes; ++i) {
-            sb.append(getTetramer(bytes[i]));
+            getTetramer(bytes[i]).getChars(0, 4, sb, i*4);
         }
         
         if (numExtraBases > 0) {
-            sb.append(getTetramer(bytes[numFullBytes]).substring(0, numExtraBases));
+            String t = getTetramer(bytes[numFullBytes]);
+            int offset = numFullBytes*4;
+            for (int i=0; i<numExtraBases; ++i) {
+                sb[offset + i] = t.charAt(i);
+            }
         }
         
-        return sb.toString();
+        return new String(sb);
     }
     
     public static String bitsToSeqParallelized(byte[] bytes, int seqLen) {
@@ -313,13 +315,8 @@ public class SeqBitsUtils {
         int numExtraBases = seqLen % 4;
         
         char[] sb = new char[seqLen];
-        IntStream.range(0, numFullBytes).parallel().forEach(e -> {
-            String t = getTetramer(bytes[e]);
-            int i = e*4;
-            sb[i] = t.charAt(0);
-            sb[i+1] = t.charAt(1);
-            sb[i+2] = t.charAt(2);
-            sb[i+3] = t.charAt(3);
+        IntStream.range(0, numFullBytes).parallel().forEach(i -> {
+            getTetramer(bytes[i]).getChars(0, 4, sb, i*4);
         });
         
         if (numExtraBases > 0) {
