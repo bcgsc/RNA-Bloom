@@ -29,6 +29,7 @@ import rnabloom.bloom.CountingBloomFilter;
 import rnabloom.bloom.hash.CanonicalHashFunction;
 import rnabloom.bloom.hash.CanonicalNTHashIterator;
 import rnabloom.bloom.hash.HashFunction;
+import rnabloom.bloom.hash.HashedInterval;
 import rnabloom.bloom.hash.HashedPositions;
 import rnabloom.bloom.hash.MinimizerHashIterator;
 import rnabloom.bloom.hash.NTHashIterator;
@@ -364,7 +365,7 @@ public class SeqSubsampler {
         System.out.println("strobemers: n=" + n + ", k=" + k + ", wMin=" + wMin + ", wMax=" + wMax);
         
 //        StrobeHashIteratorInterface strobeItr = stranded ? new Strobe3HashIterator(k, wMin, wMax) : new CanonicalStrobe3HashIterator(k, wMin, wMax);
-        StrobeHashIteratorInterface strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
+        StrobeHashIterator strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
         ForkJoinPool customThreadPool = new ForkJoinPool(numThreads);
 
         for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
@@ -373,21 +374,15 @@ public class SeqSubsampler {
 
             if (strobeItr.start(seq)) {
                 boolean write = false;
-//                int minPos = strobeItr.getMin();
-//                int maxPos = strobeItr.getMax();
                 int numStrobes = strobeItr.getNumStrobemers();
                 
-                HashedPositions[] strobes = new HashedPositions[numStrobes];
+                HashedInterval[] strobes = new HashedInterval[numStrobes];
                 boolean[] seen = new boolean[numStrobes];
                                 
                 // extract all strobemers in parallel and look up their multiplicities
                 customThreadPool.submit(() ->
-//                    IntStream.range(minPos, maxPos+1).parallel().forEach(i -> {
-//                        HashedPositions s = strobeItr.get(i);
-//                        strobes[i-minPos] = s;
-//                        seen[i-minPos] = cbf.getCount(s.hash) >= maxMultiplicity;
                     IntStream.range(0, numStrobes).parallel().forEach(i -> {
-                        HashedPositions s = strobeItr.get(i);
+                        HashedInterval s = strobeItr.getInterval(i);
                         strobes[i] = s;
                         seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
                     })
@@ -397,9 +392,9 @@ public class SeqSubsampler {
                 ComparableInterval namInterval = null;
                 for (int i=0; i<numStrobes; ++i) {
                     if (seen[i]) {
-                        HashedPositions s = strobes[i];
-                        int pos1 = s.pos[0];
-                        int pos2 = s.pos[lastStrobeIndex] + k - 1;
+                        HashedInterval s = strobes[i];
+                        int pos1 = s.start;
+                        int pos2 = s.end;
                         
                         if (namInterval == null) {
                             if (pos1 > maxEdgeClip) {
@@ -414,14 +409,14 @@ public class SeqSubsampler {
                         }
                     }
                     else if (namInterval == null) {
-                        if (strobes[i].pos[0] > maxEdgeClip) {
+                        if (strobes[i].start > maxEdgeClip) {
                             // beyond left edge region
                             write = true;
                             break;
                         }
                     }
                     else {
-                        if (strobes[i].pos[0] > namInterval.end) {
+                        if (strobes[i].start > namInterval.end) {
                             // there is a gap
                             write = true;
                             break;

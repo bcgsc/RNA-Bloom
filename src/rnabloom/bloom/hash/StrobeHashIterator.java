@@ -130,6 +130,39 @@ public class StrobeHashIterator implements StrobeHashIteratorInterface {
         return new HashedPositions(strobemerHash, positions);
     }
     
+    public HashedInterval getInterval(int p) {
+        long strobemerHash = kmerHashVals[p];
+        int min = p;
+        int max = min;
+        
+        for (int s=0; s<n-1; ++s) {
+            int pos2 = p + s*wMax + wMin;
+            long pos2Kmer = kmerHashVals[pos2];
+            long h = combineHashValues(strobemerHash, pos2Kmer);
+            
+            int end = Math.min(p + s*wMax + wMax, numKmers);
+            for (int i=pos2 +1; i<end; ++i) {
+                long altKmer = kmerHashVals[i];
+                if (altKmer == pos2Kmer) {
+                    pos2 = i;
+                }
+                else {
+                    long h2 = combineHashValues(strobemerHash, altKmer);
+                    if (Long.compareUnsigned(h, h2) >= 0) {
+                        pos2 = i;
+                        pos2Kmer = altKmer;
+                        h = h2;
+                    }
+                }
+            }
+            
+            strobemerHash = h;
+            max = pos2;
+        }
+                
+        return new HashedInterval(strobemerHash, min, max + k - 1);
+    }
+    
     @Override
     public int getPos() {
         return pos;
