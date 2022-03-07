@@ -336,7 +336,7 @@ public class SeqSubsampler {
              
     }
     
-    public static void strobemerBased(ArrayList<FlaggedBitSequence> seqs,
+    public static void strobemerBased(ArrayList<BitSequence> seqs,
             String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose,
@@ -358,7 +358,6 @@ public class SeqSubsampler {
         CountingBloomFilter cbf = new CountingBloomFilter(bfSize, numHash, h);
         
         int n = 3;
-        int lastStrobeIndex = 2;
         int wMin = k + 1;
         int wMax = k + Math.max(k, maxIndelSize);
         maxEdgeClip = Math.max(maxEdgeClip, wMax);
@@ -368,8 +367,7 @@ public class SeqSubsampler {
         StrobeHashIterator strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
         ForkJoinPool customThreadPool = new ForkJoinPool(numThreads);
 
-        for (int seqIndex=0; seqIndex<numSeq; ++seqIndex) {
-            FlaggedBitSequence bits = seqs.get(seqIndex);
+        for (BitSequence bits : seqs) {
             String seq = bits.toString();
 
             if (strobeItr.start(seq)) {

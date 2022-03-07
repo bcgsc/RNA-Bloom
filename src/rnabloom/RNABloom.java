@@ -3519,7 +3519,7 @@ public class RNABloom {
         private Exception exception = null;
 //        private final boolean writeUracil;
         private final boolean storeLongReads;
-        private ArrayList<FlaggedBitSequence> bits = new ArrayList<>();
+        private ArrayList<BitSequence> bits = new ArrayList<>();
         private String sampleReadLengthsPath = null;
         
         public CorrectedLongReadsWriterWorker2(ArrayBlockingQueue<Sequence2> inputQueue, 
@@ -3552,7 +3552,7 @@ public class RNABloom {
             }
             else if (seq.length >= minSeqLen) {
                 if (storeLongReads) {
-                    bits.add(new FlaggedBitSequence(seq.seq, seq.hasPolyA));
+                    bits.add(new BitSequence(seq.seq));
                 }
                 longWriter.write(header, seq.seq);
             }
@@ -3641,7 +3641,7 @@ public class RNABloom {
             return sampleLengthStats;
         }
         
-        public ArrayList<FlaggedBitSequence> getLongReads() {
+        public ArrayList<BitSequence> getLongReads() {
             return bits;
         }
     }
@@ -3940,7 +3940,7 @@ public class RNABloom {
     }
     */
     
-    public ArrayList<FlaggedBitSequence> correctLongReadsMultithreaded(String[] inputFastxPaths,
+    public ArrayList<BitSequence> correctLongReadsMultithreaded(String[] inputFastxPaths,
                                                 FastaWriter longSeqWriter,
                                                 FastaWriter shortSeqWriter,
                                                 FastaWriter repeatsSeqWriter,
@@ -5245,7 +5245,7 @@ public class RNABloom {
     }
     */
     
-    private static ArrayList<FlaggedBitSequence> correctLongReads(RNABloom assembler, 
+    private static ArrayList<BitSequence> correctLongReads(RNABloom assembler, 
             String[] inFastxList, String outLongFasta, String outShortFasta, String outRepeatsFasta,
             String polyAReadNamesPath, String sampleReadLengthsPath,
             int maxErrCorrItr, int minKmerCov, int numThreads, int sampleSize, int minSeqLen, 
@@ -5256,7 +5256,7 @@ public class RNABloom {
         FastaWriter repeatsWriter = new FastaWriter(outRepeatsFasta, false);
         Writer polyAReadNamesWriter = getTextFileWriter(polyAReadNamesPath, false);
 
-        ArrayList<FlaggedBitSequence> longReads = assembler.correctLongReadsMultithreaded(inFastxList,
+        ArrayList<BitSequence> longReads = assembler.correctLongReadsMultithreaded(inFastxList,
                                                 longWriter, shortWriter, repeatsWriter, polyAReadNamesWriter,
                                                 sampleReadLengthsPath,
                                                 minKmerCov,
@@ -7296,7 +7296,7 @@ public class RNABloom {
                 }
                 else {
                     Timer myTimer = new Timer();
-                    ArrayList<FlaggedBitSequence> correctedReads = correctLongReads(assembler, 
+                    ArrayList<BitSequence> correctedReads = correctLongReads(assembler, 
                             longReadPaths, longCorrectedReadsPath, shortCorrectedReadsPath,
                             repeatReadsPath, polyAReadNamesPath, sampleReadLengthsPath,
                             maxErrCorrItr, minKmerCov, numThreads, sampleSize, Math.min(minOverlap, minTranscriptLength),
