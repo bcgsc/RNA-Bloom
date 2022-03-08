@@ -86,9 +86,9 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
             long h = combineHashValues(strobemerHash, fHashVals[pos2]);
             
             int end = Math.min(pos + s*wMax + wMax, numKmers);
-            for (int i=pos + s*wMax + wMin +1; i<end; ++i) {
+            for (int i=pos2 +1; i<end; ++i) {
                 long h2 = combineHashValues(strobemerHash, fHashVals[i]);
-                if (Long.compareUnsigned(h, h2) > 0) {
+                if (Long.compareUnsigned(h, h2) >= 0) {
                     pos2 = i;
                     h = h2;
                 }
@@ -122,9 +122,9 @@ public class CanonicalStrobeHashIterator implements StrobeHashIteratorInterface 
             long h = combineHashValues(strobemerHash, fHashVals[pos2]);
             
             int end = Math.min(p + s*wMax + wMax, numKmers);
-            for (int i=p + s*wMax + wMin +1; i<end; ++i) {
+            for (int i=pos2 +1; i<end; ++i) {
                 long h2 = combineHashValues(strobemerHash, fHashVals[i]);
-                if (Long.compareUnsigned(h, h2) > 0) {
+                if (Long.compareUnsigned(h, h2) >= 0) {
                     pos2 = i;
                     h = h2;
                 }

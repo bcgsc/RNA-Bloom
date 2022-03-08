@@ -59,9 +59,12 @@ public class CanonicalStrobe3HashIterator implements StrobeHashIteratorInterface
             if (numKmers > wMin * 2) {
                 fHashVals = new long[numKmers];
                 rHashVals = new long[numKmers];
-                min = wMin;
+//                min = wMin;
+//                pos = min - 1;
+//                max = numKmers - 1 - wMin;
+                min = wMax;
                 pos = min - 1;
-                max = numKmers - 1 - wMin;
+                max = numKmers - 1 - wMax;
                 for (int i=0; i<numKmers; ++i) {
                     itr.next();
                     fHashVals[i] = itr.frhval[0];
@@ -104,7 +107,7 @@ public class CanonicalStrobe3HashIterator implements StrobeHashIteratorInterface
         fEnd = Math.min(pos + wMax, numKmers);
         for (int i=fPos3+1; i<fEnd; ++i) {
             long h = combineHashValues(fh1, fHashVals[i]);
-            if (Long.compareUnsigned(fh3, h) > 0) {
+            if (Long.compareUnsigned(fh3, h) >= 0) {
                 fPos3 = i;
                 fh3 = h;
             }
@@ -119,7 +122,7 @@ public class CanonicalStrobe3HashIterator implements StrobeHashIteratorInterface
         int rEnd = Math.min(pos + wMax, numKmers);
         for (int i=rPos3+1; i<rEnd; ++i) {
             long h = combineHashValues(rHashVals[i], rKmerHash);
-            if (Long.compareUnsigned(rh3, h) > 0) {
+            if (Long.compareUnsigned(rh3, h) >= 0) {
                 rPos3 = i;
                 rh3 = h;
             }
@@ -175,7 +178,7 @@ public class CanonicalStrobe3HashIterator implements StrobeHashIteratorInterface
         fEnd = Math.min(p + wMax, numKmers);
         for (int i=fPos3+1; i<fEnd; ++i) {
             long h = combineHashValues(fh1, fHashVals[i]);
-            if (Long.compareUnsigned(fh3, h) > 0) {
+            if (Long.compareUnsigned(fh3, h) >= 0) {
                 fPos3 = i;
                 fh3 = h;
             }
@@ -190,7 +193,7 @@ public class CanonicalStrobe3HashIterator implements StrobeHashIteratorInterface
         int rEnd = Math.min(p + wMax, numKmers);
         for (int i=rPos3+1; i<rEnd; ++i) {
             long h = combineHashValues(rHashVals[i], rKmerHash);
-            if (Long.compareUnsigned(rh3, h) > 0) {
+            if (Long.compareUnsigned(rh3, h) >= 0) {
                 rPos3 = i;
                 rh3 = h;
             }
