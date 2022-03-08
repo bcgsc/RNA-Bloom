@@ -225,7 +225,10 @@ See documentation for other [JVM options](https://docs.oracle.com/cd/E37116_01/i
 
 ## Implementation :pencil:
 
-RNA-Bloom is written in Java with Apache NetBeans IDE. It uses the [Apache Commons CLI library](https://commons.apache.org/proper/commons-cli/) and [JGraphT core library](https://jgrapht.org/).
+RNA-Bloom is written in Java with Apache NetBeans IDE. It uses the following libraries:
+* [Apache Commons CLI](https://commons.apache.org/proper/commons-cli/)
+* [JGraphT](https://jgrapht.org/)
+* [Smile](https://github.com/haifengl/smile)
 
 
 ## Citing RNA-Bloom :scroll:
