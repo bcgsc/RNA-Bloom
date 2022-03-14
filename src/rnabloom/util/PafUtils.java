@@ -16,24 +16,19 @@
  */
 package rnabloom.util;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.jgrapht.graph.DefaultDirectedGraph;
 import rnabloom.io.ExtendedPafRecord;
 import rnabloom.io.PafReader;
 import rnabloom.io.PafRecord;
 import rnabloom.olc.Interval;
-import rnabloom.olc.Layout;
-import static rnabloom.util.FileUtils.fileToStringCollection;
 import static rnabloom.util.IntervalUtils.getOverlap;
 import static rnabloom.util.IntervalUtils.merge;
 
@@ -81,30 +76,29 @@ public class PafUtils {
     }
     
     public static boolean hasGoodAlignment(ExtendedPafRecord r, int maxIndelSize, float minAlnId) {
-        int totalCigarMatch = 0;
-                
-        Matcher m = CIGAR_OP_PATTERN.matcher(r.cigar);
-        while (m.find()) {
-            int opSize = Integer.parseInt(m.group(1));
-            char op = m.group(2).charAt(0);
-            switch (op) {
-                case 'M':
-                    totalCigarMatch += opSize;
-                    break;
-                case 'I':
-                    if (opSize > maxIndelSize) {
-                        return false;
-                    }
-                    break;
-                case 'D':
-                    if (opSize > maxIndelSize) {
-                        return false;
-                    }
-                    break;
+        if (r.numMatch/(float)r.blockLen >= minAlnId) {
+            Matcher m = CIGAR_OP_PATTERN.matcher(r.cigar);
+            while (m.find()) {
+                int opSize = Integer.parseInt(m.group(1));
+                char op = m.group(2).charAt(0);
+                switch (op) {
+                    case 'I':
+                        if (opSize > maxIndelSize) {
+                            return false;
+                        }
+                        break;
+                    case 'D':
+                        if (opSize > maxIndelSize) {
+                            return false;
+                        }
+                        break;
+                }
             }
+            
+            return true;
         }
                 
-        return r.numMatch/(float)totalCigarMatch >= minAlnId && totalCigarMatch/(float)r.blockLen >= minAlnId;
+        return false;
     }
     
     public static boolean hasReverseComplementArtifact(PafRecord r, int maxEdgeClip) {
