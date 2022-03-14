@@ -3779,8 +3779,11 @@ public class Layout {
             }
             else if (!containedSet.contains(name)) {
                 // this sequence either contains shorter sequences or it has no overlaps with others
-                fw.write(Long.toString(++seqID) + " l=" + nameSeq[1].length() + " c=" + readCounts.get(name) + " s=" + name, nameSeq[1]);
-                readCounts.remove(name);
+                Float c = readCounts.get(name);
+                if (c != null) {
+                    fw.write(Long.toString(++seqID) + " l=" + nameSeq[1].length() + " c=" + c.toString() + " s=" + name, nameSeq[1]);
+                    readCounts.remove(name);
+                }
             }
         }
         fr.close();
