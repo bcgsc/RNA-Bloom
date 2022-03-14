@@ -249,8 +249,9 @@ public class RNABloom {
             }
             
             polyaFinder = new PolyATailFinder();
-            polyaFinder.setProfile(PolyATailFinder.Profile.ONT);
+            polyaFinder.setProfile(PolyATailFinder.Profile.ONT); /**@TODO auto-detect long or short reads*/
             polyaFinder.setSeedLength(minPolyATail);
+            polyaFinder.setWindow(maxTipLength + minPolyATail);
         }
     }
         
@@ -3725,7 +3726,7 @@ public class RNABloom {
                                                 
                         boolean hasPolyA = false;
                         
-                        if (minPolyATailLengthRequired > 0) {
+                        if (minPolyATailLengthRequired > 0) {                            
                             Interval tailRegion = polyaFinder.findPolyATail(seq);
                             if (strandSpecific) {
                                 if (tailRegion != null && tailRegion.end < seq.length()) {
@@ -5845,7 +5846,7 @@ public class RNABloom {
         String defaultMaxIndelSizeLR = "50";
         String defaultMaxTipLengthLR = "50";
         String defaultMaxErrorCorrItrLR = "2";
-        String defaultPercentIdentityLR = "0.6";
+        String defaultPercentIdentityLR = "0.7";
         String defaultMinPolyALengthLR = "12";
         String defaultLongReadPreset = "-k " + defaultKmerSizeLR + " -c " + defaultMinCoverageLR + 
                 " -indel " + defaultMaxIndelSizeLR + " -e " + defaultMaxErrorCorrItrLR +
@@ -6277,7 +6278,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optMinimapOptions);
 
-        final String optLongReadOverlapProportionDefault = "0.70";
+        final String optLongReadOverlapProportionDefault = "0.80";
         Option optLongReadOverlapProportion = Option.builder("lrop")
                                     .desc("minimum proportion of matching bases within long-read overlaps [" + optLongReadOverlapProportionDefault + "]")
                                     .hasArg(true)
@@ -6296,8 +6297,8 @@ public class RNABloom {
         String defaultKmerSizePB = "35";
         String defaultMaxIndelSizePB = "30";
         String defaultMaxTipLengthPB = "10";
-        String defaultPercentIdentityPB = "0.7";
-        String defaultLongReadOverlapProportionPB = "0.7";
+        String defaultPercentIdentityPB = "0.8";
+        String defaultLongReadOverlapProportionPB = "0.9";
         String defaultPacbioPreset = "-k" + defaultKmerSizePB +
                 " -indel " + defaultMaxIndelSizePB +
                 " -tip " + defaultMaxTipLengthPB +
@@ -6979,7 +6980,7 @@ public class RNABloom {
             final int minTranscriptLength = Integer.parseInt(line.getOptionValue(optMinLength.getOpt(), defaultMinTranscriptLength));
             
             String defaultMinPolyALength = hasLongReadFiles ? defaultMinPolyALengthLR : optPolyATailDefault;
-            final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), defaultMinPolyALength));
+            final int minPolyATail = Integer.parseInt(line.getOptionValue(optPolyATail.getOpt(), defaultMinPolyALength));            
 //            if (minPolyATail > 0) {
 //                maxErrCorrItr = 0;
 //                branchFreeExtensionThreshold = STRATUM_01;
