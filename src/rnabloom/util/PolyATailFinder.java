@@ -80,7 +80,7 @@ public class PolyATailFinder {
                 seedLength = 12;
                 minIdentity = 0.9f;
                 maxGap = 4;
-                window = 30;
+                window = 100;
                 pasSearchStart = 60;
                 pasSearchEnd = 5;
                 break;
