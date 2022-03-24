@@ -1770,11 +1770,7 @@ public class RNABloom {
                         headerBuilder.append("]");
                     }
                 }
-                
-                if (writeUracil) {
-                    transcript = transcript.replace('T', 'U');
-                }
-                
+                                
                 if (len >= minTranscriptLength) {
                     fout.write(headerBuilder.toString(), transcript);
                 }
@@ -3306,7 +3302,8 @@ public class RNABloom {
                                     boolean stranded,
                                     boolean removeArtifacts,
                                     int minSeqDepth,
-                                    boolean usePacBioPreset) throws IOException {
+                                    boolean usePacBioPreset,
+                                    boolean writeUracil) throws IOException {
         
         boolean ok = false;
         if (hasOnlyOneSequence(readsPath)) {
@@ -3331,7 +3328,8 @@ public class RNABloom {
                     numThreads, stranded, minimapOptions, maxEdgeClip,
                     minAlnId, minOverlapMatches, maxIndelSize,
                     minSeqDepth, usePacBioPreset, true,
-                    polyAReadNamesPath, polyaFinder);
+                    polyAReadNamesPath, polyaFinder, txptNamePrefix,
+                    writeUracil);
         }
         
         return ok;
@@ -4852,8 +4850,8 @@ public class RNABloom {
         boolean includeNaiveExtensions = true;
         boolean extendBranchFreeFragmentsOnly = false;
 
-        FastaWriter fout = new FastaWriter(outFasta, false);
-        FastaWriter foutShort = new FastaWriter(outFastaShort, false);
+        FastaWriter fout = new FastaWriter(outFasta, false, writeUracil);
+        FastaWriter foutShort = new FastaWriter(outFastaShort, false, writeUracil);
         TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, maxTipLength, writeUracil);
         
         SingleEndReadsIterator readsItr = new SingleEndReadsIterator(forwardReadPaths, reverseReadPaths);
@@ -4895,8 +4893,8 @@ public class RNABloom {
 
         boolean assemblePolya = minPolyATailLengthRequired > 0;
 
-        FastaWriter fout = new FastaWriter(outFasta, false);
-        FastaWriter foutShort = new FastaWriter(outFastaShort, false);
+        FastaWriter fout = new FastaWriter(outFasta, false, writeUracil);
+        FastaWriter foutShort = new FastaWriter(outFastaShort, false, writeUracil);
         //TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, sensitiveMode ? maxTipLength : Math.max(k, maxTipLength));
         TranscriptWriter writer = new TranscriptWriter(fout, foutShort, minTranscriptLength, maxTipLength, writeUracil);
 
@@ -5918,7 +5916,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optName);
         
-        final String optPrefixDefault = "";
+        final String optPrefixDefault = "rb_";
         Option optPrefix = Option.builder("prefix")
                                     .desc("name prefix in FASTA header for assembled transcripts")
                                     .hasArg(true)
@@ -7392,7 +7390,8 @@ public class RNABloom {
                                     strandSpecific,
                                     !keepArtifact,
                                     longReadMinReadDepth,
-                                    usePacBioPreset);
+                                    usePacBioPreset,
+                                    writeUracil);
                     
                     if (ok) {
                         splitFastaByLength(assembledTranscriptsPath, longTranscriptsFasta, shortTranscriptsFasta, minTranscriptLength);

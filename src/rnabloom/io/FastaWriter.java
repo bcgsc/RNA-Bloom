@@ -26,22 +26,31 @@ import static rnabloom.util.FileUtils.getTextFileWriter;
  */
 public class FastaWriter {
     private final Writer out;
-    //private FileLock lock = null;
+    private boolean writeUracil = false;
     
     public FastaWriter(String path, boolean append) throws IOException {
         out = getTextFileWriter(path, append);
+    }
+    
+    public FastaWriter(String path, boolean append, boolean writeUracil) throws IOException {
+        this(path, append);
+        this.writeUracil = writeUracil;
     }
     
     public synchronized void write(String header, String seq) throws IOException {
         out.write('>');
         out.write(header);
         out.write('\n');
-        out.write(seq);
+        if (writeUracil) {
+            out.write(seq.replace('T', 'U'));
+        }
+        else {
+            out.write(seq);
+        }
         out.write('\n');
     }
     
     public void close() throws IOException {
-        //lock.release();
         out.flush();
         out.close();
     }

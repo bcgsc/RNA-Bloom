@@ -3674,7 +3674,8 @@ public class Layout {
     }
     
     public void extractGreedyPaths(String outFastaPath, String mappingPafPath,
-            String polyAReadNamesPath, String sampleReadLengthsPath) throws IOException {
+            String polyAReadNamesPath, String sampleReadLengthsPath,
+            String txptNamePrefix, boolean writeUracil) throws IOException {
         HashSet<String> containedSet = populateGraphFromOverlaps();
         
         if (!containedSet.isEmpty()) {
@@ -3767,7 +3768,7 @@ public class Layout {
         timer.start();
         HashMap<String, BitSequence> dovetailReadSeqs = new HashMap<>(vertexSet.size());
         FastaReader fr = new FastaReader(seqFastaPath);
-        FastaWriter fw = new FastaWriter(outFastaPath, false);
+        FastaWriter fw = new FastaWriter(outFastaPath, false, writeUracil);
         long seqID = 0;
         long originalNumSeq = 0;
         while (fr.hasNext()) {
@@ -3779,7 +3780,7 @@ public class Layout {
             }
             else if (!containedSet.contains(name)) {
                 // this sequence either contains shorter sequences or it has no overlaps with others
-                fw.write(Long.toString(++seqID) + " l=" + nameSeq[1].length() + " c=" + readCounts.get(name) + " s=" + name, nameSeq[1]);
+                fw.write(txptNamePrefix + Long.toString(++seqID) + " l=" + nameSeq[1].length() + " c=" + readCounts.get(name) + " s=" + name, nameSeq[1]);
                 readCounts.remove(name);
             }
         }
@@ -3812,7 +3813,7 @@ public class Layout {
                 
                 ArrayDeque<String> path = getMaxWeightExtension(seedVid, readCounts);
                 
-                String header = Long.toString(++seqID);
+                String header = txptNamePrefix + Long.toString(++seqID);
                 String seq = assemblePath(path, dovetailReadSeqs);
 
                 header += " l=" + seq.length() + " c=" + getMinAndDecrementWeights(path, readCounts);

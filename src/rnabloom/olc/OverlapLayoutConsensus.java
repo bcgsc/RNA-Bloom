@@ -559,7 +559,8 @@ public class OverlapLayoutConsensus {
             int numThreads, boolean align, String minimapOptions, boolean stranded, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize, boolean cutRevCompArtifact,
             int minSeqDepth, boolean usePacBioPreset, String mappingPafPath, String polyAReadNamesPath,
-            boolean verbose, PolyATailFinder polyaFinder, String sampleReadLengthsPath) {
+            boolean verbose, PolyATailFinder polyaFinder, String sampleReadLengthsPath,
+            String txptNamePrefix, boolean writeUracil) {
         if (verbose) {
             System.out.println("Overlapping sequences...");
         }
@@ -603,7 +604,8 @@ public class OverlapLayoutConsensus {
 
             boolean reduced = layoutGreedy(seqFastaPath, process.getInputStream(), layoutFastaPath, stranded, maxEdgeClip, 
                     minAlnId, minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth, mappingPafPath,
-                    polyAReadNamesPath, verbose, polyaFinder, sampleReadLengthsPath);
+                    polyAReadNamesPath, verbose, polyaFinder, sampleReadLengthsPath, txptNamePrefix,
+                    writeUracil);
             
             int exitStatus = process.waitFor();
             
@@ -765,12 +767,13 @@ public class OverlapLayoutConsensus {
     public static boolean layoutGreedy(String seqFastaPath, InputStream overlapPafInputStream, String backboneFastaPath,
             boolean stranded, int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
             boolean cutRevCompArtifact, int minSeqDepth, String mappingPafPath, String polyAReadNamesPath,
-            boolean verbose, PolyATailFinder polyaFinder, String sampleReadLengthsPath) {
+            boolean verbose, PolyATailFinder polyaFinder, String sampleReadLengthsPath,
+            String txptNamePrefix, boolean writeUracil) {
         try {
             Layout myLayout = new Layout(seqFastaPath, overlapPafInputStream, stranded, maxEdgeClip, minAlnId, 
                     minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth, verbose, polyaFinder);
             myLayout.extractGreedyPaths(backboneFastaPath, mappingPafPath,
-                    polyAReadNamesPath, sampleReadLengthsPath);
+                    polyAReadNamesPath, sampleReadLengthsPath, txptNamePrefix, writeUracil);
             return true;
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -1050,7 +1053,7 @@ public class OverlapLayoutConsensus {
             numThreads, true, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset, readsToSimplePafPath, polyAReadNamesPath,
-            verbose, polyaFinder, null);
+            verbose, polyaFinder, null, "rnabloom", false);
         if (status != STATUS.SUCCESS) {
             return false;
         }
@@ -1063,7 +1066,8 @@ public class OverlapLayoutConsensus {
             int numThreads, boolean stranded, String minimapOptions, int maxEdgeClip,
             float minAlnId, int minOverlapMatches, int maxIndelSize,
             int minSeqDepth, boolean usePacBioPreset, boolean verbose,
-            String polyAReadNamesPath, PolyATailFinder polyaFinder) throws IOException {
+            String polyAReadNamesPath, PolyATailFinder polyaFinder, String txptNamePrefix,
+            boolean writeUracil) throws IOException {
 
         String uniqueFastaPath = tmpPrefix + "1.nr" + FASTA_EXT + GZIP_EXTENSION;
         String simpleFastaPath = tmpPrefix + "2.uni" + FASTA_EXT + GZIP_EXTENSION;
@@ -1135,7 +1139,8 @@ public class OverlapLayoutConsensus {
             numThreads, true, minimapOptions, stranded, maxEdgeClip,
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset, readsToSimplePafPath, polyAReadNamesPath,
-            verbose, polyaFinder, sampleReadLengthsPath);
+            verbose, polyaFinder, sampleReadLengthsPath, txptNamePrefix,
+            writeUracil);
         if (status != STATUS.SUCCESS) {
             return false;
         }
@@ -1341,7 +1346,7 @@ public class OverlapLayoutConsensus {
                                             numThreads, stranded, minimapOptions, maxEdgeClip,
                                             minAlnId, minOverlapMatches, maxIndelSize,
                                             minSeqDepth, usePacBioPreset, false, polyAReadNamesPath,
-                                            polyaFinder);
+                                            polyaFinder, "rnabloom", false);
 
                     if (status) {
                         touch(assemblyDoneStamp);
