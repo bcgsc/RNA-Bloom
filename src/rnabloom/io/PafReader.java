@@ -49,20 +49,18 @@ public class PafReader {
     
     public ExtendedPafRecord next() {
         ExtendedPafRecord r = new ExtendedPafRecord();
-        r.update(itr.next().trim().split("\t"));
+        r.update(itr.next());
         ++records;
         return r;
     }
 
     public void next(PafRecord record) {
-        String[] cols = itr.next().trim().split("\t");
-        record.update(cols);
+        record.update(itr.next().trim().split("\t"));
         ++records;
     }
     
     public void next(ExtendedPafRecord record) {
-        String[] cols = itr.next().trim().split("\t");
-        record.update(cols);
+        record.update(itr.next());
         ++records;
     }
     

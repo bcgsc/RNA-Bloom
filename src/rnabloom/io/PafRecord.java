@@ -41,4 +41,27 @@ public class PafRecord extends OverlapCoords {
         blockLen = Integer.parseInt(cols[10]);
         qual = Integer.parseInt(cols[11]);
     }
+    
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(qName).append('\t')
+                .append(qLen).append('\t')
+                .append(qStart).append('\t')
+                .append(qEnd).append('\t');
+        if (reverseComplemented) {
+            sb.append('-').append('\t');
+        }
+        else {
+            sb.append('+').append('\t');
+        }
+        sb.append(tName).append('\t')
+                .append(tLen).append('\t')
+                .append(tStart).append('\t')
+                .append(tEnd).append('\t')
+                .append(numMatch).append('\t')
+                .append(blockLen).append('\t')
+                .append(qual);
+        return sb.toString();
+    }
 }

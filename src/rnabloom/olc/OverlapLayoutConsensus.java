@@ -16,20 +16,17 @@
  */
 package rnabloom.olc;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.lang.ProcessBuilder.Redirect;
 import java.nio.file.Files;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import static rnabloom.io.Constants.FASTA_EXT;
 import rnabloom.io.ExtendedPafRecord;
-import rnabloom.io.FastGZIPOutputStream;
+import rnabloom.io.PafReader;
 import static rnabloom.util.CommandLine.runCommand;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.FileUtils.deleteIfExists;
@@ -701,21 +698,74 @@ public class OverlapLayoutConsensus {
             Process process = pb.start();
 
             long numGoodRecords = 0;
-            ExtendedPafRecord record = new ExtendedPafRecord();
-            BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            for (String line; (line = br.readLine()) != null; ) {
-                record.update(line.trim().split("\t"));
+            PafReader reader = new PafReader(process.getInputStream());
+            String qName = null;
+            ArrayDeque<ExtendedPafRecord> currentRecords = new ArrayDeque<>();
+            ExtendedPafRecord primary = null;
+            for (ExtendedPafRecord record; reader.hasNext(); ) {
+                record = reader.next();
+                if (!record.qName.equals(qName)) {
+                    qName = record.qName;
+                    
+                    if (!currentRecords.isEmpty()) {
+                        if (primary != null) {
+                            float id = primary.numMatch/(float)primary.blockLen;
+                            // filter secondary alignments based on primary alignment's identity
+                            float threshold = id * id;
+                            for (ExtendedPafRecord r : currentRecords) {
+                                if (r.numMatch/(float)r.blockLen >= threshold) {
+                                    bw.write(r.toString());
+                                    bw.write('\n');
+                                }
+                            }
+                        }
+                        else {
+                            for (ExtendedPafRecord r : currentRecords) {
+                                bw.write(r.toString());
+                                bw.write('\n');
+                            }
+                        }
+                    }
+                    
+                    currentRecords = new ArrayDeque<>();
+                    primary = null;
+                }
+                
                 if (!stranded || !record.reverseComplemented) {
                     if ((hasLargeOverlap(record, minOverlapMatches) ||
                             isContainmentPafRecord(record, maxEdgeClip)) &&
                             hasGoodAlignment(record, maxIndelSize, minAlnId)) {
-                        bw.write(line);
-                        bw.write('\n');
+                        currentRecords.add(record);
                         ++numGoodRecords;
                     }
                 }
+                
+                if (record.isPrimary) {
+                    primary = record;
+                }
             }
-            br.close();
+            
+            // process the final batch
+            if (!currentRecords.isEmpty()) {
+                if (primary != null) {
+                    float id = primary.numMatch/(float)primary.blockLen;
+                    float threshold = id * id;
+                    for (ExtendedPafRecord r : currentRecords) {
+                        if (r.numMatch/(float)r.blockLen >= threshold) {
+                            bw.write(r.toString());
+                            bw.write('\n');
+                        }
+                    }
+                }
+                else {
+                    for (ExtendedPafRecord r : currentRecords) {
+                        bw.write(r.toString());
+                        bw.write('\n');
+                    }
+                }
+            }
+            
+            reader.close();
             bw.close();
             
             int exitStatus = process.waitFor();
