@@ -3767,10 +3767,10 @@ public class RNABloom {
 //                                        }
 //                                    }
 //                                    else {
-//                                        if (headRegion.end < tailRegion.start) {
+                                        if (headRegion.end < tailRegion.start) {
 //                                            // remove both head and tail
                                             seq = seq.substring(headRegion.end, tailRegion.start);
-//                                        }
+                                        }
                                         hasPolyA = false; // ambiguous
 //                                    }
                                 }
