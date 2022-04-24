@@ -5535,7 +5535,7 @@ public class RNABloom {
             String[] forwardReadPaths, String[] reverseReadPaths,
             int minTranscriptLength, boolean keepArtifact, boolean keepChimera,
             float minKmerCov, boolean reduceRedundancy, boolean writeUracil,
-            boolean usePacBioPreset, String minimapOptions) throws IOException, InterruptedException {
+            boolean usePacBioPreset, String minimapOptions, boolean destroyBf) throws IOException, InterruptedException {
 
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
         final String transcriptsFasta      = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
@@ -5543,9 +5543,9 @@ public class RNABloom {
         
         if (forceOverwrite || !txptsDoneStamp.exists()) {
             Timer timer = new Timer();
-                assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
-                                
-                assembler.assembleSingleEndReads(forwardReadPaths,
+            assembler.setupKmerScreeningBloomFilter(sbfSize, sbfNumHash);
+
+            assembler.assembleSingleEndReads(forwardReadPaths,
                                     reverseReadPaths,
                                     transcriptsFasta,
                                     shortTranscriptsFasta,
@@ -5566,6 +5566,10 @@ public class RNABloom {
             System.out.println("WARNING: Transcripts were already assembled for \"" + name + "\"!");
         }
         
+        if (destroyBf) {
+            assembler.destroyAllBf();
+        }
+        
         if (reduceRedundancy) {
             assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, usePacBioPreset, minimapOptions);
         }
@@ -5578,7 +5582,8 @@ public class RNABloom {
             boolean reqFragKmersConsistency, boolean restorePairedKmers,
             float minKmerCov, String branchFreeExtensionThreshold,
             boolean reduceRedundancy, boolean assemblePolya, boolean writeUracil,
-            String[] refTranscriptPaths, boolean usePacBioPreset, String minimapOptions) throws IOException, InterruptedException {
+            String[] refTranscriptPaths, boolean usePacBioPreset, String minimapOptions,
+            boolean destroyBf) throws IOException, InterruptedException {
         
         final File txptsDoneStamp = new File(outdir + File.separator + STAMP_TRANSCRIPTS_DONE);
         final String transcriptsFasta = outdir + File.separator + name + ".transcripts" + FASTA_EXT;
@@ -5644,7 +5649,11 @@ public class RNABloom {
         else {
             System.out.println("WARNING: Transcripts were already assembled for \"" + name + "\"!");
         }
-                
+        
+        if (destroyBf) {
+            assembler.destroyAllBf();
+        }
+        
         if (reduceRedundancy) {
             assembleTranscriptsNR(assembler, outdir, name, forceOverwrite, numThreads, keepArtifact, usePacBioPreset, minimapOptions);
         }
@@ -7227,16 +7236,19 @@ public class RNABloom {
                     
                     String sampleOutdir = outdir + File.separator + sampleName;
                     
+                    boolean destroyBf = false;
                     assembleTranscriptsPE(assembler, forceOverwrite,
                                     sampleOutdir, sampleName, txptNamePrefix,
                                     sbfSize, sbfNumHash, pkbfSize, pkbfNumHash, numThreads, noFragDBG,
                                     sampleSize, minTranscriptLength, keepArtifact, keepChimera,
                                     reqFragKmersConsistency, true, minKmerCov,
                                     branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0, writeUracil,
-                                    refTranscriptPaths, usePacBioPreset, minimapOptions);
+                                    refTranscriptPaths, usePacBioPreset, minimapOptions, destroyBf);
                     
                     System.out.print("\n");
                 }
+                
+                assembler.destroyAllBf();
                 
                 if (mergePool) {
                     // combine assembly files
@@ -7416,13 +7428,14 @@ public class RNABloom {
                 Timer stageTimer = new Timer();
                 stageTimer.start();
                 
+                boolean destroyBf = true;
                 assembleTranscriptsSE(assembler, forceOverwrite,
                                     outdir, name, txptNamePrefix,
                                     sbfSize, sbfNumHash, numThreads, 
                                     seForwardReadPaths, seReverseReadPaths,
                                     minTranscriptLength, keepArtifact, keepChimera,
-                                    minKmerCov,
-                                    outputNrTxpts, writeUracil, usePacBioPreset, minimapOptions);
+                                    minKmerCov, outputNrTxpts, writeUracil,
+                                    usePacBioPreset, minimapOptions, destroyBf);
                 
                 System.out.println("> Stage 3 completed in " + stageTimer.elapsedDHMS());
             }
@@ -7451,13 +7464,14 @@ public class RNABloom {
                 System.out.println("\n> Stage 3: Assemble transcripts for \"" + name + "\"");
                 stageTimer.start();
                 
+                boolean destroyBf = true;
                 assembleTranscriptsPE(assembler, forceOverwrite,
                                 outdir, name, txptNamePrefix,
                                 sbfSize, sbfNumHash, pkbfSize, pkbfNumHash, numThreads, noFragDBG,
                                 sampleSize, minTranscriptLength, keepArtifact, keepChimera,
                                 reqFragKmersConsistency, true, minKmerCov, 
                                 branchFreeExtensionThreshold, outputNrTxpts, minPolyATail > 0, writeUracil,
-                                refTranscriptPaths, usePacBioPreset, minimapOptions);
+                                refTranscriptPaths, usePacBioPreset, minimapOptions, destroyBf);
                 
                 System.out.println("> Stage 3 completed in " + stageTimer.elapsedDHMS());
             }      
