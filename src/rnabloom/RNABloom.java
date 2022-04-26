@@ -6318,9 +6318,9 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadPacBioPreset);
         
-        final String optSubsampleLongReadDefault = "3,s,11";
+        final String optSubsampleLongReadDefault = "3,s,11,50";
         Option optSubsampleLongRead = Option.builder("lrsub")
-                                    .desc("subsample long reads before assembly using strobemers (depth,s,size) or k-mer pairs (depth,k,size) [" + optSubsampleLongReadDefault + "]")
+                                    .desc("subsample long reads before assembly using strobemers (depth,s,size,window) or k-mer pairs (depth,k,size) [" + optSubsampleLongReadDefault + "]")
                                     .hasArg(true)
                                     .build();
         options.addOption(optSubsampleLongRead);
@@ -6711,6 +6711,7 @@ public class RNABloom {
             boolean subsampleLongReads = false;
             String subsampleProtocol = null;
             int strobemerSize = 11;
+            int strobemerWindowSize = 50;
             int subKmerSize = 8;
             int subsampleDepth = 3;
             String subsampleLongReadsArg = line.getOptionValue(optSubsampleLongRead.getOpt(), optSubsampleLongReadDefault);
@@ -6722,6 +6723,7 @@ public class RNABloom {
                         case SUBSAMPLE_STROBEMER:
                             try {
                                 strobemerSize = Integer.parseInt(subsampleLongReadsArgVals[2]);
+                                strobemerWindowSize = Integer.parseInt(subsampleLongReadsArgVals[3]);
                                 subsampleProtocol = SUBSAMPLE_STROBEMER;
                                 subsampleLongReads = true;
                             }
@@ -7335,7 +7337,7 @@ public class RNABloom {
                                             dbgbfNumHash, strandSpecific, 
                                             Math.max(subsampleDepth, longReadMinReadDepth),
                                             maxTipLen, true, numThreads,
-                                            maxIndelSize);
+                                            strobemerWindowSize);
                                     break;
                                 case SUBSAMPLE_KMER:
                                     SeqSubsampler.kmerBased(correctedReads, seedReadsPath,
