@@ -6717,7 +6717,7 @@ public class RNABloom {
             String subsampleLongReadsArg = line.getOptionValue(optSubsampleLongRead.getOpt(), optSubsampleLongReadDefault);
             String[] subsampleLongReadsArgVals = subsampleLongReadsArg.split(",");
             if (subsampleLongReadsArgVals.length > 0) {
-                if (subsampleLongReadsArgVals.length == 3) {
+                if (subsampleLongReadsArgVals.length >= 3) {
                     subsampleDepth = Integer.parseInt(subsampleLongReadsArgVals[0]);
                     switch (subsampleLongReadsArgVals[1]) {
                         case SUBSAMPLE_STROBEMER:
