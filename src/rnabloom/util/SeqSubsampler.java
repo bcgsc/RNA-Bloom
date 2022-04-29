@@ -361,98 +361,103 @@ public class SeqSubsampler {
         int wMin = k + 1;
         int wMax = k + Math.max(k, maxIndelSize);
         maxEdgeClip = Math.max(maxEdgeClip, wMax);
-        System.out.println("strobemers: n=" + n + ", k=" + k + ", wMin=" + wMin + ", wMax=" + wMax);
+        System.out.println("strobemers: n=" + n + ", k=" + k + ", wMin=" + wMin + ", wMax=" + wMax + ", depth=" + maxMultiplicity);
         
 //        StrobeHashIteratorInterface strobeItr = stranded ? new Strobe3HashIterator(k, wMin, wMax) : new CanonicalStrobe3HashIterator(k, wMin, wMax);
         StrobeHashIterator strobeItr = new StrobeHashIterator(n, k, wMin, wMax);
         ForkJoinPool customThreadPool = new ForkJoinPool(numThreads);
 
-        for (BitSequence bits : seqs) {
-            String seq = bits.toString();
+        //for (BitSequence bits : seqs) {
+        final int increment = 3;
+        for (int shift=0; shift<increment; ++shift) {
+            for (int index=shift; index<numSeq; index+=increment) {
+                BitSequence bits = seqs.get(index);
+                String seq = bits.toString();
 
-            if (strobeItr.start(seq)) {
-                boolean write = false;
-                int numStrobes = strobeItr.getNumStrobemers();
-                
-                HashedInterval[] strobes = new HashedInterval[numStrobes];
-                boolean[] seen = new boolean[numStrobes];
-                                
-                // extract all strobemers in parallel and look up their multiplicities
-                customThreadPool.submit(() ->
-                    IntStream.range(0, numStrobes).parallel().forEach(i -> {
-                        HashedInterval s = strobeItr.getInterval(i);
-                        strobes[i] = s;
-                        seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
-                    })
-                ).get();
-                
-                // check whether stobemers with sufficient multiplicites are present and overlap
-                ComparableInterval namInterval = null;
-                for (int i=0; i<numStrobes; ++i) {
-                    if (seen[i]) {
-                        HashedInterval s = strobes[i];
-                        int pos1 = s.start;
-                        int pos2 = s.end;
-                        
-                        if (namInterval == null) {
-                            if (pos1 > maxEdgeClip) {
+                if (strobeItr.start(seq)) {
+                    boolean write = false;
+                    int numStrobes = strobeItr.getNumStrobemers();
+
+                    HashedInterval[] strobes = new HashedInterval[numStrobes];
+                    boolean[] seen = new boolean[numStrobes];
+
+                    // extract all strobemers in parallel and look up their multiplicities
+                    customThreadPool.submit(() ->
+                        IntStream.range(0, numStrobes).parallel().forEach(i -> {
+                            HashedInterval s = strobeItr.getInterval(i);
+                            strobes[i] = s;
+                            seen[i] = cbf.getCount(s.hash) >= maxMultiplicity;
+                        })
+                    ).get();
+
+                    // check whether stobemers with sufficient multiplicites are present and overlap
+                    ComparableInterval namInterval = null;
+                    for (int i=0; i<numStrobes; ++i) {
+                        if (seen[i]) {
+                            HashedInterval s = strobes[i];
+                            int pos1 = s.start;
+                            int pos2 = s.end;
+
+                            if (namInterval == null) {
+                                if (pos1 > maxEdgeClip) {
+                                    write = true;
+                                    break;
+                                }
+                                namInterval = new ComparableInterval(pos1, pos2);
+                            }
+                            else if (!namInterval.merge(pos1, pos2)) {
                                 write = true;
                                 break;
                             }
-                            namInterval = new ComparableInterval(pos1, pos2);
                         }
-                        else if (!namInterval.merge(pos1, pos2)) {
-                            write = true;
-                            break;
+                        else if (namInterval == null) {
+                            if (strobes[i].start > maxEdgeClip) {
+                                // beyond left edge region
+                                write = true;
+                                break;
+                            }
+                        }
+                        else {
+                            if (strobes[i].start > namInterval.end) {
+                                // there is a gap
+                                write = true;
+                                break;
+                            }
                         }
                     }
-                    else if (namInterval == null) {
-                        if (strobes[i].start > maxEdgeClip) {
-                            // beyond left edge region
-                            write = true;
-                            break;
-                        }
+
+                    if (!write &&
+                            (namInterval == null ||
+                                namInterval.start > maxEdgeClip ||
+                                namInterval.end < seq.length() - maxEdgeClip - 1)) {
+                        write = true;
                     }
-                    else {
-                        if (strobes[i].start > namInterval.end) {
-                            // there is a gap
-                            write = true;
-                            break;
+
+                    if (write) {
+                        subQueue.add(seq);
+                        ++numSubsample;
+
+                        // hash values are stored in a set to avoid double-counting
+                        HashSet<Long> hashVals = new HashSet<>(numStrobes * 4/3 + 1);
+                        for (int i=0; i<numStrobes; ++i) {
+                            if (!seen[i]) {
+                                hashVals.add(strobes[i].hash);
+                            }
                         }
+
+                        // increment strobemer multiplicities in parallel
+                        customThreadPool.submit(() ->
+                            hashVals.parallelStream().forEach(e -> {
+                                cbf.increment(e);
+                            })
+                        ).get();
                     }
                 }
-                                
-                if (!write &&
-                        (namInterval == null ||
-                            namInterval.start > maxEdgeClip ||
-                            namInterval.end < seq.length() - maxEdgeClip - 1)) {
-                    write = true;
-                }
-                
-                if (write) {
+                else {
+                    ++numTooShort;
                     subQueue.add(seq);
                     ++numSubsample;
-                    
-                    // hash values are stored in a set to avoid double-counting
-                    HashSet<Long> hashVals = new HashSet<>(numStrobes * 4/3 + 1);
-                    for (int i=0; i<numStrobes; ++i) {
-                        if (!seen[i]) {
-                            hashVals.add(strobes[i].hash);
-                        }
-                    }
-                    
-                    // increment strobemer multiplicities in parallel
-                    customThreadPool.submit(() ->
-                        hashVals.parallelStream().forEach(e -> {
-                            cbf.increment(e);
-                        })
-                    ).get();
                 }
-            }
-            else {
-                ++numTooShort;
-                subQueue.add(seq);
-                ++numSubsample;
             }
         }
         
