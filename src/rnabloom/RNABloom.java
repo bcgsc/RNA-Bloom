@@ -102,7 +102,6 @@ import rnabloom.util.Timer;
 import static rnabloom.util.Common.convertToRoundedPercent;
 import static rnabloom.util.Common.getQuartiles;
 import static rnabloom.util.FileUtils.getTextFileReader;
-import rnabloom.util.FlaggedBitSequence;
 import rnabloom.util.PolyATailFinder;
 import rnabloom.util.SeqSubsampler;
 import static rnabloom.util.FileUtils.getTextFileWriter;
@@ -113,7 +112,7 @@ import static rnabloom.util.FileUtils.writeIntArrayToFile;
  * @author Ka Ming Nip
  */
 public class RNABloom {
-    public final static String VERSION = "1.4.4";
+    public final static String VERSION = "2.0.0";
     
 //    private final static long NUM_PARSED_INTERVAL = 100000;
     public final static long NUM_BITS_1GB = (long) pow(1024, 3) * 8;
