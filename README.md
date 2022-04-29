@@ -19,7 +19,7 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 ## Dependency :pushpin:
 
-* [Java SE Development Kit (JDK) 11](https://www.oracle.com/java/technologies/downloads/#java11)
+* [Java SE Development Kit (JDK) 17](https://www.oracle.com/java/technologies/downloads/#java17)
 
 * External software used:
 
@@ -78,6 +78,9 @@ java -jar RNA-Bloom.jar -sef SE.fastq -t THREADS -outdir OUTDIR
 java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -sef SE.fastq -t THREADS -outdir OUTDIR
 ```
 
+Output files: `rnabloom.transcripts.fa` or `rnabloom.transcripts.nr.fa` (with redundancy reduction applied)
+
+
 ### (B) assemble multi-sample RNA-seq data with pooled assembly mode:
 ```
 java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -t THREADS -outdir OUTDIR
@@ -116,6 +119,8 @@ cell1 /path/to/cell1/left.fastq /path/to/cell1/right.fastq /path/to/cell1/sef.fa
 cell2 /path/to/cell2/left.fastq /path/to/cell2/right.fastq /path/to/cell2/sef.fastq /path/to/cell2/ser.fastq
 cell3 /path/to/cell3/left.fastq /path/to/cell3/right.fastq /path/to/cell3/sef.fastq /path/to/cell3/ser.fastq
 ```
+
+Output files for each sample: `rnabloom.transcripts.fa` or `rnabloom.transcripts.nr.fa` (with redundancy reduction applied)
 
 ### (C) strand-specific assembly:
 ```
@@ -167,6 +172,8 @@ ntCard v1.2.1 supports uracil in reads.
 ```
 java -jar RNA-Bloom.jar -long LONG.fastq -sef SHORT.fastq -t THREADS -outdir OUTDIR
 ```
+
+Output file: `rnabloom.transcripts.fa`
 
 ## General Settings :gear:
 
