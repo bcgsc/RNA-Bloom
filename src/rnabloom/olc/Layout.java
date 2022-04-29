@@ -72,7 +72,6 @@ import smile.stat.distribution.BinomialDistribution;
 import smile.stat.distribution.EmpiricalDistribution;
 import smile.util.IntSet;
 
-
 /**
  *
  * @author Ka Ming Nip
