@@ -1659,78 +1659,83 @@ public class Layout {
         int currHistBinSize = -1;
         boolean currContained = false;
         
-        for (PafRecord r = new PafRecord(); reader.hasNext();) {
+        for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
             reader.next(r);
             
-            if ((!stranded || !r.reverseComplemented)&&
+            if ((!stranded || !r.reverseComplemented) &&
                     !r.qName.equals(r.tName) &&
-                    hasLargeOverlap(r)) {
+                    (hasLargeOverlap(r) || isContainmentPafRecord(r)) &&
+                    hasGoodOverlap(r)) {
                 
-                if (!r.qName.equals(currName)) {
-                    if (currName != null && currHist != null) {
-                        if (!currRecords.isEmpty()) {
-                            if (polyAInfoMap != null) {
-                                findContainedTargetOverlaps(currName, currHist, currRecords,
-                                        containedSet, histogramMap, polyAInfoMap);
+                boolean hasAln = hasAlignment(r);
+                if ((!hasAln && hasSimilarSizedOverlap(r, maxOverlapSizeDiff)) || (hasAln && hasGoodAlignment(r))) {
+                
+                    if (!r.qName.equals(currName)) {
+                        if (currName != null && currHist != null) {
+                            if (!currRecords.isEmpty()) {
+                                if (polyAInfoMap != null) {
+                                    findContainedTargetOverlaps(currName, currHist, currRecords,
+                                            containedSet, histogramMap, polyAInfoMap);
+                                }
+                                else {
+                                    findContainedTargetOverlaps(currName, currHist, currRecords,
+                                            containedSet, histogramMap);
+                                }
+                                currRecords.clear();
                             }
-                            else {
-                                findContainedTargetOverlaps(currName, currHist, currRecords,
-                                        containedSet, histogramMap);
+
+                            if (currHist.pendingQueries != null) {
+                                if (polyAInfoMap != null) {
+                                    findContainedQueryOverlaps(currName, currHist, containedSet,
+                                        histogramMap, polyAInfoMap);
+                                }
+                                else {
+                                    findContainedQueryOverlaps(currName, currHist, containedSet,
+                                        histogramMap);
+                                }
+                                currHist.pendingQueries = null;
                             }
-                            currRecords.clear();
                         }
 
-                        if (currHist.pendingQueries != null) {
-                            if (polyAInfoMap != null) {
-                                findContainedQueryOverlaps(currName, currHist, containedSet,
-                                    histogramMap, polyAInfoMap);
+                        currName = r.qName; 
+
+                        currHist = histogramMap.get(currName);
+                        currHistBinSize = getHistogramBinSize(r.qLen);
+                        if (currHist == null) {
+                            currHist = new Histogram(r.qLen, r.qStart, r.qEnd, currHistBinSize);
+                            histogramMap.put(currName, currHist);
+                        }
+                        currHist.seenAsQuery = true;
+
+                        currContained = containedSet.contains(currName);
+                    }
+
+//                    if (getContained(r) != CONTAIN_STATUS.BOTH) { // not a duplicate
+                        Histogram tHist = histogramMap.get(r.tName);
+                        int tHistBinSize = getHistogramBinSize(r.tLen);
+                        if (tHist == null) {
+                            tHist = new Histogram(r.tLen, r.tStart, r.tEnd, tHistBinSize);
+                            histogramMap.put(r.tName, tHist);
+                        }
+
+                        updateHistogram(currHist, r.qStart, r.qEnd, currHistBinSize);
+                        updateHistogram(tHist, r.tStart, r.tEnd, tHistBinSize);
+
+                        if (!currContained && !containedSet.contains(r.tName)) {
+                            // look for containment only if both are not already "contained"
+                            if (tHist.seenAsQuery || isFullyCovered(tHist)) {
+                                currRecords.add(pafToTargetOverlap(r));
                             }
                             else {
-                                findContainedQueryOverlaps(currName, currHist, containedSet,
-                                    histogramMap);
+                                ArrayDeque<QueryOverlap> pending = tHist.pendingQueries;
+                                if (pending == null) {
+                                    pending = new ArrayDeque<>();
+                                    tHist.pendingQueries = pending;
+                                }
+                                pending.add(pafToQueryOverlap(r));
                             }
-                            currHist.pendingQueries = null;
                         }
-                    }
-                    
-                    currName = r.qName; 
-                    
-                    currHist = histogramMap.get(currName);
-                    currHistBinSize = getHistogramBinSize(r.qLen);
-                    if (currHist == null) {
-                        currHist = new Histogram(r.qLen, r.qStart, r.qEnd, currHistBinSize);
-                        histogramMap.put(currName, currHist);
-                    }
-                    currHist.seenAsQuery = true;
-                    
-                    currContained = containedSet.contains(currName);
-                }
-                
-                updateHistogram(currHist, r.qStart, r.qEnd, currHistBinSize);
-
-                Histogram tHist = histogramMap.get(r.tName);
-                int tHistBinSize = getHistogramBinSize(r.tLen);
-                if (tHist == null) {
-                    tHist = new Histogram(r.tLen, r.tStart, r.tEnd, tHistBinSize);
-                    histogramMap.put(r.tName, tHist);
-                }
-                
-                updateHistogram(tHist, r.tStart, r.tEnd, tHistBinSize);
-                
-                if (hasGoodOverlap(r) && hasSimilarSizedOverlap(r, maxOverlapSizeDiff) &&                        
-                        (!currContained && !containedSet.contains(r.tName))) {
-                    // look for containment only if both are not already "contained"
-                    if (tHist.seenAsQuery || isFullyCovered(tHist)) {
-                        currRecords.add(pafToTargetOverlap(r));
-                    }
-                    else {
-                        ArrayDeque<QueryOverlap> pending = tHist.pendingQueries;
-                        if (pending == null) {
-                            pending = new ArrayDeque<>();
-                            tHist.pendingQueries = pending;
-                        }
-                        pending.add(pafToQueryOverlap(r));
-                    }
+//                    }
                 }
             }
         }
@@ -3656,7 +3661,7 @@ public class Layout {
                 double p = readLenDist.cdf(overlapSize);
 
                 // expected number of reads spanning the overlap
-                double c = Math.floor(Math.min(sCount, tCount));
+                double c = Math.floor(Math.max(sCount, tCount));
                 
                 if (supportingReads < c) {
                     // binomial test
