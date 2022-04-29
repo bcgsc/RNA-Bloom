@@ -663,13 +663,17 @@ public class OverlapLayoutConsensus {
             minimapOptions += " -c";
         }
         
+//        if (!minimapOptions.contains("--secondary=no")) {
+//            minimapOptions += " --secondary=no";
+//        }
+            
         if (!minimapOptions.contains("-N")) {
             minimapOptions += " -N 10";
         }
         
-        if (!minimapOptions.contains("-p")) {
-            minimapOptions += " -p 0.1";
-        }
+//        if (!minimapOptions.contains("-p")) {
+//            minimapOptions += " -p 0.1";
+//        }
         
         if (numThreads > 0) {
             if (numThreads >= 2) {
