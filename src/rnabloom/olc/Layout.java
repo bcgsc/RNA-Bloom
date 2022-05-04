@@ -39,8 +39,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import static org.jgrapht.Graph.DEFAULT_EDGE_WEIGHT;
 import org.jgrapht.Graphs;
 import org.jgrapht.graph.DefaultDirectedWeightedGraph;
@@ -4474,7 +4472,7 @@ public class Layout {
                     true, 1, true, polyaFinder);
             layout.extractSimplePaths(out);
         } catch (IOException ex) {
-            Logger.getLogger(Layout.class.getName()).log(Level.SEVERE, null, ex);
+            System.out.println(ex.getMessage());
         }
     }
 }
