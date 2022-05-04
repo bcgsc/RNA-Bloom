@@ -78,7 +78,12 @@ java -jar RNA-Bloom.jar -sef SE.fastq -t THREADS -outdir OUTDIR
 java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -sef SE.fastq -t THREADS -outdir OUTDIR
 ```
 
-Output files: `rnabloom.transcripts.fa` or `rnabloom.transcripts.nr.fa` (with redundancy reduction applied)
+#### final output files:
+| file name                       | description                                                       |
+| :------------------------------ | :---------------------------------------------------------------- |
+| `rnabloom.transcripts.fa`       | assembled transcripts longer than length threshold (default: 200) |
+| `rnabloom.transcripts.short.fa` | assembled transcripts shorter than length threshold               |
+| `rnabloom.transcripts.nr.fa`    | assembled transcripts with redundancy reduced                     |
 
 
 ### (B) assemble multi-sample RNA-seq data with pooled assembly mode:
@@ -120,7 +125,13 @@ cell2 /path/to/cell2/left.fastq /path/to/cell2/right.fastq /path/to/cell2/sef.fa
 cell3 /path/to/cell3/left.fastq /path/to/cell3/right.fastq /path/to/cell3/sef.fastq /path/to/cell3/ser.fastq
 ```
 
-Output files for each sample: `rnabloom.transcripts.fa` or `rnabloom.transcripts.nr.fa` (with redundancy reduction applied)
+#### final output files per cell:
+| file name                       | description                                                       |
+| :------------------------------ | :---------------------------------------------------------------- |
+| `rnabloom.transcripts.fa`       | assembled transcripts longer than length threshold (default: 200) |
+| `rnabloom.transcripts.short.fa` | assembled transcripts shorter than length threshold               |
+| `rnabloom.transcripts.nr.fa`    | assembled transcripts with redundancy reduced                     |
+
 
 ### (C) strand-specific assembly:
 ```
@@ -173,7 +184,12 @@ ntCard v1.2.1 supports uracil in reads.
 java -jar RNA-Bloom.jar -long LONG.fastq -sef SHORT.fastq -t THREADS -outdir OUTDIR
 ```
 
-Output file: `rnabloom.transcripts.fa`
+#### final output files:
+| file name                       | description                                                            |
+| :------------------------------ | :--------------------------------------------------------------------- |
+| `rnabloom.transcripts.fa`       | assembled transcripts longer than min. length threshold (default: 200) |
+| `rnabloom.transcripts.short.fa` | assembled transcripts shorter than min. length threshold               |
+
 
 ## General Settings :gear:
 
