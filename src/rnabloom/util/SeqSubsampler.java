@@ -336,7 +336,7 @@ public class SeqSubsampler {
              
     }
     
-    public static void strobemerBased(ArrayList<BitSequence> seqs,
+    public static void strobemerBased(ArrayList<? extends BitSequence> seqs,
             String outSubsampleFasta,
             long bfSize, int k, int numHash, boolean stranded, 
             int maxMultiplicity, int maxEdgeClip, boolean verbose,
