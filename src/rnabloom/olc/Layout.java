@@ -3389,6 +3389,30 @@ public class Layout {
         // extract paths
         HashSet<String> visited = new HashSet<>();
         
+        if (!stranded) {
+            vertexSet = graph.vertexSet();
+            // prioritize extension of vertexes with known strand
+            for (String seedVid : vertexSet) {
+                if (!vertexSet.contains(getReverseComplementID(seedVid))) {
+                    String name = getVertexName(seedVid);
+                    if (!visited.contains(name)) {
+                        ArrayDeque<String> path = getUnambiguousExtension(seedVid);
+
+                        String header = Long.toString(++seqID);
+                        if (path.size() > 1) {
+                            header += " path=[" + String.join(",", path) + "]";
+                        }
+
+                        fw.write(header, assemblePath(path, dovetailReadSeqs));
+
+                        for (String vid : path) {
+                            visited.add(getVertexName(vid));
+                        }
+                    }
+                }
+            }
+        }
+        
         for (String seedVid : graph.vertexSet()) {
             String name = getVertexName(seedVid);
             if (!visited.contains(name)) {
