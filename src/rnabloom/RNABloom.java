@@ -6292,7 +6292,7 @@ public class RNABloom {
                                     .build();
         options.addOption(optLongReadOverlapProportion);
         
-        final String optLongReadMinReadDepthDefault = "2";
+        final String optLongReadMinReadDepthDefault = "3";
         Option optLongReadMinReadDepth = Option.builder("lrrd")
                                     .desc("min read depth required for long-read assembly [" + optLongReadMinReadDepthDefault + "]")
                                     .hasArg(true)
