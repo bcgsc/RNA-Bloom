@@ -904,7 +904,7 @@ public class Layout {
         int numBars = h.length;
 
         if (start > 0) {
-            start = (int) Math.round((float) start/binSize) + 1;
+            start = (int) Math.round(start/(float)binSize) + 1;
             // +1 to ensure that stacking reads overlap
         }
         else {
@@ -912,7 +912,7 @@ public class Layout {
         }
 
         if (end < length) {
-            end = (int) Math.round((float) end/binSize) - 1;
+            end = (int) Math.round(end/(float)binSize) - 1;
             // -1 to ensure that stacking reads overlap
         }
         else {
