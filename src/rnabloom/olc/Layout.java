@@ -2006,84 +2006,96 @@ public class Layout {
         return m.split(" ");
     }
     
-    public void extractUniqueFromMapping(String outFasta) throws IOException {
+    public void extractUniqueFromMapping(String outFastaPath) throws IOException {
         Timer timer = new Timer();
         
-        // parse all mapping records to gather contained reads for each seed
-        HashMap<String, ArrayList<NamedInterval>> containedReadNamesMap = new HashMap<>();
+        HashMap<String, Histogram> histogramMap = new HashMap<>(100000);
+        final int minSegmentLength = minOverlapMatches;
+        final int maxOverlapSizeDiff = maxIndelSize;
+        
         PafReader reader = new PafReader(overlapPafInputStream);
+        final boolean checkNumAltReads = minNumAltReads > 0;
+                
         for (ExtendedPafRecord r = new ExtendedPafRecord(); reader.hasNext();) {
             reader.next(r);
             
             if ((!stranded || !r.reverseComplemented) &&
-                    hasLargeOverlap(r) &&
-                    isQueryContained(r, maxEdgeClip) &&
-                    (!hasAlignment(r) || hasGoodAlignment(r))) {                
-                ArrayList<NamedInterval> names = containedReadNamesMap.get(r.tName);
-                if (names == null) {
-                    names = new ArrayList<>();
-                    containedReadNamesMap.put(r.tName, names);
+                    (hasLargeOverlap(r) || isContainmentPafRecord(r)) &&
+                    hasGoodOverlap(r)) {
+                
+                boolean hasAln = hasAlignment(r);
+                if ((!hasAln && hasSimilarSizedOverlap(r, maxOverlapSizeDiff)) || (hasAln && hasGoodAlignment(r))) {
+                    Histogram tHist = histogramMap.get(r.tName);
+                    int tHistBinSize = getHistogramBinSize(r.tLen);
+                    if (tHist == null) {
+                        tHist = new Histogram(r.tLen, r.tStart, r.tEnd, tHistBinSize);
+                        histogramMap.put(r.tName, tHist);
+                    }
+                    updateHistogram(tHist, r.tStart, r.tEnd, tHistBinSize);
                 }
-                names.add(new NamedInterval(r.qName, r.tStart, r.tEnd));
             }
         }
         reader.close();
         printMessage("Parsed " + NumberFormat.getInstance().format(reader.getNumRecords()) + " mapping records in " + timer.elapsedDHMS());
         
-        // for each seed, find the longest contained reads covering the min depth required
+        // look for unique reads
         timer.start();
-        HashSet<String> keepSet = new HashSet<>();
-        HashSet<String> removeSet = new HashSet<>();
-        int minDepthRequired = this.minNumAltReads + 1; 
-        for (ArrayList<NamedInterval> containedReads : containedReadNamesMap.values()) {
-            Collections.sort(containedReads, Collections.reverseOrder());
-            
-            int seedLen = 0;
-            for (NamedInterval i : containedReads) {
-                seedLen = Math.max(seedLen, i.end);
-            }
-            
-            int binSize = getHistogramBinSize(seedLen);
-            int[] bars = initIntHistogram(seedLen, binSize);
-            
-            HashSet<String> checked = new HashSet<>();
-            if (!keepSet.isEmpty()) {
-                for (NamedInterval i : containedReads) {
-                    if (keepSet.contains(i.name)) {
-                        updateHistogram(bars, seedLen, i.start, i.end, binSize);
-                        checked.add(i.name);
-                    }
-                }
-            }
-            
-            for (NamedInterval i : containedReads) {
-                if (!checked.contains(i.name)) {
-                    if (updateHistogram(bars, seedLen, i.start, i.end, binSize) <= minDepthRequired) {
-                        keepSet.add(i.name);
-                    }
-                    else {
-                        removeSet.add(i.name);
-                    }
-                }
-            }
-        }
-        removeSet.removeAll(keepSet);
-        printMessage("Found " + NumberFormat.getInstance().format(removeSet.size()) + " contained sequences in " + timer.elapsedDHMS());
-        
-        // discard all other contained reads
-        timer.start();
+        Set<String> seqsWithOverlap = histogramMap.keySet();
+                
         FastaReader fr = new FastaReader(seqFastaPath);
-        FastaWriter fw = new FastaWriter(outFasta, false);
-        while (fr.hasNext()) {
-            String[] nameSeq = fr.nextWithName();
-            String name = nameSeq[0];
-            if (!removeSet.contains(name)) {
-                fw.write(name, nameSeq[1]);
-            }
+        FastaWriter fw = new FastaWriter(outFastaPath, false);
+        long seqID = 0;
+        long originalNumSeq = 0;
+        long numMultiSeqs = 0;
+        int minDepth = minNumAltReads + 1;
+        for (FastaRecord record = new FastaRecord(); fr.hasNext();) {
+            ++originalNumSeq;
+            fr.nextWithName(record);
+            String seqName = record.name;
+                if (checkNumAltReads) {
+                    if (seqsWithOverlap.contains(seqName)) {
+                        Histogram hist = histogramMap.get(seqName);
+                        if (hist != null) {                            
+                            ArrayDeque<Interval> spans = extractEffectiveIntervals(hist, getHistogramBinSize(hist.length), minDepth, minSegmentLength);
+                            if (!spans.isEmpty()) {
+                                ++seqID;
+                                int seqLen = record.seq.length();
+                                if (spans.size() > 1) {
+                                    ++numMultiSeqs;
+                                    String namePrefix = seqID + "_p";
+                                    int segmentID = 1;
+                                    for (Interval i : spans) {
+                                        String seg = record.seq.substring(i.start, i.end);
+                                        if (!isLowComplexityLongWindowed(seg)) {
+                                            String header = namePrefix + segmentID + " " + seqLen + ":" + i.start + "-" + i.end + " " + seqName;
+                                            fw.write(header, seg);
+                                            ++segmentID;
+                                        }
+                                    }
+                                }
+                                else {
+                                    Interval i = spans.peekFirst();
+                                    String seg = record.seq.substring(i.start, i.end);
+                                    if (!isLowComplexityLongWindowed(seg)) {
+                                        String header = Long.toString(seqID) + " " + seqLen + ":" + i.start + "-" + i.end  + " " + seqName;
+                                        fw.write(header, seg);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                else {
+                    fw.write(Long.toString(++seqID), record.seq);
+                }
         }
         fr.close();
         fw.close();
-        printMessage("Wrote filtered sequences in " + timer.elapsedDHMS());
+        
+        printMessage("total reads:    " + NumberFormat.getInstance().format(originalNumSeq));
+        printMessage(" - unique:      " + NumberFormat.getInstance().format(seqID) + "\t(" + convertToRoundedPercent(seqID/(float)originalNumSeq) + " %)");
+        printMessage("   - multi-seg: " + NumberFormat.getInstance().format(numMultiSeqs));
+        printMessage("Unique reads extracted in " + timer.elapsedDHMS());
     }
     
     public int[] extractClustersFromMapping(String outdir) throws IOException {
