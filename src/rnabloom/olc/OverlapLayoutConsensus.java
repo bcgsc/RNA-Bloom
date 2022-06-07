@@ -236,12 +236,11 @@ public class OverlapLayoutConsensus {
         return true;
     }
     
-    public static boolean mapWithMinimapAndExtractUnique(String queryFastaPath,
+    public static STATUS mapWithMinimapAndExtractUnique(String queryFastaPath,
             String targetFastaPath, String uniqueFastaPath,
             int numThreads, boolean align, String minimapOptions, boolean stranded,
             int maxEdgeClip, float minAlnId, int minOverlapMatches, int maxIndelSize,
-            boolean cutRevCompArtifact, int minSeqDepth, boolean usePacBioPreset,
-            boolean verbose, PolyATailFinder polyaFinder) {
+            int minSeqDepth, boolean usePacBioPreset, boolean verbose, PolyATailFinder polyaFinder) {
         if (verbose) {
             System.out.println("Mapping sequences...");
         }
@@ -253,7 +252,7 @@ public class OverlapLayoutConsensus {
         if (align && !minimapOptions.contains("-c")) {
             minimapOptions += " -c";
         }
-                
+                        
         if (numThreads > 0) {
             if (numThreads >= 2) {
                 --numThreads;
@@ -268,9 +267,18 @@ public class OverlapLayoutConsensus {
             minimapOptions += " --for-only";
         }
         
+        if (!minimapOptions.contains("-N")) {
+            minimapOptions += " -N 10";
+        }
+        
+        if (!minimapOptions.contains("-p")) {
+            minimapOptions += " -p 0.1";
+        }
+        
         String preset = usePacBioPreset ? PRESET_PACBIO : PRESET_ONT;
         command.add(MINIMAP2 + " -x map-" + preset + " " + minimapOptions + " " + targetFastaPath + " " + queryFastaPath);
         
+        STATUS status;
         try {            
             ProcessBuilder pb = new ProcessBuilder(command);
 
@@ -279,20 +287,23 @@ public class OverlapLayoutConsensus {
             
             Process process = pb.start();
             
-            Layout myLayout = new Layout(queryFastaPath, process.getInputStream(), stranded, maxEdgeClip, minAlnId, 
-                    minOverlapMatches, maxIndelSize, cutRevCompArtifact, minSeqDepth, verbose, polyaFinder);
+            Layout myLayout = new Layout(targetFastaPath, process.getInputStream(), stranded, maxEdgeClip, minAlnId, 
+                    minOverlapMatches, maxIndelSize, false, minSeqDepth, verbose, polyaFinder);
             myLayout.extractUniqueFromMapping(uniqueFastaPath);
             
             int exitStatus = process.waitFor();
             if (exitStatus != 0) {
-               return false;
+                status = STATUS.FAIL;
+            }
+            else {
+                status = STATUS.SUCCESS;
             }
         }
         catch (IOException | InterruptedException e) {
-            return false;
+            status = STATUS.FAIL;
         }
         
-        return true;
+        return status;
     }
     
     public static int[] mapWithMinimapAndExtractClusters(String queryFastaPath, 
@@ -1058,7 +1069,7 @@ public class OverlapLayoutConsensus {
             overlappedSeedsPath, uniqueFastaPath,
             numThreads, true, minimapOptions, stranded,
             maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
-            false, minSeqDepth, usePacBioPreset, verbose,
+            minSeqDepth, usePacBioPreset, verbose,
             polyaFinder);
         
         System.gc();
@@ -1147,8 +1158,12 @@ public class OverlapLayoutConsensus {
         // 1. overlap all reads and extract unique reads
         STATUS status = overlapWithMinimapAndExtractUnique(inFastaPath, uniqueFastaPath,
             numThreads, false, minimapOptionsNoGaps, stranded,
-            maxEdgeClip, minAlnId*minAlnId, minOverlapMatches, maxIndelSize,
+            maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
             minSeqDepth, usePacBioPreset, verbose, polyaFinder);
+//        STATUS status = mapWithMinimapAndExtractUnique(readsPath, inFastaPath, uniqueFastaPath,
+//            numThreads, false, minimapOptionsNoGaps, stranded,
+//            maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
+//            minSeqDepth, usePacBioPreset, verbose, polyaFinder);
         if (status != STATUS.SUCCESS) {
             return false;
         }
@@ -1165,7 +1180,7 @@ public class OverlapLayoutConsensus {
         }
         
         System.gc();
-        
+                
         // 3. map all reads to unitigs
         status = mapWithMinimapFiltered(readsPath, simpleFastaPath, readsToSimplePafPath,
             numThreads, minimapOptions, usePacBioPreset, stranded, maxIndelSize,

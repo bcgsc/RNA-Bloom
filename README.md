@@ -19,7 +19,7 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 ## Dependency :pushpin:
 
-* [Java SE Development Kit (JDK) 17](https://www.oracle.com/java/technologies/downloads/#java17)
+* [Java SE Development Kit (JDK) 11](https://www.oracle.com/java/technologies/downloads/#java11) (JDK 17 is slightly faster)
 
 * External software used:
 
