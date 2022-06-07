@@ -43,8 +43,12 @@ public class FastqReader implements FastxReaderInterface {
         try {
             // try to get the first FASTQ record
             FastqReader reader = new FastqReader(path);
-            reader.nextWithoutName(new FastqRecord());
+            FastqRecord record = new FastqRecord();
+            reader.nextWithoutName(record);
             reader.close();
+            if (record.seq == null || record.qual == null) {
+                return false;
+            }
         }
         catch (Exception e) {
             return false;

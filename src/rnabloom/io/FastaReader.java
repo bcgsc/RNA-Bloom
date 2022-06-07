@@ -42,8 +42,11 @@ public class FastaReader implements FastxReaderInterface {
         try {
             // try to get the first FASTA record
             FastaReader reader = new FastaReader(path);
-            reader.next();
+            String seq = reader.next();
             reader.close();
+            if (seq == null) {
+                return false;
+            }
         }
         catch (Exception e) {
             return false;
