@@ -3306,8 +3306,16 @@ public class RNABloom {
                                     boolean writeUracil) throws IOException {
         
         boolean ok = false;
-        if (hasOnlyOneSequence(readsPath)) {
-            symlinkRemoveExisting(readsPath, outFasta);
+        if (hasOnlyOneSequence(inFasta)) {
+            FastaReader reader = new FastaReader(inFasta);
+            FastaWriter writer = new FastaWriter(outFasta, false);
+            while (reader.hasNext()) {
+                String[] record = reader.nextWithName();
+                writer.write(record[0], record[1]);
+            }
+            reader.close();
+            writer.close();
+            
             ok = true;
         }
         else {
