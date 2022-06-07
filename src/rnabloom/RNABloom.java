@@ -6938,13 +6938,19 @@ public class RNABloom {
                     if (tmpHist == null) {
                         exitOnError("Error running ntCard!");
                     }
+                    
+                    if (tmpHist.numKmers > 0 && tmpHist.numUniqueKmers < 1 ||
+                            tmpHist.numKmers < tmpHist.numUniqueKmers) {
+                        System.out.println("WARNING: ntCard generated unexpected values for F1 (" + tmpHist.numKmers + ") and F0 (" + tmpHist.numUniqueKmers + ")!");
+                    }
+                    
                     long tmpNumUniqueNonSingletons = tmpHist.numUniqueKmers - tmpHist.getNumSingletons();
                     
                     System.out.println("Unique k-mers (k=" + tmpK + "):     " + NumberFormat.getInstance().format(tmpHist.numUniqueKmers));
                     System.out.println("Unique k-mers (k=" + tmpK + ",c>1): " + NumberFormat.getInstance().format(tmpNumUniqueNonSingletons));
                     
                     if (tmpNumUniqueNonSingletons == 0) {
-                        System.out.println("WARNING: There are no non-singleton (c>1) k-mers!");
+                        System.out.println("WARNING: 0 non-singleton (c>1) k-mers detected!");
                     }
                     
                     if (tmpNumUniqueNonSingletons > numUniqueNonSingletons) {
@@ -6982,7 +6988,9 @@ public class RNABloom {
                 
                 if (hist != null) {
                     long numSingletons = hist.getNumSingletons();
-                    if (expNumKmers == numSingletons) {
+                    if (expNumKmers == numSingletons || 
+                            hist.numKmers > 0 && hist.numUniqueKmers < 1 ||
+                            hist.numKmers < hist.numUniqueKmers) {
                         cbfSize = CountingBloomFilter.getExpectedSize(expNumKmers, maxFPR, cbfNumHash);
                     }
                     else {
@@ -7330,10 +7338,11 @@ public class RNABloom {
                 }
                 else {
                     Timer myTimer = new Timer();
+                    int lenThreshold = Math.min(minOverlap, minTranscriptLength);
                     ArrayList<BitSequence> correctedReads = correctLongReads(assembler, 
                             longReadPaths, longCorrectedReadsPath, shortCorrectedReadsPath,
                             repeatReadsPath, polyAReadNamesPath, sampleReadLengthsPath,
-                            maxErrCorrItr, minKmerCov, numThreads, sampleSize, Math.min(minOverlap, minTranscriptLength),
+                            maxErrCorrItr, minKmerCov, numThreads, sampleSize, lenThreshold,
                             revCompLong, !keepArtifact, subsampleLongReads);
                     System.out.println("Corrected reads in " + myTimer.elapsedDHMS());
                     
@@ -7344,6 +7353,10 @@ public class RNABloom {
                             subsampleLongReads = false;
                         }
                         else {
+                            if (correctedReads.isEmpty()) {
+                                exitOnError("No reads are longer than " + lenThreshold + " nt!");
+                            }
+                            
                             myTimer.start();
                             System.out.println("Extracting seed sequences...");
                             
