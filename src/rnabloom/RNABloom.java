@@ -3583,6 +3583,10 @@ public class RNABloom {
                 }
                 
                 int sampleSize = sample.size();
+                if (sampleSize == 0) {
+                    exitOnError("Insufficient good quality reads!");
+                }
+                
                 int[] lengths = new int[sampleSize];
                 for (int i=0; i<sampleSize; ++i) {
                     lengths[i] = sample.get(i);
@@ -6931,6 +6935,10 @@ public class RNABloom {
                     System.out.println("Unique k-mers (k=" + tmpK + "):     " + NumberFormat.getInstance().format(tmpHist.numUniqueKmers));
                     System.out.println("Unique k-mers (k=" + tmpK + ",c>1): " + NumberFormat.getInstance().format(tmpNumUniqueNonSingletons));
                     
+                    if (tmpNumUniqueNonSingletons == 0) {
+                        System.out.println("WARNING: There are no non-singleton (c>1) k-mers!");
+                    }
+                    
                     if (tmpNumUniqueNonSingletons > numUniqueNonSingletons) {
                         hist = tmpHist;
                         k = tmpK;
@@ -6965,7 +6973,13 @@ public class RNABloom {
                 dbgGB = dbgbfSize / (float) NUM_BITS_1GB;
                 
                 if (hist != null) {
-                    cbfSize = CountingBloomFilter.getExpectedSize(expNumKmers-hist.getNumSingletons(), maxFPR, cbfNumHash);
+                    long numSingletons = hist.getNumSingletons();
+                    if (expNumKmers == numSingletons) {
+                        cbfSize = CountingBloomFilter.getExpectedSize(expNumKmers, maxFPR, cbfNumHash);
+                    }
+                    else {
+                        cbfSize = CountingBloomFilter.getExpectedSize(expNumKmers-numSingletons, maxFPR, cbfNumHash);
+                    }
                     cbfGB = cbfSize / (float) NUM_BYTES_1GB;
                 }
                 else {
