@@ -90,7 +90,7 @@ java -jar RNA-Bloom.jar -left LEFT.fastq -right RIGHT.fastq -revcomp-right -sef 
 ```
 java -jar RNA-Bloom.jar -pool READSLIST.txt -revcomp-right -t THREADS -outdir OUTDIR
 ```
-This is especially useful for single-cell datasets. RNA-Bloom was tested on Smart-seq2 and SMARTer datasets.
+This is especially useful for single-cell datasets. RNA-Bloom was tested on Smart-seq2 and SMARTer datasets. It is not supported for long-read data (`-long`) at this time.
 
 #### file format for the `-pool` option:
 
@@ -154,8 +154,7 @@ cell1 /path/to/cell1/reads_2.fastq /path/to/cell1/reads_1.fastq
 ```
 java -jar RNA-Bloom.jar -ref TRANSCRIPTS.fasta ...
 ```
-The `-ref` option specifies the reference transcriptome FASTA file for guiding short-read assembly.
-
+The `-ref` option specifies the reference transcriptome FASTA file for guiding short-read assembly. It is not supported for long-read data (`-long`) at this time.
 
 
 ## Quick Start for Long Reads :running:
@@ -168,6 +167,8 @@ Default presets for `-long` are intended for ONT data. Please add the `-lrpb` fl
 java -jar RNA-Bloom.jar -long LONG.fastq -t THREADS -outdir OUTDIR
 ```
 Input reads are expected to be in a mix of both forward and reverse orientations.
+
+Options `-pool` and `-ref` are not supported for long-read data at this time.
 
 ### (B) assemble nanopore direct RNA sequencing data:
 ```
