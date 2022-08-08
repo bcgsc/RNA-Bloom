@@ -261,7 +261,7 @@ If you use RNA-Bloom in your work, please cite our manuscript(s).
 
 [Long-read RNA-seq assembly](https://www.biorxiv.org/content/10.1101/2022.08.07.503110v1):
 
-> Ka Ming Nip, Saber Hafezqorani, Kristina K. Gagalova, Readman Chiu, Chen Yang, René L. Warren, and Inanc Birol. Reference-free assembly of long-read transcriptome sequencing data with RNA-Bloom2. bioxRiv. 2022.08.07.503110. doi: 10.1101/2022.08.07.503110
+> Ka Ming Nip, Saber Hafezqorani, Kristina K. Gagalova, Readman Chiu, Chen Yang, René L. Warren, and Inanc Birol. Reference-free assembly of long-read transcriptome sequencing data with RNA-Bloom2. bioRxiv. 2022.08.07.503110. doi: 10.1101/2022.08.07.503110
 
 [Short-read RNA-seq assembly](https://genome.cshlp.org/content/30/8/1191.full):
 
