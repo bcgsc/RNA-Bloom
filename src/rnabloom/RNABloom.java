@@ -5441,10 +5441,12 @@ public class RNABloom {
         }
     }
     
-    private static void splitFastaByLength(String inFasta, String outLongFasta, String outShortFasta, int lengthThreshold) throws IOException {
+    private static long[] splitFastaByLength(String inFasta, String outLongFasta, String outShortFasta, int lengthThreshold) throws IOException {
         FastaReader fin = new FastaReader(inFasta);
         FastaWriter foutLong = new FastaWriter(outLongFasta, false);
         FastaWriter foutShort = new FastaWriter(outShortFasta, false);
+        long numLong = 0;
+        long numShort = 0;
         while(fin.hasNext()) {
             String[] nameCommentSeq = fin.nextWithComment();
             
@@ -5457,14 +5459,18 @@ public class RNABloom {
             
             if (seq.length() >= lengthThreshold) {
                 foutLong.write(header, seq);
+                ++numLong;
             }
             else {
                 foutShort.write(header, seq);
+                ++numShort;
             }
         }
         foutLong.close();
         foutShort.close();
         fin.close();
+        
+        return new long[]{numShort, numLong};
     }
     
     private static boolean mergePooledAssemblies(RNABloom assembler, 
@@ -7443,7 +7449,16 @@ public class RNABloom {
                                     writeUracil);
                     
                     if (ok) {
-                        splitFastaByLength(assembledTranscriptsPath, longTranscriptsFasta, shortTranscriptsFasta, minTranscriptLength);
+                        long[] numShortLong = splitFastaByLength(assembledTranscriptsPath, longTranscriptsFasta, shortTranscriptsFasta, minTranscriptLength);
+                        long numShort = numShortLong[0];
+                        long numLong = numShortLong[1];
+                        if (numLong == 0) {
+                            String msg = "WARNING: There are zero assembled sequences >= " + minTranscriptLength + " nt!";
+                            msg += "\nNumber of assembled sequences < " + minTranscriptLength + " nt: " +  + numShort;
+                            
+                            System.out.println(msg);
+                        }
+                        
                         deleteIfExists(assembledTranscriptsPath);
                         
                         touch(longReadsAssembledStamp);
