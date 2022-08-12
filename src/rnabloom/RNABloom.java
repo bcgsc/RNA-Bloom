@@ -95,8 +95,6 @@ import static rnabloom.olc.OverlapLayoutConsensus.uniqueOLC;
 import static rnabloom.util.CommandLine.runCommand;
 import rnabloom.util.Common.Quartiles;
 import static rnabloom.util.FileUtils.deleteIfExists;
-import static rnabloom.util.FileUtils.hasOnlyOneSequence;
-import static rnabloom.util.FileUtils.symlinkRemoveExisting;
 import static rnabloom.util.FileUtils.touch;
 import rnabloom.util.Timer;
 import static rnabloom.util.Common.convertToRoundedPercent;
@@ -3305,42 +3303,21 @@ public class RNABloom {
                                     boolean usePacBioPreset,
                                     boolean writeUracil) throws IOException {
         
-        boolean ok = false;
-        if (hasOnlyOneSequence(inFasta)) {
-            FastaReader reader = new FastaReader(inFasta);
-            FastaWriter writer = new FastaWriter(outFasta, false);
-            while (reader.hasNext()) {
-                String[] record = reader.nextWithName();
-                writer.write(record[0], record[1]);
-            }
-            reader.close();
-            writer.close();
-            
-            ok = true;
+        if (this.minPolyATailLengthRequired <= 0) { 
+            polyAReadNamesPath = null;
         }
-        else {
-//            ok = overlapLayoutConsensus(readsPath, tmpPrefix, outFasta, 
-//                numThreads, stranded, minimapOptions, maxEdgeClip,
-//                minAlnId, minOverlapMatches, maxIndelSize, removeArtifacts,
-//                minSeqDepth, usePacBioPreset, false, true);
-            if (this.minPolyATailLengthRequired <= 0) { 
-                polyAReadNamesPath = null;
-            }
-            
-            if (polyaFinder != null) {
-                polyaFinder.setWindow(0);
-            }
-            
-            ok = uniqueOLC(readsPath, inFasta, outFasta,
-                    tmpPrefix, sampleReadLengthsPath,
-                    numThreads, stranded, minimapOptions, maxEdgeClip,
-                    minAlnId, minOverlapMatches, maxIndelSize,
-                    minSeqDepth, usePacBioPreset, true,
-                    polyAReadNamesPath, polyaFinder, txptNamePrefix,
-                    writeUracil);
+
+        if (polyaFinder != null) {
+            polyaFinder.setWindow(0);
         }
-        
-        return ok;
+
+        return uniqueOLC(readsPath, inFasta, outFasta,
+                tmpPrefix, sampleReadLengthsPath,
+                numThreads, stranded, minimapOptions, maxEdgeClip,
+                minAlnId, minOverlapMatches, maxIndelSize,
+                minSeqDepth, usePacBioPreset, true,
+                polyAReadNamesPath, polyaFinder, txptNamePrefix,
+                writeUracil);
     }
     
     public static final int LENGTH_STRATUM_MIN_Q1_INDEX = 0;

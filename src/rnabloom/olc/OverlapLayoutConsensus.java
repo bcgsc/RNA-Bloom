@@ -154,13 +154,13 @@ public class OverlapLayoutConsensus {
             Layout myLayout = new Layout(seqFastaPath, process.getInputStream(), stranded, maxEdgeClip, minAlnId, 
                     minOverlapMatches, maxIndelSize, false, minSeqDepth, verbose, polyaFinder);
             long numUnique = myLayout.extractUniqueFromOverlaps(uniqueFastaPath);
-            if (numUnique <= 0) {
-                return STATUS.EMPTY;
-            }
             
             int exitStatus = process.waitFor();
             if (exitStatus == 0) {
                 status = STATUS.SUCCESS;
+                if (numUnique <= 0) {
+                    status = STATUS.EMPTY;
+                }
             }
             else {
                 status = STATUS.FAIL;
@@ -1165,6 +1165,9 @@ public class OverlapLayoutConsensus {
 //            maxEdgeClip, minAlnId, minOverlapMatches, maxIndelSize,
 //            minSeqDepth, usePacBioPreset, verbose, polyaFinder);
         if (status != STATUS.SUCCESS) {
+            if (status == STATUS.EMPTY) {
+                System.out.println("ERROR: Insufficient good quality reads for assembly!");
+            }
             return false;
         }
         
