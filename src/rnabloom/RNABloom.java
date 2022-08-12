@@ -3972,7 +3972,7 @@ public class RNABloom {
         LongReadCorrectionWorker[] correctionWorkers = new LongReadCorrectionWorker[numThreads];
         Thread[] threads = new Thread[numThreads];
         
-        FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths, minAvgBaseQual);
+        FastxSequenceIterator itr = new FastxSequenceIterator(inputFastxPaths, minAvgBaseQual, false);
         
         for (int i=0; i<numThreads; ++i) {
             LongReadCorrectionWorker worker = new LongReadCorrectionWorker(itr, outputQueue, maxErrCorrItr, minKmerCov,

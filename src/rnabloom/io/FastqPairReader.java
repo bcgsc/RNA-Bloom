@@ -48,6 +48,9 @@ public class FastqPairReader implements FastxPairReader {
             rightReader = new FastqReader(rightPath);
         }
         
+        leftReader.setRemoveNameSuffix(true);
+        rightReader.setRemoveNameSuffix(true);
+        
         this.qualPattern = qualPattern;
         this.seqPattern = seqPattern;
         

@@ -33,12 +33,17 @@ public class FastqReader implements FastxReaderInterface {
     protected final static Pattern RECORD_NAME_COMMENT_PATTERN = Pattern.compile("^@([^\\s]+)\\s*(.*)?$");
     protected final BufferedReader br;
     protected final Iterator<String> itr;
+    protected boolean removeNameSuffix = true;
     
     public FastqReader(String path) throws IOException {        
         br = getTextFileReader(path);
         itr = br.lines().iterator();
     }
 
+    public void setRemoveNameSuffix(boolean value) {
+        this.removeNameSuffix = value;
+    }
+    
     public static boolean isCorrectFormat(String path) {
         try {
             // try to get the first FASTQ record
@@ -118,9 +123,11 @@ public class FastqReader implements FastxReaderInterface {
         Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
         if (m.matches()) {
             name = m.group(1);
-            Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
-            if (m2.matches()) {
-                name = m2.group(1);
+            if (removeNameSuffix) {
+                Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
+                if (m2.matches()) {
+                    name = m2.group(1);
+                }
             }
         }
         else {
@@ -204,9 +211,11 @@ public class FastqReader implements FastxReaderInterface {
         Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
         if (m.matches()) {
             fr.name = m.group(1);
-            Matcher m2 = RECORD_NAME_PATTERN.matcher(fr.name);
-            if (m2.matches()) {
-                fr.name = m2.group(1);
+            if (removeNameSuffix) {
+                Matcher m2 = RECORD_NAME_PATTERN.matcher(fr.name);
+                if (m2.matches()) {
+                    fr.name = m2.group(1);
+                }
             }
         }
         else {

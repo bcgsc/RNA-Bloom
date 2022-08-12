@@ -36,8 +36,9 @@ public final class FastxSequenceIterator {
     private final Pattern qualPattern;
     boolean isFastq = false;
     boolean isFasta = false;
+    boolean removeNameSuffix = false;
     
-    public FastxSequenceIterator(String[] fastxPaths, int minAvgBaseQual) throws IOException {
+    public FastxSequenceIterator(String[] fastxPaths, int minAvgBaseQual, boolean removeNameSuffix) throws IOException {
         this.fastxPaths = fastxPaths;
         this.minAvgBaseQual = minAvgBaseQual;
         fileCursor = 0;
@@ -48,6 +49,7 @@ public final class FastxSequenceIterator {
         
         seqPattern = null;
         qualPattern = null;
+        this.removeNameSuffix = removeNameSuffix;
     }
     
     public FastxSequenceIterator(String[] fastxPaths, int minAvgBaseQual, Pattern seqPattern, Pattern qualPattern) throws IOException {
@@ -65,12 +67,16 @@ public final class FastxSequenceIterator {
     
     private void setReader(String path) throws IOException {
         if (FastqReader.isCorrectFormat(path)) {
-            reader = minAvgBaseQual > 0 ? new FastqFilteredReader(path, minAvgBaseQual) : new FastqReader(path);
+            FastqReader fqReader = minAvgBaseQual > 0 ? new FastqFilteredReader(path, minAvgBaseQual) : new FastqReader(path);
+            fqReader.setRemoveNameSuffix(removeNameSuffix);
+            reader = fqReader;
             isFastq = true;
             isFasta = false;
         }
         else if (FastaReader.isCorrectFormat(path)) {
-            reader = new FastaReader(path);
+            FastaReader faReader = new FastaReader(path);
+            faReader.setRemoveNameSuffix(removeNameSuffix);
+            reader = faReader;
             isFasta = true;
             isFastq = false;
         }

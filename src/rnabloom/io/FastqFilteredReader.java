@@ -93,9 +93,11 @@ public class FastqFilteredReader extends FastqReader {
         Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
         if (m.matches()) {
             name = m.group(1);
-            Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
-            if (m2.matches()) {
-                name = m2.group(1);
+            if (removeNameSuffix) {
+                Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
+                if (m2.matches()) {
+                    name = m2.group(1);
+                }
             }
         }
         else {
@@ -189,9 +191,11 @@ public class FastqFilteredReader extends FastqReader {
         Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(line1);
         if (m.matches()) {
             fr.name = m.group(1);
-            Matcher m2 = RECORD_NAME_PATTERN.matcher(fr.name);
-            if (m2.matches()) {
-                fr.name = m2.group(1);
+            if (removeNameSuffix) {
+                Matcher m2 = RECORD_NAME_PATTERN.matcher(fr.name);
+                if (m2.matches()) {
+                    fr.name = m2.group(1);
+                }
             }
         }
         else {

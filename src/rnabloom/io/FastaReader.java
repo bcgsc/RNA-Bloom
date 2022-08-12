@@ -32,12 +32,17 @@ public class FastaReader implements FastxReaderInterface {
     private final static Pattern RECORD_NAME_COMMENT_PATTERN = Pattern.compile("^>([^\\s]+)\\s*(.*)?$");
     private final Iterator<String> itr;
     private final BufferedReader br;
+    private boolean removeNameSuffix = true;
     
     public FastaReader(String path) throws IOException {
         br = getTextFileReader(path);
         itr = br.lines().iterator();
     }
-        
+
+    public void setRemoveNameSuffix(boolean value) {
+        this.removeNameSuffix = value;
+    }
+    
     public static boolean isCorrectFormat(String path) {
         try {
             // try to get the first FASTA record
@@ -116,9 +121,11 @@ public class FastaReader implements FastxReaderInterface {
         Matcher m = RECORD_NAME_COMMENT_PATTERN.matcher(header);
         if (m.matches()) {
             name = m.group(1);
-            Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
-            if (m2.matches()) {
-                name = m2.group(1);
+            if (removeNameSuffix) {
+                Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
+                if (m2.matches()) {
+                    name = m2.group(1);
+                }
             }
         }
         else {
@@ -213,9 +220,11 @@ public class FastaReader implements FastxReaderInterface {
         if (m.matches()) {
             name = m.group(1);
             comment = m.group(2);
-            Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
-            if (m2.matches()) {
-                name = m2.group(1);
+            if (removeNameSuffix) {
+                Matcher m2 = RECORD_NAME_PATTERN.matcher(name);
+                if (m2.matches()) {
+                    name = m2.group(1);
+                }
             }
         }
         else {

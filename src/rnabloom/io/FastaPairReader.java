@@ -37,6 +37,9 @@ public class FastaPairReader implements FastxPairReader {
         leftReader = new FastaReader(leftPath);
         rightReader = new FastaReader(rightPath);
         
+        leftReader.setRemoveNameSuffix(true);
+        rightReader.setRemoveNameSuffix(true);
+        
         this.seqPattern = seqPattern;
         
         if (revCompLeft) { 
