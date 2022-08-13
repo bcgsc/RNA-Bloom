@@ -51,6 +51,10 @@ public class NTCardHistogram {
                 else if (cols[0].equals("F0")) {
                     numUniqueKmers = Long.parseLong(cols[1]); 
                     f0Found = true;
+                    if ((numUniqueKmers < 1 && numKmers > 0) ||
+                            numKmers < numUniqueKmers) {
+                        break;
+                    }
                 }
             }
         }

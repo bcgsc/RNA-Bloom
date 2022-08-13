@@ -6922,8 +6922,10 @@ public class RNABloom {
                         exitOnError("Error running ntCard!");
                     }
                     
-                    if (tmpHist.numKmers > 0 && tmpHist.numUniqueKmers < 1 ||
-                            tmpHist.numKmers < tmpHist.numUniqueKmers) {
+                    boolean unexpected = (tmpHist.numKmers > 0 && tmpHist.numUniqueKmers < 1) ||
+                            tmpHist.numKmers < tmpHist.numUniqueKmers;
+                    
+                    if (unexpected) {
                         System.out.println("WARNING: ntCard generated unexpected values for F1 (" + tmpHist.numKmers + ") and F0 (" + tmpHist.numUniqueKmers + ")!");
                     }
                     
@@ -6939,7 +6941,7 @@ public class RNABloom {
                     if (tmpNumUniqueNonSingletons > numUniqueNonSingletons) {
                         hist = tmpHist;
                         k = tmpK;
-                        expNumKmers = tmpHist.numUniqueKmers;
+                        expNumKmers = unexpected ? Math.max(tmpHist.numKmers, tmpHist.numUniqueKmers) : tmpHist.numUniqueKmers;
                         numUniqueNonSingletons = tmpNumUniqueNonSingletons;
                     }
                     else {
