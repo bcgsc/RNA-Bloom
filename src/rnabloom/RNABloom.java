@@ -3764,7 +3764,7 @@ public class RNABloom {
                                 }
                             }
                         }
-                        
+                                                
                         ArrayList<String> segments = trimLowComplexityRegions(seq, 100, 500);
                         if (segments.isEmpty()) {
                             // entire sequence is low complexity

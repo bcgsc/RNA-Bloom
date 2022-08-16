@@ -601,29 +601,35 @@ public final class SeqUtils {
         int c2 = nucleotideArrayIndex(itr.nextInt());
         int c1 = nucleotideArrayIndex(itr.nextInt());
 
-        ++nf1[c3];
-        ++nf1[c2];
-        ++nf1[c1];
+        if (c3 >= 0)
+            ++nf1[c3];
+        if (c2 >= 0) 
+            ++nf1[c2];
+        if (c1 >= 0)
+            ++nf1[c1];
         
         if (c3 != c2 || c2 != c1 || c3 != c1) {
-            ++nf2[c3][c2];
-            ++nf2[c2][c1];
-            ++nf3[c3][c2][c1];
+            if (c3 >= 0 && c2 >= 0)
+                ++nf2[c3][c2];
+            if (c2 >= 0 && c1 >= 0)
+                ++nf2[c2][c1];
+            if (c3 >= 0 && c2 >= 0 && c1 >= 0)
+                ++nf3[c3][c2][c1];
         }
         
         while (itr.hasNext()) {
             c3 = c2;
             c2 = c1;
             c1 = nucleotideArrayIndex(itr.nextInt());
-            
-            if (++nf1[c1] >= t1)
+                        
+            if (c1 >= 0 && ++nf1[c1] >= t1)
                 return true; // homopolymer runs
 
             if (c3 != c2 || c2 != c1 || c3 != c1){
-                if (++nf2[c2][c1] >= t2) {
+                if (c2 >= 0 && c1 >= 0 && ++nf2[c2][c1] >= t2) {
                     return true; // di-nucleotide repeat
                 }
-                if (++nf3[c3][c2][c1] >= t3){
+                if (c3 >= 0 && c2 >= 0 && c1 >= 0 && ++nf3[c3][c2][c1] >= t3){
                     return true; // tri-nucleotide repeat
                 }
             }
