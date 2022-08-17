@@ -680,7 +680,7 @@ public class RNABloom {
                         while (mSeq.find()) {
                             int start = mSeq.start();
                             int end = mSeq.end();
-
+                            
                             if (itr.start(seq, start, end)) {
                                 while (itr.hasNext()) {
                                     itr.next();
@@ -3812,12 +3812,30 @@ public class RNABloom {
                                         }
 
                                         if (!correctedKmers.isEmpty()) {
-                                            segment = graph.assemble(correctedKmers);
-
-                                            int segLength = segment.length();
-                                            float score = segLength;//(float) getTotalLogKmerCoverage(correctedKmers, minKmerCov);
-                                            outputQueue.put(new Sequence2(segName, segment, segLength, score, false, hasPolyA));
-
+//                                            segment = graph.assemble(correctedKmers);
+//
+//                                            int segLength = segment.length();
+//                                            float score = segLength;//(float) getTotalLogKmerCoverage(correctedKmers, minKmerCov);
+//                                            outputQueue.put(new Sequence2(segName, segment, segLength, score, false, hasPolyA));
+                                            
+                                            ArrayDeque<String> nonZeroCovSegments = assembleNonZeroCoverageKmers(correctedKmers, graph);
+                                            int numNonZeroCovSegments = nonZeroCovSegments.size();
+                                            if (numNonZeroCovSegments == 1) {
+                                                String seg = nonZeroCovSegments.peek();
+                                                int segLength = seg.length();
+                                                float score = segLength;
+                                                outputQueue.put(new Sequence2(segName, seg, segLength, score, false, hasPolyA));
+                                            }
+                                            else {
+                                                int partID = 0;
+                                                hasPolyA = false; // turn off flag for multi-segment
+                                                for (String seg : nonZeroCovSegments) {
+                                                    int segLength = seg.length();
+                                                    float score = segLength;
+                                                    outputQueue.put(new Sequence2(segName + "_p" + ++partID, seg, segLength, score, false, hasPolyA));
+                                                }
+                                            }
+                                            
                                             kept = true;
                                         }
                                     }

@@ -3599,6 +3599,35 @@ public final class GraphUtils {
         return null;
     }
     
+    public static ArrayDeque<String> assembleNonZeroCoverageKmers(ArrayList<Kmer> kmers,
+                                                    BloomFilterDeBruijnGraph graph) {
+        ArrayDeque<String> segments = new ArrayDeque<>();
+        
+        int start = -1;
+        int end = -1;
+        int size = kmers.size();
+        for (int i=0; i<size; ++i) {
+            if (kmers.get(i).count > 0) {
+                if (start < 0) {
+                    start = i;
+                }
+                
+                end = i;
+            }
+            else if (start >= 0) {
+                segments.add(graph.assemble(kmers, start, end+1));
+                start = -1;
+                end = -1;
+            }
+        }
+        
+        if (start >= 0 && end == size -1) {
+            segments.add(graph.assemble(kmers, start, size));
+        }
+        
+        return segments;
+    }
+    
     public static ArrayList<Interval> findGaps(ArrayList<Kmer> kmers,
                                                     BloomFilterDeBruijnGraph graph,
                                                     float covThreshold,
