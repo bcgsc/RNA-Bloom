@@ -3509,9 +3509,8 @@ public final class GraphUtils {
                         }
                         else if (badKmersHaveZeroCov) {
                             // only compare lengths of alt and original paths
-                            int altPathLen = altPath.size();
-                            if (numBadKmersSince-maxLengthDifference <= altPathLen &&
-                                    altPathLen <= numBadKmersSince+maxLengthDifference) {
+                            int oriPathLen = numBadKmersSince + (kmers2Size - 1 - bestLeftKmerIndex) + (bestRightKmerIndex - i);
+                            if (Math.abs(oriPathLen - altPath.size()) <= maxLengthDifference) {
                                 // backtrack to best left kmer
                                 for (int j=kmers2.size()-1; j>bestLeftKmerIndex; --j) {
                                     kmers2.remove(j);
@@ -3537,14 +3536,15 @@ public final class GraphUtils {
                             float altPathCov = getMedianKmerCoverage(altPath);
                             float oriPathCov = getMedianKmerCoverage(kmers, i-numBadKmersSince, i);
                             
-                            int altPathLen = altPath.size();
+                            int leftAdjust = kmers2Size - 1 - bestLeftKmerIndex;
+                            int rightAdjust = bestRightKmerIndex - i;
+                            int oriPathLen = numBadKmersSince + leftAdjust + rightAdjust;
                             
                             if (2*oriPathCov <= altPathCov &&
-                                    numBadKmersSince-maxLengthDifference <= altPathLen &&
-                                    altPathLen <= numBadKmersSince+maxLengthDifference &&
+                                    Math.abs(oriPathLen - altPath.size()) <= maxLengthDifference &&
                                     ((oriPathCov < minKmerCov && altPathCov >= 10*oriPathCov) ||
                                         (getPercentIdentity(graph.assemble(altPath), 
-                                                graph.assemble(kmers, i-numBadKmersSince, i)) >= percentIdentity))) {
+                                                graph.assemble(kmers, i-numBadKmersSince-leftAdjust, i+rightAdjust)) >= percentIdentity))) {
                                 
                                 // backtrack to best left kmer
                                 for (int j=kmers2.size()-1; j>bestLeftKmerIndex; --j) {
