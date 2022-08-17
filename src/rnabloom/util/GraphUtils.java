@@ -3413,6 +3413,7 @@ public final class GraphUtils {
         
         ArrayList<Kmer> kmers2 = new ArrayList<>(numKmers * 3/2);
         int numBadKmersSince = 0;
+        boolean badKmersHaveZeroCov = false;
         Kmer kmer;
         for (int i=0; i<numKmers; ++i) {
             kmer = kmers.get(i);
@@ -3506,6 +3507,32 @@ public final class GraphUtils {
                                 kmers2.add(kmers.get(j));
                             }
                         }
+                        else if (badKmersHaveZeroCov) {
+                            // only compare lengths of alt and original paths
+                            int altPathLen = altPath.size();
+                            if (numBadKmersSince-maxLengthDifference <= altPathLen &&
+                                    altPathLen <= numBadKmersSince+maxLengthDifference) {
+                                // backtrack to best left kmer
+                                for (int j=kmers2.size()-1; j>bestLeftKmerIndex; --j) {
+                                    kmers2.remove(j);
+                                }
+                                
+                                // add all kmers from alternate path
+                                kmers2.addAll(altPath);
+                                
+                                // set cursor to best right kmer
+                                i = bestRightKmerIndex;
+                                kmer = bestRightKmer;
+                                
+                                corrected = true;
+                            }
+                            else {                                
+                                // fill with original sequence
+                                for (int j=i-numBadKmersSince; j<i; ++j) {
+                                    kmers2.add(kmers.get(j));
+                                }
+                            }
+                        }
                         else {
                             float altPathCov = getMedianKmerCoverage(altPath);
                             float oriPathCov = getMedianKmerCoverage(kmers, i-numBadKmersSince, i);
@@ -3543,12 +3570,16 @@ public final class GraphUtils {
                     }
 
                     numBadKmersSince = 0;
+                    badKmersHaveZeroCov = false;
                 }
                 
                 kmers2.add(kmer);
             }
             else {
                 ++numBadKmersSince;
+                if (kmer.count == 0) {
+                    badKmersHaveZeroCov = true;
+                }
             }
         }
         
