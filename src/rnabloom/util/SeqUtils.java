@@ -1398,6 +1398,31 @@ public final class SeqUtils {
         return null;
     }
     
+    public static boolean containsInvalidNucleotides(String seq) {
+        return containsInvalidNucleotides(seq, 0, seq.length());
+    }
+    
+    public static boolean containsInvalidNucleotides(String seq, int start, int end) {
+        for (int i=start; i<end; ++i) {
+            switch (seq.charAt(i)) {
+                case 'A':
+                case 'C':
+                case 'G':
+                case 'T':
+                case 'U':
+                case 'a':
+                case 'c':
+                case 'g':
+                case 't':
+                case 'u':
+                    continue;
+                default:
+                    return true;
+            }
+        }
+        return false;
+    }
+    
     private static final String PHRED33 = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
     
     public static float getAveragePhred33Score(String qual) {

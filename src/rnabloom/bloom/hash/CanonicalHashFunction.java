@@ -23,6 +23,7 @@ import rnabloom.graph.CanonicalKmer;
 import rnabloom.graph.Kmer;
 import static rnabloom.util.SeqUtils.stringToBytes;
 import static rnabloom.bloom.hash.NTHash.NTMC64;
+import static rnabloom.util.SeqUtils.containsInvalidNucleotides;
 
 /**
  *
@@ -43,6 +44,8 @@ public class CanonicalHashFunction extends HashFunction {
     
     @Override
     public ArrayList<Kmer> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph) {
+        boolean containsInvalidChar = containsInvalidNucleotides(seq);
+        
         ArrayList<Kmer> result = new ArrayList<>();
         
         int seqLength = seq.length();
@@ -58,14 +61,15 @@ public class CanonicalHashFunction extends HashFunction {
             float c;
             while (itr.hasNext()) {
                 itr.next();
-                c = graph.getCount(hVals);
-                
-//                if (c <= 0) {
-//                    // not a valid sequence
-//                    return new ArrayList<>();
-//                }
-                
                 i = itr.getPos();
+
+                if (containsInvalidChar && containsInvalidNucleotides(seq, i, i+k)) {
+                    c = 0;
+                }
+                else {
+                    c = graph.getCount(hVals);
+                }
+                
                 result.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), c, frhval[0], frhval[1]));
             }
         }
@@ -75,6 +79,7 @@ public class CanonicalHashFunction extends HashFunction {
     
     @Override
     public ArrayList<Kmer> getKmers(final String seq, final int numHash, BloomFilterDeBruijnGraph graph, float minCoverage) {
+        boolean containsInvalidChar = containsInvalidNucleotides(seq);
         int seqLength = seq.length();
         
         ArrayList<Kmer> currentSegment = new ArrayList<>();
@@ -95,10 +100,16 @@ public class CanonicalHashFunction extends HashFunction {
             float c;
             while (itr.hasNext()) {
                 itr.next();
-                c = graph.getCount(hVals);
+                i = itr.getPos();
                 
+                if (containsInvalidChar && containsInvalidNucleotides(seq, i, i+k)) {
+                    c = 0;
+                }
+                else {
+                    c = graph.getCount(hVals);
+                }
+                                
                 if (c >= minCoverage) {
-                    i = itr.getPos();
                     currentSegment.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), c, frhval[0], frhval[1]));
                     currentMinC = Math.min(currentMinC, c);
                 }
@@ -124,6 +135,8 @@ public class CanonicalHashFunction extends HashFunction {
     
     @Override
     public ArrayList<Kmer> getKmers(final String seq, final int start, final int end, final int numHash, BloomFilterDeBruijnGraph graph) {
+        boolean containsInvalidChar = containsInvalidNucleotides(seq, start, end);
+        
         ArrayList<Kmer> result = new ArrayList<>();
         
         int seqLength = seq.length();
@@ -136,10 +149,19 @@ public class CanonicalHashFunction extends HashFunction {
             long[] hVals = itr.hVals;
             long[] frhval = itr.frhval;
             int i;
+            float c;
             while (itr.hasNext()) {
                 itr.next();
                 i = itr.getPos();
-                result.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), graph.getCount(hVals), frhval[0], frhval[1]));
+                
+                if (containsInvalidChar && containsInvalidNucleotides(seq, i, i+k)) {
+                    c = 0;
+                }
+                else {
+                    c = graph.getCount(hVals);
+                }
+                
+                result.add(new CanonicalKmer(Arrays.copyOfRange(bytes, i, i+k), c, frhval[0], frhval[1]));
             }
         }
         
