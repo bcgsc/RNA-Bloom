@@ -5838,7 +5838,7 @@ public class RNABloom {
                                     .longOpt("left")
                                     .desc("left reads file(s)")
                                     .hasArgs()
-                                    .argName("FILE")
+                                    .argName("FILE FILE ...")
                                     .build();
         options.addOption(optLeftReads);
         
@@ -5846,14 +5846,13 @@ public class RNABloom {
                                     .longOpt("right")
                                     .desc("right reads file(s)")
                                     .hasArgs()
-                                    .argName("FILE")
+                                    .argName("FILE FILE ...")
                                     .build();
         options.addOption(optRightReads);
         
         Option optPooledAssembly = Option.builder("pool")
-                                    .longOpt("pool")
                                     .desc("list of read files for pooled assembly")
-                                    .hasArgs()
+                                    .hasArg()
                                     .argName("FILE")
                                     .build();
         options.addOption(optPooledAssembly);
@@ -5876,28 +5875,28 @@ public class RNABloom {
                                     .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `" + 
                                             defaultLongReadPreset + "` unless each option is defined otherwise.)")
                                     .hasArgs()
-                                    .argName("FILE")
+                                    .argName("FILE FILE ...")
                                     .build();
         options.addOption(optLongReads);
 
         Option optSeForwardReads = Option.builder("sef")
                                     .desc("single-end forward read file(s)")
                                     .hasArgs()
-                                    .argName("FILE")
+                                    .argName("FILE FILE ...")
                                     .build();
         options.addOption(optSeForwardReads);        
         
         Option optSeReverseReads = Option.builder("ser")
                                     .desc("single-end reverse read file(s)")
                                     .hasArgs()
-                                    .argName("FILE")
+                                    .argName("FILE FILE ...")
                                     .build();
         options.addOption(optSeReverseReads);
         
         Option optRefTranscripts = Option.builder("ref")
                                     .desc("reference transcripts file(s) for guiding the assembly process")
                                     .hasArgs()
-                                    .argName("FILE")
+                                    .argName("FILE FILE ...")
                                     .build();
         options.addOption(optRefTranscripts);
         
