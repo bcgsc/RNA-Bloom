@@ -37,9 +37,12 @@ Written by [Ka Ming Nip](mailto:kmnip@bcgsc.ca) :email:
 
 RNA-Bloom can be installed in two ways:
 
-### (A) install with `conda`:
+### (A) install with `conda` or `mamba`:
 ```
 conda install -c bioconda rnabloom
+```
+```
+mamba install -c bioconda rnabloom
 ```
 All dependent software (listed above) will be installed. RNA-Bloom can be run as `rnabloom ...`
 
