@@ -5872,7 +5872,7 @@ public class RNABloom {
                 " -overlap " + defaultMinOverlapLR + " -tip " + defaultMaxTipLengthLR +
                 " -polya " + defaultMinPolyALengthLR;
         Option optLongReads = Option.builder("long")
-                                    .desc("long reads file(s)\n(Requires `minimap2` and `racon` in PATH. Presets `" + 
+                                    .desc("long reads file(s)\n(Requires `minimap2` and `racon` in your environment. Presets `" + 
                                             defaultLongReadPreset + "` unless each option is defined otherwise.)")
                                     .hasArgs()
                                     .argName("FILE FILE ...")
@@ -5966,7 +5966,7 @@ public class RNABloom {
                                     .longOpt("outdir")
                                     .desc("output directory [" + optOutdirDefault + "]")
                                     .hasArg(true)
-                                    .argName("PATH")
+                                    .argName("DIR")
                                     .build();
         options.addOption(optOutdir);
         
@@ -6078,7 +6078,7 @@ public class RNABloom {
         options.addOption(optNumKmers);
         
         Option optNtcard = Option.builder("ntcard")
-                                    .desc("count unique k-mers in input reads with ntCard [false]\n(Requires `ntcard` in PATH. If this option is used along with `-long`, the value for `-c` is set automatically based on the ntCard histogram, unless `-c` is defined otherwise)")
+                                    .desc("count unique k-mers in input reads with ntCard [false]\n(Requires `ntcard` in your environment. Turns on automatically if `-nk` is not specified and `ntcard` is in your environment.)")
                                     .hasArg(false)
                                     .build();
         options.addOption(optNtcard);        
@@ -6774,11 +6774,11 @@ public class RNABloom {
             */
             
             if ((hasLongReadFiles || outputNrTxpts || mergePool) && !hasMinimap2()) {
-                exitOnError("`minimap2` not found in PATH!");
+                exitOnError("`minimap2` not found in your environment!");
             }
 
             if (hasLongReadFiles && !hasRacon()) {
-                exitOnError("`racon` not found in PATH!");
+                exitOnError("`racon` not found in your environment!");
             }
             
             if (mergePool && !pooledGraphMode) {
@@ -6882,7 +6882,7 @@ public class RNABloom {
             
             if (useNTCard) {
                 if (!hasNtcard) {
-                    exitOnError("`ntcard` not found in your PATH!");
+                    exitOnError("`ntcard` not found in your environment!");
                 }
                 
                 System.out.println("\nK-mer counting with ntCard...");
