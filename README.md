@@ -184,8 +184,13 @@ By default, uracil (`U`) is written as `T`. Use the `-uracil` option to write `U
 ntCard v1.2.1 supports uracil in reads.
 
 ### (C) assemble long-read sequencing data with short-read polishing:
+cDNA data:
 ```
 java -jar RNA-Bloom.jar -long LONG.fastq -sef SHORT.fastq -t THREADS -outdir OUTDIR
+```
+direct RNA data:
+```
+java -jar RNA-Bloom.jar -stranded -long LONG.fastq -sef SHORT_FORWARD.fastq -ser SHORT_REVERSE.fastq -t THREADS -outdir OUTDIR
 ```
 
 #### final output files:
