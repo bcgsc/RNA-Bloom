@@ -3818,7 +3818,7 @@ public class RNABloom {
 //                                            float score = segLength;//(float) getTotalLogKmerCoverage(correctedKmers, minKmerCov);
 //                                            outputQueue.put(new Sequence2(segName, segment, segLength, score, false, hasPolyA));
                                             
-                                            ArrayDeque<String> nonZeroCovSegments = assembleNonZeroCoverageKmers(correctedKmers, graph);
+                                            ArrayDeque<String> nonZeroCovSegments = assembleValidKmers(correctedKmers, graph);
                                             int numNonZeroCovSegments = nonZeroCovSegments.size();
                                             if (numNonZeroCovSegments == 1) {
                                                 String seg = nonZeroCovSegments.peek();

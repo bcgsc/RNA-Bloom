@@ -3599,6 +3599,58 @@ public final class GraphUtils {
         return null;
     }
     
+    public static boolean containsInvalidNucleotides(Kmer kmer) {
+        for (byte b : kmer.bytes) {
+            switch (b) {
+                case 'A':
+                case 'C':
+                case 'G':
+                case 'T':
+                case 'U':
+                case 'a':
+                case 'c':
+                case 'g':
+                case 't':
+                case 'u':
+                    continue;
+                default:
+                    return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    public static ArrayDeque<String> assembleValidKmers(ArrayList<Kmer> kmers,
+                                                    BloomFilterDeBruijnGraph graph) {
+        ArrayDeque<String> segments = new ArrayDeque<>();
+        
+        int start = -1;
+        int end = -1;
+        int size = kmers.size();
+        for (int i=0; i<size; ++i) {
+            Kmer kmer = kmers.get(i);
+            if (kmer.count > 0 || !containsInvalidNucleotides(kmer)) {
+                if (start < 0) {
+                    start = i;
+                }
+                
+                end = i;
+            }
+            else if (start >= 0) {
+                segments.add(graph.assemble(kmers, start, end+1));
+                start = -1;
+                end = -1;
+            }
+        }
+        
+        if (start >= 0 && end == size -1) {
+            segments.add(graph.assemble(kmers, start, size));
+        }
+        
+        return segments;
+    }
+    
     public static ArrayDeque<String> assembleNonZeroCoverageKmers(ArrayList<Kmer> kmers,
                                                     BloomFilterDeBruijnGraph graph) {
         ArrayDeque<String> segments = new ArrayDeque<>();
