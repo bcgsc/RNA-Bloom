@@ -1166,7 +1166,10 @@ public class OverlapLayoutConsensus {
 //            minSeqDepth, usePacBioPreset, verbose, polyaFinder);
         if (status != STATUS.SUCCESS) {
             if (status == STATUS.EMPTY) {
-                System.out.println("ERROR: Insufficient good quality reads for assembly!");
+                System.out.println("ERROR: Insufficient good quality reads!");
+            }
+            else {
+                System.out.println("ERROR: Error extracting unique reads!");
             }
             return false;
         }
@@ -1179,6 +1182,7 @@ public class OverlapLayoutConsensus {
             minAlnId, minOverlapMatches, maxIndelSize, false,
             1, usePacBioPreset, verbose, polyaFinder);
         if (status != STATUS.SUCCESS) {
+            System.out.println("ERROR: Error assembling unitigs!");
             return false;
         }
         
@@ -1189,6 +1193,7 @@ public class OverlapLayoutConsensus {
             numThreads, minimapOptions, usePacBioPreset, stranded, maxIndelSize,
             minOverlapMatches, minAlnId, maxEdgeClip, verbose);
         if (status != STATUS.SUCCESS) {
+            System.out.println("ERROR: Error aligning reads to unitigs!");
             return false;
         }
         
@@ -1199,6 +1204,7 @@ public class OverlapLayoutConsensus {
         boolean success = consensusWithRacon(readsPath, simpleFastaPath, 
             readsToSimplePafPath, polishedSimpleFastaPath, numThreads, keepUnpolished, verbose);
         if (!success) {
+            System.out.println("ERROR: Error polishing reads to unitigs!");
             return false;
         }
         
@@ -1214,6 +1220,7 @@ public class OverlapLayoutConsensus {
             verbose, polyaFinder, sampleReadLengthsPath, txptNamePrefix,
             writeUracil);
         if (status != STATUS.SUCCESS) {
+            System.out.println("ERROR: Error assembling transcripts!");
             return false;
         }
         
