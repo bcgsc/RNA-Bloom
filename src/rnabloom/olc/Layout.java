@@ -1645,7 +1645,7 @@ public class Layout {
         Set<String> containedSet = Collections.synchronizedSet(new HashSet<>());
         HashMap<String, Histogram> histogramMap = new HashMap<>(100000);
         final int minSegmentLength = minOverlapMatches;
-        final int maxOverlapSizeDiff = maxIndelSize;
+//        final int maxOverlapSizeDiff = maxIndelSize;
         
         PafReader reader = new PafReader(overlapPafInputStream);
         final boolean checkNumAltReads = minNumAltReads > 0;
@@ -1661,12 +1661,13 @@ public class Layout {
             
             if ((!stranded || !r.reverseComplemented) &&
                     !r.qName.equals(r.tName) &&
-                    (hasLargeOverlap(r) || isContainmentPafRecord(r)) &&
-                    hasGoodOverlap(r)) {
+                    hasAlignment(r) &&
+                    (hasLargeOverlap(r) || isContainmentPafRecord(r))) {
+//                    (hasLargeOverlap(r) || isContainmentPafRecord(r)) &&
+//                    hasGoodOverlap(r)) {
                 
-                boolean hasAln = hasAlignment(r);
-                if ((!hasAln && hasSimilarSizedOverlap(r, maxOverlapSizeDiff)) || (hasAln && hasGoodAlignment(r))) {
-                
+                //boolean hasAln = hasAlignment(r);
+                //if ((!hasAln && hasSimilarSizedOverlap(r, maxOverlapSizeDiff)) || (hasAln && hasGoodAlignment(r))) {
                     if (!r.qName.equals(currName)) {
                         if (currName != null && currHist != null) {
                             if (!currRecords.isEmpty()) {
@@ -1707,33 +1708,44 @@ public class Layout {
                         currContained = containedSet.contains(currName);
                     }
 
-//                    if (getContained(r) != CONTAIN_STATUS.BOTH) { // not a duplicate
-                        Histogram tHist = histogramMap.get(r.tName);
-                        int tHistBinSize = getHistogramBinSize(r.tLen);
-                        if (tHist == null) {
-                            tHist = new Histogram(r.tLen, r.tStart, r.tEnd, tHistBinSize);
-                            histogramMap.put(r.tName, tHist);
-                        }
+                    Histogram tHist = histogramMap.get(r.tName);
+                    int tHistBinSize = getHistogramBinSize(r.tLen);
+                    if (tHist == null) {
+                        tHist = new Histogram(r.tLen, r.tStart, r.tEnd, tHistBinSize);
+                        histogramMap.put(r.tName, tHist);
+                    }
 
-                        updateHistogram(currHist, r.qStart, r.qEnd, currHistBinSize);
-                        updateHistogram(tHist, r.tStart, r.tEnd, tHistBinSize);
+                    ArrayDeque<Interval>[] qtBlocks = getAlignedBlocks(r, maxIndelSize);
+                    
+                    // update coverage histogram for query
+                    for (Interval qBlock : qtBlocks[0]) {
+                        updateHistogram(currHist, qBlock.start, qBlock.end, currHistBinSize);
+                    }
+                    
+                    // update coverage histogram for target
+                    for (Interval tBlock : qtBlocks[1]) {
+                        updateHistogram(tHist, tBlock.start, tBlock.end, tHistBinSize);
+                    }
+                    
+                    //updateHistogram(currHist, r.qStart, r.qEnd, currHistBinSize);
+                    //updateHistogram(tHist, r.tStart, r.tEnd, tHistBinSize);
 
-                        if (!currContained && !containedSet.contains(r.tName)) {
-                            // look for containment only if both are not already "contained"
-                            if (tHist.seenAsQuery || isFullyCovered(tHist)) {
-                                currRecords.add(pafToTargetOverlap(r));
-                            }
-                            else {
-                                ArrayDeque<QueryOverlap> pending = tHist.pendingQueries;
-                                if (pending == null) {
-                                    pending = new ArrayDeque<>();
-                                    tHist.pendingQueries = pending;
-                                }
-                                pending.add(pafToQueryOverlap(r));
-                            }
+                    if (qtBlocks[0].size() == 1 && qtBlocks[1].size() == 1 && // query and target overlap as a single-block alignment
+                            !currContained && !containedSet.contains(r.tName)) { // query and target are not already designated as "contained"
+                        // look for containment between query and target
+                        if (tHist.seenAsQuery || isFullyCovered(tHist)) {
+                            currRecords.add(pafToTargetOverlap(r));
                         }
-//                    }
-                }
+                        else {
+                            ArrayDeque<QueryOverlap> pending = tHist.pendingQueries;
+                            if (pending == null) {
+                                pending = new ArrayDeque<>();
+                                tHist.pendingQueries = pending;
+                            }
+                            pending.add(pafToQueryOverlap(r));
+                        }
+                    }
+                //}
             }
         }
         reader.close();

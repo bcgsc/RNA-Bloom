@@ -17,6 +17,7 @@
 package rnabloom.util;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -473,6 +474,232 @@ public class PafUtils {
         }
         
         return counts;
+    }
+
+    public static ArrayDeque<Interval>[] getAlignedBlocks(ExtendedPafRecord r, int maxIndelSize) {
+        ArrayDeque<Interval> qBlocks = new ArrayDeque<>();
+        ArrayDeque<Interval> tBlocks = new ArrayDeque<>();
+        ArrayDeque<Interval>[] blocks = new ArrayDeque[]{qBlocks, tBlocks};
+        
+        if (r.reverseComplemented) {
+            int qPos = r.qStart;
+            Interval qBlock = null;
+            
+            // process target in reverse
+            int tPos = r.tEnd;
+            Interval tBlock = null;
+
+            Matcher m = CIGAR_OP_PATTERN.matcher(r.cigar);
+            while (m.find()) {
+                int opSize = Integer.parseInt(m.group(1));
+                char op = m.group(2).charAt(0); //MIDNSHPX
+                switch(op) {
+                    case 'M':                    
+                        if (qBlock == null) {
+                            qBlock = new Interval(qPos, qPos + opSize);
+                        }
+                        else {
+                            if (qPos - maxIndelSize < qBlock.end) {
+                                qBlock.end = qPos + opSize;
+                            }
+                            else {
+                                qBlocks.add(qBlock);
+                                qBlock = new Interval(qPos, qPos + opSize);
+                            }
+                        }
+
+                        if (tBlock == null) {
+                            tBlock = new Interval(tPos - opSize, tPos);
+                        }
+                        else {
+                            if (tPos + maxIndelSize > tBlock.start) {
+                                tBlock.start = tPos - opSize;
+                            }
+                            else {
+                                tBlocks.addFirst(tBlock);
+                                tBlock = new Interval(tPos - opSize, tPos);
+                            }
+                        }
+
+                        qPos += opSize;
+                        tPos -= opSize;
+
+                        break;
+                    case 'I':
+                        if (opSize > maxIndelSize) {
+                            if (qBlock != null) {
+                                qBlocks.add(qBlock);
+                                qBlock = null;
+                            }
+
+                            if (tBlock != null) {
+                                tBlocks.addFirst(tBlock);
+                                tBlock = null;
+                            }
+                        }
+
+                        qPos += opSize;
+                        break;
+                    case 'D':
+                        if (opSize > maxIndelSize) {
+                            if (qBlock != null) {
+                                qBlocks.add(qBlock);
+                                qBlock = null;
+                            }
+
+                            if (tBlock != null) {
+                                tBlocks.addFirst(tBlock);
+                                tBlock = null;
+                            }
+                        }
+
+                        tPos -= opSize;
+                        break;
+                    case 'N':
+                        if (opSize > maxIndelSize) {                        
+                            if (tBlock != null) {
+                                tBlocks.addFirst(tBlock);
+                                tBlock = null;
+                            }
+                        }
+
+                        tPos -= opSize;
+                        break;
+                    case 'S':
+                        qPos += opSize;
+                        break;
+                    case 'H':
+                        qPos += opSize;
+                        break;
+                    case 'P':
+                        qPos += opSize;
+                        tPos -= opSize;
+                        break;
+                    case 'X':
+                        qPos += opSize;
+                        tPos -= opSize;
+                        break;
+                }
+            }
+
+            if (qBlock != null) {
+                qBlocks.add(qBlock);
+            }
+
+            if (tBlock != null) {
+                tBlocks.addFirst(tBlock);
+            }
+        }
+        else {
+            int qPos = r.qStart;
+            Interval qBlock = null;
+            
+            int tPos = r.tStart;
+            Interval tBlock = null;
+
+            Matcher m = CIGAR_OP_PATTERN.matcher(r.cigar);
+            while (m.find()) {
+                int opSize = Integer.parseInt(m.group(1));
+                char op = m.group(2).charAt(0); //MIDNSHPX
+                switch(op) {
+                    case 'M':                    
+                        if (qBlock == null) {
+                            qBlock = new Interval(qPos, qPos + opSize);
+                        }
+                        else {
+                            if (qPos - maxIndelSize < qBlock.end) {
+                                qBlock.end = qPos + opSize;
+                            }
+                            else {
+                                qBlocks.add(qBlock);
+                                qBlock = new Interval(qPos, qPos + opSize);
+                            }
+                        }
+
+                        if (tBlock == null) {
+                            tBlock = new Interval(tPos, tPos + opSize);
+                        }
+                        else {
+                            if (tPos - maxIndelSize < tBlock.end) {
+                                tBlock.end = tPos + opSize;
+                            }
+                            else {
+                                tBlocks.add(tBlock);
+                                tBlock = new Interval(tPos, tPos + opSize);
+                            }
+                        }
+
+                        qPos += opSize;
+                        tPos += opSize;
+
+                        break;
+                    case 'I':
+                        if (opSize > maxIndelSize) {
+                            if (qBlock != null) {
+                                qBlocks.add(qBlock);
+                                qBlock = null;
+                            }
+
+                            if (tBlock != null) {
+                                tBlocks.add(tBlock);
+                                tBlock = null;
+                            }
+                        }
+
+                        qPos += opSize;
+                        break;
+                    case 'D':
+                        if (opSize > maxIndelSize) {
+                            if (qBlock != null) {
+                                qBlocks.add(qBlock);
+                                qBlock = null;
+                            }
+
+                            if (tBlock != null) {
+                                tBlocks.add(tBlock);
+                                tBlock = null;
+                            }
+                        }
+
+                        tPos += opSize;
+                        break;
+                    case 'N':
+                        if (opSize > maxIndelSize) {                        
+                            if (tBlock != null) {
+                                tBlocks.add(tBlock);
+                                tBlock = null;
+                            }
+                        }
+
+                        tPos += opSize;
+                        break;
+                    case 'S':
+                        qPos += opSize;
+                        break;
+                    case 'H':
+                        qPos += opSize;
+                        break;
+                    case 'P':
+                        qPos += opSize;
+                        tPos += opSize;
+                        break;
+                    case 'X':
+                        qPos += opSize;
+                        tPos += opSize;
+                        break;
+                }
+            }
+
+            if (qBlock != null) {
+                qBlocks.add(qBlock);
+            }
+
+            if (tBlock != null) {
+                tBlocks.add(tBlock);
+            }
+        }
+        
+        return blocks;
     }
     
     public static void main(String[] args) {
