@@ -3097,10 +3097,12 @@ public final class GraphUtils {
                                                     int windowSize) {
 
         int numNeeded = minNumSolidKmers;
-        for (Kmer kmer : kmers) {
-            if (kmer.count >= minKmerCov) {
-                if (--numNeeded <= 0) {
-                    break;
+        if (numNeeded > 0) {
+            for (Kmer kmer : kmers) {
+                if (kmer.count >= minKmerCov) {
+                    if (--numNeeded <= 0) {
+                        break;
+                    }
                 }
             }
         }
