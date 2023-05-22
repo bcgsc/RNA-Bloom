@@ -267,9 +267,9 @@ RNA-Bloom is written in Java with Apache NetBeans IDE. It uses the following lib
 
 If you use RNA-Bloom in your work, please cite our manuscript(s).
 
-[Long-read RNA-seq assembly](https://www.biorxiv.org/content/10.1101/2022.08.07.503110v1):
+[Long-read RNA-seq assembly](https://doi.org/10.1038/s41467-023-38553-y):
 
-> Ka Ming Nip, Saber Hafezqorani, Kristina K. Gagalova, Readman Chiu, Chen Yang, René L. Warren, and Inanc Birol. Reference-free assembly of long-read transcriptome sequencing data with RNA-Bloom2. bioRxiv. 2022.08.07.503110. doi: 10.1101/2022.08.07.503110
+> Ka Ming Nip, Saber Hafezqorani, Kristina K. Gagalova, Readman Chiu, Chen Yang, René L. Warren, and Inanc Birol. Reference-free assembly of long-read transcriptome sequencing data with RNA-Bloom2. Nature Communications. 2023 May 22;14(1):2940. doi: 10.1038/s41467-023-38553-y
 
 [Short-read RNA-seq assembly](https://genome.cshlp.org/content/30/8/1191.full):
 
