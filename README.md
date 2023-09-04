@@ -60,7 +60,7 @@ RNA-Bloom can be run as `java -jar /path/to/RNA-Bloom.jar ...`
 
 :warning: Input reads must be in either FASTQ or FASTA format and may be compressed with GZIP.
 
-:information_source: Note that `-left`, `-right`, `-sef`, and `-ser` can accept multiple read files.
+:information_source: Note that `-left`, `-right`, `-sef`, and `-ser` can accept multiple file paths separated by the whitespace character.
 
 ### (A) assemble bulk RNA-seq data:
 
@@ -166,7 +166,7 @@ The `-ref` option specifies the reference transcriptome FASTA file for guiding s
 
 :warning: It is strongly recommended to trim adapters in your reads before assembly. For example, see [Porechop](https://github.com/rrwick/Porechop) for more information.
 
-:information_source: Note that `-long`, `-sef`, and `-ser` can accept multiple read files.
+:information_source: Note that `-long`, `-sef`, and `-ser` can accept multiple file paths separated by the whitespace character.
 
 ### (A) assemble long-read cDNA sequencing data:
 Default presets for `-long` are intended for ONT data. Please add the `-lrpb` flag for PacBio data.
