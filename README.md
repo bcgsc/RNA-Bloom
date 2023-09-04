@@ -58,7 +58,9 @@ RNA-Bloom can be run as `java -jar /path/to/RNA-Bloom.jar ...`
 
 ## Quick Start for Short Reads :running:
 
-:warning: Input reads must be in either FASTQ or FASTA format and may be compressed with GZIP. 
+:warning: Input reads must be in either FASTQ or FASTA format and may be compressed with GZIP.
+
+:information_source: Note that `-left`, `-right`, `-sef`, and `-ser` can accept multiple read files.
 
 ### (A) assemble bulk RNA-seq data:
 
@@ -105,10 +107,10 @@ This is a tabular file that describes the read file paths for all cells/samples 
 | column  | description |
 | :------ | :---------- |
 | `name`  | sample name | 
-| `left`  | path to left read file |
-| `right` | path to right read file |
-| `sef`   | path to single-end forward read file |
-| `ser`   | path to single-end reverse read file |
+| `left`  | path to one left read file |
+| `right` | path to one right read file |
+| `sef`   | path to one single-end forward read file |
+| `ser`   | path to one single-end reverse read file |
 
 ##### (i) paired-end reads only:
 Only `name`, `left`, and `right` columns are specified for a total of 3 columns. The legacy header-less tri-column format is still supported.
@@ -163,6 +165,8 @@ The `-ref` option specifies the reference transcriptome FASTA file for guiding s
 ## Quick Start for Long Reads :running:
 
 :warning: It is strongly recommended to trim adapters in your reads before assembly. For example, see [Porechop](https://github.com/rrwick/Porechop) for more information.
+
+:information_source: Note that `-long`, `-sef`, and `-ser` can accept multiple read files.
 
 ### (A) assemble long-read cDNA sequencing data:
 Default presets for `-long` are intended for ONT data. Please add the `-lrpb` flag for PacBio data.
