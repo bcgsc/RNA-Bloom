@@ -166,6 +166,8 @@ The `-ref` option specifies the reference transcriptome FASTA file for guiding s
 
 :warning: It is strongly recommended to trim adapters in your reads before assembly. For example, see [Porechop](https://github.com/rrwick/Porechop) for more information.
 
+:warning: Input reads must not have purely integer IDs (e.g. `1`, `2`, `3`), which could be in conflict with RNA-Bloom's sequence IDs. Please rename your read IDs (with `seqtk rename`) if necessary.
+
 :information_source: Note that `-long`, `-sef`, and `-ser` can accept multiple file paths separated by the whitespace character.
 
 ### (A) assemble long-read cDNA sequencing data:
