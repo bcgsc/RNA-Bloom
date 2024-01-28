@@ -3405,7 +3405,7 @@ public class Layout {
             }
             else if (!containedSet.contains(name)) {
                 // this sequence either contains shorter sequences or it has no overlaps with others
-                fw.write(Long.toString(++seqID), nameSeq[1]);
+                fw.write("unitig" + Long.toString(++seqID), nameSeq[1]);
             }
         }
         fr.close();
@@ -3422,7 +3422,7 @@ public class Layout {
                     if (!visited.contains(name)) {
                         ArrayDeque<String> path = getUnambiguousExtension(seedVid);
 
-                        String header = Long.toString(++seqID);
+                        String header = "unitig" + Long.toString(++seqID);
                         if (path.size() > 1) {
                             header += " path=[" + String.join(",", path) + "]";
                         }
@@ -3442,7 +3442,7 @@ public class Layout {
             if (!visited.contains(name)) {
                 ArrayDeque<String> path = getUnambiguousExtension(seedVid);
                 
-                String header = Long.toString(++seqID);
+                String header = "unitig" + Long.toString(++seqID);
                 if (path.size() > 1) {
                     header += " path=[" + String.join(",", path) + "]";
                 }
